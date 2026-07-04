@@ -18,7 +18,7 @@ console.log('\n[A] CLI 플래그');
 try {
   const v = execFileSync('node', [INDEX, '--version'], { encoding:'utf-8' }).trim();
   check('--version 출력', /^\d+\.\d+\.\d+$/.test(v), `(got "${v}")`);
-  check('버전 = 0.3.0', v === '0.3.0', `(got "${v}")`);
+  check('버전 = 0.4.0', v === '0.4.0', `(got "${v}")`);
 } catch (e) { check('--version 실행', false, `(${e.message})`); fail++; }
 
 // [B] MCP 도구 입력 검증 (JSON-RPC로 실제 호출)

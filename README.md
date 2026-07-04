@@ -42,8 +42,8 @@ Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 �
 [Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.3.0.tgz
-dongguk-rule-mcp --version   # 0.3.0 나오면 성공
+npm install -g ./dongguk-rule-mcp-0.4.0.tgz
+dongguk-rule-mcp --version   # 0.4.0 나오면 성공
 ```
 
 ### 방법 C: 소스 폴더에서
@@ -52,7 +52,7 @@ dongguk-rule-mcp --version   # 0.3.0 나오면 성공
 git clone https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
 npm install
-npm test                     # 90개 자체 검증
+npm test                     # 109개 자체 검증
 node src/index.js --version
 ```
 
@@ -95,6 +95,51 @@ npm install -g dongguk-rule-mcp
 
 설정 후 Claude Desktop 완전 종료 → 재시작.
 
+## HTTP 모드 — Notion 커스텀 에이전트 연동
+
+Notion 등 원격 MCP 클라이언트는 공개 URL만 연결할 수 있습니다. rule.dongguk.edu가
+해외/데이터센터 IP를 차단하므로, 국내 IP의 상시 가동 머신(예: Mac Mini)에서 HTTP
+모드로 실행하고 Cloudflare Tunnel로 URL을 노출하는 구성을 권장합니다.
+
+### 1) 서버 실행 (Mac Mini)
+
+```bash
+dongguk-rule-mcp --http --port 3845 --token '아무-긴-비밀문자열'
+curl -s http://127.0.0.1:3845/health   # {"status":"ok",...} 확인
+```
+
+`--token` 생략 시 무인증(테스트용) — 공개 노출 시엔 반드시 설정하세요.
+옵션: `--host 0.0.0.0`, env `DONGGUK_MCP_TOKEN` / `DONGGUK_MCP_PORT`.
+
+### 2) 공개 URL (Cloudflare Tunnel)
+
+```bash
+brew install cloudflared
+cloudflared tunnel --url http://127.0.0.1:3845
+# → https://xxxx.trycloudflare.com 발급 (임시 URL)
+# 상시 운영은 named tunnel + 도메인 연결 권장
+```
+
+### 3) Notion 설정
+
+1. 워크스페이스 관리자: 설정 → Notion AI → AI 커넥터 → **Enable Custom MCP servers**
+2. 커스텀 에이전트 → **Tools & Access** → Add connection → **Custom MCP server**
+3. URL `https://xxxx.trycloudflare.com/mcp` + 표시 이름 + (지원 시) Bearer 토큰 → Save
+4. 에이전트가 쓸 도구만 선택적으로 켜기
+
+### 수동 점검 (curl)
+
+```bash
+curl -s -X POST https://xxxx.trycloudflare.com/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Authorization: Bearer 아무-긴-비밀문자열' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+참고: HTTP 모드는 stateless(POST 전용)이며 `GET /health`로 모니터링합니다.
+Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동하되 URL을 비공개로 관리하세요.
+
 ## 사용 예시
 
 - "동국대 보수규정 검색해줘"
@@ -111,7 +156,7 @@ npm install -g dongguk-rule-mcp
 npm test
 ```
 
-4개 스위트 90개: 파싱(39) + 유틸(22) + 엣지케이스(10) + MCP 프로토콜(19, stdout 순수성 포함).
+5개 스위트 109개: 파싱(39) + 유틸(22) + 엣지케이스(10) + MCP 프로토콜(19, stdout 순수성 포함) + HTTP(19, Streamable HTTP·Bearer 인증·stateless).
 실제 HTML 픽스처 기반이라 국내/해외/CI 어디서든 통과해야 정상.
 
 추가로 다음 설치 시나리오가 검증되었습니다: `npm pack` tarball(18kB) → 새 디렉토리

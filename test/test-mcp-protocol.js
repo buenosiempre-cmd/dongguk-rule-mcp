@@ -28,7 +28,7 @@ function handleResponse(msg) {
   if (msg.id === 1) {
     check('initialize 응답', !!(msg.result && msg.result.serverInfo));
     check('서버 이름', msg.result?.serverInfo?.name === 'dongguk-rule-mcp', `(got "${msg.result?.serverInfo?.name}")`);
-    check('서버 버전 0.3.0', msg.result?.serverInfo?.version === '0.3.0', `(got "${msg.result?.serverInfo?.version}")`);
+    check('서버 버전 0.4.0', msg.result?.serverInfo?.version === '0.4.0', `(got "${msg.result?.serverInfo?.version}")`);
     send({ jsonrpc:'2.0', id:2, method:'tools/list', params:{} });
   }
 

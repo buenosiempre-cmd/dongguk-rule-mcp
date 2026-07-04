@@ -1,23 +1,48 @@
 #!/usr/bin/env node
 /**
- * dongguk-rule-mcp v0.3.0
+ * dongguk-rule-mcp v0.4.0
  * 동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버
  *
- * v0.3.0 하드닝:
- *  - 입력 검증 (keyword/law_id) — 잘못된 입력에 친절한 한국어 안내
- *  - arguments 누락 시 TypeError 방지
- *  - 검색 0건 시 안내 메시지
- *  - --version 플래그
- *  - deprecation 경고 억제 (로그 청결)
- *  - 파싱 버그픽스 유지: &quot; 엔티티, option onclick 속성, span onclick 폴백
+ * v0.4.0:
+ *  - HTTP 모드 추가 (--http): Streamable HTTP, stateless — Notion 커스텀 에이전트 등
+ *    원격 MCP 클라이언트 연결용. Bearer 토큰 인증(--token) 선택 지원. /health 엔드포인트.
+ *  - stdio 모드(기본)는 그대로 유지 — Claude Desktop 기존 사용자 영향 없음.
+ *
+ * v0.3.0 하드닝 유지:
+ *  - 입력 검증, arguments 누락 방어, --version, deprecation 억제, 파싱 버그픽스
  */
 process.noDeprecation = true;
 
-// --version / -v 플래그 (MCP 기동 전에 처리)
-if (process.argv.includes('--version') || process.argv.includes('-v')) {
-  try { console.log(require('../package.json').version); } catch { console.log('unknown'); }
+// === 버전/CLI ===
+let VERSION = '0.4.0';
+try { VERSION = require('../package.json').version; } catch {}
+
+const ARGV = process.argv.slice(2);
+const argOf = f => { const i = ARGV.indexOf(f); return i >= 0 ? ARGV[i + 1] : undefined; };
+
+if (ARGV.includes('--version') || ARGV.includes('-v')) { console.log(VERSION); process.exit(0); }
+if (ARGV.includes('--help') || ARGV.includes('-h')) {
+  console.log(`dongguk-rule-mcp v${VERSION} — 동국대 규정집 MCP 서버
+
+사용법:
+  dongguk-rule-mcp                 stdio 모드 (Claude Desktop 등, 기본)
+  dongguk-rule-mcp --http          HTTP 모드 (Notion 커스텀 에이전트 등 원격 연결용)
+
+HTTP 옵션:
+  --port <n>    포트 (기본 3845, env: DONGGUK_MCP_PORT)
+  --host <h>    바인드 주소 (기본 127.0.0.1, env: DONGGUK_MCP_HOST)
+  --token <t>   Bearer 인증 토큰 (기본 없음, env: DONGGUK_MCP_TOKEN)
+
+환경변수:
+  DONGGUK_RULE_COOKIE   비공개 규정 열람용 쿠키
+  DONGGUK_MCP_NO_CACHE  1이면 디스크 캐시 비활성화`);
   process.exit(0);
 }
+
+const MODE_HTTP = ARGV.includes('--http');
+const HTTP_PORT = Number(argOf('--port') || process.env.DONGGUK_MCP_PORT || 3845);
+const HTTP_HOST = argOf('--host') || process.env.DONGGUK_MCP_HOST || '127.0.0.1';
+const AUTH_TOKEN = (argOf('--token') || process.env.DONGGUK_MCP_TOKEN || '').trim();
 
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
@@ -286,8 +311,9 @@ async function hDeep(rawQuery,{top=3,perDoc}={}){
   return o;
 }
 
-// === MCP 서버 ===
-const server = new Server({ name:'dongguk-rule-mcp', version:'0.3.0' }, { capabilities:{tools:{}} });
+// === MCP 서버 팩토리 (stdio: 1회 / HTTP: 요청당 1회 — stateless) ===
+function createServer() {
+const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabilities:{tools:{}} });
 
 server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   { name:'search_rule', description:'동국대 규정 키워드 검색 (제목/전문). 예: "보수규정", "퇴직금"',
@@ -344,8 +370,88 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>{
   }
 });
 
-(async()=>{
-  const t=new StdioServerTransport();
-  await server.connect(t);
-  console.error('dongguk-rule-mcp v0.3.0 시작됨 (Node ' + process.version + ')');
-})().catch(e=>{ console.error('서버 시작 실패:', e.message); process.exit(1); });
+return server;
+}
+
+// === HTTP 모드 (Streamable HTTP, stateless) ===
+function startHttp() {
+  const http = require('http');
+  const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
+
+  const readBody = (req) => new Promise((resolve, reject) => {
+    let size = 0; const chunks = [];
+    req.on('data', c => {
+      size += c.length;
+      if (size > 1e6) { reject(new Error('body too large')); req.destroy(); }
+      else chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    req.on('error', reject);
+  });
+
+  const json = (res, code, obj, extra = {}) => {
+    res.writeHead(code, { 'Content-Type': 'application/json', ...extra });
+    res.end(JSON.stringify(obj));
+  };
+
+  const httpServer = http.createServer(async (req, res) => {
+    const u = new URL(req.url, 'http://localhost');
+
+    // 상태 확인 (무인증)
+    if (u.pathname === '/health') {
+      return json(res, 200, { status: 'ok', name: 'dongguk-rule-mcp', version: VERSION, transport: 'streamable-http' });
+    }
+    if (u.pathname !== '/mcp') {
+      return json(res, 404, { error: 'not found — MCP endpoint: POST /mcp, health: GET /health' });
+    }
+
+    // Bearer 인증 (토큰 설정 시)
+    if (AUTH_TOKEN && (req.headers['authorization'] || '') !== `Bearer ${AUTH_TOKEN}`) {
+      return json(res, 401, { jsonrpc: '2.0', error: { code: -32001, message: 'Unauthorized: Bearer 토큰이 필요합니다' }, id: null });
+    }
+
+    // stateless: POST만 지원 (GET SSE 스트림/DELETE 세션 없음)
+    if (req.method !== 'POST') {
+      return json(res, 405, { jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed — stateless HTTP는 POST만 지원' }, id: null }, { 'Allow': 'POST' });
+    }
+
+    let body;
+    try { body = JSON.parse((await readBody(req)) || 'null'); }
+    catch (e) {
+      return json(res, 400, { jsonrpc: '2.0', error: { code: -32700, message: 'Parse error: 유효한 JSON이 아닙니다' }, id: null });
+    }
+
+    try {
+      const server = createServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+      res.on('close', () => { transport.close(); server.close(); });
+      await server.connect(transport);
+      await transport.handleRequest(req, res, body);
+    } catch (e) {
+      console.error('HTTP 처리 오류:', e.message);
+      if (!res.headersSent) {
+        json(res, 500, { jsonrpc: '2.0', error: { code: -32603, message: 'Internal server error' }, id: null });
+      }
+    }
+  });
+
+  httpServer.listen(HTTP_PORT, HTTP_HOST, () => {
+    console.error(`dongguk-rule-mcp v${VERSION} HTTP 모드 시작 — http://${HTTP_HOST}:${HTTP_PORT}/mcp`);
+    console.error(AUTH_TOKEN ? '인증: Bearer 토큰 필수' : '⚠️ 인증 없음 — 공개 URL로 노출 시 --token 사용 권장');
+  });
+  httpServer.on('error', e => { console.error('HTTP 서버 오류:', e.message); process.exit(1); });
+  const shutdown = () => httpServer.close(() => process.exit(0));
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+// === 기동 ===
+if (MODE_HTTP) {
+  startHttp();
+} else {
+  (async () => {
+    const s = createServer();
+    await s.connect(new StdioServerTransport());
+    console.error(`dongguk-rule-mcp v${VERSION} 시작됨 (stdio, Node ${process.version})`);
+  })().catch(e => { console.error('서버 시작 실패:', e.message); process.exit(1); });
+}
