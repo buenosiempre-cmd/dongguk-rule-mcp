@@ -10,6 +10,16 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, '').toLowerCase();
 }
 
+function searchVariants(value) {
+  const input = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!input) return [];
+  const variants = [input];
+  const compact = input.replace(/\s+/g, '');
+  if (compact !== input) variants.push(compact);
+  if (compact.endsWith('규정') && compact.length > 2) variants.push(compact.slice(0, -2));
+  return [...new Set(variants.filter(Boolean))];
+}
+
 function rankRuleHits(hits, keyword) {
   const needle = normalizeText(keyword);
   return (Array.isArray(hits) ? hits : [])
@@ -144,6 +154,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
 module.exports = {
   clampNumber,
   normalizeText,
+  searchVariants,
   rankRuleHits,
   termTokens,
   extractRelevantBlocks,

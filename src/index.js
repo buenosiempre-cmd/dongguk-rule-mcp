@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 /**
- * dongguk-rule-mcp v0.5.1
+ * dongguk-rule-mcp v0.6.0
  * 동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버
+ *
+ * v0.6.0:
+ *  - 모든 도구에 구조화 응답과 표준 오류코드 추가.
+ *  - 제N조의N 및 부칙 조문 선택 지원.
+ *  - 검색 원문 집계/중복 제거 건수를 구분해 표시.
+ *  - compare_rule_versions 개정본 비교 도구 추가.
+ *  - 실제 운영 파서를 테스트에서 직접 재사용하도록 모듈화.
  *
  * v0.5.1:
  *  - Notion AI의 자연어 query 입력을 지원하고 규정명·관련어를 자동 분리.
@@ -22,7 +29,7 @@
 process.noDeprecation = true;
 
 // === 버전/CLI ===
-let VERSION = '0.4.0';
+let VERSION = '0.6.0';
 try { VERSION = require('../package.json').version; } catch {}
 
 const ARGV = process.argv.slice(2);
@@ -56,12 +63,29 @@ const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const fetch = require('node-fetch');
-const cheerio = require('cheerio');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, rankRuleHits, extractRelevantBlocks } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, extractRelevantBlocks } = require('./lookup.js');
+const {
+  parseSearch,
+  parseContent,
+  parseHistory,
+  searchResultMetrics,
+  normalizeArticleSelector,
+  extractArticleSections,
+  extractChapter,
+  grepArticleSections,
+} = require('./parsers.js');
+const { compareRuleMarkdown, formatVersionComparison } = require('./versioning.js');
+const {
+  success,
+  failure,
+  serializeOutcome,
+  serializeException,
+  TOOL_OUTPUT_SCHEMA,
+} = require('./protocol.js');
 
 // === 상수 (Python 원본에서 검증된 엔드포인트) ===
 const BASE_URL = 'https://rule.dongguk.edu';
@@ -86,7 +110,9 @@ function validStr(v) {
 
 // === 캐시 (Python cache.py 포팅) ===
 function cacheDir() {
-  return path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(),'.cache'), 'dongguk-rule-mcp');
+  const cookie=(process.env.DONGGUK_RULE_COOKIE||'').trim();
+  const scope=cookie?`private-${crypto.createHash('sha256').update(cookie).digest('hex').slice(0,12)}`:'public';
+  return path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(),'.cache'), 'dongguk-rule-mcp', scope);
 }
 function noCache() {
   return ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE||'').trim().toLowerCase());
@@ -100,7 +126,13 @@ async function cached(cat, key, ttl, fn) {
       return JSON.parse(fs.readFileSync(fp,'utf-8'));
   } catch(e) {}
   const r = await fn();
-  try { const d=path.join(cacheDir(),cat); fs.mkdirSync(d,{recursive:true}); fs.writeFileSync(fp,JSON.stringify(r),'utf-8'); } catch(e) {}
+  try {
+    const d=path.join(cacheDir(),cat);
+    fs.mkdirSync(d,{recursive:true,mode:0o700});
+    fs.chmodSync(d,0o700);
+    fs.writeFileSync(fp,JSON.stringify(r),{encoding:'utf-8',mode:0o600});
+    fs.chmodSync(fp,0o600);
+  } catch(e) {}
   return r;
 }
 
@@ -134,56 +166,11 @@ async function searchRules(q, {fullText=false, page=1, pageShow=10, lawgroup='0'
   });
   return parseSearch(html, page, pageShow);
 }
-function parseSearch(html, page, pageShow) {
-  const $ = cheerio.load(html);
-  let total=0;
-  const il = $('p.infoLeft').html()||'';
-  const tm = il.match(/(\d+)\s*<\/span>\s*건/); if(tm) total=parseInt(tm[1]);
-  const hits=[], seen=new Set(); let rawCount=0;
-  $('tbody.tbody tr').each(function(){
-    const td = $(this).find('td.tbody_txt'); if(!td.length) return;
-    const s = td.html()||'';
-    const m = /lawSearchFullViewSrv\(\s*'(\d+)'\s*,\s*'(\d+)'/.exec(s); if(!m) return;
-    const lawId=parseInt(m[1]), historyId=parseInt(m[2]); rawCount++;
-    const k=`${lawId}_${historyId}`; if(seen.has(k)) return; seen.add(k);
-    // [버그픽스] cheerio는 &quot;를 그대로 두므로 엔티티도 매칭
-    const st=[]; let sm; const re=/showSearchText\(\s*(?:"|&quot;)([^"&]*)(?:"|&quot;)/g;
-    while((sm=re.exec(s))!==null) st.push(sm[1]);
-    // [버그픽스] 개정일은 html 또는 span onclick 속성 양쪽에서 탐색
-    let revisedAt='';
-    $(this).find('td.tbody_c').each(function(){
-      const src=$(this).html()||''; const span=$(this).find('span').attr('onclick')||'';
-      const dm=/showDate\(\s*'(\d{8})'/.exec(src+' '+span);
-      if(dm){ const d=dm[1]; revisedAt=`${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6)}`; }
-    });
-    hits.push({ lawId, historyId, code:st[0]||'', title:st[1]||'', revisedAt });
-  });
-  return { total, page, pageShow, hits, rawCount };
-}
 
 // === 본문 (GET + CSS 클래스 기반 파싱) ===
 async function getContent(lawId, hid) {
   const html = await fp(`${CONTENT_URL}?SEQ=${lawId}&SEQ_HISTORY=${hid}`);
   return parseContent(html);
-}
-function parseContent(html) {
-  const $ = cheerio.load(html);
-  const fb = $('div.fullbody').length ? $('div.fullbody') : $('body');
-  const title = fb.find('div.lawname').text().trim();
-  const lines = []; if(title) lines.push(`# ${title}`,'');
-  fb.find('div').each(function(){
-    const cls=($(this).attr('class')||'').split(/\s+/);
-    const t=$(this).text().replace(/\s+/g,' ').trim(); if(!t) return;
-    if(cls.includes('lawname')) return;
-    if(cls.includes('chapter')) lines.push('',`## ${t}`,'');
-    else if(cls.includes('section')) lines.push('',`### ${t}`,'');
-    else if(cls.includes('article')) lines.push('',`### ${t}`);
-    else if(cls.includes('none')) lines.push(t);
-    else if(cls.includes('hang')) lines.push(t);
-    else if(cls.includes('ho')) lines.push(`  ${t}`);
-    else if(cls.includes('mok')) lines.push(`    ${t}`);
-  });
-  return { title, markdown:lines.join('\n').trim() };
 }
 
 // === 원문 HWP (HTML 본문에 없는 별표·표 포함) ===
@@ -219,26 +206,15 @@ async function getHistory(lawId) {
   const html = await fp(FULLVIEW_URL, {
     method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString(),
   });
-  const $ = cheerio.load(html);
-  const sel = $('#histroySeq'); if(!sel.length) return [];
-  const entries = [];
-  sel.find('option').each(function(){
-    const v=($(this).attr('value')||'').trim();
-    if(!v||v==='0'||!/^\d+$/.test(v)) return;
-    // [버그픽스] 날짜는 onclick 속성에 있음 (html/text 폴백)
-    let ra=''; const dm=/showDate\(\s*'(\d{8})'/.exec($(this).attr('onclick')||$(this).html()||$(this).text());
-    if(dm){const d=dm[1]; ra=`${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6)}`;}
-    entries.push({ historyId:parseInt(v), revisedAt:ra });
-  });
-  return entries;
+  return parseHistory(html);
 }
 async function resolve(lawId, hid) {
   const h = toId(hid);
-  if(h) return { historyId:h, note:null };
+  if(h) return { historyId:h, revisedAt:'', note:null };
   const entries = await cached('history', String(lawId), TTL.history, ()=>getHistory(lawId));
   if(!entries.length) throw new Error(`LAW_ID ${lawId}의 연혁을 찾을 수 없습니다. law_id가 올바른지 확인하세요.`);
   const l=entries[0];
-  return { historyId:l.historyId, note:`> 자동 해석: LAW_ID ${lawId} / HISTORY_ID ${l.historyId} (최신, ${l.revisedAt})` };
+  return { historyId:l.historyId, revisedAt:l.revisedAt, note:`> 자동 해석: LAW_ID ${lawId} / HISTORY_ID ${l.historyId} (최신, ${l.revisedAt})` };
 }
 
 // === MCP 핸들러 ===
@@ -246,108 +222,156 @@ function cmap(c){ const v=(typeof c==='string'?c:'all').trim().toLowerCase(); re
 
 async function hSearch(kw, {fullText=false,limit=10,offset=0,campus='all'}={}) {
   const keyword = validStr(kw);
-  if(!keyword) return '검색어(keyword)를 입력해주세요. 예: "보수규정", "퇴직금", "회계"';
+  if(!keyword) return failure('INVALID_ARGUMENT', '검색어(keyword)를 입력해주세요. 예: "보수규정", "퇴직금", "회계"');
   limit=Math.max(1,Math.min(Number(limit)||10,50)); offset=Math.max(0,Number(offset)||0);
   const lg=cmap(campus), ps=offset+limit;
   const ck=hk(keyword,fullText,1,ps,lg), ttl=fullText?TTL.searchFull:TTL.search;
   const r=await cached('search',ck,ttl,()=>searchRules(keyword,{fullText,page:1,pageShow:ps,lawgroup:lg}));
+  const metrics=searchResultMetrics(r);
   const hits=r.hits.slice(offset,offset+limit);
   if(!hits.length){
-    return `## 규정 검색: '${keyword}' — 결과 없음 (총 ${r.total}건)\n\n` +
-      `다음을 시도해보세요:\n` +
-      `- 짧은 키워드로 (예: "보수규정" → "보수")\n` +
-      `- full_text=true로 전문 검색\n` +
-      `- campus를 "all"로 (현재: ${campus||'all'})`;
+    const message=`## 규정 검색: '${keyword}' — 결과 없음 (원문 집계 ${r.total}건)\n\n` +
+      `다음을 시도해보세요:\n- 짧은 키워드로 (예: "보수규정" → "보수")\n` +
+      `- full_text=true로 전문 검색\n- campus를 "all"로 (현재: ${campus||'all'})`;
+    return failure('NOT_FOUND', `규정 '${keyword}' 검색 결과가 없습니다.`, {
+      text:message,
+      details:{keyword,fullText,campus,sourceTotal:r.total,offset,limit},
+    });
   }
-  let o=`## 규정 검색: '${keyword}' (${fullText?'제목+내용':'제목'})\n- 총 ${r.total}건\n- 표시: ${offset+1}~${offset+hits.length}\n\n`;
+  let o=`## 규정 검색: '${keyword}' (${fullText?'제목+내용':'제목'})\n` +
+    `- 원문 집계: ${r.total}건\n` +
+    `- 현재 조회: ${metrics.rawRows}행 → 고유 ${metrics.uniqueRows}건` +
+    (metrics.duplicatesRemoved?` (중복 ${metrics.duplicatesRemoved}건 제거)`:``) + `\n` +
+    `- 표시: ${offset+1}~${offset+hits.length}\n\n`;
   o+='| 분류 | 제목 | 개정일 | LAW_ID | HISTORY_ID |\n|------|------|--------|--------|------------|\n';
   hits.forEach(h=>{ o+=`| ${h.code} | ${h.title} | ${h.revisedAt} | ${h.lawId} | ${h.historyId} |\n`; });
   if(offset+limit<r.total) o+=`\n다음: offset=${offset+limit}`;
   o+='\n\n💡 get_rule_content로 본문 조회 가능';
-  return o;
+  return success(o,{
+    query:{keyword,fullText,campus,limit,offset},
+    counts:{sourceTotal:r.total,...metrics,returned:hits.length},
+    rules:hits,
+    nextOffset:offset+limit<r.total?offset+limit:null,
+    source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
+  });
 }
 
 async function hContent(rawLawId, hid, {article,chapter,grep,head}={}) {
   const lawId = toId(rawLawId);
-  if(!lawId) return 'law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요. (예: law_id=491)';
-  // [하드닝] 형식 검증은 네트워크 호출 전에 (즉시 안내)
-  const art = toId(article);
-  if(article!==undefined && article!==null && !art) return 'article은 양의 정수여야 합니다. (예: article=48 → 제48조)';
+  if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요. (예: law_id=491)');
+  const hasArticle=article!==undefined && article!==null && article!=='';
+  const articleSelector=hasArticle?normalizeArticleSelector(article):null;
+  if(hasArticle && !articleSelector) return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
   const chp = toId(chapter);
-  if(chapter!==undefined && chapter!==null && !chp) return 'chapter는 양의 정수여야 합니다. (예: chapter=5 → 제5장)';
-  const {historyId:rid, note}=await resolve(lawId,hid);
+  if(chapter!==undefined && chapter!==null && !chp) return failure('INVALID_ARGUMENT', 'chapter는 양의 정수여야 합니다. (예: chapter=5 → 제5장)');
+  const resolved=await resolve(lawId,hid);
+  const {historyId:rid, note}=resolved;
   const c=await cached('content',`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
-  if(!c.markdown) return `본문을 가져올 수 없습니다 (LAW_ID ${lawId}). law_id/history_id를 확인하세요.`;
+  if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `본문을 가져올 수 없습니다 (LAW_ID ${lawId}). law_id/history_id를 확인하세요.`);
   let r=c.markdown;
-  if(art){
-    const m=new RegExp(`^### 제${art}조(?=[\\(\\s]|$)`,'m').exec(r);
-    if(!m) return `제${art}조를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`;
-    const s=m.index;
-    const em=/^(?:### 제\d+조|## 제\s*\d+\s*장)/m.exec(r.slice(s+m[0].length));
-    r=r.slice(s,em?s+m[0].length+em.index:r.length).trimEnd();
+  let selectedArticles=[];
+  if(articleSelector){
+    const extracted=extractArticleSections(r,article);
+    if(!extracted.text) return failure('NOT_FOUND', `${articleSelector.canonical}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
+      details:{lawId,historyId:rid,article:articleSelector.canonical},
+    });
+    selectedArticles=extracted.sections.map(section=>({
+      article:section.canonical,supplementary:section.supplementary,content:section.content,
+    }));
+    r=extracted.text;
   }
   if(chp){
-    const m=new RegExp(`^## 제\\s*${chp}\\s*장`,'m').exec(r);
-    if(!m) return `제${chp}장을 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`;
-    const s=m.index;
-    const em=/^## 제\s*\d+\s*장/m.exec(r.slice(s+m[0].length));
-    r=r.slice(s,em?s+m[0].length+em.index:r.length).trimEnd();
+    const chapterText=extractChapter(r,chp);
+    if(!chapterText) return failure('NOT_FOUND', `제${chp}장을 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
+      details:{lawId,historyId:rid,chapter:chp},
+    });
+    r=chapterText;
   }
   const g = validStr(grep);
   if(g){
-    const tk=g.split(/\s+/).filter(Boolean);
-    const pts=r.split(/(?=^### 제\d+조)/m);
-    const mt=pts.filter(p=>p.startsWith('### 제')&&tk.every(t=>p.includes(t)));
-    r=mt.length?`## '${g}' 포함 조문 (${mt.length}건)\n\n${mt.join('\n\n')}`:`'${g}'을(를) 포함한 조문이 없습니다.`;
+    const matches=grepArticleSections(r,g);
+    selectedArticles=matches.map(section=>({
+      article:section.canonical,supplementary:section.supplementary,content:section.content,
+    }));
+    r=matches.length?`## '${g}' 포함 조문 (${matches.length}건)\n\n${matches.map(x=>x.content).join('\n\n')}`:`'${g}'을(를) 포함한 조문이 없습니다.`;
   }
   const hd = toId(head);
   if(hd){const ls=r.split('\n');if(ls.length>hd)r=ls.slice(0,hd).join('\n')+`\n\n...(전체 ${ls.length}줄 중 상위 ${hd}줄)`;}
-  return note?`${note}\n\n${r}`:r;
+  const text=note?`${note}\n\n${r}`:r;
+  return success(text,{
+    lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title:c.title||'',
+    filters:{article:articleSelector?.canonical||null,chapter:chp||null,grep:g||null,head:hd||null},
+    articles:selectedArticles,
+    contentMarkdown:r,
+    source:{url:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`,returnedAt:new Date().toISOString()},
+  });
 }
 
 async function hToc(rawLawId,hid){
   const lawId = toId(rawLawId);
-  if(!lawId) return 'law_id는 양의 정수여야 합니다. (예: law_id=491)';
-  const {historyId:rid,note}=await resolve(lawId,hid);
+  if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. (예: law_id=491)');
+  const resolved=await resolve(lawId,hid);
+  const {historyId:rid,note}=resolved;
   const c=await cached('content',`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
-  if(!c.markdown) return `본문을 가져올 수 없습니다 (LAW_ID ${lawId}).`;
+  if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `본문을 가져올 수 없습니다 (LAW_ID ${lawId}).`);
   const toc=c.markdown.split('\n').filter(l=>/^#{1,3} /.test(l)).join('\n');
-  return note?`${note}\n\n${toc||'장·조 헤더가 없습니다.'}`:(toc||'장·조 헤더가 없습니다.');
+  const text=note?`${note}\n\n${toc||'장·조 헤더가 없습니다.'}`:(toc||'장·조 헤더가 없습니다.');
+  return success(text,{
+    lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title:c.title||'',
+    headings:toc?toc.split('\n'):[],
+    source:{url:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`,returnedAt:new Date().toISOString()},
+  });
 }
 
 async function hHistory(rawLawId){
   const lawId = toId(rawLawId);
-  if(!lawId) return 'law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요.';
+  if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요.');
   const e=await getHistory(lawId);
-  if(!e.length) return `LAW_ID ${lawId}의 연혁이 없습니다. law_id를 확인하세요.`;
+  if(!e.length) return failure('NOT_FOUND', `LAW_ID ${lawId}의 연혁이 없습니다. law_id를 확인하세요.`, {details:{lawId}});
   let o=`## LAW_ID ${lawId} 연혁 (${e.length}건)\n\n| HISTORY_ID | 개정일 |\n|------------|--------|\n`;
   e.forEach(x=>{o+=`| ${x.historyId} | ${x.revisedAt} |\n`;});
-  return o;
+  return success(o,{
+    lawId,history:e,
+    source:{url:`${FULLVIEW_URL}?SEQ=${lawId}`,returnedAt:new Date().toISOString()},
+  });
 }
 
 async function hDeep(rawQuery,{top=3,perDoc}={}){
   const query = validStr(rawQuery);
-  if(!query) return '검색어(query)를 입력해주세요. 예: "겸직", "위임전결"';
+  if(!query) return failure('INVALID_ARGUMENT', '검색어(query)를 입력해주세요. 예: "겸직", "위임전결"');
   top=Math.max(1,Math.min(Number(top)||3,10));
   const pd = toId(perDoc);
   const ps=top*5, ck=hk(query,true,1,ps,'0');
   const r=await cached('search',ck,TTL.searchFull,()=>searchRules(query,{fullText:true,page:1,pageShow:ps}));
-  if(!r.hits.length) return `'${query}' 전문 검색 결과가 없습니다. 더 일반적인 키워드로 시도해보세요.`;
+  const metrics=searchResultMetrics(r);
+  if(!r.hits.length) return failure('NOT_FOUND', `'${query}' 전문 검색 결과가 없습니다. 더 일반적인 키워드로 시도해보세요.`, {details:{query}});
   const hits=r.hits.slice(0,top);
-  let o=`# '${query}' 깊이 검색\n- 총 ${r.total}건, 상위 ${hits.length}개 grep\n\n`;
+  const documents=[];
+  let o=`# '${query}' 깊이 검색\n- 원문 집계 ${r.total}건, 고유 후보 ${metrics.uniqueRows}건, 상위 ${hits.length}개 grep\n\n`;
   for(let i=0;i<hits.length;i++){
     const h=hits[i];
     o+=`## [${i+1}] ${h.title} (LAW_ID ${h.lawId})\n`;
     try{
       const c=await cached('content',`${h.lawId}_${h.historyId}`,TTL.content,()=>getContent(h.lawId,h.historyId));
-      if(!c.markdown){o+='- 본문 조회 실패\n\n';continue;}
-      const tk=query.split(/\s+/).filter(Boolean);
-      let mt=c.markdown.split(/(?=^### 제\d+조)/m).filter(p=>p.startsWith('### 제')&&tk.every(t=>p.includes(t)));
-      const n=mt.length; if(pd&&n>pd)mt=mt.slice(0,pd);
-      o+=n?`- 매칭 ${n}건\n\n${mt.join('\n\n')}\n\n`:`- 매칭 조문 없음 (제목/메타 매칭)\n\n`;
-    }catch(e){o+=`- 오류: ${e.message}\n\n`;}
+      if(!c.markdown){
+        o+='- 본문 조회 실패\n\n';
+        documents.push({...h,error:{code:'CONTENT_UNAVAILABLE',message:'본문 조회 실패'}});
+        continue;
+      }
+      let matches=grepArticleSections(c.markdown,query);
+      const count=matches.length;
+      if(pd&&count>pd)matches=matches.slice(0,pd);
+      o+=count?`- 매칭 ${count}건\n\n${matches.map(x=>x.content).join('\n\n')}\n\n`:`- 매칭 조문 없음 (제목/메타 매칭)\n\n`;
+      documents.push({...h,matchCount:count,articles:matches.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}))});
+    }catch(e){
+      o+=`- 오류: ${e.message}\n\n`;
+      documents.push({...h,error:{code:'DOCUMENT_FETCH_FAILED',message:e.message}});
+    }
   }
-  return o;
+  return success(o,{
+    query,counts:{sourceTotal:r.total,uniqueCandidates:metrics.uniqueRows,duplicatesRemoved:metrics.duplicatesRemoved,returned:hits.length},documents,
+    source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
+  });
 }
 
 async function hLookup(rawKeyword, {
@@ -359,30 +383,35 @@ async function hLookup(rawKeyword, {
   includeHistory=false,
 }={}) {
   const keyword = validStr(rawKeyword);
-  if(!keyword) return '규정명 또는 질문(rule_keyword 또는 query)을 입력해주세요. 예: "여비규정", "대전 출장 여비규정의 일비와 숙박비"';
+  if(!keyword) return failure('INVALID_ARGUMENT', '규정명 또는 질문(rule_keyword 또는 query)을 입력해주세요. 예: "여비규정", "대전 출장 여비규정의 일비와 숙박비"');
   maxRules=clampNumber(maxRules,1,1,3);
   maxSections=clampNumber(maxSections,4,1,12);
   maxChars=clampNumber(maxChars,12000,1000,30000);
   const lg=cmap(campus), pageShow=Math.max(10,maxRules*5);
 
-  let searchMode='제목';
-  let ck=hk(keyword,false,1,pageShow,lg);
-  let result=await cached('search',ck,TTL.search,()=>searchRules(keyword,{
-    fullText:false,page:1,pageShow,lawgroup:lg,
-  }));
-  if(!result.hits.length){
-    searchMode='전문';
-    ck=hk(keyword,true,1,pageShow,lg);
-    result=await cached('search',ck,TTL.searchFull,()=>searchRules(keyword,{
-      fullText:true,page:1,pageShow,lawgroup:lg,
-    }));
+  const variants=searchVariants(keyword);
+  let searchMode='제목', queryUsed=keyword, result=null;
+  for(const fullText of [false,true]){
+    searchMode=fullText?'전문':'제목';
+    for(const variant of variants){
+      const ck=hk(variant,fullText,1,pageShow,lg);
+      const candidate=await cached('search',ck,fullText?TTL.searchFull:TTL.search,()=>searchRules(variant,{
+        fullText,page:1,pageShow,lawgroup:lg,
+      }));
+      if(candidate.hits.length){result=candidate;queryUsed=variant;break;}
+    }
+    if(result) break;
   }
-  if(!result.hits.length){
-    return `## 통합 규정 조회: '${keyword}' — 결과 없음\n\n` +
-      `더 짧은 규정명으로 다시 시도하세요. 예: "여비규정" → "여비".`;
+  if(!result){
+    const text=`## 통합 규정 조회: '${keyword}' — 결과 없음\n\n` +
+      `시도한 검색어: ${variants.join(', ')}\n\n더 짧은 규정명으로 다시 시도하세요. 예: "여비규정" → "여비".`;
+    return failure('NOT_FOUND', `규정 '${keyword}'을 찾지 못했습니다.`, {
+      text,details:{keyword,variants,campus},
+    });
   }
 
   const hits=rankRuleHits(result.hits,keyword).slice(0,maxRules);
+  const metrics=searchResultMetrics(result);
   const rawTerms=Array.isArray(terms)?terms.join(', '):String(terms || '');
   const domesticPlace=/서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주/;
   const effectiveTerms=domesticPlace.test(rawTerms) && !/국내|국외/.test(rawTerms)
@@ -391,13 +420,18 @@ async function hLookup(rawKeyword, {
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> 조회 완료: 아래 결과에는 최신 개정 메타데이터와 원문 HWP의 관련 조문·별표가 포함되어 있습니다. ` +
     `동일 질문으로 search_rule, get_rule_content, search_rule_deep을 다시 호출하지 마세요.\n\n` +
-    `- 검색 방식: ${searchMode}\n- 선택 규정: ${hits.length}건\n`;
+    `- 검색 방식: ${searchMode}\n` +
+    (queryUsed!==keyword?`- 정규화 검색어: ${queryUsed}\n`:``) +
+    `- 원문 집계 / 고유 후보: ${result.total}건 / ${metrics.uniqueRows}건\n` +
+    `- 선택 규정: ${hits.length}건\n`;
+
+  const rules=[];
 
   for(let i=0;i<hits.length;i++){
     const hit=hits[i];
     const lawId=hit.lawId;
     const historyId=hit.historyId || (await resolve(lawId)).historyId;
-    let markdown, sourceType='원문 HWP(별표 포함)', warning='';
+    let markdown, sourceType='원문 HWP(별표 포함)', warning='', warningData=null;
     try{
       const original=await cached('original',`${lawId}_${historyId}`,TTL.content,
         ()=>getOriginalContent(historyId));
@@ -408,15 +442,18 @@ async function hLookup(rawKeyword, {
       markdown=html.markdown;
       sourceType='HTML 본문';
       warning=`\n- 주의: HWP 원문 파싱 실패로 HTML 본문을 사용했습니다. 별표가 누락될 수 있습니다. (${e.message})`;
+      warningData={code:'HWP_FALLBACK',message:e.message};
     }
 
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
       maxBlocks:maxSections,maxChars,
     });
     let historyText='';
+    let history=[];
     if(includeHistory){
-      const entries=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
-      historyText=entries.slice(0,5).map(x=>`${x.revisedAt || '날짜 미상'} (HISTORY_ID ${x.historyId})`).join(', ');
+      history=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
+      history=history.slice(0,5);
+      historyText=history.map(x=>`${x.revisedAt || '날짜 미상'} (HISTORY_ID ${x.historyId})`).join(', ');
     }
     const sourceUrl=`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${historyId}`;
     out+=`\n\n## [${i+1}] ${hit.title}\n` +
@@ -436,8 +473,60 @@ async function hLookup(rawKeyword, {
     }else{
       out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
     }
+    rules.push({
+      ...hit,lawId,historyId,sourceType,sourceUrl,history,
+      warning:warningData,
+      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
+    });
   }
-  return out;
+  return success(out,{
+    query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,campus,maxRules,maxSections,maxChars,includeHistory},
+    search:{mode:searchMode,sourceTotal:result.total,...metrics},
+    rules,
+    source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
+  });
+}
+
+async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {article,maxChanges=20}={}) {
+  const lawId=toId(rawLawId);
+  const fromHistoryId=toId(rawFromHistoryId);
+  if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다.');
+  if(!fromHistoryId) return failure('INVALID_ARGUMENT', 'from_history_id는 비교 시작 개정본의 양의 정수 HISTORY_ID여야 합니다.');
+  const hasArticle=article!==undefined && article!==null && article!=='';
+  if(hasArticle && !normalizeArticleSelector(article)) {
+    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+  }
+  const history=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
+  const toHistoryId=rawToHistoryId?toId(rawToHistoryId):history[0]?.historyId;
+  if(!toHistoryId) return failure('INVALID_ARGUMENT', 'to_history_id는 양의 정수여야 하며, 생략 시 최신 연혁을 조회할 수 있어야 합니다.');
+  const fromEntry=history.find(x=>x.historyId===fromHistoryId);
+  const toEntry=history.find(x=>x.historyId===toHistoryId);
+  const [before,after]=await Promise.all([
+    cached('content',`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)),
+    cached('content',`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)),
+  ]);
+  if(!before.markdown || !after.markdown) {
+    return failure('CONTENT_UNAVAILABLE', '비교할 개정본 중 하나의 본문을 가져올 수 없습니다.', {
+      details:{lawId,fromHistoryId,toHistoryId},
+    });
+  }
+  const comparison=compareRuleMarkdown(before.markdown,after.markdown,{article});
+  if(comparison.error) return failure(comparison.error, '조문 선택자를 해석할 수 없습니다.');
+  maxChanges=clampNumber(maxChanges,20,1,50);
+  const title=after.title||before.title||`LAW_ID ${lawId}`;
+  const text=formatVersionComparison(comparison,{
+    title:`${title} (${fromHistoryId} → ${toHistoryId})`,fromHistoryId,toHistoryId,maxChanges,
+  });
+  return success(text,{
+    lawId,title,fromHistoryId,toHistoryId,
+    fromRevisedAt:fromEntry?.revisedAt||'',toRevisedAt:toEntry?.revisedAt||'',
+    article:comparison.article,counts:comparison.counts,changes:comparison.changes,
+    source:{
+      fromUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${fromHistoryId}`,
+      toUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${toHistoryId}`,
+      returnedAt:new Date().toISOString(),
+    },
+  });
 }
 
 function normalizeLookupArguments(args={}) {
@@ -466,6 +555,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       max_chars:{type:'number',description:'규정별 최대 반환 글자 수. 기본 12000, 최대 30000',default:12000},
       include_history:{type:'boolean',description:'최근 개정 연혁 5건 포함 여부',default:false},
     }},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'search_rule', description:'규정 후보 목록만 필요할 때 사용하는 보조 도구. 일반적인 동국대학교 규정 질문은 lookup_dongguk_rule을 먼저 사용하세요.',
     inputSchema:{ type:'object', properties:{
@@ -474,31 +564,46 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       limit:{type:'number',default:10}, offset:{type:'number',default:0},
       campus:{type:'string',description:'all/seoul/wise',default:'all'},
     }, required:['keyword']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'get_rule_content', description:'LAW_ID를 이미 알고 특정 조·장만 볼 때 사용하는 보조 도구. 별표·금액표가 필요하면 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신)'},
-      article:{type:'number',description:'특정 조문만'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'특정 조문. 예: 48, 제48조, 제10조의2, 부칙 제2조'},
       chapter:{type:'number',description:'특정 장만'},
       grep:{type:'string',description:'키워드 포함 조문'},
       head:{type:'number',description:'상위 N줄'},
     }, required:['law_id']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'get_rule_toc', description:'규정 목차(장·절·조) 빠른 조회.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number'}, history_id:{type:'number'},
     }, required:['law_id']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'list_rule_history', description:'규정 개정 연혁 목록 조회.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
     }, required:['law_id']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'compare_rule_versions', description:'같은 규정의 두 HISTORY_ID를 조문 단위로 비교합니다. to_history_id를 생략하면 최신 개정본과 비교합니다.',
+    inputSchema:{ type:'object', properties:{
+      law_id:{type:'number',description:'LAW_ID'},
+      from_history_id:{type:'number',description:'비교 시작 HISTORY_ID'},
+      to_history_id:{type:'number',description:'비교 종료 HISTORY_ID. 생략하면 최신'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 제10조의2, 부칙 제2조'},
+      max_changes:{type:'number',description:'본문에 표시할 최대 변경 조문 수. 기본 20, 최대 50',default:20},
+    }, required:['law_id','from_history_id']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'search_rule_deep', description:'여러 규정의 전문을 탐색해야 할 때만 사용하는 보조 도구. 단일 규정 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       query:{type:'string'}, top:{type:'number',default:3}, per_doc:{type:'number'},
     }, required:['query']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
 ]}));
 
@@ -520,17 +625,13 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>{
       case 'get_rule_content': r=await hContent(a.law_id,a.history_id,{article:a.article,chapter:a.chapter,grep:a.grep,head:a.head}); break;
       case 'get_rule_toc': r=await hToc(a.law_id,a.history_id); break;
       case 'list_rule_history': r=await hHistory(a.law_id); break;
+      case 'compare_rule_versions': r=await hCompareVersions(a.law_id,a.from_history_id,a.to_history_id,{article:a.article,maxChanges:a.max_changes}); break;
       case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc}); break;
-      default: r=`알 수 없는 도구: ${name}`;
+      default: r=failure('UNKNOWN_TOOL', `알 수 없는 도구: ${name}`, {isError:true});
     }
-    return {content:[{type:'text',text:r}]};
+    return serializeOutcome(name,r);
   }catch(e){
-    const hint = /ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNREFUSED|network|timeout/i.test(e.message)
-      ? '\n\n네트워크 연결을 확인하세요.'
-      : /HTTP 503/.test(e.message)
-      ? '\n\nrule.dongguk.edu가 이 IP를 차단했습니다. 국내 IP(가정/캠퍼스 망)에서 실행하세요.'
-      : '\n\nrule.dongguk.edu 응답 형식이 변경되었을 수 있습니다.';
-    return {content:[{type:'text',text:`❌ ${e.message}${hint}`}],isError:true};
+    return serializeException(name,e);
   }
 });
 

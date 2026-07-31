@@ -5,7 +5,7 @@
 > [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감.
 > 공무원에게 korean-law-mcp가 있다면, 대학 교직원에게는 dongguk-rule-mcp가 있다.
 
-## 도구 (6개)
+## 도구 (7개)
 
 | 도구 | 설명 |
 |------|------|
@@ -14,11 +14,17 @@
 | `get_rule_content` | 규정 본문 마크다운 조회 (조문/장/키워드 필터) |
 | `get_rule_toc` | 목차만 빠르게 조회 |
 | `list_rule_history` | 개정 연혁 목록 |
+| `compare_rule_versions` | 두 HISTORY_ID의 조문별 추가·삭제·변경 비교 |
 | `search_rule_deep` | 전문검색 → 본문에서 조문까지 자동 추출 |
 
 `lookup_dongguk_rule`은 HTML 본문에 포함되지 않는 원문 HWP의 별표와 금액표까지 파싱합니다.
 Notion AI가 보내는 전체 자연어 `query`와 짧은 규정명 `rule_keyword`를 모두 지원합니다.
 일반적인 규정 질문에는 이 도구를 먼저 사용하면 여러 도구를 반복 호출할 필요가 없습니다.
+
+모든 도구는 기존 Markdown `content`와 함께 `structuredContent`를 반환합니다. 자동화에서는
+`ok`, `tool`, `data` 또는 `error.code`를 사용하면 텍스트를 다시 파싱하지 않아도 됩니다.
+대표 오류코드는 `INVALID_ARGUMENT`, `NOT_FOUND`, `UPSTREAM_BLOCKED`,
+`UPSTREAM_UNAVAILABLE`, `UPSTREAM_FORMAT_CHANGED`입니다.
 
 ## 요구사항
 
@@ -47,8 +53,8 @@ Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 �
 [Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.5.1.tgz
-dongguk-rule-mcp --version   # 0.5.1 나오면 성공
+npm install -g ./dongguk-rule-mcp-0.6.0.tgz
+dongguk-rule-mcp --version   # 0.6.0 나오면 성공
 ```
 
 ### 방법 C: 소스 폴더에서
@@ -57,7 +63,7 @@ dongguk-rule-mcp --version   # 0.5.1 나오면 성공
 git clone https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
 npm install
-npm test                     # 109개 자체 검증
+npm test                     # 160개 자체 검증
 node src/index.js --version
 ```
 
@@ -152,6 +158,8 @@ Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동
 - "동국대 보수규정 검색해줘"
 - "`lookup_dongguk_rule`로 여비규정에서 국내, 철도운임, 숙박비, 일비 기준을 한 번에 찾아줘"
 - "LAW_ID 491 본문 보여줘"
+- "취업규칙 HISTORY_ID 3478과 3619의 제86조를 비교해줘"
+- "제10조의2만 보여줘" / "부칙 제2조만 보여줘"
 - "그 규정에서 퇴직금 관련 조문만" (grep 필터)
 - "제5장만 보여줘" (chapter 필터)
 - "이 규정 개정 이력 알려줘"
@@ -164,12 +172,11 @@ Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동
 npm test
 ```
 
-6개 스위트 130개: 파싱(39) + 유틸(22) + 통합 조회(15) + 엣지케이스(11) + MCP 프로토콜(23, stdout 순수성 포함) + HTTP(20, Streamable HTTP·Bearer 인증·stateless).
+7개 스위트 160개: 파싱(45) + 유틸(22) + 통합 조회(17) + 개정비교·구조화응답(14) + 엣지케이스(12) + MCP 프로토콜(28, stdout 순수성 포함) + HTTP(22, Streamable HTTP·Bearer 인증·stateless).
 실제 HTML 픽스처 기반이라 국내/해외/CI 어디서든 통과해야 정상.
 
-추가로 다음 설치 시나리오가 검증되었습니다: `npm pack` tarball(18kB) → 새 디렉토리
-로컬 설치 → 설치된 bin으로 JSON-RPC 핸드셰이크(도구 6개·stdout 무오염), 글로벌
-설치(`npm i -g`) 후 bin 실행, 설치본 내부 `npm test` 90개 통과(자급자족).
+`npm pack --dry-run`으로 약 36kB tarball과 필수 소스·테스트 17개 파일 포함 여부를 검증합니다.
+MCP JSON-RPC 핸드셰이크에서는 도구 7개와 stdout 무오염을 확인합니다.
 
 ### 실서버 (국내 IP에서)
 
@@ -178,7 +185,7 @@ npm run test:live                      # 검색어 "재정"
 npm run test:live -- --keyword 보수
 ```
 
-rule.dongguk.edu에 실제 접속해 5개 도구를 호출. 503이면 "국내 IP에서 실행하라"고 안내 후 종료.
+rule.dongguk.edu에 실제 접속해 검색·본문·연혁·HWP 원문 경로를 확인. 503이면 "국내 IP에서 실행하라"고 안내 후 종료.
 
 ## 트러블슈팅
 
@@ -195,13 +202,14 @@ rule.dongguk.edu에 실제 접속해 5개 도구를 호출. 503이면 "국내 IP
 
 | 변수 | 용도 |
 |------|------|
-| `DONGGUK_RULE_COOKIE` | 비공개 규정 열람용 로그인 쿠키 주입 |
+| `DONGGUK_RULE_COOKIE` | 비공개 규정 열람용 로그인 쿠키 주입. 쿠키별 전용 캐시 사용 |
 | `DONGGUK_MCP_NO_CACHE=1` | 디스크 캐시(`~/.cache/dongguk-rule-mcp/`) 비활성화 |
 
 ## 알려진 제약
 
-- **캠퍼스 LAWGROUP 코드(seoul=1, wise=2)는 추정값** — `npm run test:live`의 [4] 섹션 결과가 0행이면 브라우저 개발자도구 Network 탭에서 `LAWGROUP=` 실제 값 확인 필요.
+- **캠퍼스 LAWGROUP 코드(seoul=1, wise=2)는 추정값** — `npm run test:live`의 [5] 섹션 결과가 0행이면 브라우저 개발자도구 Network 탭에서 `LAWGROUP=` 실제 값 확인 필요.
 - 공식 API가 아닌 HTML 파싱이므로 사이트 개편 시 파서 갱신 필요. 그 경우 실제 HTML로 `test/fixtures.js`를 갱신하고 `npm test`로 재검증.
+- 비공개 규정 캐시는 쿠키 해시별로 분리하고 디렉터리 `0700`, 파일 `0600` 권한으로 저장합니다.
 
 ## 크레딧
 

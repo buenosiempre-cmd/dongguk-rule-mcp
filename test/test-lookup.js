@@ -1,5 +1,6 @@
 const {
   clampNumber,
+  searchVariants,
   rankRuleHits,
   termTokens,
   extractRelevantBlocks,
@@ -51,6 +52,8 @@ const ranked = rankRuleHits([
   { title:'여비규정', lawId:1, revisedAt:'2025.04.29' },
 ], '여비규정');
 check('정확한 제목 우선', ranked[0].lawId === 1);
+check('띄어쓰기 검색어 정규화', searchVariants('보수 규정').includes('보수규정'));
+check('규정 접미사 축약', searchVariants('보수 규정').includes('보수'));
 
 console.log('\n[3] 검색어 확장');
 const tokens = termTokens('철도운임, 숙박비, 일비');
