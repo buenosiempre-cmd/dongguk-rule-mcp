@@ -18,7 +18,8 @@ console.log('\n[A] CLI 플래그');
 try {
   const v = execFileSync('node', [INDEX, '--version'], { encoding:'utf-8' }).trim();
   check('--version 출력', /^\d+\.\d+\.\d+$/.test(v), `(got "${v}")`);
-  check('버전 = 0.6.0', v === '0.6.0', `(got "${v}")`);
+  const pkgVersion = require('../package.json').version;
+  check(`버전 = package.json(${pkgVersion})`, v === pkgVersion, `(got "${v}")`);
 } catch (e) { check('--version 실행', false, `(${e.message})`); fail++; }
 
 // [B] MCP 도구 입력 검증 (JSON-RPC로 실제 호출)

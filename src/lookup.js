@@ -1,5 +1,7 @@
 'use strict';
 
+const { expandAliases, middotVariants } = require('./aliases.js');
+
 function clampNumber(value, fallback, min, max) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -13,11 +15,18 @@ function normalizeText(value) {
 function searchVariants(value) {
   const input = String(value || '').trim().replace(/\s+/g, ' ');
   if (!input) return [];
-  const variants = [input];
-  const compact = input.replace(/\s+/g, '');
-  if (compact !== input) variants.push(compact);
-  if (compact.endsWith('규정') && compact.length > 2) variants.push(compact.slice(0, -2));
-  return [...new Set(variants.filter(Boolean))];
+  const variants = [];
+  const push = v => { const t = String(v || '').trim(); if (t && !variants.includes(t)) variants.push(t); };
+  // 원 입력 → 별칭 확장 순으로, 각 후보에 가운뎃점 표기 변형·압축·'규정' 접미 축약을 적용
+  for (const candidate of [input, ...expandAliases(input)]) {
+    for (const dotted of middotVariants(candidate)) {
+      push(dotted);
+      const compact = dotted.replace(/\s+/g, '');
+      push(compact);
+      if (compact.endsWith('규정') && compact.length > 2) push(compact.slice(0, -2));
+    }
+  }
+  return variants;
 }
 
 function rankRuleHits(hits, keyword) {

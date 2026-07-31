@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 /**
- * dongguk-rule-mcp v0.6.0
+ * dongguk-rule-mcp v0.7.0
  * 동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버
+ *
+ * v0.7.0:
+ *  - verify_rule_citations 추가: 기안문·공문 텍스트의 규정 인용을 실존·조문 제목·항 번호까지
+ *    대조하는 환각 게이트. 낫표·가운뎃점 5종·"같은 규정" 조응(문단 경계 리셋) 처리,
+ *    검색 0건은 ✗가 아닌 ⚠로 보고(검증 미가동 ≠ 통과).
+ *  - applicable_rule 추가: 기준일에 시행 중이던(개정일 기준) 개정본을 자동 특정해 본문과
+ *    현행 대비 변경 요약을 반환. 소급 업무·감사 대응용. 개정일≠시행일 한계를 항상 명시.
+ *  - 별칭 사전 추가: 내장 별칭 + DONGGUK_RULE_ALIASES(JSON)로 확장, 검색어 변형에
+ *    가운뎃점 표기(·ㆍ‧•・) 흡수. lookup/search 계열 전체에 적용.
  *
  * v0.6.0:
  *  - 모든 도구에 구조화 응답과 표준 오류코드 추가.
@@ -29,7 +38,7 @@
 process.noDeprecation = true;
 
 // === 버전/CLI ===
-let VERSION = '0.6.0';
+let VERSION = '0.7.0';
 try { VERSION = require('../package.json').version; } catch {}
 
 const ARGV = process.argv.slice(2);
@@ -79,6 +88,8 @@ const {
   grepArticleSections,
 } = require('./parsers.js');
 const { compareRuleMarkdown, formatVersionComparison } = require('./versioning.js');
+const { verifyRuleCitations } = require('./citations.js');
+const { TIMELINE_CAVEAT, parseDateLoose, resolveHistoryAtDate, extractEnforcementDates } = require('./timeline.js');
 const {
   success,
   failure,
@@ -529,6 +540,131 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   });
 }
 
+async function hVerifyCitations(rawText,{campus='all'}={}) {
+  const text=validStr(rawText);
+  if(!text) return failure('INVALID_ARGUMENT', '검증할 텍스트(text)를 입력해주세요. 예: 기안문·품의서 본문 전체');
+  if(text.length>20000) return failure('INVALID_ARGUMENT', 'text는 20,000자 이하여야 합니다. 문단 단위로 나눠 호출하세요.');
+  const lg=cmap(campus);
+  const deps={
+    searchRule: async q=>{
+      const ck=hk(q,false,1,10,lg);
+      return cached('search',ck,TTL.search,()=>searchRules(q,{fullText:false,page:1,pageShow:10,lawgroup:lg}));
+    },
+    getRuleMarkdown: async(lawId,historyId)=>{
+      const c=await cached('content',`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId));
+      return c.markdown||'';
+    },
+    resolveLatest: async lawId=>(await resolve(lawId)).historyId,
+  };
+  const r=await verifyRuleCitations(text,deps,{maxCitations:40,maxRules:8});
+  if(!r.citations.length && !r.floating.length){
+    return failure('NOT_FOUND', '텍스트에서 규정 인용을 찾지 못했습니다. 「규정명」 제N조 형식이 포함되어 있는지 확인하세요.', {
+      details:{textLength:text.length},
+    });
+  }
+  return success(r.text,{
+    summary:r.summary,citations:r.citations,floating:r.floating,rules:r.rules,truncated:r.truncated,
+    basis:'각 규정의 최신 개정본 기준',
+    source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
+  });
+}
+
+async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_current=true,max_changes=10}={}) {
+  const target=parseDateLoose(date);
+  if(!target) return failure('INVALID_ARGUMENT', 'date는 기준일이며 YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD 형식이어야 합니다. 예: 2024-03-15');
+  const hasArticle=article!==undefined && article!==null && article!=='';
+  if(hasArticle && !normalizeArticleSelector(article)){
+    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+  }
+  max_changes=clampNumber(max_changes,10,1,30);
+
+  // 규정 특정: law_id 우선, 없으면 규정명 검색
+  let lawId=toId(law_id), matched=null;
+  if(!lawId){
+    const keyword=validStr(rule_keyword);
+    if(!keyword) return failure('INVALID_ARGUMENT', 'law_id 또는 rule_keyword 중 하나는 필요합니다. 예: rule_keyword="여비규정"');
+    for(const variant of searchVariants(keyword)){
+      const ck=hk(variant,false,1,10,'0');
+      const r=await cached('search',ck,TTL.search,()=>searchRules(variant,{fullText:false,page:1,pageShow:10}));
+      if(r.hits.length){ matched=rankRuleHits(r.hits,keyword)[0]; break; }
+    }
+    if(!matched) return failure('NOT_FOUND', `규정 '${rule_keyword}'을 찾지 못했습니다. 더 짧은 규정명으로 시도하세요.`, {details:{rule_keyword}});
+    lawId=matched.lawId;
+  }
+
+  const history=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
+  if(!history.length) return failure('NOT_FOUND', `LAW_ID ${lawId}의 연혁을 찾을 수 없습니다.`, {details:{lawId}});
+  const res=resolveHistoryAtDate(history,date);
+  if(res.error==='NO_DATED_HISTORY'){
+    return failure('CONTENT_UNAVAILABLE', '연혁에 개정일 정보가 없어 시점 판단을 할 수 없습니다.', {details:{lawId,undatedCount:res.undatedCount}});
+  }
+  if(res.error==='BEFORE_FIRST'){
+    return failure('NOT_FOUND', `기준일 ${res.targetIso}는 연혁상 최초 개정일(${res.earliest.revisedAt}) 이전입니다. 그 이전 개정본은 시스템에 없습니다.`, {
+      details:{lawId,targetDate:res.targetIso,earliest:res.earliest},
+    });
+  }
+
+  const picked=res.entry;
+  const c=await cached('content',`${lawId}_${picked.historyId}`,TTL.content,()=>getContent(lawId,picked.historyId));
+  if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `적용 개정본 본문을 가져올 수 없습니다 (LAW_ID ${lawId} / HISTORY_ID ${picked.historyId}).`);
+  const title=c.title||matched?.title||`LAW_ID ${lawId}`;
+
+  let bodyText=c.markdown, selectedArticles=[];
+  if(hasArticle){
+    const extracted=extractArticleSections(c.markdown,article);
+    if(!extracted.text) return failure('NOT_FOUND', `${extracted.selector.canonical}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.`, {
+      details:{lawId,historyId:picked.historyId,article:extracted.selector.canonical},
+    });
+    selectedArticles=extracted.sections.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}));
+    bodyText=extracted.text;
+  }
+
+  // 부칙 명시 시행일 추출(전체 본문 기준) — 개정일≠시행일 위험을 근거와 함께 표시
+  const enforcement=extractEnforcementDates(c.markdown);
+  const latestEnf=enforcement.length?enforcement[enforcement.length-1]:null;
+  const enfAfterTarget=!!(latestEnf && latestEnf.ts>target.ts);
+
+  const rangeText=res.next?`${picked.revisedAt} ~ ${res.next.revisedAt} 개정 전`:`${picked.revisedAt} ~ 현행`;
+  let out=`# 시점 적용 규정: ${title} — 기준일 ${res.targetIso}\n\n`+
+    `- 적용 개정본: HISTORY_ID ${picked.historyId} (개정 ${picked.revisedAt})\n`+
+    `- 적용 구간(개정일 기준): ${rangeText}\n`+
+    `- 현행 여부: ${res.isLatest?'기준일 적용본이 곧 현행':`이후 ${res.laterCount}회 개정됨 (현행 HISTORY_ID ${res.latest.historyId}, ${res.latest.revisedAt})`}\n`+
+    (enforcement.length?`- 부칙에서 확인된 명시 시행일: ${enforcement.length>3?'… ':''}${enforcement.slice(-3).map(x=>x.iso).join(', ')}\n`:``)+
+    (enfAfterTarget?`- ⚠ 이 개정본 부칙의 최신 시행일(${latestEnf.iso})이 기준일 이후입니다 — `+
+      `직전 개정본${res.previous?`(HISTORY_ID ${res.previous.historyId}, 개정 ${res.previous.revisedAt})`:''} 적용 가능성을 함께 확인하세요.\n`:``)+
+    (res.undatedCount?`- 참고: 개정일 미상 연혁 ${res.undatedCount}건은 판단에서 제외\n`:``)+
+    `\n${TIMELINE_CAVEAT}\n\n## 기준일 적용 본문${hasArticle?` — ${selectedArticles.map(x=>x.article).join(', ')}`:''}\n\n${bodyText}`;
+
+  let comparison=null;
+  if(compare_with_current && !res.isLatest){
+    const latest=await cached('content',`${lawId}_${res.latest.historyId}`,TTL.content,()=>getContent(lawId,res.latest.historyId));
+    if(latest.markdown){
+      comparison=compareRuleMarkdown(c.markdown,latest.markdown,hasArticle?{article}:{});
+      if(!comparison.error){
+        out+=`\n\n${formatVersionComparison(comparison,{
+          title:`현행 대비 변경 (${picked.historyId} → ${res.latest.historyId})`,
+          fromHistoryId:picked.historyId,toHistoryId:res.latest.historyId,maxChanges:max_changes,
+        })}`;
+      }
+    }
+  }
+
+  return success(out,{
+    lawId,title,targetDate:res.targetIso,
+    applied:{historyId:picked.historyId,revisedAt:picked.revisedAt},
+    previous:res.previous?{historyId:res.previous.historyId,revisedAt:res.previous.revisedAt}:null,
+    next:res.next?{historyId:res.next.historyId,revisedAt:res.next.revisedAt}:null,
+    latest:{historyId:res.latest.historyId,revisedAt:res.latest.revisedAt},
+    isLatest:res.isLatest,laterCount:res.laterCount,undatedCount:res.undatedCount,
+    enforcement:{dates:enforcement.map(x=>x.iso),latest:latestEnf?latestEnf.iso:null,afterTarget:enfAfterTarget},
+    basis:'개정일',caveat:TIMELINE_CAVEAT,
+    filters:{article:hasArticle?normalizeArticleSelector(article).canonical:null},
+    articles:selectedArticles,
+    comparison:comparison&&!comparison.error?{counts:comparison.counts,changes:comparison.changes.slice(0,max_changes)}:null,
+    source:{url:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${picked.historyId}`,returnedAt:new Date().toISOString()},
+  });
+}
+
 function normalizeLookupArguments(args={}) {
   const query=validStr(args.query) || '';
   const explicitKeyword=validStr(args.rule_keyword) || '';
@@ -599,6 +735,24 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id','from_history_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'verify_rule_citations', description:'기안문·품의서·공문·AI 답변 텍스트에 인용된 동국대학교 규정 조문을 실제 규정집과 대조 검증하는 환각 게이트. 「규정명」 제N조(제목) 제N항 표기를 추출해 규정 실존, 조문 실존(본칙 존재 범위 안내), 조문 제목 일치, 항 번호까지 확인합니다. 결재 전 인용 점검에 사용하세요. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
+    inputSchema:{ type:'object', properties:{
+      text:{type:'string',description:'검증할 전체 텍스트 (20,000자 이하). 예: 품의서 본문'},
+      campus:{type:'string',description:'all/seoul/wise',default:'all'},
+    }, required:['text']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'applicable_rule', description:'기준일(date)에 시행 중이던(연혁 개정일 기준) 동국대학교 규정 개정본을 자동 특정해, 해당 시점 본문과 현행 대비 변경 요약을 반환합니다. 소급 업무·감사 대응·과거 지급기준 확인용. HISTORY_ID를 몰라도 날짜만으로 조회됩니다. 개정일과 실제 시행일이 다를 수 있음을 항상 안내합니다. 최신 규정 질문에는 lookup_dongguk_rule을 사용하세요.',
+    inputSchema:{ type:'object', properties:{
+      date:{type:'string',description:'기준일. YYYY-MM-DD / YYYY.MM.DD / YYYYMMDD. 예: 2024-03-15'},
+      rule_keyword:{type:'string',description:'규정명. law_id가 있으면 생략 가능. 예: 여비규정'},
+      law_id:{type:'number',description:'LAW_ID. rule_keyword 대신 사용 가능'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'특정 조문만. 예: 15, 제10조의2, 부칙 제2조'},
+      compare_with_current:{type:'boolean',description:'현행 대비 변경 요약 포함 여부',default:true},
+      max_changes:{type:'number',description:'변경 요약 최대 조문 수. 기본 10, 최대 30',default:10},
+    }, required:['date']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'search_rule_deep', description:'여러 규정의 전문을 탐색해야 할 때만 사용하는 보조 도구. 단일 규정 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       query:{type:'string'}, top:{type:'number',default:3}, per_doc:{type:'number'},
@@ -626,6 +780,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>{
       case 'get_rule_toc': r=await hToc(a.law_id,a.history_id); break;
       case 'list_rule_history': r=await hHistory(a.law_id); break;
       case 'compare_rule_versions': r=await hCompareVersions(a.law_id,a.from_history_id,a.to_history_id,{article:a.article,maxChanges:a.max_changes}); break;
+      case 'verify_rule_citations': r=await hVerifyCitations(a.text,{campus:a.campus}); break;
+      case 'applicable_rule': r=await hApplicableRule(a); break;
       case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc}); break;
       default: r=failure('UNKNOWN_TOOL', `알 수 없는 도구: ${name}`, {isError:true});
     }
