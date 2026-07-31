@@ -18,7 +18,7 @@ console.log('\n[A] CLI 플래그');
 try {
   const v = execFileSync('node', [INDEX, '--version'], { encoding:'utf-8' }).trim();
   check('--version 출력', /^\d+\.\d+\.\d+$/.test(v), `(got "${v}")`);
-  check('버전 = 0.4.0', v === '0.4.0', `(got "${v}")`);
+  check('버전 = 0.5.1', v === '0.5.1', `(got "${v}")`);
 } catch (e) { check('--version 실행', false, `(${e.message})`); fail++; }
 
 // [B] MCP 도구 입력 검증 (JSON-RPC로 실제 호출)
@@ -34,6 +34,7 @@ const cases = [
   [15, 'search_rule_deep', { query:'' }, '검색어', '빈 query → 안내'],
   [16, 'no_such_tool', {}, '알 수 없는 도구', '존재하지 않는 도구'],
   [17, 'get_rule_content', { law_id:491, article:'x' }, '양의 정수', 'article 비숫자 → 안내'],
+  [18, 'lookup_dongguk_rule', { rule_keyword:'   ' }, 'rule_keyword 또는 query', '빈 rule_keyword/query → 안내'],
 ];
 let done = 0;
 
@@ -46,7 +47,7 @@ proc.stdout.on('data', (d) => {
     if (!line) continue;
     let msg; try { msg = JSON.parse(line); } catch { continue; }
     if (msg.id === 1) {
-      console.log('\n[B] 입력 검증 (8케이스)');
+      console.log(`\n[B] 입력 검증 (${cases.length}케이스)`);
       cases.forEach(([id, name, args]) => {
         proc.stdin.write(JSON.stringify({ jsonrpc:'2.0', id, method:'tools/call', params:{ name, arguments:args } }) + '\n');
       });

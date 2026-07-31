@@ -5,15 +5,20 @@
 > [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감.
 > 공무원에게 korean-law-mcp가 있다면, 대학 교직원에게는 dongguk-rule-mcp가 있다.
 
-## 도구 (5개)
+## 도구 (6개)
 
 | 도구 | 설명 |
 |------|------|
+| `lookup_dongguk_rule` | **기본 권장** — 검색→최신 HWP 원문→관련 조문·별표를 한 번에 조회 |
 | `search_rule` | 키워드 검색 (제목/전문, 캠퍼스 필터) |
 | `get_rule_content` | 규정 본문 마크다운 조회 (조문/장/키워드 필터) |
 | `get_rule_toc` | 목차만 빠르게 조회 |
 | `list_rule_history` | 개정 연혁 목록 |
 | `search_rule_deep` | 전문검색 → 본문에서 조문까지 자동 추출 |
+
+`lookup_dongguk_rule`은 HTML 본문에 포함되지 않는 원문 HWP의 별표와 금액표까지 파싱합니다.
+Notion AI가 보내는 전체 자연어 `query`와 짧은 규정명 `rule_keyword`를 모두 지원합니다.
+일반적인 규정 질문에는 이 도구를 먼저 사용하면 여러 도구를 반복 호출할 필요가 없습니다.
 
 ## 요구사항
 
@@ -42,8 +47,8 @@ Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 �
 [Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.4.0.tgz
-dongguk-rule-mcp --version   # 0.4.0 나오면 성공
+npm install -g ./dongguk-rule-mcp-0.5.1.tgz
+dongguk-rule-mcp --version   # 0.5.1 나오면 성공
 ```
 
 ### 방법 C: 소스 폴더에서
@@ -95,7 +100,7 @@ npm install -g dongguk-rule-mcp
 
 설정 후 Claude Desktop 완전 종료 → 재시작.
 
-## HTTP 모드 — Notion 커스텀 에이전트 연동
+## HTTP 모드 — Notion AI 연동
 
 Notion 등 원격 MCP 클라이언트는 공개 URL만 연결할 수 있습니다. rule.dongguk.edu가
 해외/데이터센터 IP를 차단하므로, 국내 IP의 상시 가동 머신(예: Mac Mini)에서 HTTP
@@ -122,10 +127,12 @@ cloudflared tunnel --url http://127.0.0.1:3845
 
 ### 3) Notion 설정
 
-1. 워크스페이스 관리자: 설정 → Notion AI → AI 커넥터 → **Enable Custom MCP servers**
-2. 커스텀 에이전트 → **Tools & Access** → Add connection → **Custom MCP server**
-3. URL `https://xxxx.trycloudflare.com/mcp` + 표시 이름 + (지원 시) Bearer 토큰 → Save
-4. 에이전트가 쓸 도구만 선택적으로 켜기
+1. 워크스페이스 관리자: 설정 → **연결** → **MCP** → **Custom MCP**
+2. URL `https://xxxx.trycloudflare.com/mcp` + 표시 이름 + Bearer 토큰 → 연결
+3. 일반 Notion AI 새 채팅에서 연결 이름을 명시해 질문
+4. 읽기 전용 도구를 반복 승인하지 않으려면 해당 연결의 모든 도구를 항상 허용
+
+커스텀 에이전트의 Tools & Access에서도 동일 URL을 연결할 수 있습니다.
 
 ### 수동 점검 (curl)
 
@@ -143,6 +150,7 @@ Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동
 ## 사용 예시
 
 - "동국대 보수규정 검색해줘"
+- "`lookup_dongguk_rule`로 여비규정에서 국내, 철도운임, 숙박비, 일비 기준을 한 번에 찾아줘"
 - "LAW_ID 491 본문 보여줘"
 - "그 규정에서 퇴직금 관련 조문만" (grep 필터)
 - "제5장만 보여줘" (chapter 필터)
@@ -156,11 +164,11 @@ Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동
 npm test
 ```
 
-5개 스위트 109개: 파싱(39) + 유틸(22) + 엣지케이스(10) + MCP 프로토콜(19, stdout 순수성 포함) + HTTP(19, Streamable HTTP·Bearer 인증·stateless).
+6개 스위트 130개: 파싱(39) + 유틸(22) + 통합 조회(15) + 엣지케이스(11) + MCP 프로토콜(23, stdout 순수성 포함) + HTTP(20, Streamable HTTP·Bearer 인증·stateless).
 실제 HTML 픽스처 기반이라 국내/해외/CI 어디서든 통과해야 정상.
 
 추가로 다음 설치 시나리오가 검증되었습니다: `npm pack` tarball(18kB) → 새 디렉토리
-로컬 설치 → 설치된 bin으로 JSON-RPC 핸드셰이크(도구 5개·stdout 무오염), 글로벌
+로컬 설치 → 설치된 bin으로 JSON-RPC 핸드셰이크(도구 6개·stdout 무오염), 글로벌
 설치(`npm i -g`) 후 bin 실행, 설치본 내부 `npm test` 90개 통과(자급자족).
 
 ### 실서버 (국내 IP에서)

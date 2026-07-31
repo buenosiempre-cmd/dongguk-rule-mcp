@@ -55,7 +55,7 @@ async function main() {
   console.log('\n[1] /health (무인증)');
   const h = await (await fetch(`${BASE}/health`)).json();
   check('status ok', h.status === 'ok');
-  check('버전 0.4.0', h.version === '0.4.0', `(got ${h.version})`);
+  check('버전 0.5.1', h.version === '0.5.1', `(got ${h.version})`);
   check('transport 표기', h.transport === 'streamable-http');
 
   console.log('\n[2] Bearer 인증');
@@ -73,14 +73,15 @@ async function main() {
   }, AUTH);
   check('200 응답', init.status === 200, `(got ${init.status})`);
   check('serverInfo 이름', init.body?.result?.serverInfo?.name === 'dongguk-rule-mcp');
-  check('serverInfo 버전 0.4.0', init.body?.result?.serverInfo?.version === '0.4.0',
+  check('serverInfo 버전 0.5.1', init.body?.result?.serverInfo?.version === '0.5.1',
     `(got ${init.body?.result?.serverInfo?.version})`);
 
   console.log('\n[4] stateless 핵심 — 독립 요청으로 tools/list');
   const list = await rpc(BASE, { jsonrpc:'2.0', id:2, method:'tools/list', params:{} }, AUTH);
   check('initialize 없이 새 요청 처리', list.status === 200, `(got ${list.status})`);
   const tools = list.body?.result?.tools || [];
-  check('도구 5개', tools.length === 5, `(got ${tools.length})`);
+  check('도구 6개', tools.length === 6, `(got ${tools.length})`);
+  check('lookup_dongguk_rule 포함', tools.some(t => t.name === 'lookup_dongguk_rule'));
   check('search_rule 포함', tools.some(t => t.name === 'search_rule'));
 
   console.log('\n[5] tools/call — 입력 검증 (네트워크 불필요)');
@@ -115,7 +116,7 @@ async function main() {
   check('무토큰 기동', readyB);
   if (readyB) {
     const openList = await rpc(`http://127.0.0.1:${PORT2}`, { jsonrpc:'2.0', id:1, method:'tools/list', params:{} });
-    check('무인증 tools/list 허용', openList.status === 200 && (openList.body?.result?.tools||[]).length === 5,
+    check('무인증 tools/list 허용', openList.status === 200 && (openList.body?.result?.tools||[]).length === 6,
       `(status ${openList.status})`);
   } else { fail++; }
   procB.kill();
