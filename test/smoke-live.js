@@ -2,7 +2,7 @@
 /**
  * smoke-live.js — 실서버 스모크 테스트
  *
- * rule.dongguk.edu에 실제로 접속해서 5개 도구가 진짜 동작하는지 확인.
+ * rule.dongguk.edu에 실제로 접속해서 검색·본문·연혁·HWP 원문이 진짜 동작하는지 확인.
  * ⚠️ 국내 IP에서만 작동 (Mac Mini 등). 데이터센터/해외 IP는 503 차단.
  *
  * 실행:
@@ -20,6 +20,7 @@ const BASE = 'https://rule.dongguk.edu';
 const SEARCH_URL = `${BASE}/lmxsrv/search/lawSerach.srv`;
 const FULLVIEW_URL = `${BASE}/lmxsrv/law/lawFullView.srv`;
 const CONTENT_URL = `${BASE}/lmxsrv/law/lawFullContent.srv`;
+const FILE_URL = `${BASE}/fileDown.srv`;
 const MAIN_URL = `${BASE}/lmxsrv/main/main.srv`;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)';
 
@@ -172,8 +173,9 @@ async function main() {
         if (opts.length > 0) {
           ok(`연혁 ${opts.length}건 발견`);
           // 개정일 파싱 (onclick 속성)
-          const oc = opts.first().attr('onclick') || '';
-          const dm = /showDate\(\s*'(\d{8})'/.exec(oc);
+          const first = opts.first();
+          const dateSource = first.attr('onclick') || first.html() || first.text();
+          const dm = /showDate\(\s*'(\d{8})'/.exec(dateSource);
           if (dm) ok(`개정일 파싱: ${dm[1].slice(0,4)}.${dm[1].slice(4,6)}.${dm[1].slice(6)}`);
           else wn('개정일 파싱 실패', '(onclick 속성 구조 — 확인 필요)');
         } else {
@@ -189,8 +191,29 @@ async function main() {
     wn('연혁 조회 건너뜀', '(LAW_ID 없음)');
   }
 
-  // [4] 캠퍼스 코드 확인 도우미
-  console.log('\n[4] 캠퍼스 LAWGROUP 코드 확인 (참고용)');
+  // [4] lookup_dongguk_rule 핵심 — HWP 원문 다운로드·파싱
+  console.log('\n[4] lookup_dongguk_rule — HWP 원문·별표 파싱');
+  if (firstHit) {
+    try {
+      const res = await httpPost(FILE_URL, {
+        FILE_SEQ:String(firstHit.historyId), FILE_TYPE:'ori',
+      }, `${FULLVIEW_URL}?SEQ=${firstHit.lawId}&SEQ_HISTORY=${firstHit.historyId}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.length > 512) ok(`HWP 원문 다운로드: ${bytes.length}바이트`);
+      else no('HWP 원문 다운로드 실패', `(got ${bytes.length}바이트)`);
+      const { hwpToMarkdown } = await import('@ssabrojs/hwpxjs');
+      const markdown = await hwpToMarkdown(bytes);
+      if (markdown && markdown.length > 100) ok(`HWP 마크다운 파싱: ${markdown.length}자`);
+      else no('HWP 마크다운 파싱 실패');
+    } catch (e) {
+      no('HWP 원문 처리 실패', `(${e.message})`);
+    }
+  } else {
+    wn('HWP 원문 조회 건너뜀', '(HISTORY_ID 없음)');
+  }
+
+  // [5] 캠퍼스 코드 확인 도우미
+  console.log('\n[5] 캠퍼스 LAWGROUP 코드 확인 (참고용)');
   console.log('   ⚠️  seoul=1, wise=2 는 추정값입니다.');
   console.log('   확인 방법: rule.dongguk.edu 좌측 규정트리 탭 클릭 →');
   console.log('   개발자도구 Network 탭에서 lawTree.srv?LAWGROUP=N 의 N 확인');
@@ -222,7 +245,7 @@ function summary() {
   } else if (warn > 0) {
     console.log('⚠️  경고는 "결과 0건" 또는 "구조 미세 변경" 가능성. 검색어를 바꿔 재시도.');
   } else {
-    console.log('✅ 5개 도구 모두 실서버에서 정상 동작 확인!');
+    console.log('✅ 검색·본문·연혁·HWP 원문이 실서버에서 정상 동작 확인!');
   }
 }
 
