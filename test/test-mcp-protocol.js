@@ -28,16 +28,17 @@ function handleResponse(msg) {
   if (msg.id === 1) {
     check('initialize 응답', !!(msg.result && msg.result.serverInfo));
     check('서버 이름', msg.result?.serverInfo?.name === 'dongguk-rule-mcp', `(got "${msg.result?.serverInfo?.name}")`);
-    check('서버 버전 0.5.1', msg.result?.serverInfo?.version === '0.5.1', `(got "${msg.result?.serverInfo?.version}")`);
+    check('서버 버전 0.6.0', msg.result?.serverInfo?.version === '0.6.0', `(got "${msg.result?.serverInfo?.version}")`);
     send({ jsonrpc:'2.0', id:2, method:'tools/list', params:{} });
   }
 
   if (msg.id === 2) {
     const tools = msg.result?.tools || [];
-    check('도구 6개 등록', tools.length === 6, `(got ${tools.length})`);
+    check('도구 7개 등록', tools.length === 7, `(got ${tools.length})`);
     const names = tools.map(t => t.name);
-    ['lookup_dongguk_rule','search_rule','get_rule_content','get_rule_toc','list_rule_history','search_rule_deep']
+    ['lookup_dongguk_rule','search_rule','get_rule_content','get_rule_toc','list_rule_history','compare_rule_versions','search_rule_deep']
       .forEach(n => check(`${n} 존재`, names.includes(n)));
+    check('모든 도구 구조화 출력 스키마', tools.every(t => t.outputSchema?.properties?.ok));
     const lt = tools.find(t => t.name === 'lookup_dongguk_rule');
     check('lookup_dongguk_rule query 호환 파라미터', 'query' in (lt?.inputSchema?.properties || {}));
     check('lookup_dongguk_rule rule_keyword 선택 파라미터', 'rule_keyword' in (lt?.inputSchema?.properties || {}));
@@ -48,6 +49,7 @@ function handleResponse(msg) {
     check('search_rule campus 파라미터', 'campus' in (st?.inputSchema?.properties || {}));
     const ct = tools.find(t => t.name === 'get_rule_content');
     check('get_rule_content article 필터', 'article' in (ct?.inputSchema?.properties || {}));
+    check('get_rule_content 가지조문 문자열 허용', Array.isArray(ct?.inputSchema?.properties?.article?.oneOf));
     check('get_rule_content grep 필터', 'grep' in (ct?.inputSchema?.properties || {}));
     // [네트워크 중립] 빈 keyword → 검증 메시지가 즉시 반환 (HTTP 요청 없음)
     send({ jsonrpc:'2.0', id:3, method:'tools/call', params:{ name:'search_rule', arguments:{ keyword:'' } } });
@@ -58,6 +60,7 @@ function handleResponse(msg) {
     check('빈 keyword → 즉시 응답', txt.length > 0);
     check('빈 keyword → 친절한 안내', txt.includes('검색어'), `(got: ${txt.slice(0,40)})`);
     check('빈 keyword → isError 아님 (검증 안내)', !msg.result?.isError);
+    check('빈 keyword → 구조화 오류코드', msg.result?.structuredContent?.error?.code === 'INVALID_ARGUMENT');
     // arguments 자체 누락 → TypeError 없이 처리되는지
     send({ jsonrpc:'2.0', id:4, method:'tools/call', params:{ name:'get_rule_content' } });
   }

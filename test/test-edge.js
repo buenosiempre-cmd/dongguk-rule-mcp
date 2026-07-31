@@ -18,7 +18,7 @@ console.log('\n[A] CLI 플래그');
 try {
   const v = execFileSync('node', [INDEX, '--version'], { encoding:'utf-8' }).trim();
   check('--version 출력', /^\d+\.\d+\.\d+$/.test(v), `(got "${v}")`);
-  check('버전 = 0.5.1', v === '0.5.1', `(got "${v}")`);
+  check('버전 = 0.6.0', v === '0.6.0', `(got "${v}")`);
 } catch (e) { check('--version 실행', false, `(${e.message})`); fail++; }
 
 // [B] MCP 도구 입력 검증 (JSON-RPC로 실제 호출)
@@ -33,8 +33,9 @@ const cases = [
   [14, 'list_rule_history', {}, 'law_id', 'law_id 누락 → 안내'],
   [15, 'search_rule_deep', { query:'' }, '검색어', '빈 query → 안내'],
   [16, 'no_such_tool', {}, '알 수 없는 도구', '존재하지 않는 도구'],
-  [17, 'get_rule_content', { law_id:491, article:'x' }, '양의 정수', 'article 비숫자 → 안내'],
+  [17, 'get_rule_content', { law_id:491, article:'x' }, '형식이어야', 'article 잘못된 형식 → 안내'],
   [18, 'lookup_dongguk_rule', { rule_keyword:'   ' }, 'rule_keyword 또는 query', '빈 rule_keyword/query → 안내'],
+  [19, 'compare_rule_versions', { law_id:127 }, 'from_history_id', '비교 시작 연혁 누락 → 안내'],
 ];
 let done = 0;
 
