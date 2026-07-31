@@ -28,16 +28,22 @@ function handleResponse(msg) {
   if (msg.id === 1) {
     check('initialize 응답', !!(msg.result && msg.result.serverInfo));
     check('서버 이름', msg.result?.serverInfo?.name === 'dongguk-rule-mcp', `(got "${msg.result?.serverInfo?.name}")`);
-    check('서버 버전 0.6.0', msg.result?.serverInfo?.version === '0.6.0', `(got "${msg.result?.serverInfo?.version}")`);
+    const pkgVersion = require('../package.json').version;
+    check(`서버 버전 ${pkgVersion}`, msg.result?.serverInfo?.version === pkgVersion, `(got "${msg.result?.serverInfo?.version}")`);
     send({ jsonrpc:'2.0', id:2, method:'tools/list', params:{} });
   }
 
   if (msg.id === 2) {
     const tools = msg.result?.tools || [];
-    check('도구 7개 등록', tools.length === 7, `(got ${tools.length})`);
+    check('도구 9개 등록', tools.length === 9, `(got ${tools.length})`);
     const names = tools.map(t => t.name);
     ['lookup_dongguk_rule','search_rule','get_rule_content','get_rule_toc','list_rule_history','compare_rule_versions','search_rule_deep']
       .forEach(n => check(`${n} 존재`, names.includes(n)));
+    ['verify_rule_citations','applicable_rule'].forEach(n => check(`${n} 존재 (v0.7)`, names.includes(n)));
+    const vt = tools.find(t => t.name === 'verify_rule_citations');
+    check('verify_rule_citations 필수 text', vt?.inputSchema?.required?.includes('text'));
+    const at = tools.find(t => t.name === 'applicable_rule');
+    check('applicable_rule 필수 date', at?.inputSchema?.required?.includes('date'));
     check('모든 도구 구조화 출력 스키마', tools.every(t => t.outputSchema?.properties?.ok));
     const lt = tools.find(t => t.name === 'lookup_dongguk_rule');
     check('lookup_dongguk_rule query 호환 파라미터', 'query' in (lt?.inputSchema?.properties || {}));

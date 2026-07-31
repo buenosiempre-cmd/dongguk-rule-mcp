@@ -5,11 +5,13 @@
 > [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감.
 > 공무원에게 korean-law-mcp가 있다면, 대학 교직원에게는 dongguk-rule-mcp가 있다.
 
-## 도구 (7개)
+## 도구 (9개)
 
 | 도구 | 설명 |
 |------|------|
 | `lookup_dongguk_rule` | **기본 권장** — 검색→최신 HWP 원문→관련 조문·별표를 한 번에 조회 |
+| `verify_rule_citations` | **v0.7 신규** — 기안문·공문 텍스트의 규정 인용을 실존·조문 제목·항 번호까지 대조 (환각 게이트) |
+| `applicable_rule` | **v0.7 신규** — 기준일에 시행 중이던 개정본 자동 특정 + 부칙 시행일 대조 + 현행 대비 변경 요약 |
 | `search_rule` | 키워드 검색 (제목/전문, 캠퍼스 필터) |
 | `get_rule_content` | 규정 본문 마크다운 조회 (조문/장/키워드 필터) |
 | `get_rule_toc` | 목차만 빠르게 조회 |
@@ -20,6 +22,12 @@
 `lookup_dongguk_rule`은 HTML 본문에 포함되지 않는 원문 HWP의 별표와 금액표까지 파싱합니다.
 Notion AI가 보내는 전체 자연어 `query`와 짧은 규정명 `rule_keyword`를 모두 지원합니다.
 일반적인 규정 질문에는 이 도구를 먼저 사용하면 여러 도구를 반복 호출할 필요가 없습니다.
+
+`verify_rule_citations`는 결재 전 인용 점검용입니다. 「규정명」 낫표·가운뎃점 표기(·ㆍ‧•・)·"같은 규정" 조응
+(문단 경계에서 승계 중단)을 처리하고, 검색 0건은 ✗(미존재)가 아닌 ⚠(확인필요)로 보고합니다 — ⚠는 통과가 아닙니다.
+`applicable_rule`은 연혁의 '개정일' 기준으로 기준일 적용본을 특정하되, 본문 부칙에서 명시 시행일을 추출해
+시행일이 기준일 이후면 직전 개정본 적용 가능성을 경고합니다 (개정일≠시행일 한계 상시 고지).
+검색어에는 별칭 사전이 적용됩니다 — 내장 별칭에 더해 `DONGGUK_RULE_ALIASES`(JSON 경로)로 부서별 약칭을 확장할 수 있습니다.
 
 모든 도구는 기존 Markdown `content`와 함께 `structuredContent`를 반환합니다. 자동화에서는
 `ok`, `tool`, `data` 또는 `error.code`를 사용하면 텍스트를 다시 파싱하지 않아도 됩니다.
@@ -58,8 +66,8 @@ Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 �
 [Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.6.0.tgz
-dongguk-rule-mcp --version   # 0.6.0 나오면 성공
+npm install -g ./dongguk-rule-mcp-0.7.0.tgz
+dongguk-rule-mcp --version   # 0.7.0 나오면 성공
 ```
 
 ### 방법 C: 소스 폴더에서
@@ -169,6 +177,8 @@ URL을 숨기는 것만으로는 인증을 대체할 수 없습니다.
 - "그 규정에서 퇴직금 관련 조문만" (grep 필터)
 - "제5장만 보여줘" (chapter 필터)
 - "이 규정 개정 이력 알려줘"
+- "이 품의서 초안의 규정 인용 검증해줘: (본문 붙여넣기)" (v0.7)
+- "2024년 3월 15일 당시 여비규정 제9조 보여줘" (v0.7)
 
 ## 검증
 
@@ -178,11 +188,8 @@ URL을 숨기는 것만으로는 인증을 대체할 수 없습니다.
 npm test
 ```
 
-8개 스위트 182개: 파싱(45) + 유틸(22) + 통합 조회(17) + 개정비교·구조화응답(14) + 엣지케이스(12) + MCP 프로토콜(28, stdout 순수성 포함) + HTTP(22, Streamable HTTP·Bearer 인증·stateless) + 신뢰성 회귀(22, 실제 MCP 핸들러 호출).
-실제 HTML 픽스처 기반이라 국내/해외/CI 어디서든 통과해야 정상.
-
-`npm pack --dry-run`으로 필수 소스·테스트 파일 포함 여부를 검증합니다.
-MCP JSON-RPC 핸드셰이크에서는 도구 7개와 stdout 무오염을 확인합니다.
+오프라인 테스트는 운영 파서·별칭·시점·인용·MCP·HTTP·신뢰성 회귀를 검증합니다.
+`npm pack --dry-run`으로 필수 소스와 테스트 포함 여부를 검증합니다.
 
 ### 실서버 (국내 IP에서)
 
@@ -210,6 +217,7 @@ rule.dongguk.edu에 실제 접속해 검색·본문·연혁·HWP 원문 경로�
 |------|------|
 | `DONGGUK_RULE_COOKIE` | 비공개 규정 열람용 로그인 쿠키 주입. 쿠키별 전용 캐시 사용 |
 | `DONGGUK_MCP_NO_CACHE=1` | 디스크 캐시(`~/.cache/dongguk-rule-mcp/`) 비활성화 |
+| `DONGGUK_RULE_ALIASES` | 별칭 사전 확장 JSON 경로. `{"전결규정": ["위임전결규정"]}` 형식 — 내장 별칭에 병합 |
 
 ## 알려진 제약
 
