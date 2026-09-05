@@ -1,6 +1,6 @@
 {
   "name": "dongguk-rule-mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버. Claude Desktop, Cursor 등에서 동국대 규정을 직접 검색·조회.",
   "main": "src/index.js",
   "bin": {
@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/test-loop.js && node test/test-utils.js && node test/test-lookup.js && node test/test-versioning.js && node test/test-aliases.js && node test/test-timeline.js && node test/test-citations.js && node test/test-edge.js && node test/test-mcp-protocol.js && node test/test-http.js && node test/test-reliability.js",
+    "test": "node test/test-loop.js && node test/test-utils.js && node test/test-lookup.js && node test/test-versioning.js && node test/test-aliases.js && node test/test-timeline.js && node test/test-citations.js && node test/test-edge.js && node test/test-mcp-protocol.js && node test/test-http.js && node test/test-reliability.js && node test/evaluate-finance.js",
     "test:offline": "npm test",
     "test:live": "node test/smoke-live.js",
     "prepublishOnly": "npm test"

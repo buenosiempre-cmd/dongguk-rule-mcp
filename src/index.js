@@ -68,6 +68,8 @@ const HTTP_PORT = Number(argOf('--port') || process.env.DONGGUK_MCP_PORT || 3845
 const HTTP_HOST = argOf('--host') || process.env.DONGGUK_MCP_HOST || '127.0.0.1';
 const AUTH_TOKEN = (argOf('--token') || process.env.DONGGUK_MCP_TOKEN || '').trim();
 
+const { loadFinancePack, routeFinance, getFinanceContext } = require('./finance.js');
+const { queryLegalReferences } = require('./legal-client.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
@@ -130,7 +132,16 @@ function noCache() {
   return ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE||'').trim().toLowerCase());
 }
 function hk(...p) { return crypto.createHash('md5').update(p.join('|')).digest('hex'); }
+const inflightCache = new Map();
 async function cached(cat, key, ttl, fn) {
+  if (noCache()) return fn();
+  const keyPath = path.join(cacheDir(), cat, `${key}.json`);
+  if (inflightCache.has(keyPath)) return inflightCache.get(keyPath);
+  const pending = loadCached(cat, key, ttl, fn);
+  inflightCache.set(keyPath, pending);
+  try { return await pending; } finally { inflightCache.delete(keyPath); }
+}
+async function loadCached(cat, key, ttl, fn) {
   if (noCache()) return fn();
   const fp = path.join(cacheDir(), cat, `${key}.json`);
   try {
@@ -142,17 +153,21 @@ async function cached(cat, key, ttl, fn) {
     const d=path.join(cacheDir(),cat);
     fs.mkdirSync(d,{recursive:true,mode:0o700});
     fs.chmodSync(d,0o700);
-    fs.writeFileSync(fp,JSON.stringify(r),{encoding:'utf-8',mode:0o600});
-    fs.chmodSync(fp,0o600);
+    const temp = `${fp}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+    try {
+      fs.writeFileSync(temp,JSON.stringify(r),{encoding:'utf-8',mode:0o600});
+      fs.renameSync(temp,fp);
+    } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
   } catch(e) {}
   return r;
 }
 
 // === HTTP ===
 async function fetchResponse(url, opts={}) {
-  const wait = 500-(Date.now()-lastReq);
+  const now = Date.now();
+  const wait = Math.max(0,lastReq+500-now);
+  lastReq = now+wait; // Reserve before awaiting so concurrent callers get distinct slots.
   if (wait>0) await new Promise(r=>setTimeout(r,wait));
-  lastReq = Date.now();
   const h = { 'User-Agent':UA, 'Accept-Language':'ko-KR,ko;q=0.9', Referer:MAIN_URL, ...opts.headers };
   const ck = (process.env.DONGGUK_RULE_COOKIE||'').trim();
   if (ck) h['Cookie'] = ck;
@@ -222,10 +237,11 @@ async function getHistory(lawId) {
 }
 async function resolve(lawId, hid) {
   const h = toId(hid);
-  if(h) return { historyId:h, revisedAt:'', note:null };
   const entries = await cached('history', String(lawId), TTL.history, ()=>getHistory(lawId));
   if(!entries.length) throw new Error(`LAW_ID ${lawId}의 연혁을 찾을 수 없습니다. law_id가 올바른지 확인하세요.`);
-  const l=entries[0];
+  const l=h?entries.find(entry=>entry.historyId===h):entries[0];
+  if(!l) throw Object.assign(new Error(`HISTORY_ID ${h}는 LAW_ID ${lawId}의 연혁에 없습니다.`),{code:'HISTORY_NOT_FOUND'});
+  if(h) return {historyId:h,revisedAt:l.revisedAt,note:null};
   return { historyId:l.historyId, revisedAt:l.revisedAt, note:`> 자동 해석: LAW_ID ${lawId} / HISTORY_ID ${l.historyId} (최신, ${l.revisedAt})` };
 }
 
@@ -393,6 +409,7 @@ async function hLookup(rawKeyword, {
   maxSections=4,
   maxChars=12000,
   includeHistory=false,
+  asOf=null,
 }={}) {
   const keyword = validStr(rawKeyword);
   if(!keyword) return failure('INVALID_ARGUMENT', '규정명 또는 질문(rule_keyword 또는 query)을 입력해주세요. 예: "여비규정", "대전 출장 여비규정의 일비와 숙박비"');
@@ -430,7 +447,7 @@ async function hLookup(rawKeyword, {
     ? `${rawTerms}, 국내`
     : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
-    `> 연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분). 원문 유형과 누락 경고를 확인하세요.\n\n` +
+    `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
     `- 검색 방식: ${searchMode}\n` +
     (queryUsed!==keyword?`- 정규화 검색어: ${queryUsed}\n`:``) +
     `- 원문 집계 / 고유 후보: ${result.total}건 / ${metrics.uniqueRows}건\n` +
@@ -442,7 +459,14 @@ async function hLookup(rawKeyword, {
     const hit=hits[i];
     const lawId=hit.lawId;
     const latest=await resolve(lawId);
-    const {historyId,revisedAt}=latest;
+    let selected=latest;
+    if(asOf){
+      const history=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
+      const candidate=resolveHistoryAtDate(history,asOf);
+      if(candidate.error) return failure(candidate.error,'기준일의 개정본 후보를 확인할 수 없습니다.');
+      selected=candidate.entry;
+    }
+    const {historyId,revisedAt}=selected;
     let markdown, sourceType='원문 HWP(별표 포함)', warning='', warningData=null;
     try{
       const original=await cached('original',`${lawId}_${historyId}`,TTL.content,
@@ -470,7 +494,7 @@ async function hLookup(rawKeyword, {
     const sourceUrl=`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${historyId}`;
     out+=`\n\n## [${i+1}] ${hit.title}\n` +
       `- 분류: ${hit.code || '미상'}\n` +
-      `- 최신 개정일: ${revisedAt || '확인 필요'}\n` +
+      `- 조회 개정일: ${revisedAt || '확인 필요'}\n` +
       `- LAW_ID / HISTORY_ID: ${lawId} / ${historyId}\n` +
       `- 원문 유형: ${sourceType}\n` +
       `- 원문: ${sourceUrl}` +
@@ -487,6 +511,9 @@ async function hLookup(rawKeyword, {
     }
     rules.push({
       ...hit,lawId,historyId,revisedAt,sourceType,sourceUrl,history,
+      latestHistoryId:latest.historyId,selectionBasis:asOf?'revision_date':'latest_revision',targetDate:asOf,
+      applicability:'requires_enforcement_review',
+      enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
     });
@@ -632,8 +659,8 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
   const enfAfterTarget=!!(latestEnf && latestEnf.ts>target.ts);
 
   const rangeText=res.next?`${picked.revisedAt} ~ ${res.next.revisedAt} 개정 전`:`${picked.revisedAt} ~ 현행`;
-  let out=`# 시점 적용 규정: ${title} — 기준일 ${res.targetIso}\n\n`+
-    `- 적용 개정본: HISTORY_ID ${picked.historyId} (개정 ${picked.revisedAt})\n`+
+  let out=`# 기준일 규정 후보: ${title} — 기준일 ${res.targetIso}\n\n`+
+    `- 개정일 기준 후보: HISTORY_ID ${picked.historyId} (개정 ${picked.revisedAt})\n`+
     `- 적용 구간(개정일 기준): ${rangeText}\n`+
     `- 현행 여부: ${res.isLatest?'기준일 적용본이 곧 현행':`이후 ${res.laterCount}회 개정됨 (현행 HISTORY_ID ${res.latest.historyId}, ${res.latest.revisedAt})`}\n`+
     (enforcement.length?`- 부칙에서 확인된 명시 시행일: ${enforcement.length>3?'… ':''}${enforcement.slice(-3).map(x=>x.iso).join(', ')}\n`:``)+
@@ -664,11 +691,38 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
     latest:{historyId:res.latest.historyId,revisedAt:res.latest.revisedAt},
     isLatest:res.isLatest,laterCount:res.laterCount,undatedCount:res.undatedCount,
     enforcement:{dates:enforcement.map(x=>x.iso),latest:latestEnf?latestEnf.iso:null,afterTarget:enfAfterTarget},
-    basis:'개정일',caveat:TIMELINE_CAVEAT,
+    basis:'개정일',applicability:'requires_enforcement_review',caveat:TIMELINE_CAVEAT,
     filters:{article:hasArticle?normalizeArticleSelector(article).canonical:null},
     articles:selectedArticles,
     comparison:comparison&&!comparison.error?{counts:comparison.counts,changes:comparison.changes.slice(0,max_changes)}:null,
     source:{url:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${picked.historyId}`,returnedAt:new Date().toISOString()},
+  });
+}
+
+async function hFinanceEvidence(args){
+  const pack=loadFinancePack();
+  if(!pack) return failure('FINANCE_PACK_NOT_CONFIGURED','재무지식 팩을 연결하세요.');
+  const context=routeFinance(pack,args.query,args.facts||{},args.workflow_id);
+  if(context.error) return failure(context.error,context.message);
+  const rules=[];
+  for(const request of context.rule_requests.slice(0,2)){
+    try{rules.push(serializeOutcome('lookup_dongguk_rule',await hLookup(request.keyword,{terms:request.terms,maxChars:7000,asOf:context.base_date,campus:args.facts?.campus==='WISE'?'wise':'seoul'})));}
+    catch(error){rules.push(serializeException('lookup_dongguk_rule',error));}
+  }
+  let legal={status:'not_required',results:[]};
+  if(context.legal_requests.length){
+    try{legal=await queryLegalReferences(context.legal_requests);}
+    catch(error){legal={status:'unavailable',code:error.message==='LEGAL_MCP_NOT_CONFIGURED'?'LEGAL_MCP_NOT_CONFIGURED':'LEGAL_LOOKUP_FAILED',results:[]};}
+  }
+  const freshness=rules.flatMap((x,i)=>(x.structuredContent.data?.rules||[]).map(r=>({
+    law_id:r.lawId,baseline_history_id:context.rule_requests[i]?.baseline_history_id||null,
+    latest_history_id:r.latestHistoryId,selected_history_id:r.historyId,
+    status:context.rule_requests[i]?.baseline_history_id ? (context.rule_requests[i].baseline_history_id===r.latestHistoryId?'unchanged':'revision_changed'):'baseline_missing',
+    meaning:'개정본 식별자 비교입니다. 해당 업무 조항의 실질 변경을 의미하지 않습니다.'
+  })));
+  const partial=rules.some(x=>!x.structuredContent.ok||(x.structuredContent.data?.rules||[]).some(r=>r.warning||r.excerpt.truncated||!r.excerpt.matchedTerms.length))||legal.status==='unavailable'||legal.status==='partial';
+  return success(`# ${context.workflow.title} 근거 확인\n\n조회상태: ${partial?'일부 확인 필요':'조회됨'}\n\n${context.notice}\n\n${rules.map(r=>r.content[0].text).join('\n\n')}`,{
+    context,rules,legal,freshness,legal_date_scope:'검색 시점 현행 후보. 기준일 적용 조문은 별도 확인.',evidence_status:partial?'partial':'retrieved',applicability:'requires_review',retrieved_at:new Date().toISOString(),
   });
 }
 
@@ -687,6 +741,8 @@ function createServer() {
 const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabilities:{tools:{}} });
 
 server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
+  {name:'get_finance_context',description:'재무팀 출장·강사료·소득정정 질문을 판단카드·필수 사실·법령/규정 조회 경로·처리절차·완료증빙으로 연결합니다. 실제 신고·지급은 수행하지 않습니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
+  {name:'get_finance_evidence',description:'재무지식 팩이 지정한 교내 규정과 국가 법령 식별자를 실조회해 사전검토용 근거 묶음을 반환합니다. 각 출처의 조회 성공과 적용 판단은 구분합니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   { name:'lookup_dongguk_rule', description:'동국대학교 규정 질문의 기본·우선 도구. 자연어 query 또는 짧은 rule_keyword를 받아 규정 검색→최신 원문 HWP→관련 조문·별표(금액표 포함)를 한 번에 반환합니다. 보통 이 도구 1회로 답하고, 결과에 조회 완료가 표시되면 같은 질문으로 다른 규정 도구를 추가 호출하지 마세요.',
     inputSchema:{ type:'object', properties:{
       query:{type:'string',description:'전체 자연어 질문. 예: 대전 출장 여비규정의 최신 개정일, 철도운임, 일비, 숙박비를 알려줘'},
@@ -749,7 +805,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['text']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'applicable_rule', description:'기준일(date)에 시행 중이던(연혁 개정일 기준) 동국대학교 규정 개정본을 자동 특정해, 해당 시점 본문과 현행 대비 변경 요약을 반환합니다. 소급 업무·감사 대응·과거 지급기준 확인용. HISTORY_ID를 몰라도 날짜만으로 조회됩니다. 개정일과 실제 시행일이 다를 수 있음을 항상 안내합니다. 최신 규정 질문에는 lookup_dongguk_rule을 사용하세요.',
+  { name:'applicable_rule', description:'기준일(date) 이전에 개정된 동국대학교 규정 후보를 찾아, 해당 시점 본문과 현행 대비 변경 요약을 반환합니다. 소급 업무·감사 대응·과거 지급기준 확인용. HISTORY_ID를 몰라도 날짜만으로 조회됩니다. 개정일과 실제 시행일이 다를 수 있음을 항상 안내합니다. 최신 규정 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       date:{type:'string',description:'기준일. YYYY-MM-DD / YYYY.MM.DD / YYYYMMDD. 예: 2024-03-15'},
       rule_keyword:{type:'string',description:'규정명. law_id가 있으면 생략 가능. 예: 여비규정'},
@@ -779,6 +835,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>{
     }
     let r;
     switch(name){
+      case 'get_finance_context': r=getFinanceContext(a.query,a.facts,a.workflow_id); break;
+      case 'get_finance_evidence': r=await hFinanceEvidence(a); break;
       case 'lookup_dongguk_rule': {
         const normalized=normalizeLookupArguments(a);
         r=await hLookup(normalized.keyword,{

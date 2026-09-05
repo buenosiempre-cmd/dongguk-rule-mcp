@@ -23,10 +23,11 @@ function failure(code, message, options = {}) {
 
 function classifyException(error) {
   const message = error instanceof Error ? error.message : String(error);
+  if (error?.code === 'HISTORY_NOT_FOUND') return {code:error.code,hint:'해당 LAW_ID의 연혁 목록에서 개정본을 선택하세요.'};
   if (/HTTP 503/.test(message)) {
     return {
-      code: 'UPSTREAM_BLOCKED',
-      hint: 'rule.dongguk.edu가 이 IP를 차단했습니다. 국내 IP(가정/캠퍼스 망)에서 실행하세요.',
+      code: 'UPSTREAM_UNAVAILABLE',
+      hint: '원문 서버의 일시 장애 또는 접속 제한일 수 있습니다. 잠시 후 재시도하고 네트워크를 확인하세요.',
     };
   }
   if (/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNREFUSED|network|timeout/i.test(message)) {

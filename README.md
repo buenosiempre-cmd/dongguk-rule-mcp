@@ -5,13 +5,15 @@
 > [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감.
 > 공무원에게 korean-law-mcp가 있다면, 대학 교직원에게는 dongguk-rule-mcp가 있다.
 
-## 도구 (9개)
+## 도구 (11개)
 
 | 도구 | 설명 |
 |------|------|
+| `get_finance_context` | **v0.8** — 선택 연결한 재무지식 팩에서 필수 사실·판단카드·절차·완료 증빙 조회 |
+| `get_finance_evidence` | **v0.8** — 기준일 교내 규정 후보와 Korean Law MCP의 현행 법령·요청 조문 조회, 부분 실패·개정 차이 표시 |
 | `lookup_dongguk_rule` | **기본 권장** — 검색→최신 HWP 원문→관련 조문·별표를 한 번에 조회 |
 | `verify_rule_citations` | **v0.7 신규** — 기안문·공문 텍스트의 규정 인용을 실존·조문 제목·항 번호까지 대조 (환각 게이트) |
-| `applicable_rule` | **v0.7 신규** — 기준일에 시행 중이던 개정본 자동 특정 + 부칙 시행일 대조 + 현행 대비 변경 요약 |
+| `applicable_rule` | **v0.7 신규** — 기준일의 개정일 기준 후보 선택 + 부칙 시행일 대조 + 현행 대비 변경 요약 |
 | `search_rule` | 키워드 검색 (제목/전문, 캠퍼스 필터) |
 | `get_rule_content` | 규정 본문 마크다운 조회 (조문/장/키워드 필터) |
 | `get_rule_toc` | 목차만 빠르게 조회 |
@@ -31,7 +33,7 @@ Notion AI가 보내는 전체 자연어 `query`와 짧은 규정명 `rule_keywor
 
 모든 도구는 기존 Markdown `content`와 함께 `structuredContent`를 반환합니다. 자동화에서는
 `ok`, `tool`, `data` 또는 `error.code`를 사용하면 텍스트를 다시 파싱하지 않아도 됩니다.
-대표 오류코드는 `INVALID_ARGUMENT`, `NOT_FOUND`, `UPSTREAM_BLOCKED`,
+대표 오류코드는 `INVALID_ARGUMENT`, `NOT_FOUND`,
 `UPSTREAM_UNAVAILABLE`, `UPSTREAM_FORMAT_CHANGED`, `HISTORY_NOT_FOUND`, `CONTENT_UNAVAILABLE`입니다.
 
 통합 조회는 검색 결과의 오래된 HISTORY_ID 대신 연혁의 첫 개정본을 선택합니다.
@@ -42,7 +44,7 @@ HWP 별표·첨부 변경과 시행일 판단은 비교 범위에 포함되지 �
 ## 요구사항
 
 - **Node.js 18 이상** (`node --version`으로 확인)
-- **국내 IP** (rule.dongguk.edu가 해외/데이터센터 IP를 503 차단)
+- 원문 서버에 접근 가능한 네트워크 (HTTP 503은 일시 장애·접속 제한 등 원인을 추가 확인해야 함)
 
 ## 설치 — 4가지 방법
 
@@ -66,8 +68,8 @@ Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 �
 [Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.7.0.tgz
-dongguk-rule-mcp --version   # 0.7.0 나오면 성공
+npm install -g ./dongguk-rule-mcp-0.8.0.tgz
+dongguk-rule-mcp --version   # 0.8.0 나오면 성공
 ```
 
 ### 방법 C: 소스 폴더에서
@@ -76,7 +78,7 @@ dongguk-rule-mcp --version   # 0.7.0 나오면 성공
 git clone https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
 npm install
-npm test                     # 182개 자체 검증
+npm test                     # 오프라인 회귀 검증
 node src/index.js --version
 ```
 
@@ -234,3 +236,22 @@ rule.dongguk.edu에 실제 접속해 검색·본문·연혁·HWP 원문 경로�
 ## 라이선스
 
 MIT
+
+## Finance AI Desk 선택 연결 (v0.8)
+
+기존 9개 규정 도구는 그대로 동작합니다. 두 재무 도구는 운영자가 검토한 비식별 지식팩 JSON을
+`DONGGUK_FINANCE_PACK_PATH`로 연결해야 합니다. 개인별 급여·계좌·신고 원시행은 팩에 넣지 않습니다.
+팩은 공개 소스 저장소와 별도로 보관하고 배포합니다.
+
+- `get_finance_context`: 질문을 업무 경로로 연결하며, 부족한 사실과 검토 필요 상태를 반환합니다.
+- `get_finance_evidence`: 규정 최대 2건, 법령 최대 2건을 조회합니다. 교내 규정은 기준일의 개정일 후보, 국가 법령은 검색 시점 현행 후보입니다. 시행일·경과조치와 실제 적용성은 별도 확인합니다.
+- HWP 대체·발췌 누락·법령 실패는 `partial`로 표시합니다. 개정본 식별자 변경은 특정 조항의 변경을 뜻하지 않습니다.
+- 신고·납부·결재·지급·Slack 발송을 수행하지 않습니다.
+
+Korean Law MCP는 `DONGGUK_LEGAL_MCP_ENABLED=1`, `LAW_OC`, 고정 버전 실행 경로를
+`DONGGUK_LEGAL_MCP_COMMAND`와 `DONGGUK_LEGAL_MCP_ARGS` (JSON 배열)로 설정합니다.
+비밀값은 소스·로그가 아닌 접근제한 환경파일이나 서비스 비밀변수에 둡니다.
+
+`test/evaluate-finance.js`는 50개 라우팅·입력·법령 식별 파싱 사례를 검증합니다.
+`DONGGUK_FINANCE_PACK_PATH`를 지정하면 실제 팩을, 생략하면 비식별 테스트 픽스처를 사용합니다.
+자동 통과율은 법률 정답률이나 실제 업무시간 절감률이 아닙니다.

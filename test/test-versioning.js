@@ -40,7 +40,7 @@ const bad = serializeOutcome('sample', failure('INVALID_ARGUMENT', '잘못된 �
 check('오류코드 structuredContent', bad.structuredContent.error.code === 'INVALID_ARGUMENT');
 check('입력 오류는 전송 오류 아님', bad.isError !== true);
 const upstream = serializeException('sample', new Error('HTTP 503: blocked'));
-check('503 오류 분류', upstream.structuredContent.error.code === 'UPSTREAM_BLOCKED' && upstream.isError === true);
+check('503 오류 분류', upstream.structuredContent.error.code === 'UPSTREAM_UNAVAILABLE' && upstream.isError === true);
 
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log(`📊 개정 비교·구조화 응답: ${pass}개 통과 / ${fail}개 실패`);

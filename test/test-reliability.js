@@ -28,6 +28,7 @@ function seed(category, key, data) {
 }
 const searchKey = crypto.createHash('md5').update(['여비규정', false, 1, 10, '0'].join('|')).digest('hex');
 seed('search', searchKey, { total: 1, hits: [{ lawId: 1, historyId: 10, title: '여비규정', revisedAt: '2024.01.01' }] });
+seed('search', crypto.createHash('md5').update(['여비규정',false,1,10,'1'].join('|')).digest('hex'),{total:1,hits:[{lawId:1,historyId:10,title:'여비규정'}]});
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
 seed('original', '1_20', { markdown: '제1조(여비)\n최신 숙박비 기준' });
 seed('original', '1_10', { markdown: '제1조(여비)\n과거 숙박비 기준' });
@@ -58,6 +59,17 @@ async function main() {
     check('검색 캐시보다 최신 연혁 선택', rule.historyId === 20);
     check('개정일도 동일 연혁에서 반환', rule.revisedAt === '2026.09.01');
     check('실제로 최신 원문 사용', rule.excerpt.text.includes('최신 숙박비'));
+    const financePath=path.join(root,'finance-pack.json');
+    fs.writeFileSync(financePath,JSON.stringify({version:'test',workflows:[{id:'travel',title:'출장',keywords:['출장'],required_facts:[{key:'base_date',label:'기준일'},{key:'campus',label:'캠퍼스'}],source_notes:[],steps:['검토'],checks:[],completion_evidence:['확인'],rule_requests:[{keyword:'여비규정',terms:'숙박비',baseline_history_id:10}],legal_requests:[]}],cards:[]}));
+    process.env.DONGGUK_FINANCE_PACK_PATH=financePath;
+    const privateInput=await call('get_finance_context',{query:'출장 계좌번호: '+['000','0000','0000'].join('-')});
+    check('재무 도구가 계좌형 개인값 입력 차단',privateInput.structuredContent.error.code==='SENSITIVE_INPUT');
+    const historical=await call('get_finance_evidence',{query:'출장',facts:{base_date:'2024-02-01',campus:'서울'}});
+    check('재무 근거는 과거 기준일 개정본 후보 선택',historical.structuredContent.data.rules[0].structuredContent.data.rules[0].historyId===10);
+    check('개정 차이와 조항 변경을 구분',historical.structuredContent.data.freshness[0].status==='revision_changed');
+    check('근거 조회를 적용 판단으로 승격하지 않음',historical.structuredContent.data.applicability==='requires_review');
+    const badHistory=await call('get_rule_content',{law_id:1,history_id:999});
+    check('본문 조회도 소속이 다른 개정본 차단',badHistory.structuredContent.error.code==='HISTORY_NOT_FOUND');
     const foreign = await call('compare_rule_versions', { law_id: 1, from_history_id: 999, to_history_id: 20 });
     check('다른 규정 개정본 차단', foreign.structuredContent.error.code === 'HISTORY_NOT_FOUND');
     const missing = await call('compare_rule_versions', { law_id: 1, from_history_id: 10, article: '제99조' });
@@ -71,6 +83,8 @@ async function main() {
     fs.unlinkSync(path.join(dir, 'original', '1_20.json'));
     const fallback = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('HWP 실패 시 HTML 대체와 경고', fallback.structuredContent.data.rules[0].warning.code === 'HWP_FALLBACK');
+    const incomplete=await call('get_finance_evidence',{query:'출장',facts:{base_date:'2026-09-05',campus:'서울'}});
+    check('재무 근거의 HWP 실패는 부분 조회로 표시',incomplete.structuredContent.data.evidence_status==='partial');
     check('대체 본문에 HWP 포함 완료를 단정하지 않음', !fallback.content[0].text.includes('원문 HWP의 관련 조문·별표가 포함되어 있습니다'));
     console.log(`📊 신뢰성 회귀 검증: ${passed}개 통과`);
   } finally {
