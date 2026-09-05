@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "start": "node src/index.js",
-    "test": "node test/test-loop.js && node test/test-utils.js && node test/test-lookup.js && node test/test-versioning.js && node test/test-edge.js && node test/test-mcp-protocol.js && node test/test-http.js",
+    "test": "node test/test-loop.js && node test/test-utils.js && node test/test-lookup.js && node test/test-versioning.js && node test/test-edge.js && node test/test-mcp-protocol.js && node test/test-http.js && node test/test-reliability.js",
     "test:offline": "npm test",
     "test:live": "node test/smoke-live.js",
     "prepublishOnly": "npm test"

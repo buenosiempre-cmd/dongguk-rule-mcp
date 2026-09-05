@@ -101,8 +101,9 @@ let lastReq = 0;
 
 // === 입력 검증 유틸 ===
 function toId(v) {
+  if (typeof v !== 'number' && !(typeof v === 'string' && /^\d+$/.test(v.trim()))) return null;
   const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 function validStr(v) {
   return typeof v === 'string' && v.trim().length > 0 ? v.trim() : null;
@@ -418,8 +419,7 @@ async function hLookup(rawKeyword, {
     ? `${rawTerms}, 국내`
     : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
-    `> 조회 완료: 아래 결과에는 최신 개정 메타데이터와 원문 HWP의 관련 조문·별표가 포함되어 있습니다. ` +
-    `동일 질문으로 search_rule, get_rule_content, search_rule_deep을 다시 호출하지 마세요.\n\n` +
+    `> 연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분). 원문 유형과 누락 경고를 확인하세요.\n\n` +
     `- 검색 방식: ${searchMode}\n` +
     (queryUsed!==keyword?`- 정규화 검색어: ${queryUsed}\n`:``) +
     `- 원문 집계 / 고유 후보: ${result.total}건 / ${metrics.uniqueRows}건\n` +
@@ -430,7 +430,8 @@ async function hLookup(rawKeyword, {
   for(let i=0;i<hits.length;i++){
     const hit=hits[i];
     const lawId=hit.lawId;
-    const historyId=hit.historyId || (await resolve(lawId)).historyId;
+    const latest=await resolve(lawId);
+    const {historyId,revisedAt}=latest;
     let markdown, sourceType='원문 HWP(별표 포함)', warning='', warningData=null;
     try{
       const original=await cached('original',`${lawId}_${historyId}`,TTL.content,
@@ -458,7 +459,7 @@ async function hLookup(rawKeyword, {
     const sourceUrl=`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${historyId}`;
     out+=`\n\n## [${i+1}] ${hit.title}\n` +
       `- 분류: ${hit.code || '미상'}\n` +
-      `- 최신 개정일: ${hit.revisedAt || '확인 필요'}\n` +
+      `- 최신 개정일: ${revisedAt || '확인 필요'}\n` +
       `- LAW_ID / HISTORY_ID: ${lawId} / ${historyId}\n` +
       `- 원문 유형: ${sourceType}\n` +
       `- 원문: ${sourceUrl}` +
@@ -474,7 +475,7 @@ async function hLookup(rawKeyword, {
       out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
     }
     rules.push({
-      ...hit,lawId,historyId,sourceType,sourceUrl,history,
+      ...hit,lawId,historyId,revisedAt,sourceType,sourceUrl,history,
       warning:warningData,
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
     });
@@ -501,6 +502,9 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   if(!toHistoryId) return failure('INVALID_ARGUMENT', 'to_history_id는 양의 정수여야 하며, 생략 시 최신 연혁을 조회할 수 있어야 합니다.');
   const fromEntry=history.find(x=>x.historyId===fromHistoryId);
   const toEntry=history.find(x=>x.historyId===toHistoryId);
+  if(!fromEntry || !toEntry) return failure('HISTORY_NOT_FOUND', '비교할 HISTORY_ID가 해당 규정의 연혁에 없습니다.', {
+    details:{lawId,fromHistoryId,toHistoryId},
+  });
   const [before,after]=await Promise.all([
     cached('content',`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)),
     cached('content',`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)),
@@ -511,16 +515,19 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
     });
   }
   const comparison=compareRuleMarkdown(before.markdown,after.markdown,{article});
-  if(comparison.error) return failure(comparison.error, '조문 선택자를 해석할 수 없습니다.');
+  if(comparison.error) return failure(comparison.error, comparison.error === 'NOT_FOUND'
+    ? '선택한 조문이 두 개정본 모두에 없습니다.'
+    : '비교할 조문을 추출할 수 없습니다. 원문과 목차를 확인하세요.');
   maxChanges=clampNumber(maxChanges,20,1,50);
   const title=after.title||before.title||`LAW_ID ${lawId}`;
-  const text=formatVersionComparison(comparison,{
+  const text='> 비교 범위: HTML 본문의 조문입니다. HWP 별표·첨부 및 시행일 판단은 포함하지 않습니다.\n\n'+formatVersionComparison(comparison,{
     title:`${title} (${fromHistoryId} → ${toHistoryId})`,fromHistoryId,toHistoryId,maxChanges,
   });
   return success(text,{
     lawId,title,fromHistoryId,toHistoryId,
     fromRevisedAt:fromEntry?.revisedAt||'',toRevisedAt:toEntry?.revisedAt||'',
     article:comparison.article,counts:comparison.counts,changes:comparison.changes,
+    comparisonScope:'html_articles',
     source:{
       fromUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${fromHistoryId}`,
       toUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${toHistoryId}`,
@@ -611,6 +618,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>{
   const name = req.params.name;
   const a = req.params.arguments || {};   // [하드닝] arguments 누락 방어
   try{
+    for (const key of ['law_id','history_id','from_history_id','to_history_id']) {
+      if (a[key] !== undefined && !toId(a[key])) {
+        return serializeOutcome(name,failure('INVALID_ARGUMENT', `${key}는 양의 정수여야 합니다(최대 9007199254740991).`));
+      }
+    }
     let r;
     switch(name){
       case 'lookup_dongguk_rule': {
@@ -711,6 +723,7 @@ function startHttp() {
 }
 
 // === 기동 ===
+if (require.main === module) {
 if (MODE_HTTP) {
   startHttp();
 } else {
@@ -720,3 +733,6 @@ if (MODE_HTTP) {
     console.error(`dongguk-rule-mcp v${VERSION} 시작됨 (stdio, Node ${process.version})`);
   })().catch(e => { console.error('서버 시작 실패:', e.message); process.exit(1); });
 }
+}
+
+module.exports = { createServer };

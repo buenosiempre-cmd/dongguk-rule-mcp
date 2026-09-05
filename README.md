@@ -24,7 +24,12 @@ Notion AI가 보내는 전체 자연어 `query`와 짧은 규정명 `rule_keywor
 모든 도구는 기존 Markdown `content`와 함께 `structuredContent`를 반환합니다. 자동화에서는
 `ok`, `tool`, `data` 또는 `error.code`를 사용하면 텍스트를 다시 파싱하지 않아도 됩니다.
 대표 오류코드는 `INVALID_ARGUMENT`, `NOT_FOUND`, `UPSTREAM_BLOCKED`,
-`UPSTREAM_UNAVAILABLE`, `UPSTREAM_FORMAT_CHANGED`입니다.
+`UPSTREAM_UNAVAILABLE`, `UPSTREAM_FORMAT_CHANGED`, `HISTORY_NOT_FOUND`, `CONTENT_UNAVAILABLE`입니다.
+
+통합 조회는 검색 결과의 오래된 HISTORY_ID 대신 연혁의 첫 개정본을 선택합니다.
+연혁 캐시는 최대 10분이며, 최신 개정본이 특정 기준일에 시행 중이라는 뜻은 아닙니다.
+개정 비교는 두 HISTORY_ID가 해당 규정 연혁에 있는지 확인하며, HTML 조문만 비교합니다.
+HWP 별표·첨부 변경과 시행일 판단은 비교 범위에 포함되지 않습니다.
 
 ## 요구사항
 
@@ -63,7 +68,7 @@ dongguk-rule-mcp --version   # 0.6.0 나오면 성공
 git clone https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
 npm install
-npm test                     # 160개 자체 검증
+npm test                     # 182개 자체 검증
 node src/index.js --version
 ```
 
@@ -151,7 +156,8 @@ curl -s -X POST https://xxxx.trycloudflare.com/mcp \
 ```
 
 참고: HTTP 모드는 stateless(POST 전용)이며 `GET /health`로 모니터링합니다.
-Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동하되 URL을 비공개로 관리하세요.
+연결 UI가 Bearer 헤더를 지원하지 않으면 지원되는 인증 게이트웨이를 구성해야 합니다.
+URL을 숨기는 것만으로는 인증을 대체할 수 없습니다.
 
 ## 사용 예시
 
@@ -172,10 +178,10 @@ Notion 연결 UI가 Bearer 헤더를 지원하지 않으면 토큰 없이 기동
 npm test
 ```
 
-7개 스위트 160개: 파싱(45) + 유틸(22) + 통합 조회(17) + 개정비교·구조화응답(14) + 엣지케이스(12) + MCP 프로토콜(28, stdout 순수성 포함) + HTTP(22, Streamable HTTP·Bearer 인증·stateless).
+8개 스위트 182개: 파싱(45) + 유틸(22) + 통합 조회(17) + 개정비교·구조화응답(14) + 엣지케이스(12) + MCP 프로토콜(28, stdout 순수성 포함) + HTTP(22, Streamable HTTP·Bearer 인증·stateless) + 신뢰성 회귀(22, 실제 MCP 핸들러 호출).
 실제 HTML 픽스처 기반이라 국내/해외/CI 어디서든 통과해야 정상.
 
-`npm pack --dry-run`으로 약 36kB tarball과 필수 소스·테스트 17개 파일 포함 여부를 검증합니다.
+`npm pack --dry-run`으로 필수 소스·테스트 파일 포함 여부를 검증합니다.
 MCP JSON-RPC 핸드셰이크에서는 도구 7개와 stdout 무오염을 확인합니다.
 
 ### 실서버 (국내 IP에서)

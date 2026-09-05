@@ -35,6 +35,7 @@ function compareRuleMarkdown(beforeMarkdown, afterMarkdown, options = {}) {
     if (!selector) return { error: 'INVALID_ARTICLE_SELECTOR' };
     const before = extractArticleSections(beforeMarkdown, rawArticle).text;
     const after = extractArticleSections(afterMarkdown, rawArticle).text;
+    if (!before && !after) return { error: 'NOT_FOUND' };
     let status = 'unchanged';
     if (!before && after) status = 'added';
     else if (before && !after) status = 'removed';
@@ -59,6 +60,7 @@ function compareRuleMarkdown(beforeMarkdown, afterMarkdown, options = {}) {
 
   const before = indexBlocks(beforeMarkdown);
   const after = indexBlocks(afterMarkdown);
+  if (!before.size || !after.size) return { error: 'CONTENT_UNAVAILABLE' };
   const keys = [...new Set([...before.keys(), ...after.keys()])];
   const changes = [];
   const counts = { added: 0, removed: 0, changed: 0, unchanged: 0 };
