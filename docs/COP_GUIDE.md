@@ -2,7 +2,7 @@
 
 교원·직원·학생이 공개된 동국대학교 규정의 원문과 개정 이력을 찾아 업무를 검토하는 도구입니다. CoP에서는 같은 질문을 다른 구성원도 재현할 수 있도록 **질문 조건 → 근거 확인 → 검토 기록**을 함께 연습합니다.
 
-이 문서는 v0.9.0 배포용 가이드입니다. 학교의 공식 해석이나 전 구성원 계정 개통을 의미하지 않습니다. 실제 사용 앱별 연결·권한과 현업 효과는 해당 환경에서 확인해야 합니다.
+이 문서는 v0.10.0 배포용 가이드입니다. 학교의 공식 해석이나 전 구성원 계정 개통을 의미하지 않습니다. 실제 사용 앱별 연결·권한과 현업 효과는 해당 환경에서 확인해야 합니다.
 
 ## 1. 사용할 경로 고르기
 
@@ -20,7 +20,7 @@
 명령은 macOS 터미널 또는 Windows PowerShell에서 실행합니다. `node --version`으로 20.19 이상인지 먼저 확인합니다.
 
 ```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.9.0/dongguk-rule-mcp-0.9.0.tgz
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.10.0/dongguk-rule-mcp-0.10.0.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json
 ```
@@ -40,7 +40,7 @@ dongguk-rule-mcp --print-config cursor
 글로벌 설치 권한이 없다면, 쓰기 가능한 작업 폴더에서 아래처럼 별도 하위 폴더에 설치할 수 있습니다. 설정 출력의 `codex`는 `claude` 또는 `cursor`로 바꿔도 됩니다.
 
 ```bash
-npm install --prefix ./dongguk-rule-client https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.9.0/dongguk-rule-mcp-0.9.0.tgz
+npm install --prefix ./dongguk-rule-client https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.10.0/dongguk-rule-mcp-0.10.0.tgz
 node ./dongguk-rule-client/node_modules/dongguk-rule-mcp/src/index.js --doctor --json
 node ./dongguk-rule-client/node_modules/dongguk-rule-mcp/src/index.js --print-config codex
 ```
