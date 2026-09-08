@@ -8,9 +8,9 @@
 //  4) 검색 0건은 ✗(환각)이 아니라 ⚠(규정명 확인 필요) — 검증 미가동 ≠ 통과
 //  5) 유사 규정만 검색되면(포함관계 없음) 무관 규정을 근거로 판정하지 않음
 
-const { normalizeMiddots, expandAliases } = require('./aliases.js');
+const { normalizeMiddots } = require('./aliases.js');
 const { listArticleBlocks } = require('./parsers.js');
-const { searchVariants, rankRuleHits } = require('./lookup.js');
+const { searchVariants, selectRuleCandidate } = require('./lookup.js');
 
 const NAME_SUFFIX = '(?:시행세칙|규정|규칙|세칙|학칙|정관|지침|내규|요령|헌장)';
 const STANDALONE_NAMES = new Set(['학칙', '정관', '헌장']);
@@ -219,49 +219,59 @@ function titleMatches(cited, actual) {
 
 // 조문 블록에서 최대 항 번호(①~⑳) 탐지 — 0이면 항 표기 없음
 function maxHangOf(content) {
-  let max = 0;
-  for (const ch of String(content || '')) {
-    const code = ch.codePointAt(0);
-    if (code >= 0x2460 && code <= 0x2473) max = Math.max(max, code - 0x245F);
+  return Math.max(0, ...paragraphNumbersOf(content));
+}
+
+function paragraphNumbersOf(content) {
+  const numbers = new Set();
+  const re = /(?:^|\n)[ \t]*([①-⑳㉑-㉟㊱-㊿])/g;
+  for (const match of String(content || '').matchAll(re)) {
+    const code = match[1].codePointAt(0);
+    numbers.add(code <= 0x2473 ? code - 0x245f : code <= 0x325f ? code - 0x3251 + 21 : code - 0x32b1 + 36);
   }
-  return max;
+  return [...numbers].sort((a, b) => a - b);
 }
 
 // 규정명 1건 해석: 검색 → 관련성 가드 → 최신본 본문 → 조문 인덱스
 async function resolveRule(name, deps) {
-  let hits = [];
+  const hits = [];
+  let successfulSearches = 0;
+  let failedSearches = 0;
+  let selection = null;
   for (const variant of searchVariants(name)) {
     let result = null;
-    try { result = await deps.searchRule(variant); } catch (e) { /* 개별 변형 실패 무시 */ }
-    if (result && Array.isArray(result.hits) && result.hits.length) { hits = result.hits; break; }
+    try { result = await deps.searchRule(variant); } catch (e) { failedSearches++; continue; }
+    if (!result || !Array.isArray(result.hits)) { failedSearches++; continue; }
+    successfulSearches++;
+    hits.push(...result.hits);
   }
-  if (!hits.length) return { status: 'miss' };
+  selection = selectRuleCandidate(hits, name);
+  if (failedSearches) return { status: 'searcherror', candidates: selection.candidates };
+  if (!hits.length) return { status: successfulSearches ? 'miss' : 'searcherror' };
+  if (!selection || selection.status !== 'unique') return { status: 'weak', candidates: selection?.candidates || [] };
 
-  const ranked = rankRuleHits(hits, name);
-  const best = ranked[0];
-  const nb = nkey(best.title);
-  const nn = nkey(name);
-  const related = nb.includes(nn) || nn.includes(nb) ||
-    expandAliases(name).some(alias => {
-      const na = nkey(alias);
-      return nb.includes(na) || na.includes(nb);
-    });
-  if (!related) return { status: 'weak', candidates: ranked.slice(0, 3) };
-
-  const historyId = best.historyId || await deps.resolveLatest(best.lawId);
-  const markdown = await deps.getRuleMarkdown(best.lawId, historyId);
-  if (!markdown) return { status: 'nocontent', hit: { ...best, historyId } };
+  const best = selection.hit;
+  let latest;
+  try { latest = await deps.resolveLatest(best.lawId); } catch (e) { return { status: 'latestunavailable', hit: best }; }
+  const historyId = typeof latest === 'object' ? latest?.historyId : latest;
+  if (!Number.isSafeInteger(historyId) || historyId <= 0) return { status: 'latestunavailable', hit: best };
+  // Never attach an old search-result date to a newly resolved history ID.
+  const revisedAt = typeof latest === 'object' ? (latest.revisedAt || '') : (historyId === best.historyId ? best.revisedAt || '' : '');
+  const hit = { ...best, historyId, revisedAt };
+  let markdown;
+  try { markdown = await deps.getRuleMarkdown(best.lawId, historyId); } catch (e) { return { status: 'nocontent', hit }; }
+  if (!markdown) return { status: 'nocontent', hit };
 
   const blocks = listArticleBlocks(markdown);
   const main = blocks.filter(b => !b.supplementary);
   const range = main.length
     ? { min: Math.min(...main.map(b => b.number)), max: Math.max(...main.map(b => b.number)) }
     : null;
-  return { status: 'ok', hit: { ...best, historyId }, blocks, range };
+  return { status: 'ok', hit, blocks, range };
 }
 
 function headingTitleOf(block) {
-  const match = /제\s*\d+\s*조(?:\s*의\s*\d+)?\s*\(([^)\n]*)\)/.exec(block.heading || '');
+  const match = /제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]*)[)）]/.exec(block.heading || '');
   return match ? match[1].trim() : '';
 }
 
@@ -273,9 +283,15 @@ function judgeCitation(citation, rec) {
   if (rec.status === 'miss') {
     return { status: 'RULE_SEARCH_MISS', symbol: '⚠', note: '규정 검색 0건 — 규정명 표기 확인 필요 (미존재 단정 아님)' };
   }
+  if (rec.status === 'searcherror') {
+    return { status: 'RULE_SEARCH_UNAVAILABLE', symbol: '⚠', note: '일부 또는 전체 규정 검색 요청 실패 — 후보 수집을 완료할 수 없어 규정 동일성은 미검증' };
+  }
+  if (rec.status === 'latestunavailable') {
+    return { status: 'RULE_LATEST_UNAVAILABLE', symbol: '⚠', note: '최신 연혁 확인 실패 — 과거 검색결과로 인용을 판정하지 않음' };
+  }
   if (rec.status === 'weak') {
     const names = rec.candidates.map(c => c.title).filter(Boolean).join(', ');
-    return { status: 'RULE_AMBIGUOUS', symbol: '⚠', note: `동일 규정으로 볼 검색결과 없음 — 유사 후보: ${names || '없음'}` };
+    return { status: 'RULE_AMBIGUOUS', symbol: '⚠', note: `규정 하나를 확정할 수 없음 — 공식 규정명·캠퍼스 확인 필요. 후보: ${names || '없음'}` };
   }
   if (rec.status === 'nocontent') {
     return { status: 'RULE_CONTENT_UNAVAILABLE', symbol: '⚠', note: '규정은 검색되나 본문 조회 실패 — 재시도 필요' };
@@ -285,11 +301,18 @@ function judgeCitation(citation, rec) {
   }
 
   const { number, subNumber, supplementary, canonical } = citation.article;
+  if (!rec.blocks.length) {
+    return { status: 'RULE_CONTENT_UNAVAILABLE', symbol: '⚠', note: '조문 구조를 확인할 수 없어 미존재 판정 불가 — 공식 원문 확인 필요' };
+  }
   let matches = rec.blocks.filter(b => b.number === number && b.subNumber === subNumber);
   matches = supplementary
     ? matches.filter(b => b.supplementary)
     : (matches.some(b => !b.supplementary) ? matches.filter(b => !b.supplementary) : []);
   const block = matches[0];
+
+  if (matches.length > 1) {
+    return { status: 'ARTICLE_AMBIGUOUS', symbol: '⚠', note: `${canonical}가 ${matches.length}개 존재 — 부칙의 개정일·원문 위치를 특정한 뒤 확인 필요` };
+  }
 
   if (!block) {
     const rangeNote = supplementary
@@ -299,24 +322,34 @@ function judgeCitation(citation, rec) {
   }
 
   const actualTitle = headingTitleOf(block);
+  if (citation.citedTitle && !actualTitle) {
+    return { status: 'TITLE_UNVERIFIED', symbol: '⚠', note: `${canonical} 실존하나 원문 제목을 추출할 수 없어 인용 제목은 미검증` };
+  }
   if (citation.citedTitle && actualTitle && !titleMatches(citation.citedTitle, actualTitle)) {
     return {
       status: 'CONTENT_MISMATCH', symbol: '⚠', actualTitle,
       note: `${canonical} 실존하나 제목 불일치 — 인용 (${citation.citedTitle}) vs 실제 (${actualTitle})`,
     };
   }
+  if (citation.citedTitle && normTitle(citation.citedTitle) !== normTitle(actualTitle)) {
+    return {
+      status: 'TITLE_SIMILAR', symbol: '⚠', actualTitle,
+      note: `${canonical} 실존하나 인용 제목은 유사 표기 — 인용 (${citation.citedTitle}) vs 실제 (${actualTitle}); 의미 일치 확인 필요`,
+    };
+  }
   if (citation.hang) {
-    const maxHang = maxHangOf(block.content);
+    const paragraphNumbers = paragraphNumbersOf(block.content);
+    const maxHang = Math.max(0, ...paragraphNumbers);
     if (maxHang === 0) {
       return {
-        status: 'EXISTS', symbol: '✓', actualTitle,
+        status: 'HANG_UNVERIFIED', symbol: '⚠', actualTitle,
         note: `${canonical}${actualTitle ? `(${actualTitle})` : ''} 실존 — 항 표기 없어 제${citation.hang}항은 미검증`,
       };
     }
-    if (citation.hang > maxHang) {
+    if (!paragraphNumbers.includes(citation.hang)) {
       return {
         status: 'HANG_NOT_FOUND', symbol: '✗', actualTitle,
-        note: `${canonical} 실존, 제${citation.hang}항 없음 (최대 제${maxHang}항)`,
+        note: `${canonical} 실존, 제${citation.hang}항 표기 없음 (최대 제${maxHang}항; 확인된 항: ${paragraphNumbers.join(', ')})`,
       };
     }
     return {
@@ -366,11 +399,12 @@ async function verifyRuleCitations(text, deps, options = {}) {
     };
   });
 
-  // exists는 '조문 실존' 기준 집계 — CONTENT_MISMATCH(조문은 실존하나 제목 불일치)는
+  // exists는 '조문 실존' 기준 집계 — 제목·항의 확인이 필요한 인용도
   // exists와 needsReview 양쪽에 계수되므로 세 항목 합이 total을 넘을 수 있다.
   // (HANG_NOT_FOUND는 인용된 항 자체가 없으므로 notFound에만 계수)
-  const ARTICLE_EXISTS = new Set(['EXISTS', 'RULE_EXISTS', 'CONTENT_MISMATCH']);
+  const ARTICLE_EXISTS = new Set(['EXISTS', 'RULE_EXISTS', 'CONTENT_MISMATCH', 'TITLE_SIMILAR', 'TITLE_UNVERIFIED', 'HANG_UNVERIFIED']);
   const summary = {
+    verified: results.filter(r => r.symbol === '✓').length,
     exists: results.filter(r => ARTICLE_EXISTS.has(r.status)).length,
     notFound: results.filter(r => r.symbol === '✗').length,
     needsReview: results.filter(r => r.symbol === '⚠').length,
@@ -419,6 +453,7 @@ module.exports = {
   verifyRuleCitations,
   titleMatches,
   maxHangOf,
+  paragraphNumbersOf,
   judgeCitation,
   resolveRule,
 };

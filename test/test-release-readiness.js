@@ -16,7 +16,7 @@ require(fetchPath);
 require.cache[fetchPath].exports = async () => { networkCalls++; throw new Error('Network disabled'); };
 const { createServer } = require('../src/index.js');
 function seed(category, key, value) {
-  const folder = path.join(root, 'dongguk-rule-mcp/public', category);
+  const folder = path.join(root, 'dongguk-rule-mcp/v2/public', category);
   fs.mkdirSync(folder, { recursive: true });
   fs.writeFileSync(path.join(folder, `${key}.json`), JSON.stringify(value));
 }
@@ -24,6 +24,7 @@ const key = (...parts) => crypto.createHash('md5').update(parts.join('|')).diges
 const oldHit = { lawId: 1, historyId: 10, title: '여비규정', revisedAt: '2024.01.01' };
 seed('search', key('숙박비', true, 1, 5, '0'), { total: 1, hits: [oldHit] });
 for (const campus of ['0', '1', '2']) seed('search', key('여비규정', false, 1, 10, campus), { total: 1, hits: [oldHit] });
+seed('search', key('여비',false,1,10,'0'), {total:0,hits:[]});
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
 seed('content', '1_10', { markdown: '### 제1조(숙박비)\n과거 숙박비' });
 seed('content', '1_20', { markdown: '### 제1조(숙박비)\n최신 숙박비' });
@@ -37,7 +38,7 @@ process.env.DONGGUK_FINANCE_PACK_PATH = packPath;
 let passed = 0, failed = 0;
 function check(name, fn) { try { fn(); passed++; console.log(`PASS ${name}`); } catch (e) { failed++; console.error(`FAIL ${name}: ${e.message}`); } }
 async function main() {
-  const server = createServer();
+  const server = createServer({profile:'finance'});
   const client = new Client({ name: 'release-regression', version: '1' });
   const [a, b] = InMemoryTransport.createLinkedPair();
   const call = async (name, args) => (await client.callTool({ name, arguments: args })).structuredContent;
@@ -66,7 +67,7 @@ async function main() {
     const toc = await call('get_rule_toc', { law_id: 1, history_id: 999 });
     check('TOC rejects foreign history', () => assert.equal(toc.error?.code, 'HISTORY_NOT_FOUND'));
     check('seeded requests made no external calls', () => assert.equal(networkCalls, 0));
-    fs.unlinkSync(path.join(root, 'dongguk-rule-mcp/public/original/1_20.json'));
+    fs.unlinkSync(path.join(root, 'dongguk-rule-mcp/v2/public/original/1_20.json'));
     seed('content', '1_20', { markdown: '   ' });
     const empty = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('missing HWP plus empty HTML is not success', () => {

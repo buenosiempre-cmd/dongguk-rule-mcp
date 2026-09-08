@@ -81,7 +81,7 @@ async function main() {
   const list = await rpc(BASE, { jsonrpc:'2.0', id:2, method:'tools/list', params:{} }, AUTH);
   check('initialize 없이 새 요청 처리', list.status === 200, `(got ${list.status})`);
   const tools = list.body?.result?.tools || [];
-  check('도구 11개', tools.length === 11, `(got ${tools.length})`);
+  check('도구 10개', tools.length === 10, `(got ${tools.length})`);
   check('lookup_dongguk_rule 포함', tools.some(t => t.name === 'lookup_dongguk_rule'));
   check('search_rule 포함', tools.some(t => t.name === 'search_rule'));
   check('compare_rule_versions 포함', tools.some(t => t.name === 'compare_rule_versions'));
@@ -119,7 +119,7 @@ async function main() {
   check('무토큰 기동', readyB);
   if (readyB) {
     const openList = await rpc(`http://127.0.0.1:${PORT2}`, { jsonrpc:'2.0', id:1, method:'tools/list', params:{} });
-    check('무인증 tools/list 허용', openList.status === 200 && (openList.body?.result?.tools||[]).length === 11,
+    check('무인증 tools/list 허용', openList.status === 200 && (openList.body?.result?.tools||[]).length === 10,
       `(status ${openList.status})`);
   } else { fail++; }
   procB.kill();

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="동국대학교 구성원을 위한 공개 규정 MCP 시작 안내. 연결 방법, 첫 질문, 원문 확인 순서를 안내합니다.">
+  <title>동국 규정 MCP · 구성원 시작 안내</title>
+  <style>
+    :root { --ink:#172c38; --muted:#52616a; --paper:#f6f5f0; --white:#fff; --line:#d9dfdf; --accent:#a94b13; --wash:#fff1df; --teal:#1c6265; --soft:#eaf3f1; --radius:20px; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:system-ui,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; line-height:1.7; word-break:keep-all; overflow-wrap:break-word; }
+    a { color:var(--teal); text-underline-offset:4px; }
+    a:hover { color:var(--accent); }
+    a:focus-visible, summary:focus-visible { outline:3px solid var(--accent); outline-offset:5px; }
+    .skip { position:absolute; left:1rem; top:-5rem; padding:.6rem 1rem; background:var(--white); z-index:10; }
+    .skip:focus { top:1rem; }
+    .wrap { max-width:1120px; margin:auto; padding:0 32px; }
+    .topbar { border-bottom:1px solid var(--line); }
+    .topbar .wrap { min-height:72px; display:flex; justify-content:space-between; align-items:center; gap:20px; }
+    .brand { display:flex; flex-wrap:wrap; align-items:center; gap:12px; font-size:16px; font-weight:760; }
+    .mark { display:inline-grid; place-items:center; width:35px; height:35px; border-radius:11px; background:var(--ink); color:white; font-size:18px; }
+    .tag { border:1px solid #cdd7d8; border-radius:30px; padding:3px 11px; color:var(--muted); font-size:12px; font-weight:650; letter-spacing:.03em; }
+    .toplinks { display:flex; gap:22px; font-size:13px; }
+    .hero { padding:64px 0 38px; }
+    .eyebrow { margin:0 0 16px; color:var(--accent); font-size:13px; font-weight:800; letter-spacing:.08em; }
+    h1 { margin:0; max-width:850px; font-size:clamp(33px,4.5vw,54px); line-height:1.24; letter-spacing:-.055em; font-weight:820; }
+    .intro { max-width:740px; margin:22px 0 0; font-size:18px; color:var(--muted); }
+    .route { margin-top:28px; display:flex; flex-wrap:wrap; gap:10px; }
+    .route a { padding:9px 15px; border:1px solid var(--line); border-radius:30px; background:white; font-size:14px; text-decoration:none; }
+    main { padding-bottom:44px; }
+    section { margin:36px 0 0; scroll-margin-top:20px; }
+    .sectionhead { display:flex; gap:14px; align-items:flex-start; margin-bottom:18px; }
+    .step { flex:none; display:grid; place-items:center; width:34px; height:34px; margin-top:2px; border-radius:50%; background:var(--ink); color:white; font-size:14px; font-weight:800; }
+    h2 { margin:0; font-size:25px; line-height:1.4; letter-spacing:-.04em; }
+    .sectionhead p { margin:4px 0 0; font-size:15px; color:var(--muted); }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .card { padding:26px; border:1px solid var(--line); border-radius:var(--radius); background:var(--white); min-width:0; }
+    .card.featured { border-top:4px solid var(--teal); padding-top:23px; }
+    .card h3 { font-size:21px; margin:7px 0 9px; letter-spacing:-.025em; }
+    .card p { margin:0 0 15px; color:var(--muted); font-size:15px; }
+    .mini { font-size:12px; font-weight:800; color:var(--teal); letter-spacing:.04em; }
+    .endpoint { display:block; margin:15px 0; padding:14px 15px; background:var(--soft); border:1px solid #d5e7e2; border-radius:11px; font-size:14px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; color:#164d50; word-break:break-all; }
+    .plainsteps { padding-left:22px; margin:15px 0 0; }
+    .plainsteps li { padding-left:3px; margin:9px 0; font-size:15px; }
+    .button { display:inline-block; border-radius:10px; background:var(--ink); color:white; text-decoration:none; font-size:14px; font-weight:700; padding:11px 17px; }
+    .button:hover { background:var(--teal); color:white; }
+    .subtle { font-size:13px; color:var(--muted); }
+    .note { border-left:3px solid var(--accent); padding:12px 18px; margin-top:18px; background:var(--wash); border-radius:0 12px 12px 0; font-size:14px; }
+    .note p { margin:0; }
+    .prompt { border-radius:var(--radius); background:var(--ink); color:#f5f8f8; padding:28px; }
+    .prompt .mini { color:#a9d5d1; }
+    .prompt pre { white-space:pre-wrap; word-break:keep-all; overflow-wrap:anywhere; margin:14px 0 0; font:16px/1.85 system-ui,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+    .prompttip { margin:12px 0 0; font-size:14px; color:var(--muted); }
+    .checks { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    .check { padding:24px; border:1px solid var(--line); border-radius:16px; background:white; }
+    .check b { display:block; font-size:17px; margin-bottom:8px; }
+    .check p { margin:0; color:var(--muted); font-size:14px; }
+    .check .num { color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.08em; margin-bottom:10px; }
+    .record { margin-top:17px; padding:18px 22px; background:var(--soft); border-radius:12px; font-size:14px; }
+    details { border:1px solid var(--line); border-radius:14px; background:white; margin-top:12px; padding:0 22px; }
+    summary { cursor:pointer; font-size:15px; font-weight:720; padding:17px 0; }
+    details .detailbody { border-top:1px solid var(--line); padding:17px 0 20px; font-size:14px; }
+    .detailbody p { margin:0 0 12px; }
+    .detailbody p:last-child { margin-bottom:0; }
+    .detailbody ul { padding-left:21px; margin:10px 0; }
+    .detailbody li { margin:7px 0; }
+    .codeblock { white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-all; background:#f1f3f3; padding:15px; border-radius:9px; font:12px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace; margin:12px 0; }
+    .footgrid { display:grid; grid-template-columns:1.25fr 1fr; gap:24px; padding:26px; border-radius:var(--radius); background:#e9eeed; }
+    .footgrid h3 { font-size:17px; margin:0 0 8px; }
+    .footgrid p { margin:0; color:var(--muted); font-size:14px; }
+    .footgrid .links { display:flex; flex-wrap:wrap; gap:8px 19px; margin-top:14px; font-size:14px; }
+    footer { border-top:1px solid var(--line); color:var(--muted); font-size:12px; padding:22px 0 30px; }
+    footer .wrap { display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    @media (max-width:720px) { .wrap { padding:0 20px; } .topbar .wrap { min-height:64px; } .toplinks { gap:14px; } .toplinks .desktop { display:none; } .hero { padding:40px 0 18px; } .intro { font-size:16px; } .grid,.checks,.footgrid { grid-template-columns:1fr; } .card,.prompt { padding:22px; } .card.featured { padding-top:19px; } section { margin-top:30px; } .checks { gap:10px; } .check { padding:20px; } .prompt pre { font-size:15px; } h2 { font-size:23px; } .footgrid { gap:22px; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+    @media print { @page { size:A4; margin:15mm; } html,body { background:white; color:black; font-size:10pt; } .wrap { max-width:none; padding:0; } .skip,.toplinks,.route { display:none; } .topbar .wrap { min-height:40px; } .hero { padding:23px 0 6px; } h1 { font-size:29pt; } .intro { font-size:11pt; margin-top:12px; } section { margin-top:20px; } h2 { font-size:17pt; } .card,.check,.prompt,.footgrid { break-inside:avoid; border:1px solid #b9c1c2; border-radius:8px; padding:16px; background:white; color:black; } .grid { gap:12px; } .checks { grid-template-columns:1fr; gap:8px; } .check .num { float:left; margin-right:14px; } .check p,.card p,.footgrid p { font-size:10pt; } .prompt pre { font-size:10pt; line-height:1.6; } .prompt .mini { color:black; } .note,.record,.endpoint { background:#f3f3f3; } .button { background:white; color:black; border:1px solid #777; } details { break-inside:avoid; } details:not([open]) > .detailbody { display:block !important; } summary { font-size:11pt; } .codeblock { font-size:8pt; } .footgrid { grid-template-columns:1fr 1fr; } footer { padding:14px 0; } a { color:inherit; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#start">본문으로 이동</a>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="brand"><span class="mark" aria-hidden="true">규</span>동국 규정 MCP <span class="tag">v0.9.0</span></div>
+      <nav class="toplinks" aria-label="관련 문서"><a href="https://rule.dongguk.edu/">공식 규정 원문</a><a class="desktop" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/COP_GUIDE.md">전체 가이드</a></nav>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="hero">
+      <p class="eyebrow">CoP · 구성원 시작 안내</p>
+      <h1>업무 질문에서<br>동국 규정 원문까지.</h1>
+      <p class="intro">사용하는 AI에 규정 검색 도구를 연결하세요. 규정명·조문·개정 이력을 찾아주고, 직접 확인할 수 있는 원문을 함께 제공합니다.</p>
+      <nav class="route" aria-label="시작 순서"><a href="#start">1. 연결하기</a><a href="#ask">2. 첫 질문하기</a><a href="#verify">3. 원문 확인하기</a></nav>
+    </div>
+    <main>
+      <section id="start" aria-labelledby="start-title">
+        <div class="sectionhead"><span class="step" aria-hidden="true">1</span><div><h2 id="start-title">연결 방법을 하나 고르세요</h2><p>AI 앱이 MCP 연결을 지원해야 합니다. 앱·요금제·기관 정책에 따라 사용 가능 여부가 다릅니다.</p></div></div>
+        <div class="grid">
+          <article class="card featured">
+            <span class="mini">공용 서버 연결</span>
+            <h3>내 PC에 서버 설치 없이</h3>
+            <p>운영자가 서버를 관리합니다. 먼저 개인 또는 그룹에 배정된 인증정보를 받으세요.</p>
+            <code class="endpoint">https://dgu.kr-univ-rules.com/mcp/rules</code>
+            <ol class="plainsteps"><li>사용하는 AI 앱의 원격 MCP 연결 설정을 엽니다.</li><li>위 주소와 운영자가 발급한 인증정보를 입력합니다.</li><li>연결을 저장하고 아래 첫 질문을 실행합니다.</li></ol>
+            <p class="subtle" style="margin:15px 0 0">인증정보가 아직 없으면 CoP 또는 서비스 운영 담당자에게 발급을 요청하세요. 관리자 토큰을 다른 구성원과 공유하지 않습니다.</p>
+          </article>
+          <article class="card">
+            <span class="mini">개인 PC 설치</span>
+            <h3>공유 토큰 없이 직접 시작</h3>
+            <p>Node.js 20.19 이상과 로컬 MCP를 지원하는 AI 앱이 필요합니다. 공개 규정만 조회하는 기본 설정으로 시작합니다.</p>
+            <a class="button" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.9.0/dongguk-rule-mcp-0.9.0.tgz">v0.9.0 설치 파일 받기</a>
+            <ol class="plainsteps"><li>GitHub의 고정 버전 설치 파일을 받습니다.</li><li>아래 설치 명령과 앱별 설정 출력을 확인합니다.</li><li>AI 앱을 다시 시작하고 첫 질문을 실행합니다.</li></ol>
+            <p class="subtle" style="margin:15px 0 0"><a href="#local-install">개인 설치 명령 보기</a> · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.9.0">릴리스 확인</a></p>
+          </article>
+        </div>
+        <div class="note"><p><strong>공개 규정 조회용입니다.</strong> 이 연결로 내부 재무지식팩, 개인별 급여·계좌, 학생기록, 결재·회계 시스템에 접근할 수 없습니다. 질문에는 개인을 식별하는 정보를 넣지 마세요.</p></div>
+      </section>
+
+      <section id="ask" aria-labelledby="ask-title">
+        <div class="sectionhead"><span class="step" aria-hidden="true">2</span><div><h2 id="ask-title">이 질문으로 연결을 확인하세요</h2><p>아래 문장을 복사해 AI에 붙여 넣고, 대괄호 안을 내 업무 조건으로 바꾸세요.</p></div></div>
+        <div class="prompt"><span class="mini">첫 질문 · 출장 규정 예시</span><pre>동국 규정 MCP의 get_service_info로 연결과 버전을 확인해줘.
+이어서 lookup_dongguk_rule로 출장 관련 공개 규정을 찾아줘.
+
+소속·캠퍼스: [서울 / WISE / 기타]
+대상 신분: [직원 / 교원 / 강사 / 학생 / 기타]
+업무 기준일: [YYYY-MM-DD]
+
+정확한 규정명, LAW_ID, HISTORY_ID, 조문·별표 위치와
+공식 원문 링크를 보여줘. 최신 개정본이 이 날짜에 적용되는지,
+내 소속·신분에 적용되는지는 원문에서 별도로 확인해줘.
+확인하지 못한 금액·전결권자는 확정하지 말고 확인할 사실을 적어줘.</pre></div>
+        <p class="prompttip">성공 확인: <strong>서버 버전 확인 → 도구 호출 성공 → 실제 원문 링크 확인.</strong> 설치 성공이나 서버 상태 응답만으로 원문 조회 성공을 판정하지 않습니다.</p>
+      </section>
+
+      <section id="verify" aria-labelledby="verify-title">
+        <div class="sectionhead"><span class="step" aria-hidden="true">3</span><div><h2 id="verify-title">답변을 쓰기 전, 세 가지를 확인하세요</h2><p>AI의 안내를 규정 원문과 대조하면 다른 구성원도 같은 근거를 다시 찾을 수 있습니다.</p></div></div>
+        <div class="checks">
+          <article class="check"><div class="num">CHECK 01</div><b>맞는 규정과 대상인가요?</b><p>정확한 제목과 <strong>LAW_ID</strong>를 선택하세요. 서울·WISE·직원·교원·학생에게 같은 기준이 적용된다고 가정하지 말고, 원문의 적용범위 문구를 확인합니다.</p></article>
+          <article class="check"><div class="num">CHECK 02</div><b>그 날짜의 기준인가요?</b><p><strong>HISTORY_ID</strong>로 개정본을 기록하세요. 개정일과 시행일은 다를 수 있습니다. 과거 사건은 부칙·경과조치까지 확인합니다.</p></article>
+          <article class="check"><div class="num">CHECK 03</div><b>표와 조문을 직접 봤나요?</b><p>금액·권한은 해당 <strong>행·열·단위·주석</strong>을 대조하세요. 별표 누락, 발췌 잘림, 원문 조회 실패가 있으면 확인 필요로 남깁니다.</p></article>
+        </div>
+        <div class="record"><strong>함께 남길 근거 메모</strong><br>규정명 · LAW_ID · HISTORY_ID · 기준일 · 조문/별표 위치 · 적용 대상 · 조회일 · 원문 링크 · 미확인 사항</div>
+        <div class="note"><p><strong>캠퍼스별 자동 필터는 제공하지 않습니다.</strong> 캠퍼스 입력은 질문의 맥락으로 보존하며 전체 통합목록을 검색합니다. 제목과 LAW_ID를 고른 뒤 원문에서 실제 적용범위를 확인하세요.</p></div>
+      </section>
+
+      <section aria-labelledby="detail-title">
+        <div class="sectionhead"><div><h2 id="detail-title">필요할 때 펼쳐보세요</h2><p>설치·오류 해결·CoP 실습에 필요한 추가 안내입니다.</p></div></div>
+        <details id="local-install">
+          <summary>내 PC 설치와 앱별 설정 명령</summary>
+          <div class="detailbody">
+            <p>macOS 터미널 또는 Windows PowerShell을 사용합니다. 먼저 <code>node --version</code>으로 20.19 이상인지 확인합니다. 내려받은 파일이 있는 폴더에서 실행하세요.</p>
+            <pre class="codeblock">npm install -g ./dongguk-rule-mcp-0.9.0.tgz
+dongguk-rule-mcp --version
+dongguk-rule-mcp --doctor --json</pre>
+            <p>사용하는 앱에 맞는 설정을 출력합니다. 아래 세 명령 중 하나를 선택하세요.</p>
+            <pre class="codeblock">dongguk-rule-mcp --print-config codex
+dongguk-rule-mcp --print-config claude
+dongguk-rule-mcp --print-config cursor</pre>
+            <p>출력된 설정을 기존 연결을 보존하며 앱의 MCP 설정에 추가하고, 앱을 완전히 종료한 뒤 다시 실행합니다. 이 명령은 설정 예시를 출력하며 앱 설정을 직접 바꾸지 않습니다.</p>
+            <p>글로벌 설치가 막힌 경우, 관리자 권한 사용을 서두르기보다 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/COP_GUIDE.md">전체 설치 가이드</a>의 직접 실행 방법이나 공용 연결을 확인하세요. 기관 PC의 설치 정책은 담당 부서의 안내를 따릅니다.</p>
+          </div>
+        </details>
+        <details>
+          <summary>다른 업무에는 어떻게 질문하나요?</summary>
+          <div class="detailbody">
+            <ul><li><strong>복무·인사:</strong> 소속과 임용 구분, 기준일을 적고 관련 규정 후보와 적용범위를 요청합니다.</li><li><strong>학사 안내:</strong> 학부·대학원·소속 과정과 기준일을 구분하고 휴학 등 해당 규정의 원문을 찾습니다.</li><li><strong>기안문 인용:</strong> 개인·내부 정보를 제거한 학습용 문장의 규정명과 조문이 실제 존재하는지 확인합니다.</li><li><strong>담당자 부재:</strong> 근거 메모의 동일 개정본·조문·별표를 다른 구성원이 다시 찾아보게 합니다.</li></ul>
+            <p>인용이 실재한다는 결과와 해당 사안에 맞는 해석은 별개입니다. 검색 결과가 없다고 관련 규정이 없다고 단정하지 않습니다. 서로 다른 규정의 내용이 충돌하거나 적용범위가 불명확하면 담당 부서에 원문과 함께 확인합니다.</p>
+          </div>
+        </details>
+        <details>
+          <summary>연결이 안 되거나 답변이 불완전한가요?</summary>
+          <div class="detailbody">
+            <ul><li><strong>도구가 보이지 않음:</strong> 앱 재시작, 설정 문법, Node 버전과 실행 경로를 확인합니다.</li><li><strong>인증 실패:</strong> 공용 연결의 자격증명 발급·만료 여부를 운영자에게 확인합니다.</li><li><strong>원문 조회 실패:</strong> 발생 시각과 오류코드를 기록하고 <a href="https://rule.dongguk.edu/">공식 규정 시스템</a>에서 원문을 확인합니다.</li><li><strong>별표·발췌 누락:</strong> 부분 조회 상태를 남기고 원문 파일의 해당 표를 직접 확인합니다.</li></ul>
+            <p><a href="/health">서버 상태 확인</a>은 프로세스 상태를 보여줍니다. 원문 서버·앱 연결·업무 판단까지 검증하는 것은 아닙니다. 공개 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues">오류 제보</a>에는 버전·비식별 질문·오류코드만 남기고 인증정보나 내부 문서를 올리지 마세요.</p>
+          </div>
+        </details>
+        <details>
+          <summary>CoP에서 20분 동안 함께 연습하기</summary>
+          <div class="detailbody">
+            <ul><li><strong>0–5분:</strong> 연결·버전·공개 원문 조회를 확인합니다.</li><li><strong>5–10분:</strong> 소속·신분·기준일을 비운 질문과 채운 질문을 비교합니다.</li><li><strong>10–15분:</strong> 조문·별표를 대조하고 근거 메모를 만듭니다.</li><li><strong>15–20분:</strong> 다른 구성원이 같은 근거를 찾고 누락·오류를 기록합니다.</li></ul>
+            <p>설치 성공, 원문 조회 성공, 다른 담당자의 재현 성공을 따로 기록하세요. 시간절감·업무 정확성은 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/EVALUATION.md">실증평가 가이드와 빈 평가 양식</a>으로 측정합니다. 이 안내 페이지에 제시된 실제 업무 효과는 아직 측정되지 않았습니다.</p>
+          </div>
+        </details>
+      </section>
+
+      <section aria-label="운영 범위와 참고 자료">
+        <div class="footgrid">
+          <div><h3>현재 운영 범위</h3><p>공용 서버는 Mac mini에서 운영됩니다. 잠자기·전원·인터넷 상태 또는 공식 원문 서버 장애에 따라 중단될 수 있습니다. 학교의 공식 해석, 전 구성원 계정 개통, 상시 가용성 또는 현업 효과가 검증되었다는 의미는 아닙니다.</p></div>
+          <div><h3>원문과 가이드를 곁에 두세요</h3><p>학교의 공식 규정 원문을 기준으로 검토하고, 운영 정보와 학습 자료는 아래에서 확인하세요.</p><div class="links"><a href="https://rule.dongguk.edu/">공식 규정 시스템</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/COP_GUIDE.md">구성원 가이드</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/OPERATIONS.md">운영 가이드</a><a href="/health">서버 상태</a></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer><div class="wrap"><span>동국 규정 MCP · CoP 공개 규정 활용 안내</span><span>v0.9.0 · 2026-09-08</span></div></footer>
+</body>
+</html>

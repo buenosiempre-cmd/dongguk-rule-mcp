@@ -1,281 +1,123 @@
-# dongguk-rule-mcp
+# 동국 규정 MCP
 
-동국대학교 통합규정관리시스템(rule.dongguk.edu)을 AI에서 직접 검색·조회하는 MCP 서버.
+동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **v0.9.0의 기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
 
-> [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감.
-> 공무원에게 korean-law-mcp가 있다면, 대학 교직원에게는 dongguk-rule-mcp가 있다.
+[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.9.0)
 
-## 도구 (11개)
+## 시작하기
 
-| 도구 | 설명 |
-|------|------|
-| `get_finance_context` | **v0.8** — 선택 연결한 재무지식 팩에서 필수 사실·판단카드·절차·완료 증빙 조회 |
-| `get_finance_evidence` | **v0.8** — 기준일 교내 규정 후보와 Korean Law MCP의 현행 법령·요청 조문 조회, 부분 실패·개정 차이 표시 |
-| `lookup_dongguk_rule` | **기본 권장** — 검색→최신 HWP 원문→관련 조문·별표를 한 번에 조회 |
-| `verify_rule_citations` | **v0.7 신규** — 기안문·공문 텍스트의 규정 인용을 실존·조문 제목·항 번호까지 대조 (환각 게이트) |
-| `applicable_rule` | **v0.7 신규** — 기준일의 개정일 기준 후보 선택 + 부칙 시행일 대조 + 현행 대비 변경 요약 |
-| `search_rule` | 키워드 검색 (제목/전문, 캠퍼스 필터) |
-| `get_rule_content` | 규정 본문 마크다운 조회 (조문/장/키워드 필터) |
-| `get_rule_toc` | 목차만 빠르게 조회 |
-| `list_rule_history` | 개정 연혁 목록 |
-| `compare_rule_versions` | 두 HISTORY_ID의 조문별 추가·삭제·변경 비교 |
-| `search_rule_deep` | 전문검색 → 본문에서 조문까지 자동 추출 |
+| 방법 | 준비 | 연결 |
+|---|---|---|
+| 공용 서버 | 원격 MCP 지원 앱, 운영자가 개인/그룹별로 발급한 인증정보 | `https://dgu.kr-univ-rules.com/mcp/rules` |
+| 내 PC | Node.js 20.19 이상, 로컬 MCP 지원 앱 | 아래 GitHub 릴리스 설치, 공유 토큰 불필요 |
 
-`lookup_dongguk_rule`은 HTML 본문에 포함되지 않는 원문 HWP의 별표와 금액표까지 파싱합니다.
-Notion AI가 보내는 전체 자연어 `query`와 짧은 규정명 `rule_keyword`를 모두 지원합니다.
-일반적인 규정 질문에는 이 도구를 먼저 사용하면 여러 도구를 반복 호출할 필요가 없습니다.
+공용 연결의 인증정보는 운영자에게 받습니다. 기존 관리자 토큰을 전 구성원에게 공유하지 않습니다. 앱·요금제·기관 정책별 연결 가능 여부는 실제 환경에서 확인해야 합니다.
 
-`verify_rule_citations`는 결재 전 인용 점검용입니다. 「규정명」 낫표·가운뎃점 표기(·ㆍ‧•・)·"같은 규정" 조응
-(문단 경계에서 승계 중단)을 처리하고, 검색 0건은 ✗(미존재)가 아닌 ⚠(확인필요)로 보고합니다 — ⚠는 통과가 아닙니다.
-`applicable_rule`은 연혁의 '개정일' 기준으로 기준일 적용본을 특정하되, 본문 부칙에서 명시 시행일을 추출해
-시행일이 기준일 이후면 직전 개정본 적용 가능성을 경고합니다 (개정일≠시행일 한계 상시 고지).
-검색어에는 별칭 사전이 적용됩니다 — 내장 별칭에 더해 `DONGGUK_RULE_ALIASES`(JSON 경로)로 부서별 약칭을 확장할 수 있습니다.
+### 개인 설치
 
-모든 도구는 기존 Markdown `content`와 함께 `structuredContent`를 반환합니다. 자동화에서는
-`ok`, `tool`, `data` 또는 `error.code`를 사용하면 텍스트를 다시 파싱하지 않아도 됩니다.
-대표 오류코드는 `INVALID_ARGUMENT`, `NOT_FOUND`,
-`UPSTREAM_UNAVAILABLE`, `UPSTREAM_FORMAT_CHANGED`, `HISTORY_NOT_FOUND`, `CONTENT_UNAVAILABLE`입니다.
-
-통합 조회는 검색 결과의 오래된 HISTORY_ID 대신 연혁의 첫 개정본을 선택합니다.
-연혁 캐시는 최대 10분이며, 최신 개정본이 특정 기준일에 시행 중이라는 뜻은 아닙니다.
-개정 비교는 두 HISTORY_ID가 해당 규정 연혁에 있는지 확인하며, HTML 조문만 비교합니다.
-HWP 별표·첨부 변경과 시행일 판단은 비교 범위에 포함되지 않습니다.
-
-## 요구사항
-
-- **Node.js 20.19 이상 (권장: Node 22 또는 24)** (`node --version`으로 확인)
-- 원문 서버에 접근 가능한 네트워크 (HTTP 503은 일시 장애·접속 제한 등 원인을 추가 확인해야 함)
-
-## 설치 — 4가지 방법
-
-### 방법 A: GitHub에서 바로 (권장 — 한 줄)
-
-Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 됩니다 (Node 20.19+ 필요):
-
-```json
-{
-  "mcpServers": {
-    "dongguk-rule": {
-      "command": "npx",
-      "args": ["-y", "github:buenosiempre-cmd/dongguk-rule-mcp#v0.8.1"]
-    }
-  }
-}
-```
-
-### 방법 B: tarball 직접 설치
-
-[Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
+**npm 레지스트리는 현재 미발행**입니다. GitHub의 고정 버전 패키지로 설치합니다.
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.8.1.tgz
-dongguk-rule-mcp --version   # 0.8.1 나오면 성공
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.9.0/dongguk-rule-mcp-0.9.0.tgz
+dongguk-rule-mcp --version
+dongguk-rule-mcp --doctor --json
 ```
 
-### 방법 C: 소스 폴더에서
+[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.9.0/dongguk-rule-mcp-0.9.0.tgz) `npm install -g ./dongguk-rule-mcp-0.9.0.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](docs/COP_GUIDE.md) 또는 공용 연결을 확인하세요.
+
+사용할 앱의 설정 예시를 출력합니다. 아래 중 하나를 선택해 기존 MCP 설정에 추가한 뒤 앱을 완전히 종료하고 다시 실행합니다.
 
 ```bash
-git clone https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
+dongguk-rule-mcp --print-config codex
+dongguk-rule-mcp --print-config claude
+dongguk-rule-mcp --print-config cursor
+```
+
+출력은 현재 Node와 설치 경로를 사용하며 앱 설정을 직접 변경하지 않습니다. 패키지를 이동·삭제한 경우 새 경로에서 설정을 다시 출력합니다. `--doctor --json`은 오프라인 설치 점검이고, `--doctor --json --live`는 대표 공개 규정 조회를 추가합니다. 설치 진단만으로 앱 연결·모든 원문·업무 적용이 검증되지는 않습니다.
+
+### 첫 질문
+
+> 동국 규정 MCP의 `get_service_info`로 버전과 도구를 확인해줘. 이어서 `lookup_dongguk_rule`로 출장 관련 규정을 찾아줘. 소속·캠퍼스는 [입력], 신분은 [입력], 업무 기준일은 [YYYY-MM-DD]야. 정확한 규정명·LAW_ID·HISTORY_ID·조문/별표·원문 링크를 보여주고, 적용범위·시행일·표의 행과 단위를 확인하기 전 금액이나 전결권자를 확정하지 마.
+
+## 공개 규정 도구 — 기본 10개
+
+| 도구 | 용도 |
+|---|---|
+| `get_service_info` | 버전·프로필·도구 범위·이용 안내 확인 |
+| `lookup_dongguk_rule` | 기본 조회: 자연어/규정명 검색 → 개정본 → HWP 조문·별표 발췌; `law_id` 직접 선택 지원 |
+| `search_rule` | 제목·전문으로 규정 후보 목록 검색 |
+| `get_rule_content` | 선택한 규정의 본문·조문·장·키워드 조회 |
+| `get_rule_toc` | 목차 조회 |
+| `list_rule_history` | 개정 이력 조회 |
+| `applicable_rule` | 기준일 이전 개정본 후보와 부칙의 명시 시행일 대조 |
+| `compare_rule_versions` | 같은 규정의 HTML 조문과 HWP 별표·서식 추출 텍스트 비교 |
+| `verify_rule_citations` | 비식별 문장의 규정명·조문·제목·항 인용 실존 점검 |
+| `search_rule_deep` | 여러 규정의 전문과 관련 조문 탐색 |
+
+기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
+
+**캠퍼스 자동필터는 없습니다.** 공식 화면의 `LAWGROUP`은 캠퍼스 구분이 아닌 문서 종류입니다. 잘못된 `seoul=1 / wise=2` 매핑을 제거했습니다. `campus`는 업무 맥락으로 보존하고 전체 통합목록을 검색하며 `filterApplied:false`를 표시합니다. 서울·WISE·법인 등 소속과 교원·직원·학생 등 대상의 적용범위는 원문에서 확인해야 합니다. [공식 검색 화면](https://rule.dongguk.edu/lmxsrv/main/main.srv), [통합 규정목록](https://rule.dongguk.edu/lmxsrv/law/lawTree.srv) — 2026-09-08 확인.
+
+## 근거의 범위와 한계
+
+- **시점:** 최신 연혁은 최대 10분 캐시합니다. `applicable_rule`은 개정일을 바탕으로 후보를 찾으며 시행일·경과조치·소급 적용까지 최종 확정하지 않습니다.
+- **원문 품질:** HWP 추출 실패·HTML 대체·빈 본문·발췌 잘림·검색어 미일치를 구분합니다. 병합 셀·그림·추출되지 않은 내용은 원문 대조가 필요합니다. 공식 API가 아닌 웹 원문 파싱이므로 사이트 변경의 영향을 받습니다.
+- **개정 비교:** `include_appendices:true`가 기본입니다. HTML 조문 결과와 HWP 별표·서식의 **추출 텍스트 비교**를 별도로 반환합니다. 표의 의미·셀 구조·첨부파일·법적 적용성의 완전한 비교는 아닙니다. 별표를 식별하지 못하거나 조회에 실패하면 부분 상태를 남기며 “변경 없음”으로 단정하지 않습니다. HTML만 비교하려면 `include_appendices:false`를 지정합니다.
+- **인용:** 인용의 실존 확인과 해당 업무의 적용 적합성은 다릅니다. 검색 0건·확인 필요·부분 조회는 검증 통과가 아닙니다.
+- **업무와 데이터:** 공개 `rules`는 로그인 쿠키와 내부 지식팩을 사용하지 않습니다. 개인별 급여·계좌·학생기록·인증정보를 입력하지 않습니다. 신고·지급·결재 또는 외부 발송을 수행하지 않습니다.
+
+모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
+
+## 공용 서버와 선택 기능
+
+HTTP는 stateless Streamable HTTP이며 MCP 경로는 POST 요청을 사용합니다.
+
+| 경로 | 범위 |
+|---|---|
+| `/`, `/guide` | 인증정보를 포함하지 않는 구성원 안내 페이지 |
+| `/mcp/rules` | 서버 프로필과 무관하게 공개 규정 10개 도구, 설정한 인증 적용 |
+| `/mcp` | 운영자가 지정한 프로필의 도구, 기존 연결 경로 |
+| `/health`, `/ready` | 프로세스·요청 수용 상태; 원문 조회 성공을 의미하지 않음 |
+| `/status` | 관리용 인증이 필요한 집계 운영 상태 |
+
+운영자가 개인 또는 그룹별 자격증명을 발급·회수하고 만료·허용 경로를 관리합니다. 등록 파일은 SHA-256 해시를 보관하며 `--token-file` 또는 `DONGGUK_MCP_TOKEN_FILE`로 지정합니다. 설정 예시와 발급 명령은 [운영 가이드](docs/OPERATIONS.md)에 있습니다. 원격 노출에는 HTTPS와 인증을 사용합니다.
+
+```bash
+# 접근제한 운영 폴더의 토큰 등록 파일을 지정
+dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-file /secure/dongguk/tokens.json
+```
+
+공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
+
+`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`가 추가되어 **12개 도구**가 됩니다. 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+
+## 소스 실행과 검증
+
+```bash
+git clone --branch v0.9.0 https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
 npm ci
-npm test                     # 오프라인 회귀 검증
-node src/index.js --version
-```
-
-### 방법 D: npm 레지스트리 (publish 후)
-
-```bash
-npm install -g dongguk-rule-mcp
-```
-
-## Claude Desktop 설정
-
-`claude_desktop_config.json` 위치:
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-글로벌 설치(방법 B/D) 시:
-
-```json
-{
-  "mcpServers": {
-    "dongguk-rule": {
-      "command": "dongguk-rule-mcp"
-    }
-  }
-}
-```
-
-소스 폴더(방법 C) 시:
-
-```json
-{
-  "mcpServers": {
-    "dongguk-rule": {
-      "command": "node",
-      "args": ["/절대경로/dongguk-rule-mcp/src/index.js"]
-    }
-  }
-}
-```
-
-설정 후 Claude Desktop 완전 종료 → 재시작.
-
-## HTTP 모드 — Notion AI 연동
-
-Notion 등 원격 MCP 클라이언트는 공개 URL만 연결할 수 있습니다. rule.dongguk.edu의 접근 제한 여부를 운영할 네트워크에서 확인하세요. 상시 가동 머신(예: Mac Mini)에서 HTTP
-모드로 실행하고 Cloudflare Tunnel로 URL을 노출하는 구성을 권장합니다.
-
-### 1) 서버 실행 (Mac Mini)
-
-```bash
-dongguk-rule-mcp --http --port 3845 --token '아무-긴-비밀문자열'
-curl -s http://127.0.0.1:3845/health   # {"status":"ok",...} 확인
-```
-
-`--token` 생략 시 무인증(테스트용) — 공개 노출 시엔 반드시 설정하세요.
-옵션: `--host 0.0.0.0`, env `DONGGUK_MCP_TOKEN` / `DONGGUK_MCP_PORT`.
-
-### 2) 공개 URL (Cloudflare Tunnel)
-
-```bash
-brew install cloudflared
-cloudflared tunnel --url http://127.0.0.1:3845
-# → https://xxxx.trycloudflare.com 발급 (임시 URL)
-# 상시 운영은 named tunnel + 도메인 연결 권장
-```
-
-### 3) Notion 설정
-
-1. 워크스페이스 관리자: 설정 → **연결** → **MCP** → **Custom MCP**
-2. URL `https://xxxx.trycloudflare.com/mcp` + 표시 이름 + Bearer 토큰 → 연결
-3. 일반 Notion AI 새 채팅에서 연결 이름을 명시해 질문
-4. 읽기 전용 도구를 반복 승인하지 않으려면 해당 연결의 모든 도구를 항상 허용
-
-커스텀 에이전트의 Tools & Access에서도 동일 URL을 연결할 수 있습니다.
-
-### 수동 점검 (curl)
-
-```bash
-curl -s -X POST https://xxxx.trycloudflare.com/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -H 'Authorization: Bearer 아무-긴-비밀문자열' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
-```
-
-참고: HTTP 모드는 stateless(POST 전용)이며 `GET /health`로 모니터링합니다.
-연결 UI가 Bearer 헤더를 지원하지 않으면 지원되는 인증 게이트웨이를 구성해야 합니다.
-URL을 숨기는 것만으로는 인증을 대체할 수 없습니다.
-
-## 사용 예시
-
-- "동국대 보수규정 검색해줘"
-- "`lookup_dongguk_rule`로 여비규정에서 국내, 철도운임, 숙박비, 일비 기준을 한 번에 찾아줘"
-- "LAW_ID 491 본문 보여줘"
-- "취업규칙 HISTORY_ID 3478과 3619의 제86조를 비교해줘"
-- "제10조의2만 보여줘" / "부칙 제2조만 보여줘"
-- "그 규정에서 퇴직금 관련 조문만" (grep 필터)
-- "제5장만 보여줘" (chapter 필터)
-- "이 규정 개정 이력 알려줘"
-- "이 품의서 초안의 규정 인용 검증해줘: (본문 붙여넣기)" (v0.7)
-- "2024년 3월 15일 당시 여비규정 제9조 보여줘" (v0.7)
-
-## 검증
-
-### 오프라인 (네트워크 불필요 — 어디서든 동일 결과)
-
-```bash
 npm test
+npm run test:live
+node src/index.js --doctor --json
+npm pack --dry-run
 ```
 
-오프라인 테스트는 운영 파서·별칭·시점·인용·MCP·HTTP·신뢰성 회귀를 검증합니다.
-`npm pack --dry-run`으로 필수 소스와 테스트 포함 여부를 검증합니다.
+| 명령 | 확인 범위 |
+|---|---|
+| `npm test` / `npm run test:offline` | 파서·입력·근거·MCP·HTTP·프로필 등 오프라인 회귀 |
+| `npm run test:live` | 새 MCP 프로세스에서 공식 원문 조회·연혁·별표 등 대표 경로 |
+| `npm run test:live:cop` | 학사·인사·회계 등 대표 업무 규정의 LAW_ID 직접조회·최신 연혁·본문 연결 확인 |
+| `npm run doctor -- --json` | 설치와 도구 등록; `--live`로 대표 원문 조회 추가 |
+| `npm run benchmark` | 로컬 HTTP 부하 측정; 전교 운영 용량이나 원문 서버 SLA 검증은 아님 |
+| `npm run issue-token -- --help` | 운영자용 개인/그룹 자격증명 발급 도구 사용법 |
 
-### 실서버 (국내 IP에서)
+실원문 검사는 원문 서버에 접근 가능한 네트워크가 필요합니다. HTTP 오류만으로 특정 IP 차단을 단정하지 않습니다. 자동 검사와 현업 효과는 구분하고, 실제 앱·캠퍼스·직군별 평가는 [빈 평가 양식](examples/cop-evaluation.csv)으로 기록합니다.
 
-```bash
-npm run test:live                      # 검색어 "여비규정"
-npm run test:live -- --keyword 보수
-```
+추가 설정: `DONGGUK_RULE_ALIASES`는 부서별 규정 별칭 JSON, `DONGGUK_MCP_NO_CACHE=1`은 디스크 캐시 비활성화입니다. 나머지 실행 옵션은 `dongguk-rule-mcp --help`와 [운영 가이드](docs/OPERATIONS.md)를 확인하세요.
 
-새 stdio MCP 프로세스에서 캐시와 로그인 쿠키 없이 도구 등록·검색·HWP 원문·본문·목차·연혁·개정 비교를 검증합니다.
-전문검색도 최신 연혁과 대조하고 HWP 대체·빈 본문·HTTP 오류는 실패로 종료합니다.
-HTTP 503은 서버 장애 또는 접속 제한일 수 있으므로 응답만으로 IP 차단을 단정하지 않습니다.
+## 라이선스·기여
 
-## 트러블슈팅
+MIT. 원본 Python 구현: 서준호. Node.js MCP 포팅·운영 개선: 오승훈. [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감을 받았습니다.
 
-| 증상 | 원인 | 해결 |
-|------|------|------|
-| `HTTP 503` | 원문 서버 장애 또는 접속 제한 | 재시도 및 운영 네트워크에서 접근 확인 |
-| `Cannot find module` | 의존성 미설치 | 프로젝트 폴더에서 `npm install` |
-| `EACCES` (글로벌 설치) | 권한 부족 | `sudo npm i -g ...` 또는 nvm 사용 |
-| Claude에 도구 안 보임 | config 오타/캐시 | JSON 문법 확인 후 Claude 완전 재시작 |
-| 구버전 Node 에러 | Node <20.19 | `engines` 경고 확인, Node 20.19+ 설치 |
-| 검색 0건 | 캠퍼스 코드 불일치 | `campus="all"`로 재시도 |
-
-## 환경변수
-
-| 변수 | 용도 |
-|------|------|
-| `DONGGUK_RULE_COOKIE` | 비공개 규정 열람용 로그인 쿠키 주입. 쿠키별 전용 캐시 사용 |
-| `DONGGUK_MCP_NO_CACHE=1` | 디스크 캐시(`~/.cache/dongguk-rule-mcp/`) 비활성화 |
-| `DONGGUK_RULE_ALIASES` | 별칭 사전 확장 JSON 경로. `{"전결규정": ["위임전결규정"]}` 형식 — 내장 별칭에 병합 |
-
-## 알려진 제약
-
-- **캠퍼스 LAWGROUP 코드(seoul=1, wise=2)는 추정값** — 캠퍼스별 적용 규정을 확정하려면 공식 화면과 브라우저 Network 탭의 `LAWGROUP=` 값을 별도 대조해야 합니다.
-- 공식 API가 아닌 HTML 파싱이므로 사이트 개편 시 파서 갱신 필요. 그 경우 실제 HTML로 `test/fixtures.js`를 갱신하고 `npm test`로 재검증.
-- 비공개 규정 캐시는 쿠키 해시별로 분리하고 디렉터리 `0700`, 파일 `0600` 권한으로 저장합니다.
-
-## 크레딧
-
-- 원본 Python 구현: 서준호
-- Node.js MCP 포팅·하드닝·npm 배포 구조: 오승훈 (동국대 재무팀)
-- 영감: korean-law-mcp (류승인, 광진구청)
-
-## 라이선스
-
-MIT
-
-## Finance AI Desk 선택 연결 (v0.8)
-
-기존 9개 규정 도구는 그대로 동작합니다. 두 재무 도구는 운영자가 검토한 비식별 지식팩 JSON을
-`DONGGUK_FINANCE_PACK_PATH`로 연결해야 합니다. 개인별 급여·계좌·신고 원시행은 팩에 넣지 않습니다.
-팩은 공개 소스 저장소와 별도로 보관하고 배포합니다.
-
-- `get_finance_context`: 질문을 업무 경로로 연결하며, 부족한 사실과 검토 필요 상태를 반환합니다.
-- `get_finance_evidence`: 규정 최대 2건, 법령 최대 2건을 조회합니다. 교내 규정은 기준일의 개정일 후보, 국가 법령은 검색 시점 현행 후보입니다. 시행일·경과조치와 실제 적용성은 별도 확인합니다.
-- HWP 대체·발췌 누락·법령 실패는 `partial`로 표시합니다. 개정본 식별자 변경은 특정 조항의 변경을 뜻하지 않습니다.
-- 신고·납부·결재·지급·Slack 발송을 수행하지 않습니다.
-
-Korean Law MCP는 `DONGGUK_LEGAL_MCP_ENABLED=1`, `LAW_OC`, 고정 버전 실행 경로를
-`DONGGUK_LEGAL_MCP_COMMAND`와 `DONGGUK_LEGAL_MCP_ARGS` (JSON 배열)로 설정합니다.
-비밀값은 소스·로그가 아닌 접근제한 환경파일이나 서비스 비밀변수에 둡니다.
-
-`test/evaluate-finance.js`는 50개 라우팅·입력·법령 식별 파싱 사례를 검증합니다.
-`DONGGUK_FINANCE_PACK_PATH`를 지정하면 실제 팩을, 생략하면 비식별 테스트 픽스처를 사용합니다.
-자동 통과율은 법률 정답률이나 실제 업무시간 절감률이 아닙니다.
-
-## v0.8.1 변경 사항
-
-- 전문검색도 검색 캐시에 남은 HISTORY_ID 대신 연혁의 최신 개정본과 개정일을 사용합니다.
-- 재무 근거 조회는 필수 사실이 빠지면 `evidence_status: needs_input`과 누락 목록을 반환하며 외부 조회를 시작하지 않습니다. 캠퍼스는 `서울`/`seoul`, `WISE`/`wise`/`경주`를 정규화하고 알 수 없는 값을 거부합니다.
-- HWP 실패 후 HTML 본문도 비어 있으면 `CONTENT_UNAVAILABLE`을 반환합니다.
-- 실제 잠금 의존성에 맞춰 최소 Node 버전을 20.19로 수정했습니다. Node 20.19·22·24에서 오프라인 CI를 실행합니다.
-- `npm-shrinkwrap.json`을 패키지에 포함해 직접·전이 의존성을 함께 고정합니다. 소스 설치도 `npm ci`를 권장합니다.
-- `npm run test:live`는 배포 서버와 같은 MCP 핸들러를 통해 실제 사이트를 검증합니다.
-
-### Codex 설치
-
-전용 경로에 릴리스 패키지를 설치한 후 `~/.codex/config.toml`에서 절대 경로로 실행할 수 있습니다.
-아래 경로를 실제 설치 경로로 바꾸세요.
-
-```toml
-[mcp_servers.dongguk-rule]
-command = "/absolute/path/to/node"
-args = ["/absolute/path/to/dongguk-rule-mcp/v0.8.1/src/index.js"]
-```
-
-설정 변경 후 MCP 연결을 다시 시작하세요. `--version`, MCP `initialize`의 버전, HTTP `/health`의
-버전을 함께 확인하면 여러 클라이언트의 버전 불일치를 확인할 수 있습니다.
+[GitHub Issues](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues)에 버전·비식별 재현 질문·오류코드를 남겨주세요. 개인 정보·인증값·내부 문서를 첨부하지 않습니다.

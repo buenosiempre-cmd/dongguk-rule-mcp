@@ -24,6 +24,8 @@ function failure(code, message, options = {}) {
 function classifyException(error) {
   const message = error instanceof Error ? error.message : String(error);
   if (error?.code === 'HISTORY_NOT_FOUND') return {code:error.code,hint:'해당 LAW_ID의 연혁 목록에서 개정본을 선택하세요.'};
+  if (/HTTP (?:401|403)/.test(message)) return {code:'UPSTREAM_ACCESS_DENIED',hint:'원문 사이트의 공개 열람 가능 여부를 확인하세요. 공통 규정 서비스는 학교 로그인 권한을 공유하지 않습니다.'};
+  if (/HTTP (?:429|5\d\d)/.test(message)) return {code:'UPSTREAM_UNAVAILABLE',hint:'원문 서버의 요청 제한 또는 일시 장애입니다. 잠시 후 재시도하세요.'};
   if (/HTTP 503/.test(message)) {
     return {
       code: 'UPSTREAM_UNAVAILABLE',

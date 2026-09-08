@@ -59,6 +59,16 @@ function middotVariants(value) {
   ])];
 }
 
+function aliasKey(value) {
+  return normalizeMiddots(value).replace(/\s+/g, '');
+}
+
+function phrasePattern(value) {
+  return [...aliasKey(value)].map(char => char === 'ㆍ'
+    ? MIDDOT_CLASS
+    : char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[ \\t]*');
+}
+
 // 별칭 확장 — 정확 일치와 결합형 모두 지원 (korean-law v4.0.4 방식)
 // 예: "전결규정" → "위임전결규정", "전결규정 제5조" → "위임전결규정 제5조"
 function expandAliases(query) {
@@ -67,12 +77,31 @@ function expandAliases(query) {
   const table = aliasTable();
   const out = [];
   const push = v => { const t = String(v || '').trim(); if (t && t !== input && !out.includes(t)) out.push(t); };
-  const compact = input.replace(/\s+/g, '');
+  const compact = aliasKey(input);
+  // Protect full official names before expanding embedded shorthand. A query
+  // may contain both an official name and a separate shorthand occurrence.
+  const officialSpans = [];
+  for (const target of new Set(Object.values(table).flat())) {
+    const pattern = phrasePattern(target);
+    if (!pattern) continue;
+    for (const match of input.matchAll(new RegExp(pattern, 'g'))) {
+      officialSpans.push({ start: match.index, end: match.index + match[0].length });
+    }
+  }
   for (const [alias, targets] of Object.entries(table)) {
-    if (input === alias || compact === alias) {
+    if (compact === aliasKey(alias)) {
       targets.forEach(push);
-    } else if (input.includes(alias)) {
-      targets.forEach(t => push(input.split(alias).join(t)));
+    } else {
+      const pattern = phrasePattern(alias);
+      if (!pattern) continue;
+      for (const target of targets) {
+        push(input.replace(new RegExp(pattern, 'g'), (match, offset) => {
+          if (officialSpans.some(span => offset < span.end && offset + match.length > span.start)) return match;
+          // A suffix inside another rule name is not an independently named alias.
+          if (offset > 0 && /[가-힣A-Za-z0-9]/.test(input[offset - 1])) return match;
+          return target;
+        }));
+      }
     }
   }
   return out;
