@@ -6,8 +6,8 @@ function parseSearch(html, page, pageShow) {
   const $ = cheerio.load(html);
   let total = 0;
   const info = $('p.infoLeft').html() || '';
-  const totalMatch = info.match(/(\d+)\s*<\/span>\s*건/);
-  if (totalMatch) total = parseInt(totalMatch[1], 10);
+  const totalMatch = info.match(/([\d,]+)\s*<\/span>\s*건/);
+  if (totalMatch) total = parseInt(totalMatch[1].replace(/,/g, ''), 10);
 
   const hits = [];
   const seen = new Set();
@@ -26,9 +26,22 @@ function parseSearch(html, page, pageShow) {
     seen.add(key);
 
     const searchText = [];
-    let textMatch;
-    const textPattern = /showSearchText\(\s*(?:"|&quot;)([^"&]*)(?:"|&quot;)/g;
-    while ((textMatch = textPattern.exec(source)) !== null) searchText.push(textMatch[1]);
+    cell.find('[onclick]').each(function parseLabel() {
+      const value = $(this).attr('onclick') || '';
+      const match = /showSearchText\(\s*(["'])((?:\\.|(?!\1)[\s\S])*)\1/.exec(value);
+      if (match) searchText.push(match[2].replace(/\\(["'\\])/g, '$1'));
+    });
+    if (!searchText.length) {
+      let textMatch;
+      // The live site writes labels through scripts such as
+      // showSearchText("여비규정", "검색어"). Read only the first string literal;
+      // requiring a ')' after it would incorrectly absorb the second argument.
+      const textPattern = /showSearchText\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|&quot;((?:(?!&quot;)[\s\S])*)&quot;)/g;
+      while ((textMatch = textPattern.exec(source)) !== null) {
+        const value = textMatch[1] ?? textMatch[2] ?? textMatch[3] ?? '';
+        searchText.push(value.replace(/\\(["'\\])/g, '$1'));
+      }
+    }
 
     let revisedAt = '';
     $(this).find('td.tbody_c').each(function parseDate() {
@@ -78,7 +91,9 @@ function parseContent(html) {
     else if (classes.includes('ho')) lines.push(`  ${text}`);
     else if (classes.includes('mok')) lines.push(`    ${text}`);
   });
-  return { title, markdown: lines.join('\n').trim() };
+  // A surviving title alone does not prove that the upstream body was parsed.
+  const bodyLines = title ? lines.slice(2) : lines;
+  return { title, markdown: bodyLines.some(line => line.trim()) ? lines.join('\n').trim() : '' };
 }
 
 function parseHistory(html) {
@@ -113,7 +128,7 @@ function searchResultMetrics(result) {
 }
 
 function normalizeArticleSelector(value) {
-  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) {
     return { number: value, subNumber: null, supplementary: false, canonical: `제${value}조` };
   }
   if (typeof value !== 'string') return null;
@@ -124,7 +139,7 @@ function normalizeArticleSelector(value) {
   if (!match) return null;
   const number = parseInt(match[1], 10);
   const subNumber = match[2] ? parseInt(match[2], 10) : null;
-  if (!number || (match[2] && !subNumber)) return null;
+  if (!Number.isSafeInteger(number) || !number || (match[2] && (!Number.isSafeInteger(subNumber) || !subNumber))) return null;
   const article = `제${number}조${subNumber ? `의${subNumber}` : ''}`;
   return {
     number,
@@ -136,13 +151,13 @@ function normalizeArticleSelector(value) {
 
 function listArticleBlocks(markdown) {
   const source = String(markdown || '');
-  const articlePattern = /^###\s*제\s*(\d+)\s*조(?:의\s*(\d+))?(?=[(\s]|$).*$/gm;
-  const supplementPattern = /^(?:#{1,3}\s*)?부\s*칙(?:\s|$).*$/gm;
+  const articlePattern = /^###[ \t]*제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?(?=[(（\s]|$).*$/gm;
+  const supplementPattern = /^(?:#{1,3}[ \t]*)?부[ \t]*칙(?=[ \t(（<〈\[]|$).*$/gm;
   const chapterPattern = /^##\s+.*$/gm;
   const supplements = [];
   const chapters = [];
   let match;
-  while ((match = supplementPattern.exec(source)) !== null) supplements.push(match.index);
+  while ((match = supplementPattern.exec(source)) !== null) supplements.push({ index: match.index, heading: match[0] });
   while ((match = chapterPattern.exec(source)) !== null) chapters.push(match.index);
 
   const headings = [];
@@ -159,15 +174,18 @@ function listArticleBlocks(markdown) {
     const following = [
       headings[index + 1]?.index,
       ...chapters.filter(position => position > heading.index),
-      ...supplements.filter(position => position > heading.index),
+      ...supplements.filter(item => item.index > heading.index).map(item => item.index),
     ].filter(Number.isFinite);
     const end = following.length ? Math.min(...following) : source.length;
-    const supplementary = supplements.some(position => position < heading.index);
+    const supplementIndex = supplements.findLastIndex(item => item.index < heading.index);
+    const supplementary = supplementIndex >= 0;
     const canonical = `제${heading.number}조${heading.subNumber ? `의${heading.subNumber}` : ''}`;
     return {
       ...heading,
       canonical,
       supplementary,
+      supplementaryHeading: supplementary ? supplements[supplementIndex].heading : null,
+      supplementaryIndex: supplementary ? supplementIndex + 1 : null,
       content: source.slice(heading.index, end).trimEnd(),
     };
   });
@@ -182,13 +200,13 @@ function extractArticleSections(markdown, rawSelector) {
   if (selector.supplementary) {
     matches = matches.filter(block => block.supplementary);
   } else {
-    const mainBody = matches.filter(block => !block.supplementary);
-    matches = mainBody.length ? mainBody.slice(0, 1) : matches.slice(0, 1);
+    matches = matches.filter(block => !block.supplementary);
   }
   return {
     selector,
     sections: matches,
-    text: matches.map(block => block.content).join('\n\n'),
+    ...(matches.length > 1 ? { error: 'AMBIGUOUS_ARTICLE' } : {}),
+    text: matches.length > 1 ? '' : matches.map(block => block.content).join('\n\n'),
   };
 }
 
@@ -199,7 +217,7 @@ function extractChapter(markdown, chapter) {
   const match = new RegExp(`^## 제\\s*${number}\\s*장`, 'm').exec(source);
   if (!match) return '';
   const start = match.index;
-  const endMatch = /^## 제\s*\d+\s*장/m.exec(source.slice(start + match[0].length));
+  const endMatch = /^(?:## 제\s*\d+\s*장|(?:#{1,3}[ \t]*)?부[ \t]*칙(?=[ \t(（<〈\[]|$))/m.exec(source.slice(start + match[0].length));
   return source.slice(start, endMatch ? start + match[0].length + endMatch.index : source.length).trimEnd();
 }
 

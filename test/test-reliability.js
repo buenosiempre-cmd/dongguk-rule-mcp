@@ -20,7 +20,7 @@ require.cache[fetchPath].exports = async () => {
 };
 const { createServer } = require('../src/index.js');
 const { compareRuleMarkdown } = require('../src/versioning.js');
-const dir = path.join(root, 'dongguk-rule-mcp', 'public');
+const dir = path.join(root, 'dongguk-rule-mcp', 'v2', 'public');
 function seed(category, key, data) {
   const folder = path.join(dir, category);
   fs.mkdirSync(folder, { recursive: true });
@@ -28,6 +28,7 @@ function seed(category, key, data) {
 }
 const searchKey = crypto.createHash('md5').update(['여비규정', false, 1, 10, '0'].join('|')).digest('hex');
 seed('search', searchKey, { total: 1, hits: [{ lawId: 1, historyId: 10, title: '여비규정', revisedAt: '2024.01.01' }] });
+seed('search', crypto.createHash('md5').update(['여비',false,1,10,'0'].join('|')).digest('hex'), { total:0,hits:[] });
 seed('search', crypto.createHash('md5').update(['여비규정',false,1,10,'1'].join('|')).digest('hex'),{total:1,hits:[{lawId:1,historyId:10,title:'여비규정'}]});
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
 seed('original', '1_20', { markdown: '제1조(여비)\n최신 숙박비 기준' });
@@ -37,7 +38,7 @@ seed('content', '1_20', { title: '여비규정', markdown: '### 제1조(여비)\
 let passed = 0;
 function check(name, value) { assert.ok(value, name); passed++; console.log(`  ✅ ${name}`); }
 async function main() {
-  const server = createServer();
+  const server = createServer({profile:'finance'});
   const client = new Client({ name: 'regression', version: '1' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const call = (name, args) => client.callTool({ name, arguments: args });
@@ -74,7 +75,7 @@ async function main() {
     check('다른 규정 개정본 차단', foreign.structuredContent.error.code === 'HISTORY_NOT_FOUND');
     const missing = await call('compare_rule_versions', { law_id: 1, from_history_id: 10, article: '제99조' });
     check('양쪽에 없는 조문은 NOT_FOUND', missing.structuredContent.error.code === 'NOT_FOUND');
-    const comparison = await call('compare_rule_versions', { law_id: '1', from_history_id: 10 });
+    const comparison = await call('compare_rule_versions', { law_id: '1', from_history_id: 10, include_appendices:false });
     check('정상 비교 및 숫자 문자열 호환', comparison.structuredContent.data.counts.changed === 1);
     check('비교 범위 표시', comparison.structuredContent.data.comparisonScope === 'html_articles' && comparison.content[0].text.includes('HWP 별표'));
     check('조문 없는 문서 비교 거부', compareRuleMarkdown('# 제목\n본문', '# 제목\n다른 본문').error === 'CONTENT_UNAVAILABLE');

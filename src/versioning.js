@@ -19,11 +19,30 @@ function indexBlocks(markdown) {
   const counts = new Map();
   const result = new Map();
   for (const block of listArticleBlocks(markdown)) {
-    const base = `${block.supplementary ? '부칙 ' : ''}${block.canonical}`;
+    const supplementName = String(block.supplementaryHeading || '').replace(/^#{1,3}\s*/, '').replace(/^부\s*칙/, '부칙').trim();
+    const base = `${block.supplementary ? `${supplementName || '부칙'} ` : ''}${block.canonical}`;
     const occurrence = (counts.get(base) || 0) + 1;
     counts.set(base, occurrence);
     const key = occurrence === 1 ? base : `${base} (${occurrence})`;
     result.set(key, block.content);
+  }
+  // Many real supplements consist of an unnumbered enforcement sentence. They
+  // terminate the last article and must not disappear from a "no changes" result.
+  const source = String(markdown || '');
+  const supplements = [...source.matchAll(/^(?:#{1,3}[ \t]*)?부[ \t]*칙(?=[ \t(（<〈\[]|$).*$/gm)];
+  for (let i = 0; i < supplements.length; i++) {
+    const start = supplements[i].index;
+    const end = supplements[i + 1]?.index ?? source.length;
+    const section = source.slice(start, end).trim();
+    const numbered = /^###[ \t]*제[ \t]*\d+[ \t]*조/m.exec(section);
+    const unnumbered = numbered ? section.slice(0, numbered.index).trim() : section;
+    const lines = unnumbered.split('\n');
+    if (numbered && !lines.slice(1).join('\n').trim()) continue;
+    const heading = lines[0].replace(/^#{1,3}\s*/, '').replace(/^부\s*칙/, '부칙').trim();
+    const base = `${heading} (조문번호 없는 내용)`;
+    const occurrence = (counts.get(base) || 0) + 1;
+    counts.set(base, occurrence);
+    result.set(occurrence === 1 ? base : `${base} (${occurrence})`, unnumbered);
   }
   return result;
 }
@@ -33,8 +52,11 @@ function compareRuleMarkdown(beforeMarkdown, afterMarkdown, options = {}) {
   if (rawArticle !== undefined && rawArticle !== null && rawArticle !== '') {
     const selector = normalizeArticleSelector(rawArticle);
     if (!selector) return { error: 'INVALID_ARTICLE_SELECTOR' };
-    const before = extractArticleSections(beforeMarkdown, rawArticle).text;
-    const after = extractArticleSections(afterMarkdown, rawArticle).text;
+    const beforeSections = extractArticleSections(beforeMarkdown, rawArticle);
+    const afterSections = extractArticleSections(afterMarkdown, rawArticle);
+    if (beforeSections.error || afterSections.error) return { error: 'AMBIGUOUS_ARTICLE' };
+    const before = beforeSections.text;
+    const after = afterSections.text;
     if (!before && !after) return { error: 'NOT_FOUND' };
     let status = 'unchanged';
     if (!before && after) status = 'added';
@@ -92,7 +114,7 @@ function formatVersionComparison(comparison, options = {}) {
     `- 삭제: ${comparison.counts.removed}건\n` +
     `- 변경: ${comparison.counts.changed}건\n` +
     `- 동일: ${comparison.counts.unchanged}건\n`;
-  if (!comparison.changes.length) return `${output}\n변경된 조문이 없습니다.`;
+  if (!comparison.changes.length) return `${output}\n비교 가능한 조문·부칙 내용에 변경이 없습니다.`;
   for (const change of comparison.changes.slice(0, options.maxChanges || 20)) {
     let label = { added: '추가', removed: '삭제', changed: '변경' }[change.status] || change.status;
     if(change.headingChanged) label+=' · 조문명 변경';

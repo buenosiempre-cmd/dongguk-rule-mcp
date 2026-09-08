@@ -32,8 +32,11 @@ function resolveHistoryAtDate(entries, dateInput) {
   if (!target) return { error: 'INVALID_DATE' };
 
   const dated = [];
+  const seenHistory = new Set();
   let undatedCount = 0;
   for (const e of Array.isArray(entries) ? entries : []) {
+    if (!e || seenHistory.has(e.historyId)) continue;
+    seenHistory.add(e.historyId);
     const parsed = parseDateLoose(e && e.revisedAt);
     if (parsed) dated.push({ historyId: e.historyId, revisedAt: e.revisedAt, _ts: parsed.ts, _iso: parsed.iso });
     else undatedCount++;
@@ -51,6 +54,10 @@ function resolveHistoryAtDate(entries, dateInput) {
     };
   }
   const entry = applicable[0];                       // 기준일 이전(포함) 마지막 개정본 = 적용본
+  const sameDate = applicable.filter(e => e._ts === entry._ts);
+  if (sameDate.length > 1) {
+    return { error: 'AMBIGUOUS_HISTORY', targetIso: target.iso, candidates: sameDate, undatedCount };
+  }
   const laterOnes = dated.filter(e => e._ts > target.ts); // 최신순 정렬 유지
   const next = laterOnes.length ? laterOnes[laterOnes.length - 1] : null; // 기준일 이후 '첫' 개정
   return {
@@ -69,7 +76,7 @@ function resolveHistoryAtDate(entries, dateInput) {
 // '공포한 날부터 시행'처럼 날짜가 없는 문구는 추출하지 않는다. 오름차순 정렬 반환.
 function extractEnforcementDates(markdown) {
   const source = String(markdown || '');
-  const re = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*부터\s*시행/g;
+  const re = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*시행/g;
   const found = new Map();
   let m;
   while ((m = re.exec(source)) !== null) {

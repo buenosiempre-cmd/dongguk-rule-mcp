@@ -10,7 +10,7 @@ const keyword = keywordIndex < 0 ? '여비규정' : process.argv[keywordIndex + 
 const client = new Client({ name: 'dongguk-live-smoke', version: '1' });
 const transport = new StdioClientTransport({
   command: process.execPath, args: [path.join(__dirname, '../src/index.js')],
-  env: { ...process.env, DONGGUK_MCP_NO_CACHE: '1', DONGGUK_RULE_COOKIE: '', DONGGUK_FINANCE_PACK_PATH: '', DONGGUK_LEGAL_MCP_ENABLED: '0' },
+  env: { ...process.env, DONGGUK_MCP_PROFILE:'rules', DONGGUK_MCP_NO_CACHE: '1', DONGGUK_RULE_COOKIE: '', DONGGUK_FINANCE_PACK_PATH: '', DONGGUK_LEGAL_MCP_ENABLED: '0' },
   stderr: 'pipe',
 });
 let checks = 0;
@@ -25,7 +25,7 @@ async function main() {
   await client.connect(transport); transport.stderr?.resume();
   check('MCP initialize version matches package', client.getServerVersion()?.version === version);
   const list = await client.listTools();
-  check('11 tools available', list.tools.length === 11);
+  check('10 tools available', list.tools.length === 10);
   const lookup = await call('lookup_dongguk_rule', { rule_keyword: keyword, include_history: true, max_chars: 2500 });
   const rule = lookup.rules[0];
   check('lookup returns parsed HWP (no fallback)', !rule.warning && rule.sourceType.includes('HWP') && rule.excerpt.text.trim().length > 0);

@@ -90,7 +90,7 @@ const deps = {
     return { hits: [] };
   },
   getRuleMarkdown: async lawId => (DB[lawId] ? DB[lawId].md : ''),
-  resolveLatest: async () => { throw new Error('historyId가 있으면 호출되면 안 됨'); },
+  resolveLatest: async lawId => ({ historyId: DB[lawId].hit.historyId, revisedAt: DB[lawId].hit.revisedAt }),
 };
 
 (async () => {
@@ -114,7 +114,7 @@ const deps = {
   check('부칙 미존재 = ✗', by('부칙 제9조')?.status === 'NOT_FOUND');
   check('검색 0건 = ⚠ (미존재 단정 금지)', r.citations.find(c => c.ruleName === '유령규정')?.status === 'RULE_SEARCH_MISS');
   check('무관 검색결과 = ⚠ RULE_AMBIGUOUS', r.citations.find(c => c.ruleName === '장학규정')?.status === 'RULE_AMBIGUOUS');
-  check('규정 검색은 규정당 1회 캐시', calls.filter(q => q.includes('보수')).length === 1, JSON.stringify(calls));
+  check('정규화 검색 변형은 규정당 각 1회 조회', calls.filter(q => q.includes('보수')).length === 2 && new Set(calls.filter(q => q.includes('보수'))).size === 2, JSON.stringify(calls));
   check('요약 집계 일치', r.summary.exists === 3 && r.summary.notFound === 3 && r.summary.needsReview === 3, JSON.stringify(r.summary));
   check('보고서 헤더·경고 문구', /규정 인용 검증/.test(r.text) && /통과가 아닙니다/.test(r.text));
   check('규정 메타 동봉', r.citations.find(c => c.ruleName === '보수규정')?.rule?.lawId === 491);

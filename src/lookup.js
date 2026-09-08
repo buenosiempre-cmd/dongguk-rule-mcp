@@ -1,6 +1,6 @@
 'use strict';
 
-const { expandAliases, middotVariants } = require('./aliases.js');
+const { expandAliases, middotVariants, normalizeMiddots } = require('./aliases.js');
 
 function clampNumber(value, fallback, min, max) {
   const n = Number(value);
@@ -9,7 +9,7 @@ function clampNumber(value, fallback, min, max) {
 }
 
 function normalizeText(value) {
-  return String(value || '').replace(/\s+/g, '').toLowerCase();
+  return normalizeMiddots(value).replace(/\s+/g, '').toLowerCase();
 }
 
 function searchVariants(value) {
@@ -31,19 +31,43 @@ function searchVariants(value) {
 
 function rankRuleHits(hits, keyword) {
   const needle = normalizeText(keyword);
+  const aliases = new Set(expandAliases(keyword).map(normalizeText));
   return (Array.isArray(hits) ? hits : [])
     .map((hit, index) => {
       const title = normalizeText(hit.title);
       let score = 0;
-      if (title === needle) score += 100;
-      else if (title.includes(needle)) score += 80;
-      else if (needle.includes(title)) score += 60;
+      if (needle && title === needle) score += 100;
+      else if (title && aliases.has(title)) score += 95;
+      else if (needle && title.includes(needle)) score += 80;
+      else if (title && needle.includes(title)) score += 60;
       if (title.endsWith('규정')) score += 5;
       if (hit.revisedAt) score += 1;
       return { hit, index, score };
     })
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map(x => x.hit);
+}
+
+// A title search is not an identity lookup. Distinct LAW_IDs can share a title
+// (including campus-specific rules), so never resolve such results by row order.
+function selectRuleCandidate(hits, keyword) {
+  const ranked = rankRuleHits(hits, keyword).filter(hit => normalizeText(hit.title));
+  const byId = new Map();
+  for (const hit of ranked) if (!byId.has(String(hit.lawId))) byId.set(String(hit.lawId), hit);
+  const unique = [...byId.values()];
+  const names = new Set([keyword, ...expandAliases(keyword)].map(normalizeText).filter(Boolean));
+  const exact = unique.filter(hit => names.has(normalizeText(hit.title)));
+  if (exact.length === 1) return { status: 'unique', hit: exact[0], candidates: exact, matchType: 'exact' };
+  if (exact.length > 1) return { status: 'ambiguous', candidates: exact, matchType: 'exact' };
+  const related = unique.filter(hit => [...names].some(name => {
+    const title = normalizeText(hit.title);
+    return title.includes(name) || name.includes(title);
+  }));
+  return {
+    status: related.length ? 'ambiguous' : 'unrelated',
+    candidates: related.length ? related : unique.slice(0, 5),
+    matchType: related.length ? 'partial' : 'none',
+  };
 }
 
 function termTokens(rawTerms) {
@@ -165,6 +189,7 @@ module.exports = {
   normalizeText,
   searchVariants,
   rankRuleHits,
+  selectRuleCandidate,
   termTokens,
   extractRelevantBlocks,
 };
