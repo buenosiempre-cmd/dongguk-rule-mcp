@@ -45,7 +45,12 @@ async function main(){
   try{
     const pubTools=(await pub.c.listTools()).tools,privTools=(await priv.c.listTools()).tools;
     check('10 public tools; finance hidden',()=>{assert.equal(pubTools.length,10);assert.ok(!pubTools.some(x=>x.name.startsWith('get_finance_')));});
-    check('12 opt-in finance tools',()=>assert.equal(privTools.length,12));
+    check('14 opt-in finance tools',()=>assert.equal(privTools.length,14));
+    for(const tool of ['search_finance_handbook','review_finance_case']) {
+      check(`${tool} hidden in public profile`,()=>assert.ok(!pubTools.some(x=>x.name===tool)));
+      const blocked=await pub.call(tool,{query:'소모품비'});
+      check(`${tool} blocked in public profile`,()=>assert.equal(blocked.error?.code,'TOOL_NOT_AVAILABLE'));
+    }
     const denied=await pub.call('get_finance_context',{query:'출장'});
     check('hidden tools cannot be invoked by name',()=>assert.equal(denied.error.code,'TOOL_NOT_AVAILABLE'));
     const [publicContent,privateContent]=await Promise.all([pub.call('get_rule_content',{law_id:1}),priv.call('get_rule_content',{law_id:1})]);

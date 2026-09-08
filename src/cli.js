@@ -18,7 +18,7 @@ async function doctor({createServer,version,profile='rules',live=false}) {
     await server.connect(b);await client.connect(a);
     checks.push({name:'initialize',ok:client.getServerVersion()?.version===version});
     const tools=(await client.listTools()).tools;
-    checks.push({name:'tools',ok:tools.length===(profile==='rules'?10:12),count:tools.length});
+    checks.push({name:'tools',ok:tools.length===(profile==='rules'?10:14),count:tools.length});
     const info=await client.callTool({name:'get_service_info',arguments:{}});
     checks.push({name:'profile',ok:info.structuredContent?.data?.profile===profile});
     if(live){const response=await client.callTool({name:'lookup_dongguk_rule',arguments:{rule_keyword:'여비규정',max_chars:1000}},undefined,{timeout:60000});checks.push({name:'public_rule_lookup',ok:response.structuredContent?.ok===true,warning:response.structuredContent?.data?.rules?.[0]?.warning?.code||null});}

@@ -82,8 +82,8 @@
   <a class="skip" href="#start">본문으로 이동</a>
   <header class="topbar">
     <div class="wrap">
-      <div class="brand"><span class="mark" aria-hidden="true">규</span>동국 규정 MCP <span class="tag">v0.9.0</span></div>
-      <nav class="toplinks" aria-label="관련 문서"><a href="https://rule.dongguk.edu/">공식 규정 원문</a><a class="desktop" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/COP_GUIDE.md">전체 가이드</a></nav>
+      <div class="brand"><span class="mark" aria-hidden="true">규</span>동국 규정 MCP <span class="tag">v0.10.0</span></div>
+      <nav class="toplinks" aria-label="관련 문서"><a href="https://rule.dongguk.edu/">공식 규정 원문</a><a class="desktop" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.10.0/docs/COP_GUIDE.md">전체 가이드</a></nav>
     </div>
   </header>
   <div class="wrap">
@@ -109,9 +109,9 @@
             <span class="mini">개인 PC 설치</span>
             <h3>공유 토큰 없이 직접 시작</h3>
             <p>Node.js 20.19 이상과 로컬 MCP를 지원하는 AI 앱이 필요합니다. 공개 규정만 조회하는 기본 설정으로 시작합니다.</p>
-            <a class="button" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.9.0/dongguk-rule-mcp-0.9.0.tgz">v0.9.0 설치 파일 받기</a>
+            <a class="button" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.10.0/dongguk-rule-mcp-0.10.0.tgz">v0.10.0 설치 파일 받기</a>
             <ol class="plainsteps"><li>GitHub의 고정 버전 설치 파일을 받습니다.</li><li>아래 설치 명령과 앱별 설정 출력을 확인합니다.</li><li>AI 앱을 다시 시작하고 첫 질문을 실행합니다.</li></ol>
-            <p class="subtle" style="margin:15px 0 0"><a href="#local-install">개인 설치 명령 보기</a> · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.9.0">릴리스 확인</a></p>
+            <p class="subtle" style="margin:15px 0 0"><a href="#local-install">개인 설치 명령 보기</a> · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.10.0">릴리스 확인</a></p>
           </article>
         </div>
         <div class="note"><p><strong>공개 규정 조회용입니다.</strong> 이 연결로 내부 재무지식팩, 개인별 급여·계좌, 학생기록, 결재·회계 시스템에 접근할 수 없습니다. 질문에는 개인을 식별하는 정보를 넣지 마세요.</p></div>
@@ -150,7 +150,7 @@
           <summary>내 PC 설치와 앱별 설정 명령</summary>
           <div class="detailbody">
             <p>macOS 터미널 또는 Windows PowerShell을 사용합니다. 먼저 <code>node --version</code>으로 20.19 이상인지 확인합니다. 내려받은 파일이 있는 폴더에서 실행하세요.</p>
-            <pre class="codeblock">npm install -g ./dongguk-rule-mcp-0.9.0.tgz
+            <pre class="codeblock">npm install -g ./dongguk-rule-mcp-0.10.0.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json</pre>
             <p>사용하는 앱에 맞는 설정을 출력합니다. 아래 세 명령 중 하나를 선택하세요.</p>
@@ -158,7 +158,7 @@ dongguk-rule-mcp --doctor --json</pre>
 dongguk-rule-mcp --print-config claude
 dongguk-rule-mcp --print-config cursor</pre>
             <p>출력된 설정을 기존 연결을 보존하며 앱의 MCP 설정에 추가하고, 앱을 완전히 종료한 뒤 다시 실행합니다. 이 명령은 설정 예시를 출력하며 앱 설정을 직접 바꾸지 않습니다.</p>
-            <p>글로벌 설치가 막힌 경우, 관리자 권한 사용을 서두르기보다 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/COP_GUIDE.md">전체 설치 가이드</a>의 직접 실행 방법이나 공용 연결을 확인하세요. 기관 PC의 설치 정책은 담당 부서의 안내를 따릅니다.</p>
+            <p>글로벌 설치가 막힌 경우, 관리자 권한 사용을 서두르기보다 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.10.0/docs/COP_GUIDE.md">전체 설치 가이드</a>의 직접 실행 방법이나 공용 연결을 확인하세요. 기관 PC의 설치 정책은 담당 부서의 안내를 따릅니다.</p>
           </div>
         </details>
         <details>
@@ -179,7 +179,7 @@ dongguk-rule-mcp --print-config cursor</pre>
           <summary>CoP에서 20분 동안 함께 연습하기</summary>
           <div class="detailbody">
             <ul><li><strong>0–5분:</strong> 연결·버전·공개 원문 조회를 확인합니다.</li><li><strong>5–10분:</strong> 소속·신분·기준일을 비운 질문과 채운 질문을 비교합니다.</li><li><strong>10–15분:</strong> 조문·별표를 대조하고 근거 메모를 만듭니다.</li><li><strong>15–20분:</strong> 다른 구성원이 같은 근거를 찾고 누락·오류를 기록합니다.</li></ul>
-            <p>설치 성공, 원문 조회 성공, 다른 담당자의 재현 성공을 따로 기록하세요. 시간절감·업무 정확성은 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/EVALUATION.md">실증평가 가이드와 빈 평가 양식</a>으로 측정합니다. 이 안내 페이지에 제시된 실제 업무 효과는 아직 측정되지 않았습니다.</p>
+            <p>설치 성공, 원문 조회 성공, 다른 담당자의 재현 성공을 따로 기록하세요. 시간절감·업무 정확성은 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.10.0/docs/EVALUATION.md">실증평가 가이드와 빈 평가 양식</a>으로 측정합니다. 이 안내 페이지에 제시된 실제 업무 효과는 아직 측정되지 않았습니다.</p>
           </div>
         </details>
       </section>
@@ -187,11 +187,11 @@ dongguk-rule-mcp --print-config cursor</pre>
       <section aria-label="운영 범위와 참고 자료">
         <div class="footgrid">
           <div><h3>현재 운영 범위</h3><p>공용 서버는 Mac mini에서 운영됩니다. 잠자기·전원·인터넷 상태 또는 공식 원문 서버 장애에 따라 중단될 수 있습니다. 학교의 공식 해석, 전 구성원 계정 개통, 상시 가용성 또는 현업 효과가 검증되었다는 의미는 아닙니다.</p></div>
-          <div><h3>원문과 가이드를 곁에 두세요</h3><p>학교의 공식 규정 원문을 기준으로 검토하고, 운영 정보와 학습 자료는 아래에서 확인하세요.</p><div class="links"><a href="https://rule.dongguk.edu/">공식 규정 시스템</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/COP_GUIDE.md">구성원 가이드</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.9.0/docs/OPERATIONS.md">운영 가이드</a><a href="/health">서버 상태</a></div></div>
+          <div><h3>원문과 가이드를 곁에 두세요</h3><p>학교의 공식 규정 원문을 기준으로 검토하고, 운영 정보와 학습 자료는 아래에서 확인하세요.</p><div class="links"><a href="https://rule.dongguk.edu/">공식 규정 시스템</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.10.0/docs/COP_GUIDE.md">구성원 가이드</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/v0.10.0/docs/OPERATIONS.md">운영 가이드</a><a href="/health">서버 상태</a></div></div>
         </div>
       </section>
     </main>
   </div>
-  <footer><div class="wrap"><span>동국 규정 MCP · CoP 공개 규정 활용 안내</span><span>v0.9.0 · 2026-09-08</span></div></footer>
+  <footer><div class="wrap"><span>동국 규정 MCP · CoP 공개 규정 활용 안내</span><span>v0.10.0 · 2026-09-08</span></div></footer>
 </body>
 </html>
