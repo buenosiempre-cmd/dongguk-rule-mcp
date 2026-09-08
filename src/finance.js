@@ -30,16 +30,19 @@ function routeFinance(pack, query, facts = {}, workflowId) {
   if(facts.base_date && !date) return {error:'INVALID_DATE',message:'기준일을 실제 존재하는 날짜로 입력하세요.'};
   const required=w.required_facts;
   const missing=required.filter(f=>typeof facts[f.key]!=='string'||!facts[f.key].trim()||/^(미상|모름|unknown|미확인)$/.test(facts[f.key].trim()));
+  const campusValue=(facts.campus||'').trim().toLowerCase();
+  const campus=new Map([['서울','seoul'],['seoul','seoul'],['wise','wise'],['경주','wise']]).get(campusValue)||null;
+  if(campusValue && !campus && !missing.some(f=>f.key==='campus')) return {error:'INVALID_ARGUMENT',message:'캠퍼스는 서울(seoul) 또는 WISE(경주)로 입력하세요.'};
   const cards=pack.cards.filter(c=>c.workflow_id===w.id);
   return {
     workflow:{id:w.id,title:w.title,owner_role:w.owner_role},
     pack:{version:pack.version,schema_version:pack.schema_version,source_checked_at:pack.source_checked_at},
-    base_date:date?.iso||null, status:missing.length?'needs_input':'review_required',
+    base_date:date?.iso||null, campus, status:missing.length?'needs_input':'review_required',
     missing_facts:missing, cards, steps:w.steps, completion_evidence:w.completion_evidence,
     rule_requests:w.rule_requests, legal_requests:w.legal_requests,
     source_notes:w.source_notes, sources:(pack.sources||[]).filter(s=>w.source_notes.includes(s.id)), checks:w.checks,
     review_state:'required',external_action_state:'none',
-    scope_status:facts.campus==='서울'?'seoul_reference':'requires_campus_review',
+    scope_status:campus==='seoul'?'seoul_reference':'requires_campus_review',
     applicability:'not_determined',
     notice:'검토용 업무 경로입니다. 법령·규정 원문과 대상·시행일·증빙을 확인한 뒤 담당자가 판단합니다. 실제 저장·신고·지급은 수행하지 않았습니다.'
   };

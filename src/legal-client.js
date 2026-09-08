@@ -6,7 +6,7 @@ async function legalClient(){
   if(process.env.DONGGUK_LEGAL_MCP_ENABLED!=='1' || !process.env.LAW_OC) throw new Error('LEGAL_MCP_NOT_CONFIGURED');
   if(!connection){
     connection=(async()=>{
-      const client=new Client({name:'dongguk-finance-desk',version:'0.8.0'});
+      const client=new Client({name:'dongguk-finance-desk',version:require('../package.json').version});
       const transport=new StdioClientTransport({command:process.env.DONGGUK_LEGAL_MCP_COMMAND||'npx',args:JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]'),env:{PATH:process.env.PATH,HOME:process.env.HOME,LAW_OC:process.env.LAW_OC},stderr:'pipe'});
       client.onclose=()=>{connection=null;};
       await client.connect(transport);

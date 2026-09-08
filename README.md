@@ -43,21 +43,21 @@ HWP 별표·첨부 변경과 시행일 판단은 비교 범위에 포함되지 �
 
 ## 요구사항
 
-- **Node.js 18 이상** (`node --version`으로 확인)
+- **Node.js 20.19 이상 (권장: Node 22 또는 24)** (`node --version`으로 확인)
 - 원문 서버에 접근 가능한 네트워크 (HTTP 503은 일시 장애·접속 제한 등 원인을 추가 확인해야 함)
 
 ## 설치 — 4가지 방법
 
 ### 방법 A: GitHub에서 바로 (권장 — 한 줄)
 
-Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 됩니다 (Node 18+ 필요):
+Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 됩니다 (Node 20.19+ 필요):
 
 ```json
 {
   "mcpServers": {
     "dongguk-rule": {
       "command": "npx",
-      "args": ["-y", "github:buenosiempre-cmd/dongguk-rule-mcp"]
+      "args": ["-y", "github:buenosiempre-cmd/dongguk-rule-mcp#v0.8.1"]
     }
   }
 }
@@ -68,8 +68,8 @@ Claude Desktop 설정에 아래만 추가하면 설치·실행이 자동으로 �
 [Releases](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases)에서 tgz 다운로드 후:
 
 ```bash
-npm install -g ./dongguk-rule-mcp-0.8.0.tgz
-dongguk-rule-mcp --version   # 0.8.0 나오면 성공
+npm install -g ./dongguk-rule-mcp-0.8.1.tgz
+dongguk-rule-mcp --version   # 0.8.1 나오면 성공
 ```
 
 ### 방법 C: 소스 폴더에서
@@ -77,7 +77,7 @@ dongguk-rule-mcp --version   # 0.8.0 나오면 성공
 ```bash
 git clone https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
-npm install
+npm ci
 npm test                     # 오프라인 회귀 검증
 node src/index.js --version
 ```
@@ -94,7 +94,7 @@ npm install -g dongguk-rule-mcp
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-글로벌 설치(방법 A/C) 시:
+글로벌 설치(방법 B/D) 시:
 
 ```json
 {
@@ -106,7 +106,7 @@ npm install -g dongguk-rule-mcp
 }
 ```
 
-소스 폴더(방법 B) 시:
+소스 폴더(방법 C) 시:
 
 ```json
 {
@@ -123,8 +123,7 @@ npm install -g dongguk-rule-mcp
 
 ## HTTP 모드 — Notion AI 연동
 
-Notion 등 원격 MCP 클라이언트는 공개 URL만 연결할 수 있습니다. rule.dongguk.edu가
-해외/데이터센터 IP를 차단하므로, 국내 IP의 상시 가동 머신(예: Mac Mini)에서 HTTP
+Notion 등 원격 MCP 클라이언트는 공개 URL만 연결할 수 있습니다. rule.dongguk.edu의 접근 제한 여부를 운영할 네트워크에서 확인하세요. 상시 가동 머신(예: Mac Mini)에서 HTTP
 모드로 실행하고 Cloudflare Tunnel로 URL을 노출하는 구성을 권장합니다.
 
 ### 1) 서버 실행 (Mac Mini)
@@ -196,21 +195,23 @@ npm test
 ### 실서버 (국내 IP에서)
 
 ```bash
-npm run test:live                      # 검색어 "재정"
+npm run test:live                      # 검색어 "여비규정"
 npm run test:live -- --keyword 보수
 ```
 
-rule.dongguk.edu에 실제 접속해 검색·본문·연혁·HWP 원문 경로를 확인. 503이면 "국내 IP에서 실행하라"고 안내 후 종료.
+새 stdio MCP 프로세스에서 캐시와 로그인 쿠키 없이 도구 등록·검색·HWP 원문·본문·목차·연혁·개정 비교를 검증합니다.
+전문검색도 최신 연혁과 대조하고 HWP 대체·빈 본문·HTTP 오류는 실패로 종료합니다.
+HTTP 503은 서버 장애 또는 접속 제한일 수 있으므로 응답만으로 IP 차단을 단정하지 않습니다.
 
 ## 트러블슈팅
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| `HTTP 503` | 해외/데이터센터 IP 차단 | 가정·캠퍼스 등 국내망에서 실행 |
+| `HTTP 503` | 원문 서버 장애 또는 접속 제한 | 재시도 및 운영 네트워크에서 접근 확인 |
 | `Cannot find module` | 의존성 미설치 | 프로젝트 폴더에서 `npm install` |
 | `EACCES` (글로벌 설치) | 권한 부족 | `sudo npm i -g ...` 또는 nvm 사용 |
 | Claude에 도구 안 보임 | config 오타/캐시 | JSON 문법 확인 후 Claude 완전 재시작 |
-| 구버전 Node 에러 | Node <18 | `engines` 경고 확인, Node 18+ 설치 |
+| 구버전 Node 에러 | Node <20.19 | `engines` 경고 확인, Node 20.19+ 설치 |
 | 검색 0건 | 캠퍼스 코드 불일치 | `campus="all"`로 재시도 |
 
 ## 환경변수
@@ -223,7 +224,7 @@ rule.dongguk.edu에 실제 접속해 검색·본문·연혁·HWP 원문 경로�
 
 ## 알려진 제약
 
-- **캠퍼스 LAWGROUP 코드(seoul=1, wise=2)는 추정값** — `npm run test:live`의 [5] 섹션 결과가 0행이면 브라우저 개발자도구 Network 탭에서 `LAWGROUP=` 실제 값 확인 필요.
+- **캠퍼스 LAWGROUP 코드(seoul=1, wise=2)는 추정값** — 캠퍼스별 적용 규정을 확정하려면 공식 화면과 브라우저 Network 탭의 `LAWGROUP=` 값을 별도 대조해야 합니다.
 - 공식 API가 아닌 HTML 파싱이므로 사이트 개편 시 파서 갱신 필요. 그 경우 실제 HTML로 `test/fixtures.js`를 갱신하고 `npm test`로 재검증.
 - 비공개 규정 캐시는 쿠키 해시별로 분리하고 디렉터리 `0700`, 파일 `0600` 권한으로 저장합니다.
 
@@ -255,3 +256,26 @@ Korean Law MCP는 `DONGGUK_LEGAL_MCP_ENABLED=1`, `LAW_OC`, 고정 버전 실행 
 `test/evaluate-finance.js`는 50개 라우팅·입력·법령 식별 파싱 사례를 검증합니다.
 `DONGGUK_FINANCE_PACK_PATH`를 지정하면 실제 팩을, 생략하면 비식별 테스트 픽스처를 사용합니다.
 자동 통과율은 법률 정답률이나 실제 업무시간 절감률이 아닙니다.
+
+## v0.8.1 변경 사항
+
+- 전문검색도 검색 캐시에 남은 HISTORY_ID 대신 연혁의 최신 개정본과 개정일을 사용합니다.
+- 재무 근거 조회는 필수 사실이 빠지면 `evidence_status: needs_input`과 누락 목록을 반환하며 외부 조회를 시작하지 않습니다. 캠퍼스는 `서울`/`seoul`, `WISE`/`wise`/`경주`를 정규화하고 알 수 없는 값을 거부합니다.
+- HWP 실패 후 HTML 본문도 비어 있으면 `CONTENT_UNAVAILABLE`을 반환합니다.
+- 실제 잠금 의존성에 맞춰 최소 Node 버전을 20.19로 수정했습니다. Node 20.19·22·24에서 오프라인 CI를 실행합니다.
+- `npm-shrinkwrap.json`을 패키지에 포함해 직접·전이 의존성을 함께 고정합니다. 소스 설치도 `npm ci`를 권장합니다.
+- `npm run test:live`는 배포 서버와 같은 MCP 핸들러를 통해 실제 사이트를 검증합니다.
+
+### Codex 설치
+
+전용 경로에 릴리스 패키지를 설치한 후 `~/.codex/config.toml`에서 절대 경로로 실행할 수 있습니다.
+아래 경로를 실제 설치 경로로 바꾸세요.
+
+```toml
+[mcp_servers.dongguk-rule]
+command = "/absolute/path/to/node"
+args = ["/absolute/path/to/dongguk-rule-mcp/v0.8.1/src/index.js"]
+```
+
+설정 변경 후 MCP 연결을 다시 시작하세요. `--version`, MCP `initialize`의 버전, HTTP `/health`의
+버전을 함께 확인하면 여러 클라이언트의 버전 불일치를 확인할 수 있습니다.

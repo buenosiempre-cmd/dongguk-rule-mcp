@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * dongguk-rule-mcp v0.7.0
+ * dongguk-rule-mcp
  * 동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버
  *
  * v0.7.0:
@@ -380,17 +380,20 @@ async function hDeep(rawQuery,{top=3,perDoc}={}){
     const h=hits[i];
     o+=`## [${i+1}] ${h.title} (LAW_ID ${h.lawId})\n`;
     try{
-      const c=await cached('content',`${h.lawId}_${h.historyId}`,TTL.content,()=>getContent(h.lawId,h.historyId));
+      const selected=await resolve(h.lawId);
+      const currentHit={...h,historyId:selected.historyId,revisedAt:selected.revisedAt};
+      const c=await cached('content',`${h.lawId}_${selected.historyId}`,TTL.content,()=>getContent(h.lawId,selected.historyId));
       if(!c.markdown){
         o+='- 본문 조회 실패\n\n';
-        documents.push({...h,error:{code:'CONTENT_UNAVAILABLE',message:'본문 조회 실패'}});
+        documents.push({...currentHit,error:{code:'CONTENT_UNAVAILABLE',message:'본문 조회 실패'}});
         continue;
       }
       let matches=grepArticleSections(c.markdown,query);
       const count=matches.length;
       if(pd&&count>pd)matches=matches.slice(0,pd);
       o+=count?`- 매칭 ${count}건\n\n${matches.map(x=>x.content).join('\n\n')}\n\n`:`- 매칭 조문 없음 (제목/메타 매칭)\n\n`;
-      documents.push({...h,matchCount:count,articles:matches.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}))});
+      o+=`- 조회 개정일: ${selected.revisedAt} / HISTORY_ID ${selected.historyId}\n\n`;
+      documents.push({...currentHit,matchCount:count,articles:matches.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}))});
     }catch(e){
       o+=`- 오류: ${e.message}\n\n`;
       documents.push({...h,error:{code:'DOCUMENT_FETCH_FAILED',message:e.message}});
@@ -481,6 +484,9 @@ async function hLookup(rawKeyword, {
       warningData={code:'HWP_FALLBACK',message:e.message};
     }
 
+    if(!validStr(markdown)) return failure('CONTENT_UNAVAILABLE', 'HWP 원문과 HTML 대체 본문에서 규정 내용을 확인할 수 없습니다.', {
+      details:{lawId,historyId,sourceType,warning:warningData},
+    });
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
       maxBlocks:maxSections,maxChars,
     });
@@ -704,9 +710,17 @@ async function hFinanceEvidence(args){
   if(!pack) return failure('FINANCE_PACK_NOT_CONFIGURED','재무지식 팩을 연결하세요.');
   const context=routeFinance(pack,args.query,args.facts||{},args.workflow_id);
   if(context.error) return failure(context.error,context.message);
+  if(context.missing_facts.length || !context.base_date || !context.campus) {
+    return success(`# ${context.workflow.title} 근거 조회에 필요한 사실\n\n`+
+      context.missing_facts.map(x=>`- ${x.label}`).join('\n')+
+      '\n\n기준일·캠퍼스와 필수 조건을 확인한 뒤 근거를 조회하세요.', {
+      context,rules:[],legal:{status:'not_requested',results:[]},freshness:[],
+      evidence_status:'needs_input',applicability:'not_determined',
+    });
+  }
   const rules=[];
   for(const request of context.rule_requests.slice(0,2)){
-    try{rules.push(serializeOutcome('lookup_dongguk_rule',await hLookup(request.keyword,{terms:request.terms,maxChars:7000,asOf:context.base_date,campus:args.facts?.campus==='WISE'?'wise':'seoul'})));}
+    try{rules.push(serializeOutcome('lookup_dongguk_rule',await hLookup(request.keyword,{terms:request.terms,maxChars:7000,asOf:context.base_date,campus:context.campus})));}
     catch(error){rules.push(serializeException('lookup_dongguk_rule',error));}
   }
   let legal={status:'not_required',results:[]};
