@@ -1,12 +1,12 @@
 {
   "name": "dongguk-rule-mcp",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "dongguk-rule-mcp",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "license": "MIT",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.0",
@@ -18,7 +18,7 @@
         "dongguk-rule-mcp": "src/index.js"
       },
       "engines": {
-        "node": ">=18.0.0"
+        "node": ">=20.19.0"
       }
     },
     "node_modules/@hono/node-server": {
