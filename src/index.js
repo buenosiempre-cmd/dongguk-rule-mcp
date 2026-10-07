@@ -583,12 +583,20 @@ async function hLookup(rawKeyword, {
     }else{
       out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
     }
+    const incompleteReasons = [
+      ...(warningData ? [warningData.code] : []),
+      ...(!excerpt.text.trim() ? ['NO_MATCHING_EXCERPT'] : []),
+      ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
+      ...(identityStatus === 'candidate_preview' ? ['RULE_IDENTITY_UNCONFIRMED'] : []),
+    ];
+    if(incompleteReasons.length) out+='\n\n> 근거 조회 상태: 일부 확인 필요. 원문 유형·발췌 누락·잘림과 규정 선택 상태를 확인하세요.';
     rules.push({
       ...hit,lawId,historyId,revisedAt,sourceType,sourceUrl,history,
       latestHistoryId:latest.historyId,selectionBasis:asOf?'revision_date':'latest_revision',targetDate:asOf,
       applicability:'requires_enforcement_review',
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
+      evidenceStatus:incompleteReasons.length?'partial':'retrieved',incompleteReasons,
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
     });
   }
@@ -596,6 +604,7 @@ async function hLookup(rawKeyword, {
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus},
     rules,
+    evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
   });
 }
@@ -861,7 +870,7 @@ function normalizeLookupArguments(args={}) {
   const ruleName=query.match(/([가-힣A-Za-z0-9·]+규정)/)?.[1] || '';
   return {
     keyword:explicitKeyword || ruleName || query,
-    terms:validStr(args.terms) || (!explicitKeyword ? query : ''),
+    terms:validStr(args.terms) || query,
   };
 }
 

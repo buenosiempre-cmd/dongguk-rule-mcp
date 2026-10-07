@@ -4,6 +4,8 @@
 
 [구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.10.0)
 
+현재 소스는 **v0.10.1 개선본**입니다. 질문 핵심어 누락·가지 별표 번호·텍스트 응답의 별표 누락·비정상 검색 응답 처리를 수정하고 의존성을 업데이트했습니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [변경 및 검증 기록](docs/review-2026-10-07.md)
+
 ## 시작하기
 
 | 방법 | 준비 | 연결 |
@@ -68,6 +70,8 @@ dongguk-rule-mcp --print-config cursor
 
 모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
 
+v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾으며 명시한 `terms`가 우선합니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
+
 ## 공용 서버와 선택 기능
 
 HTTP는 stateless Streamable HTTP이며 MCP 경로는 POST 요청을 사용합니다.
@@ -109,6 +113,7 @@ npm pack --dry-run
 | `npm run test:live` | 새 MCP 프로세스에서 공식 원문 조회·연혁·별표 등 대표 경로 |
 | `npm run test:live:cop` | 학사·인사·회계 등 대표 업무 규정의 LAW_ID 직접조회·최신 연혁·본문 연결 확인 |
 | `npm run doctor -- --json` | 설치와 도구 등록; `--live`로 대표 원문 조회 추가 |
+| `npm run audit:deps` | 설치 의존성의 알려진 취약점 조회; CI에서도 실행 |
 | `npm run benchmark` | 로컬 HTTP 부하 측정; 전교 운영 용량이나 원문 서버 SLA 검증은 아님 |
 | `npm run issue-token -- --help` | 운영자용 개인/그룹 자격증명 발급 도구 사용법 |
 
