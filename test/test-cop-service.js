@@ -56,6 +56,16 @@ async function main(){
     const [publicContent,privateContent]=await Promise.all([pub.call('get_rule_content',{law_id:1}),priv.call('get_rule_content',{law_id:1})]);
     check('rules cache isolated from configured school cookie',()=>assert.match(publicContent.data.contentMarkdown,/공개 숙박비/));
     check('finance cookie cache retained',()=>assert.match(privateContent.data.contentMarkdown,/내부 쿠키 숙박비/));
+    for(const connection of [pub,priv]) {
+      const response=await connection.c.callTool({name:'get_service_info',arguments:{}});
+      const data=response.structuredContent.data,text=response.content.map(x=>x.text||'').join('\n');
+      const listed=(await connection.c.listTools()).tools;
+      check(data.profile+' text-only service metadata matches structured content',()=>{
+        for(const key of ['version','profile','toolCount','readOnly','source']) assert.ok(text.includes('- '+key+': '+data[key]));
+        assert.equal(data.toolCount,listed.length);
+        assert.ok(!text.includes('통합목록을 검색했습니다'));
+      });
+    }
     const info=await pub.call('get_service_info');
     check('public service metadata never implies private access',()=>{assert.equal(info.data.profile,'rules');assert.equal(info.data.privacy.authenticatedUpstream,false);});
     const wise=await pub.call('lookup_dongguk_rule',{rule_keyword:'여비규정',campus:'WISE'});

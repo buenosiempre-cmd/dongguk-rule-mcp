@@ -4,7 +4,7 @@
 
 [구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.10.0)
 
-현재 소스는 **v0.10.1 개선본**입니다. 질문 핵심어 누락·가지 별표 번호·텍스트 응답의 별표 누락·비정상 검색 응답 처리를 수정하고 의존성을 업데이트했습니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [변경 및 검증 기록](docs/review-2026-10-07.md)
+현재 소스는 **v0.10.3 개선본**입니다. 조회·근거 표시·의존성 개선에 더해, 공용 서버가 유휴 시간에 자주 쓰는 공개 규정을 미리 읽고 캐시 만료 전에 갱신할 수 있습니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [변경 및 검증 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
 
 ## 시작하기
 
@@ -41,6 +41,14 @@ dongguk-rule-mcp --print-config cursor
 
 > 동국 규정 MCP의 `get_service_info`로 버전과 도구를 확인해줘. 이어서 `lookup_dongguk_rule`로 출장 관련 규정을 찾아줘. 소속·캠퍼스는 [입력], 신분은 [입력], 업무 기준일은 [YYYY-MM-DD]야. 정확한 규정명·LAW_ID·HISTORY_ID·조문/별표·원문 링크를 보여주고, 적용범위·시행일·표의 행과 단위를 확인하기 전 금액이나 전결권자를 확정하지 마.
 
+### 평소 빠르게 질문하기
+
+연결 확인 후에는 `get_service_info`를 매번 부를 필요가 없습니다. 규정명과 핵심어를 포함해 바로 조회하고, 근거가 충분하면 같은 검색·본문·목차를 반복 조회하지 않습니다.
+
+> 동국규정에서 여비규정의 국내 숙박비 기준을 찾아줘. 관련 조문·별표와 원문 링크를 먼저 보여주고 핵심만 짧게 정리해줘. 근거가 부족하거나 잘렸으면 그 부분만 추가 확인해줘.
+
+`lookup_dongguk_rule` 한 번으로 검색·최신 개정본·원문 HWP·관련 별표를 함께 받습니다. 짧은 답변과 별개로 필요한 표의 행·단위·주석, 적용범위와 시행일은 확인해야 합니다. [앱 지침 예시와 캐시 사전 준비](docs/PERFORMANCE.md)
+
 ## 공개 규정 도구 — 기본 10개
 
 | 도구 | 용도 |
@@ -68,7 +76,7 @@ dongguk-rule-mcp --print-config cursor
 - **인용:** 인용의 실존 확인과 해당 업무의 적용 적합성은 다릅니다. 검색 0건·확인 필요·부분 조회는 검증 통과가 아닙니다.
 - **업무와 데이터:** 공개 `rules`는 로그인 쿠키와 내부 지식팩을 사용하지 않습니다. 개인별 급여·계좌·학생기록·인증정보를 입력하지 않습니다. 신고·지급·결재 또는 외부 발송을 수행하지 않습니다.
 
-모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
+모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. v0.10.2부터 `structuredContent`를 표시하지 않는 클라이언트에서도 확인할 수 있도록 `get_service_info`의 `version`·`profile`·`toolCount`와 `lookup_dongguk_rule`의 `sourceType`·`evidenceStatus`·부분 조회 사유를 Markdown에도 표시합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
 
 v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾으며 명시한 `terms`가 우선합니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
 
