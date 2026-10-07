@@ -100,7 +100,7 @@ HTTP 옵션:
 }
 
 const MODE_HTTP = ARGV.includes('--http');
-const {normalizeProfile,withProfile,requestCookie,normalizeCampus,campusScope}=require('./runtime-context.js');
+const {normalizeProfile,withProfile,withPublicWarmup,refreshAhead,requestCookie,normalizeCampus,campusScope}=require('./runtime-context.js');
 const PROFILE=argOf('--profile') || process.env.DONGGUK_MCP_PROFILE || 'rules';
 const HTTP_PORT = Number(argOf('--port') || process.env.DONGGUK_MCP_PORT || 3845);
 const HTTP_HOST = argOf('--host') || process.env.DONGGUK_MCP_HOST || '127.0.0.1';
@@ -175,37 +175,7 @@ function noCache() {
   return ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE||'').trim().toLowerCase());
 }
 function hk(...p) { return crypto.createHash('md5').update(p.join('|')).digest('hex'); }
-const inflightCache = new Map();
-async function cached(cat, key, ttl, fn) {
-  if (noCache()) return fn();
-  const keyPath = path.join(cacheDir(), cat, `${key}.json`);
-  if (inflightCache.has(keyPath)) return inflightCache.get(keyPath);
-  const pending = loadCached(cat, key, ttl, fn);
-  inflightCache.set(keyPath, pending);
-  try { return await pending; } finally { inflightCache.delete(keyPath); }
-}
-async function loadCached(cat, key, ttl, fn) {
-  if (noCache()) return fn();
-  const fp = path.join(cacheDir(), cat, `${key}.json`);
-  try {
-    if (fs.existsSync(fp) && (Date.now()-fs.statSync(fp).mtimeMs)/1000 < ttl)
-      return JSON.parse(fs.readFileSync(fp,'utf-8'));
-  } catch(e) {}
-  const r = await fn();
-  try {
-    const d=path.join(cacheDir(),cat);
-    fs.mkdirSync(cacheDir(),{recursive:true,mode:0o700});
-    fs.chmodSync(cacheDir(),0o700);
-    fs.mkdirSync(d,{recursive:true,mode:0o700});
-    fs.chmodSync(d,0o700);
-    const temp = `${fp}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-    try {
-      fs.writeFileSync(temp,JSON.stringify(r),{encoding:'utf-8',mode:0o600});
-      fs.renameSync(temp,fp);
-    } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
-  } catch(e) {}
-  return r;
-}
+const cached = require('./cache.js').createDiskCache({ directory:cacheDir, disabled:noCache, refreshAhead });
 
 // === HTTP ===
 async function fetchResponse(url, opts={}) {
@@ -565,12 +535,21 @@ async function hLookup(rawKeyword, {
       history=history.slice(0,5);
       historyText=history.map(x=>`${x.revisedAt || '날짜 미상'} (HISTORY_ID ${x.historyId})`).join(', ');
     }
+    const incompleteReasons = [
+      ...(warningData ? [warningData.code] : []),
+      ...(!excerpt.text.trim() ? ['NO_MATCHING_EXCERPT'] : []),
+      ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
+      ...(identityStatus === 'candidate_preview' ? ['RULE_IDENTITY_UNCONFIRMED'] : []),
+    ];
+    const evidenceStatus=incompleteReasons.length?'partial':'retrieved';
     const sourceUrl=`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${historyId}`;
     out+=`\n\n## [${i+1}] ${hit.title}\n` +
       `- 분류: ${hit.code || '미상'}\n` +
       `- 조회 개정일: ${revisedAt || '확인 필요'}\n` +
       `- LAW_ID / HISTORY_ID: ${lawId} / ${historyId}\n` +
-      `- 원문 유형: ${sourceType}\n` +
+      `- 원문 유형 (sourceType): ${sourceType}\n` +
+      `- 근거 조회 상태 (evidenceStatus): ${evidenceStatus}\n` +
+      (incompleteReasons.length ? `- 일부 확인 필요 사유 (incompleteReasons): ${incompleteReasons.join(', ')}\n` : '') +
       `- 원문: ${sourceUrl}` +
       (historyText?`\n- 최근 연혁: ${historyText}`:'') +
       warning;
@@ -583,12 +562,15 @@ async function hLookup(rawKeyword, {
     }else{
       out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
     }
+
+    if(incompleteReasons.length) out+='\n\n> 근거 조회 상태: 일부 확인 필요. 원문 유형·발췌 누락·잘림과 규정 선택 상태를 확인하세요.';
     rules.push({
       ...hit,lawId,historyId,revisedAt,sourceType,sourceUrl,history,
       latestHistoryId:latest.historyId,selectionBasis:asOf?'revision_date':'latest_revision',targetDate:asOf,
       applicability:'requires_enforcement_review',
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
+      evidenceStatus,incompleteReasons,
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
     });
   }
@@ -596,6 +578,7 @@ async function hLookup(rawKeyword, {
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus},
     rules,
+    evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
   });
 }
@@ -861,7 +844,7 @@ function normalizeLookupArguments(args={}) {
   const ruleName=query.match(/([가-힣A-Za-z0-9·]+규정)/)?.[1] || '';
   return {
     keyword:explicitKeyword || ruleName || query,
-    terms:validStr(args.terms) || (!explicitKeyword ? query : ''),
+    terms:validStr(args.terms) || query,
   };
 }
 
@@ -979,7 +962,21 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     }
     let r;
     switch(name){
-      case 'get_service_info': r=success(`동국 규정 MCP v${VERSION} · ${profile}\n\n${campusScope().notice}`,{version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'공식 규정 원문. 별표 비교는 추출 텍스트 범위.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']}); break;
+      case 'get_service_info': {
+        const data={version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'공식 규정 원문. 별표 비교는 추출 텍스트 범위.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        r=success([
+          '동국 규정 MCP 서비스 정보',
+          '',
+          '- version: '+data.version,
+          '- profile: '+data.profile,
+          '- toolCount: '+data.toolCount,
+          '- readOnly: '+data.readOnly,
+          '- source: '+data.source,
+          '',
+          '공식 목록에는 캠퍼스 필터가 없습니다. 캠퍼스·직군별 적용은 규정 제목과 적용범위 조문을 확인하세요.',
+        ].join('\n'),data);
+        break;
+      }
       case 'get_finance_context': r=getFinanceContext(a.query,a.facts,a.workflow_id); break;
       case 'get_finance_evidence': r=await hFinanceEvidence(a); break;
       case 'search_finance_handbook': {const result=searchHandbook(a.query,{limit:a.limit});r=['ok','no_match'].includes(result.status)?success(result.results.map(x=>`${x.heading}\n${x.excerpt}`).join('\n\n')||'해당 해설을 찾지 못했습니다.',result):failure('HANDBOOK_'+result.status.toUpperCase(),result.notice||'해설서 조회를 완료하지 못했습니다.');break;}
@@ -1018,6 +1015,8 @@ return server;
 
 // === HTTP 모드 (Streamable HTTP, stateless) ===
 function startHttp() {
+  const {parseWarmRules,startWarmup}=require('./warmup.js');
+  const warmRules=noCache()?[]:parseWarmRules(process.env.DONGGUK_MCP_WARM_RULES||'');
   normalizeProfile(PROFILE);
   if (!validHost(HTTP_HOST)) throw new Error('HTTP host는 IP 주소 또는 유효한 호스트 이름이어야 합니다.');
   if (!validPort(argOf('--port') || process.env.DONGGUK_MCP_PORT || '3845')) throw new Error('HTTP port는 1~65535 범위의 정수여야 합니다.');
@@ -1031,9 +1030,20 @@ function startHttp() {
     maxQueue:Number(process.env.DONGGUK_MCP_MAX_QUEUE||32),
     allowedOrigins:(process.env.DONGGUK_MCP_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean),
   });
-  server.listen(HTTP_PORT,HTTP_HOST,()=>console.error(`dongguk-rule-mcp v${VERSION} HTTP 시작 (${PROFILE}, ${HTTP_HOST}:${HTTP_PORT})`));
+  let warmer;
+  const baseStatus=server.getStatus.bind(server);
+  server.getStatus=()=>({...baseStatus(),cacheWarmup:warmer?.getStatus()||{enabled:false,ruleCount:0}});
+  server.listen(HTTP_PORT,HTTP_HOST,()=>{
+    console.error(`dongguk-rule-mcp v${VERSION} HTTP 시작 (${PROFILE}, ${HTTP_HOST}:${HTTP_PORT})`);
+    warmer=startWarmup({
+      rules:warmRules,
+      isBusy:()=>{const s=baseStatus();return s.status!=='ok'||s.activeRequests>0||s.queuedRequests>0;},
+      warm:keyword=>withPublicWarmup(()=>hLookup(keyword,{maxChars:1000})),
+    });
+  });
+  server.once('close',()=>warmer?.stop());
   server.on('error',()=>{console.error('HTTP 기동 실패: 바인드 주소·포트·인증 설정을 확인하세요.');process.exitCode=1;});
-  const shutdown=()=>server.shutdown().finally(()=>process.exit(0));
+  const shutdown=()=>{warmer?.stop();return server.shutdown().finally(()=>process.exit(0));};
   process.once('SIGINT',shutdown);process.once('SIGTERM',shutdown);
   return server;
 }

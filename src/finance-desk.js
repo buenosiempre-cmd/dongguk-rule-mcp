@@ -59,7 +59,7 @@ function prepareFinanceCase({query, text='', facts={}} = {}) {
   const namedRules=quotedRules.length?quotedRules:plainRules;
   const explicitSpecial=/특례규칙/.test(query);
   const explicitArticles=[...new Set([...query.matchAll(/제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g)].map(m=>`제${Number(m[1])}조${m[2]?'의'+Number(m[2]):''}`))];
-  const explicitAnnexes=[...new Set([...query.matchAll(/별표\s*(\d+)/g)].map(m=>`별표 ${Number(m[1])}`))];
+  const explicitAnnexes=[...new Set([...query.matchAll(/별표\s*(\d+)(?:\s*의\s*(\d+))?/g)].map(m=>`별표 ${Number(m[1])}${m[2]?'의'+Number(m[2]):''}`))];
   const ruleRequests = unsupported || (referenceOnly&&explicitSpecial&&!namedRules.length) ? [] : (namedRules.length?namedRules:['위임전결 규정']).flatMap(keyword=>{
     const articles=namedRules.length&&!explicitSpecial?explicitArticles:[];
     return articles.length?articles.map(article=>({keyword,article,terms:article,purpose:'요청한 규정 조문 원문 확인'})):[{keyword,terms:terms.join(' ')||'전결',purpose:'기관 기준 원문 확인'}];
@@ -130,7 +130,17 @@ function formatFinanceReview(result) {
   if(result.review?.findings?.length) parts.push(result.review.findings.map(x=>'- '+x).join('\n'));
   if(result.context.questions?.length) parts.push('## 필요한 확인',result.context.questions.map(x=>'- '+x.label).join('\n'));
   if(result.handbook?.results?.length) parts.push('## 해설서 근거',result.handbook.results.map(r=>`${r.heading}\n${r.excerpt}\n출처: ${r.edition}, ${r.locator?.start_line}~${r.locator?.end_line}줄 (${r.original_url})`).join('\n\n'));
-  if(result.legal?.results?.length) parts.push('## 법령 근거',result.legal.results.map(r=>`${r.request?.law_name} ${r.request?.article||''}: ${r.status}\n${(r.articles||[]).map(a=>a.text||'').join('\n')}`).join('\n\n'));
+  if(result.legal?.results?.length) parts.push('## 법령 근거',result.legal.results.map(r=>{
+    const sources=[...(r.articles||[]),...(r.annexes||[])].map(a=>[
+      `${a.selector||'본문'}: ${a.status}${a.code?` (${a.code})`:''}`,
+      a.dateStatus?`시점 확인: ${a.dateStatus}`:'',
+      a.referenceOnly?'참고용: 요청한 기준일의 적용 근거로 확정하지 마세요.':'',
+      a.truncated?'본문 일부 잘림: 전체 원문을 확인하세요.':'',
+      a.source?.url?`원문: ${a.source.url}`:'',
+      a.text||'본문을 확보하지 못했습니다.',
+    ].filter(Boolean).join('\n'));
+    return [`${r.request?.law_name} ${[r.request?.article,r.request?.annex].filter(Boolean).join(' · ')}: ${r.status}`, ...sources].join('\n\n');
+  }).join('\n\n'));
   if(result.practice?.candidates?.length) parts.push('## 실무 후보',JSON.stringify(result.practice.candidates,null,2));
   if(result.accounts?.candidates?.length) parts.push('## 계정 후보',result.accounts.candidates.map(a=>`${a.code} ${a.name}: ${a.description}\n${result.accounts.notice}`).join('\n\n'));
   if(result.citations?.content?.length) parts.push('## 기안문 인용 확인',result.citations.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'));

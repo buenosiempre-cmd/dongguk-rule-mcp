@@ -62,6 +62,13 @@ function parseSearch(html, page, pageShow) {
     });
   });
 
+  // HTTP 200 can contain a maintenance/login page or changed markup. Neither
+  // proves that a regulation does not exist; reject it before it enters cache.
+  const expectsRows = total > 0 && (!page || !pageShow || (page - 1) * pageShow < total);
+  if (!totalMatch || (expectsRows && !hits.length) || hits.some(hit => !hit.title.trim())) {
+    throw Object.assign(new Error('규정 검색 응답 형식을 확인할 수 없습니다. 원문 검색 화면을 확인하세요.'), { code: 'UPSTREAM_FORMAT_CHANGED' });
+  }
+
   return {
     total,
     page,
