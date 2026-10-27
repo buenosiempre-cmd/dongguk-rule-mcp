@@ -120,7 +120,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -539,6 +539,7 @@ async function hLookup(rawKeyword, {
       ...(warningData ? [warningData.code] : []),
       ...(!excerpt.text.trim() ? ['NO_MATCHING_EXCERPT'] : []),
       ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
+      ...(excerpt.blocksTruncated ? ['EXCERPT_BLOCK_LIMIT'] : []),
       ...(identityStatus === 'candidate_preview' ? ['RULE_IDENTITY_UNCONFIRMED'] : []),
     ];
     const evidenceStatus=incompleteReasons.length?'partial':'retrieved';
@@ -571,7 +572,7 @@ async function hLookup(rawKeyword, {
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
       evidenceStatus,incompleteReasons,
-      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
+      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated},
     });
   }
   return success(out,{
@@ -841,7 +842,7 @@ async function hFinanceEvidence(args){
 function normalizeLookupArguments(args={}) {
   const query=validStr(args.query) || '';
   const explicitKeyword=validStr(args.rule_keyword) || '';
-  const ruleName=query.match(/([가-힣A-Za-z0-9·]+규정)/)?.[1] || '';
+  const ruleName=ruleNameFromQuery(query);
   return {
     keyword:explicitKeyword || ruleName || query,
     terms:validStr(args.terms) || query,
