@@ -177,6 +177,41 @@ test('upstream article truncation remains explicit',async()=>{
   assert.equal(response.status,'partial');assert.equal(response.results[0].articles[0].upstreamTruncated,true);assert.equal(response.results[0].articles[0].bodyRetrieved,true);
 });
 
+test('whole-query budget retains earlier evidence and does not start remaining requests',async()=>{
+  let bodies=0;
+  const client=fake(r=>r.name==='get_law_text'&&++bodies===2?new Promise(()=>{}):undefined);
+  const start=Date.now();
+  const result=await run([1,2,3].map(n=>({law_name:LAW,article:`제${n}조`})),client,{timeoutMs:500,totalTimeoutMs:35});
+  assert.equal(result.status,'partial');assert.equal(result.results[0].status,'retrieved');
+  assert.equal(result.results[1].code,'LEGAL_TOTAL_TIMEOUT');assert.equal(result.results[2].attempted,false);
+  assert.equal(result.results[2].code,'LEGAL_TOTAL_TIMEOUT');assert.equal(bodies,2);assert.ok(Date.now()-start<500);
+});
+const datedAnnex=(date='2024.01.15',effective='2020.01.01',mst='111111',name=LAW)=>text(`📅 기준일 ${date} 당시 시행 버전의 별표입니다.\n  「${name}」 [시행 ${effective}] [제123호, 2019.12.01 일부개정] (MST ${mst})\n  ↳ 이후 개정됨\n\n${annex().content[0].text}`);
+const datedCapabilities=()=>({tools:[{name:'legal_analysis'},{name:'get_annexes',inputSchema:{type:'object',properties:{date:{type:'string'}}}}]});
+test('dated annex uses advertised date parameter and verifies historical MST and effective date',async()=>{
+  const client=fake(r=>r.name==='get_annexes'?datedAnnex():undefined,{listTools:datedCapabilities});
+  const result=await run([{law_name:LAW,annex:'별표 1'}],client,{baseDate:'2024-01-15'});
+  assert.equal(result.status,'retrieved');const item=result.results[0].annexes[0];
+  assert.equal(item.source.versionVerified,true);assert.equal(item.source.mst,'111111');assert.equal(item.source.effectiveAt,'20200101');
+  assert.equal(item.dateStatus,'historical_version_retrieved');assert.equal(item.referenceOnly,false);
+  assert.equal(client.calls.find(c=>c.name==='get_annexes').arguments.date,'2024-01-15');
+  assert.equal(client.calls.some(c=>c.name==='search_law'),false);
+});
+test('dated annex with missing or inconsistent version proof remains reference-only',async()=>{
+  for(const response of [annex(),datedAnnex('2024.01.16'),datedAnnex('2024.01.15','2025.01.01'),datedAnnex('2024.01.15','2020.01.01','999999'),datedAnnex('2024.01.15','2020.01.01','111111','다른 법률')]){
+    const client=fake(r=>r.name==='get_annexes'?response:undefined,{listTools:datedCapabilities});
+    const result=await run([{law_name:LAW,annex:'별표 1'}],client,{baseDate:'2024-01-15'});
+    assert.equal(result.status,'partial');const item=result.results[0].annexes[0];
+    assert.equal(item.source.versionVerified,false);assert.equal(item.referenceOnly,true);assert.equal(item.code,'HISTORICAL_ANNEX_UNVERIFIED');
+  }
+});
+test('dated annex failure never retries with current annex silently',async()=>{
+  const client=fake(r=>r.name==='get_annexes'?text('[NOT_FOUND] 기준일 별표 없음'):undefined,{listTools:datedCapabilities});
+  const result=await run([{law_name:LAW,annex:'별표 1'}],client,{baseDate:'2024-01-15'});
+  assert.equal(result.status,'unavailable');assert.equal(client.calls.filter(c=>c.name==='get_annexes').length,1);
+  assert.equal(client.calls.some(c=>c.name==='search_law'),false);
+});
+
 (async()=>{
   let passed=0;
   for(const {name,fn} of tests){try{await fn();passed++;console.log(`ok ${passed} - ${name}`);}catch(error){console.error(`not ok - ${name}`);throw error;}}

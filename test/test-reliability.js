@@ -60,6 +60,8 @@ async function main() {
     check('검색 캐시보다 최신 연혁 선택', rule.historyId === 20);
     check('개정일도 동일 연혁에서 반환', rule.revisedAt === '2026.09.01');
     check('실제로 최신 원문 사용', rule.excerpt.text.includes('최신 숙박비'));
+    check('텍스트 전용 클라이언트도 원문 유형 확인', lookup.content[0].text.includes('(sourceType): '+rule.sourceType));
+    check('텍스트 전용 클라이언트도 retrieved 상태 확인', rule.evidenceStatus==='retrieved' && lookup.content[0].text.includes('(evidenceStatus): '+rule.evidenceStatus));
     const financePath=path.join(root,'finance-pack.json');
     fs.writeFileSync(financePath,JSON.stringify({version:'test',workflows:[{id:'travel',title:'출장',keywords:['출장'],required_facts:[{key:'base_date',label:'기준일'},{key:'campus',label:'캠퍼스'}],source_notes:[],steps:['검토'],checks:[],completion_evidence:['확인'],rule_requests:[{keyword:'여비규정',terms:'숙박비',baseline_history_id:10}],legal_requests:[]}],cards:[]}));
     process.env.DONGGUK_FINANCE_PACK_PATH=financePath;
@@ -84,6 +86,8 @@ async function main() {
     fs.unlinkSync(path.join(dir, 'original', '1_20.json'));
     const fallback = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('HWP 실패 시 HTML 대체와 경고', fallback.structuredContent.data.rules[0].warning.code === 'HWP_FALLBACK');
+    check('텍스트 전용 클라이언트도 partial과 사유 확인', fallback.content[0].text.includes('(evidenceStatus): partial') && fallback.content[0].text.includes('(incompleteReasons): HWP_FALLBACK'));
+    check('HTML 대체 시 텍스트 원문 유형도 일치', fallback.content[0].text.includes('(sourceType): HTML 본문'));
     const incomplete=await call('get_finance_evidence',{query:'출장',facts:{base_date:'2026-09-05',campus:'서울'}});
     check('재무 근거의 HWP 실패는 부분 조회로 표시',incomplete.structuredContent.data.evidence_status==='partial');
     check('대체 본문에 HWP 포함 완료를 단정하지 않음', !fallback.content[0].text.includes('원문 HWP의 관련 조문·별표가 포함되어 있습니다'));

@@ -1,9 +1,12 @@
 'use strict';
 const {Client}=require('@modelcontextprotocol/sdk/client/index.js');
 const {StdioClientTransport}=require('@modelcontextprotocol/sdk/client/stdio.js');
+const {StreamableHTTPClientTransport}=require('@modelcontextprotocol/sdk/client/streamableHttp.js');
+const {createHash}=require('node:crypto');
 const {parseDateLoose}=require('./timeline.js');
 
 const DEFAULT_TIMEOUT_MS=25000;
+const DEFAULT_TOTAL_TIMEOUT_MS=45000;
 const MAX_REQUESTS=8;
 const MAX_TEXT_CHARS=120000;
 const SCOPE='법령 본문과 별표는 조회 근거입니다. 기준일 버전을 확인해도 부칙·경과조치·조항별 시행일과 사건 적용성은 별도 검토해야 합니다. 과거 별표 및 버전 미확인 자료를 과거 적용 근거로 확정하지 마세요.';
@@ -22,34 +25,58 @@ async function bounded(operation,timeoutMs){
   try{return await Promise.race([Promise.resolve().then(()=>operation(controller.signal)),timeout]);}
   finally{clearTimeout(timer);}
 }
+function connectionSettings(){
+  if(process.env.DONGGUK_LEGAL_MCP_ENABLED!=='1') throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  const kind=process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio';
+  if(kind==='streamable-http'){
+    let url;
+    try{url=new URL(process.env.DONGGUK_LEGAL_MCP_URL||'');}catch{throw failure('LEGAL_MCP_NOT_CONFIGURED');}
+    const loopback=['localhost','127.0.0.1','[::1]'].includes(url.hostname);
+    if((url.protocol!=='https:'&&!(url.protocol==='http:'&&loopback))||url.username||url.password||url.search||url.hash) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+    const token=(process.env.DONGGUK_LEGAL_MCP_BEARER_TOKEN||'').trim();
+    if(/[\r\n]/.test(token)) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+    return {kind,url:url.href,token};
+  }
+  if(kind!=='stdio'||!process.env.LAW_OC) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  let args;
+  try{args=JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]');}catch{throw failure('LEGAL_MCP_NOT_CONFIGURED');}
+  if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  return {kind,command:process.env.DONGGUK_LEGAL_MCP_COMMAND||'npx',args,lawOc:process.env.LAW_OC};
+}
 async function legalClient(timeoutMs){
-  if(process.env.DONGGUK_LEGAL_MCP_ENABLED!=='1'||!process.env.LAW_OC) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  const settings=connectionSettings();
+  const key=createHash('sha256').update(JSON.stringify(settings)).digest('hex');
+  if(connection&&connection.key!==key) await closeLegalClient();
   if(!connection){
-    connection=(async()=>{
+    const record={key,promise:null};
+    connection=record;
+    record.promise=(async()=>{
       let client,transport;
       try{
-        const args=JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]');
-        if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw failure('LEGAL_MCP_NOT_CONFIGURED');
         client=new Client({name:'dongguk-finance-desk',version:require('../package.json').version});
-        transport=new StdioClientTransport({command:process.env.DONGGUK_LEGAL_MCP_COMMAND||'npx',args,env:{PATH:process.env.PATH,HOME:process.env.HOME,LAW_OC:process.env.LAW_OC},stderr:'pipe'});
-        client.onclose=()=>{connection=null;};
+        transport=settings.kind==='streamable-http'
+          ? new StreamableHTTPClientTransport(new URL(settings.url),{requestInit:{redirect:'error',headers:settings.token?{Authorization:`Bearer ${settings.token}`}:{}}})
+          : new StdioClientTransport({command:settings.command,args:settings.args,env:{PATH:process.env.PATH,HOME:process.env.HOME,LAW_OC:settings.lawOc},stderr:'pipe'});
+        client.onclose=()=>{if(connection===record)connection=null;};
         const connecting=client.connect(transport,{timeout:timeoutMs});
         transport.stderr?.resume();
         await bounded(()=>connecting,timeoutMs);
         transport.stderr?.resume();
         return client;
       }catch(error){
-        // Do not surface child stderr, arguments or exception messages: they may contain credentials.
+        // Never expose transport URLs, credentials, child stderr or exception text.
         await client?.close().catch(()=>{});
         await transport?.close().catch(()=>{});
         throw failure(error?.code==='LEGAL_TIMEOUT'?'LEGAL_TIMEOUT':error?.code==='LEGAL_MCP_NOT_CONFIGURED'?'LEGAL_MCP_NOT_CONFIGURED':'LEGAL_CONNECTION_FAILED');
       }
-    })().catch(error=>{connection=null;throw error;});
+    })().catch(error=>{if(connection===record)connection=null;throw error;});
   }
-  return bounded(()=>connection,timeoutMs);
+  const pending=connection.promise;
+  return bounded(()=>pending,timeoutMs);
 }
+
 function errorCode(error){
-  if(['LEGAL_TIMEOUT','LEGAL_MCP_NOT_CONFIGURED','LEGAL_CONNECTION_FAILED','LEGAL_TOOL_UNAVAILABLE','HISTORICAL_LOOKUP_UNAVAILABLE'].includes(error?.code)) return error.code;
+  if(['LEGAL_TIMEOUT','LEGAL_TOTAL_TIMEOUT','LEGAL_MCP_NOT_CONFIGURED','LEGAL_CONNECTION_FAILED','LEGAL_TOOL_UNAVAILABLE','HISTORICAL_LOOKUP_UNAVAILABLE'].includes(error?.code)) return error.code;
   if(error?.code===-32001||error?.name==='AbortError'||/timed?\s*out|timeout/i.test(String(error?.message||''))) return 'LEGAL_TIMEOUT';
   if(error?.code===-32601||/unknown tool|tool .*not found|method not found/i.test(String(error?.message||''))) return 'LEGAL_TOOL_UNAVAILABLE';
   if(['ECONNREFUSED','ECONNRESET','EPIPE'].includes(error?.code)||/not connected|connection closed|transport closed/i.test(String(error?.message||''))) return 'LEGAL_CONNECTION_FAILED';
@@ -142,6 +169,19 @@ function annexProblem(response,lawName,selector){
   if(markers.length&&!markers.includes(selector)) return 'LEGAL_ANNEX_SELECTOR_MISMATCH';
   return null;
 }
+// v4.15 Korean Law puts a dated/versioned preamble ahead of the annex body.
+// Cross-check it against independently resolved historical law metadata. A date
+// argument alone is never evidence that the provider honored the requested date.
+function datedAnnexEvidence(response,lawName,date,law){
+  const text=textOf(response);
+  const preamble=/^📅 기준일 (\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}) 당시 시행 버전의 별표입니다\.\r?\n\s*「([^」\r\n]+)」 \[시행 ([\d.\-/]+)\] \[([^\]\r\n]+)\] \(MST (\d+)\)/.exec(text);
+  const lines=text.split(/\r?\n/);
+  const start=lines.findIndex(line=>normalize(line).startsWith(normalize(lawName)+'-'));
+  const body=start>=0?lines.slice(start).join('\n'):'';
+  const verified=!!preamble&&parseDateLoose(preamble[1])?.iso===date.iso&&normalize(preamble[2])===normalize(lawName)&&compactDate(preamble[3])===law.effectiveAt&&preamble[5]===law.mst;
+  return {verified,bodyResponse:{...response,content:[{type:'text',text:body}]}};
+}
+
 function summarize(results,baseDate,limits,extra={}){
   const counts={requested:results.length,attempted:results.filter(r=>r.attempted).length,retrieved:results.filter(r=>r.status==='retrieved').length,partial:results.filter(r=>r.status==='partial').length,unavailable:results.filter(r=>r.status==='unavailable').length,notRequested:results.filter(r=>r.status==='not_requested').length,notRetrieved:results.filter(r=>r.status!=='retrieved').length,bodyRetrieved:results.filter(r=>[...(r.articles||[]),...(r.annexes||[])].some(a=>a.bodyRetrieved)).length};
   const status=!results.length?(extra.code?'unavailable':'not_required'):counts.retrieved===results.length?'retrieved':counts.retrieved+counts.partial?'partial':'unavailable';
@@ -152,14 +192,17 @@ function summarize(results,baseDate,limits,extra={}){
  * Korean Law legal_analysis/applicable_law resolves a historical MST and its actual
  * effective date. MOLEG efYd selects that effective slice; it is NOT a transaction
  * date filter, and ID+efYd ignores the date. Never substitute an unverified current
- * body for historical evidence. get_annexes cannot pin a historical version.
+ * body for historical evidence. Dated annexes require advertised date support
+ * and matching version metadata; legacy annexes remain explicit current references.
  */
-async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date()}={}){
-  const limits={maxRequests,maxTextChars,timeoutMs};
+async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,totalTimeoutMs=DEFAULT_TOTAL_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date()}={}){
+  const limits={maxRequests,maxTextChars,timeoutMs,totalTimeoutMs};
+  const deadline=Date.now()+totalTimeoutMs;
+  const remaining=()=>{const ms=deadline-Date.now();if(ms<=0)throw failure('LEGAL_TOTAL_TIMEOUT');return Math.min(timeoutMs,ms);};
   if(!Array.isArray(requests)) return summarize([],null,limits,{code:'INVALID_LEGAL_REQUESTS'});
   const today=parseDateLoose(new Date(now).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}));
   const date=baseDate===undefined||baseDate===null?today:parseDateLoose(baseDate);
-  const globalError=!date||!today?'INVALID_BASE_DATE':!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||!Number.isInteger(maxRequests)||maxRequests<1||maxRequests>MAX_REQUESTS||!Number.isInteger(maxTextChars)||maxTextChars<1||maxTextChars>MAX_TEXT_CHARS?'INVALID_LEGAL_OPTIONS':null;
+  const globalError=!date||!today?'INVALID_BASE_DATE':!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||!Number.isInteger(totalTimeoutMs)||totalTimeoutMs<1||totalTimeoutMs>120000||!Number.isInteger(maxRequests)||maxRequests<1||maxRequests>MAX_REQUESTS||!Number.isInteger(maxTextChars)||maxTextChars<1||maxTextChars>MAX_TEXT_CHARS?'INVALID_LEGAL_OPTIONS':null;
   const results=requests.map((request,i)=>({request,status:'not_requested',attempted:false,articles:[],annexes:[],...(globalError?{status:'unavailable',code:globalError}:i>=maxRequests?{code:'LEGAL_REQUEST_LIMIT'}:{})}));
   if(globalError||!requests.length) return summarize(results,date,limits,globalError?{code:globalError}:{});
   if(date.ts>today.ts){
@@ -177,9 +220,29 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   }
   if(!eligible.length) return summarize(results,date,limits);
   let client;
-  try{client=injectedClient||await legalClient(timeoutMs);if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
-  catch(error){const code=errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code});}
-  const call=(name,args)=>bounded(signal=>client.callTool({name,arguments:args},undefined,{timeout:timeoutMs,signal}),timeoutMs);
+  try{const allowed=remaining();client=injectedClient||await bounded(()=>legalClient(allowed),allowed);if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
+  catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code});}
+  const deadlineCall=async operation=>{
+    const allowed=remaining();
+    try{return await bounded(signal=>operation(signal,allowed),allowed);}
+    catch(error){if(errorCode(error)==='LEGAL_TIMEOUT'&&Date.now()>=deadline)throw failure('LEGAL_TOTAL_TIMEOUT');throw error;}
+  };
+  const call=(name,args)=>deadlineCall((signal,allowed)=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal}));
+  let discoveredTools;
+  const toolDefinitions=()=>{
+    if(!discoveredTools)discoveredTools=(async()=>{
+      if(typeof client.listTools!=='function')return [];
+      const tools=[],seen=new Set();let cursor;
+      for(let page=0;page<8;page++){
+        const listing=await deadlineCall((signal,allowed)=>client.listTools(cursor?{cursor}:{},{timeout:allowed,signal}));
+        tools.push(...(listing?.tools||[]));
+        if(!listing?.nextCursor||seen.has(listing.nextCursor))break;
+        cursor=listing.nextCursor;seen.add(cursor);
+      }
+      return tools;
+    })();
+    return discoveredTools;
+  };
   const currentLookups=new Map(),historicalLookups=new Map();
   let historicalTool;
   const currentLaw=name=>{
@@ -198,17 +261,9 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
     const key=normalize(name);
     if(!historicalLookups.has(key)) historicalLookups.set(key,(async()=>{
       if(!historicalTool) historicalTool=(async()=>{
-        if(typeof client.listTools!=='function') throw failure('HISTORICAL_LOOKUP_UNAVAILABLE');
-        // Follow pagination but bound a malformed/cycling provider.
-        let cursor;const seen=new Set();
-        for(let page=0;page<8;page++){
-          const listing=await bounded(signal=>client.listTools(cursor?{cursor}:{},{timeout:timeoutMs,signal}),timeoutMs);
-          const names=(listing?.tools||[]).map(t=>t.name);
-          if(names.includes('legal_analysis')) return 'legal_analysis';
-          if(names.includes('applicable_law')) return 'applicable_law';
-          if(!listing?.nextCursor||seen.has(listing.nextCursor)) break;
-          cursor=listing.nextCursor;seen.add(cursor);
-        }
+        const names=(await toolDefinitions()).map(t=>t.name);
+        if(names.includes('legal_analysis'))return 'legal_analysis';
+        if(names.includes('applicable_law'))return 'applicable_law';
         throw failure('HISTORICAL_LOOKUP_UNAVAILABLE');
       })();
       const tool=await historicalTool;
@@ -221,6 +276,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   };
   const safeCode=error=>/^LEGAL_|^HISTORICAL_/.test(error?.code||'')?error.code:errorCode(error);
   for(const {result,lawName,selector,annexNo} of eligible){
+    if(Date.now()>=deadline){Object.assign(result,{code:'LEGAL_TOTAL_TIMEOUT',dateStatus:historical?'historical_unverified':'current',referenceOnly:historical});continue;}
     result.attempted=true;
     result.dateStatus=historical?'historical_unverified':'current';
     const needsLawBody=Boolean(selector)||!annexNo;
@@ -246,18 +302,28 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
       const annex={selector:`별표 ${annexNo}`,annexNo,status:'unavailable',bodyRetrieved:false,dateStatus:historical?'historical_unverified':'current_unpinned',referenceOnly:historical,source:null};
       result.annexes.push(annex);
       try{
-        const {law,search}=await currentLaw(lawName);
+        const annexTool=historical?(await toolDefinitions()).find(t=>t.name==='get_annexes'):null;
+        const dateSupported=historical&&annexTool?.inputSchema?.properties?.date?.type==='string';
+        // Legacy clients can still provide current reference material, labelled
+        // explicitly. Once dated lookup is supported, never silently fall back.
+        const resolved=await(dateSupported?atDate(lawName):currentLaw(lawName));
+        const law=resolved.law;
         if(!result.law) result.law=law;
-        result.search_text=search.text;
-        const arguments_={lawName:law.name,annexNo,...(selector?{jo:selector}:{})};
+        if(resolved.search)result.search_text=resolved.search.text;
+        if(resolved.resolution)result.dateResolution={...resolved.resolution,tool:resolved.tool};
+        const arguments_={lawName:law.name,annexNo,...(selector?{jo:selector}:{}),...(dateSupported?{date:date.iso}:{})};
         const response=await call('get_annexes',arguments_);
-        annex.source={provider:'Korean Law MCP',tool:'get_annexes',lawName:law.name,lawId:law.lawId,mst:null,currentLawMst:law.mst,effectiveAt:null,versionVerified:false,baseDate:date.iso,retrievedAt:new Date().toISOString(),url:law.sourceUrl,annexNo,arguments:arguments_};
-        const problem=annexProblem(response,law.name,annexNo);
+        const dated=dateSupported?datedAnnexEvidence(response,law.name,date,law):null;
+        const versionVerified=dated?.verified===true;
+        annex.source={provider:'Korean Law MCP',tool:'get_annexes',lawName:law.name,lawId:law.lawId,mst:versionVerified?law.mst:null,currentLawMst:dateSupported?null:law.mst,effectiveAt:versionVerified?law.effectiveAt:null,versionVerified,baseDate:date.iso,retrievedAt:new Date().toISOString(),url:law.sourceUrl,annexNo,arguments:arguments_};
+        const problem=annexProblem(dated?.bodyResponse||response,law.name,annexNo);
         if(problem) throw failure(problem);
         const text=textOf(response),content=clipped(text,maxTextChars);
         const canonicalUnverified=/정본 링크 확인 불가|최신 개정이 반영되지 않은 구본/.test(text);
-        const referenceOnly=historical||canonicalUnverified;
-        Object.assign(annex,content,{status:referenceOnly||content.truncated?'partial':'retrieved',bodyRetrieved:true,referenceOnly,...(canonicalUnverified?{dateStatus:historical?'historical_unverified':'current_unverified'}:{}),...(historical?{code:'HISTORICAL_ANNEX_UNVERIFIED'}:canonicalUnverified?{code:'LEGAL_ANNEX_VERSION_UNVERIFIED'}:content.truncated?{code:'LEGAL_TEXT_TRUNCATED'}:{})});
+        const referenceOnly=(historical&&!versionVerified)||canonicalUnverified;
+        Object.assign(annex,content,{status:referenceOnly||content.truncated?'partial':'retrieved',bodyRetrieved:true,referenceOnly,
+          dateStatus:historical?(versionVerified&&!canonicalUnverified?'historical_version_retrieved':'historical_unverified'):canonicalUnverified?'current_unverified':'current_unpinned',
+          ...(historical&&!versionVerified?{code:'HISTORICAL_ANNEX_UNVERIFIED'}:canonicalUnverified?{code:'LEGAL_ANNEX_VERSION_UNVERIFIED'}:content.truncated?{code:'LEGAL_TEXT_TRUNCATED'}:{})});
       }catch(error){annex.code=safeCode(error);}
     }
     const targets=[...result.articles,...result.annexes];
@@ -268,5 +334,5 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   }
   return summarize(results,date,limits);
 }
-async function closeLegalClient(){const pending=connection;connection=null;if(pending){try{const client=await pending;await client.close();}catch{ /* Failed connections already clean up their transport. */ }}}
+async function closeLegalClient(){const pending=connection;connection=null;if(pending){try{const client=await pending.promise;await client.close();}catch{ /* Failed connections already clean up their transport. */ }}}
 module.exports={queryLegalReferences,closeLegalClient,exactCurrentLaw};

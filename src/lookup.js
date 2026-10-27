@@ -12,6 +12,27 @@ function normalizeText(value) {
   return normalizeMiddots(value).replace(/\s+/g, '').toLowerCase();
 }
 
+// Preserve an explicitly quoted official title, including its spaces. For
+// unquoted questions, only recognize one named rule; multiple names remain a
+// search question so the caller cannot silently choose the first regulation.
+function ruleNameFromQuery(value) {
+  const query = String(value || '').trim();
+  const suffix = '(?:시행세칙|규정|규칙|세칙|학칙|정관|지침|내규|요령|헌장)';
+  const titlePattern = new RegExp(`^[가-힣A-Za-z0-9·ㆍ‧•・()（） \\t]{0,120}${suffix}$`);
+  const named = name => ['학칙', '정관', '헌장'].includes(name) || !new RegExp(`^${suffix}$`).test(name);
+  const quotes = [...query.matchAll(/「([^「」\n]+)」|『([^『』\n]+)』|“([^“”\n]+)”|‘([^‘’\n]+)’|"([^"\n]+)"|'([^'\n]+)'/g)];
+  const quoted = quotes
+    .map(match => match.slice(1).find(Boolean).trim())
+    .filter(name => titlePattern.test(name) && named(name));
+  let unquoted = query;
+  for (const match of quotes.slice().reverse()) {
+    unquoted = unquoted.slice(0, match.index) + ' '.repeat(match[0].length) + unquoted.slice(match.index + match[0].length);
+  }
+  const bare = new RegExp(`(?<![가-힣A-Za-z0-9·ㆍ‧•・])([가-힣A-Za-z0-9·ㆍ‧•・]{0,80}${suffix}(?:[ \\t]+시행세칙)?)`, 'g');
+  const names = [...quoted, ...[...unquoted.matchAll(bare)].map(match => match[1]).filter(named)];
+  return new Set(names.map(normalizeText)).size === 1 ? names[0] : '';
+}
+
 function searchVariants(value) {
   const input = String(value || '').trim().replace(/\s+/g, ' ');
   if (!input) return [];
@@ -134,13 +155,20 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const tokens = termTokens(rawTerms);
 
   if (!blocks.length) {
-    return { text: '', matchedTerms: [], blockCount: 0, truncated: false };
+    return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false };
   }
 
   if (!tokens.length) {
     const selected = blocks.slice(0, Math.min(maxBlocks, blocks.length)).join('\n\n');
+    const clipped = truncateText(selected, maxChars);
+    const omittedBlockCount = Math.max(0, blocks.length - maxBlocks);
     return {
-      ...truncateText(selected, maxChars),
+      ...clipped,
+      text: clipped.text + (omittedBlockCount ? `\n\n...(블록 수 제한으로 원문 블록 ${omittedBlockCount}개 생략)` : ''),
+      truncated: clipped.truncated || omittedBlockCount > 0,
+      charactersTruncated: clipped.truncated,
+      blocksTruncated: omittedBlockCount > 0,
+      omittedBlockCount,
       matchedTerms: [],
       blockCount: Math.min(maxBlocks, blocks.length),
     };
@@ -156,7 +184,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     .sort((a, b) => b.score - a.score || a.index - b.index);
 
   if (!scored.length) {
-    return { text: '', matchedTerms: [], blockCount: 0, truncated: false };
+    return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false };
   }
 
   const selectedIndexes = new Set(scored.slice(0, maxBlocks).map(x => x.index));
@@ -177,8 +205,17 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const matchedTerms = [...new Set(
     scored.slice(0, maxBlocks).flatMap(x => x.matched)
   )];
+  const clipped = truncateText(selected, maxChars);
+  // Table context can recover a lower-ranked matching block. Only count
+  // genuinely omitted matches, not every item below the score cutoff.
+  const omittedBlockCount = scored.filter(item => !selectedIndexes.has(item.index)).length;
   return {
-    ...truncateText(selected, maxChars),
+    ...clipped,
+    text: clipped.text + (omittedBlockCount ? `\n\n...(블록 수 제한으로 관련 블록 ${omittedBlockCount}개 생략)` : ''),
+    truncated: clipped.truncated || omittedBlockCount > 0,
+    charactersTruncated: clipped.truncated,
+    blocksTruncated: omittedBlockCount > 0,
+    omittedBlockCount,
     matchedTerms,
     blockCount: orderedIndexes.length,
   };
@@ -187,6 +224,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
 module.exports = {
   clampNumber,
   normalizeText,
+  ruleNameFromQuery,
   searchVariants,
   rankRuleHits,
   selectRuleCandidate,

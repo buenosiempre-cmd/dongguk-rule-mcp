@@ -100,7 +100,7 @@ HTTP 옵션:
 }
 
 const MODE_HTTP = ARGV.includes('--http');
-const {normalizeProfile,withProfile,requestCookie,normalizeCampus,campusScope}=require('./runtime-context.js');
+const {normalizeProfile,withProfile,withPublicWarmup,refreshAhead,requestCookie,normalizeCampus,campusScope}=require('./runtime-context.js');
 const PROFILE=argOf('--profile') || process.env.DONGGUK_MCP_PROFILE || 'rules';
 const HTTP_PORT = Number(argOf('--port') || process.env.DONGGUK_MCP_PORT || 3845);
 const HTTP_HOST = argOf('--host') || process.env.DONGGUK_MCP_HOST || '127.0.0.1';
@@ -112,6 +112,7 @@ const {selectPractice}=require('./practice.js');
 const {reviewFinanceCase,formatFinanceReview}=require('./finance-desk.js');
 const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
 const { queryLegalReferences } = require('./legal-client.js');
+const { formatLegalEvidence } = require('./legal-format.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
@@ -120,7 +121,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -175,37 +176,7 @@ function noCache() {
   return ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE||'').trim().toLowerCase());
 }
 function hk(...p) { return crypto.createHash('md5').update(p.join('|')).digest('hex'); }
-const inflightCache = new Map();
-async function cached(cat, key, ttl, fn) {
-  if (noCache()) return fn();
-  const keyPath = path.join(cacheDir(), cat, `${key}.json`);
-  if (inflightCache.has(keyPath)) return inflightCache.get(keyPath);
-  const pending = loadCached(cat, key, ttl, fn);
-  inflightCache.set(keyPath, pending);
-  try { return await pending; } finally { inflightCache.delete(keyPath); }
-}
-async function loadCached(cat, key, ttl, fn) {
-  if (noCache()) return fn();
-  const fp = path.join(cacheDir(), cat, `${key}.json`);
-  try {
-    if (fs.existsSync(fp) && (Date.now()-fs.statSync(fp).mtimeMs)/1000 < ttl)
-      return JSON.parse(fs.readFileSync(fp,'utf-8'));
-  } catch(e) {}
-  const r = await fn();
-  try {
-    const d=path.join(cacheDir(),cat);
-    fs.mkdirSync(cacheDir(),{recursive:true,mode:0o700});
-    fs.chmodSync(cacheDir(),0o700);
-    fs.mkdirSync(d,{recursive:true,mode:0o700});
-    fs.chmodSync(d,0o700);
-    const temp = `${fp}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-    try {
-      fs.writeFileSync(temp,JSON.stringify(r),{encoding:'utf-8',mode:0o600});
-      fs.renameSync(temp,fp);
-    } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
-  } catch(e) {}
-  return r;
-}
+const cached = require('./cache.js').createDiskCache({ directory:cacheDir, disabled:noCache, refreshAhead });
 
 // === HTTP ===
 async function fetchResponse(url, opts={}) {
@@ -565,12 +536,22 @@ async function hLookup(rawKeyword, {
       history=history.slice(0,5);
       historyText=history.map(x=>`${x.revisedAt || '날짜 미상'} (HISTORY_ID ${x.historyId})`).join(', ');
     }
+    const incompleteReasons = [
+      ...(warningData ? [warningData.code] : []),
+      ...(!excerpt.text.trim() ? ['NO_MATCHING_EXCERPT'] : []),
+      ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
+      ...(excerpt.blocksTruncated ? ['EXCERPT_BLOCK_LIMIT'] : []),
+      ...(identityStatus === 'candidate_preview' ? ['RULE_IDENTITY_UNCONFIRMED'] : []),
+    ];
+    const evidenceStatus=incompleteReasons.length?'partial':'retrieved';
     const sourceUrl=`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${historyId}`;
     out+=`\n\n## [${i+1}] ${hit.title}\n` +
       `- 분류: ${hit.code || '미상'}\n` +
       `- 조회 개정일: ${revisedAt || '확인 필요'}\n` +
       `- LAW_ID / HISTORY_ID: ${lawId} / ${historyId}\n` +
-      `- 원문 유형: ${sourceType}\n` +
+      `- 원문 유형 (sourceType): ${sourceType}\n` +
+      `- 근거 조회 상태 (evidenceStatus): ${evidenceStatus}\n` +
+      (incompleteReasons.length ? `- 일부 확인 필요 사유 (incompleteReasons): ${incompleteReasons.join(', ')}\n` : '') +
       `- 원문: ${sourceUrl}` +
       (historyText?`\n- 최근 연혁: ${historyText}`:'') +
       warning;
@@ -583,19 +564,23 @@ async function hLookup(rawKeyword, {
     }else{
       out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
     }
+
+    if(incompleteReasons.length) out+='\n\n> 근거 조회 상태: 일부 확인 필요. 원문 유형·발췌 누락·잘림과 규정 선택 상태를 확인하세요.';
     rules.push({
       ...hit,lawId,historyId,revisedAt,sourceType,sourceUrl,history,
       latestHistoryId:latest.historyId,selectionBasis:asOf?'revision_date':'latest_revision',targetDate:asOf,
       applicability:'requires_enforcement_review',
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
-      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated},
+      evidenceStatus,incompleteReasons,
+      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated},
     });
   }
   return success(out,{
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus},
     rules,
+    evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
   });
 }
@@ -836,13 +821,13 @@ async function hFinanceEvidence(args){
       evidence_status:'needs_input',applicability:'not_determined',
     });
   }
-  const ruleCoverage=await lookupFinanceRules(context.rule_requests,context);
+  const [ruleCoverage,legal]=await Promise.all([
+    lookupFinanceRules(context.rule_requests,context),
+    context.legal_requests.length ? queryLegalReferences(context.legal_requests,{baseDate:context.base_date})
+      .catch(()=>({status:'unavailable',code:'LEGAL_LOOKUP_FAILED',results:[]}))
+      : Promise.resolve({status:'not_required',results:[]}),
+  ]);
   const rules=ruleCoverage.results;
-  let legal={status:'not_required',results:[]};
-  if(context.legal_requests.length){
-    try{legal=await queryLegalReferences(context.legal_requests,{baseDate:context.base_date});}
-    catch(error){legal={status:'unavailable',code:error.message==='LEGAL_MCP_NOT_CONFIGURED'?'LEGAL_MCP_NOT_CONFIGURED':'LEGAL_LOOKUP_FAILED',results:[]};}
-  }
   const freshness=rules.flatMap((x,i)=>(x.structuredContent.data?.rules||[]).map(r=>({
     law_id:r.lawId,baseline_history_id:context.rule_requests[i]?.baseline_history_id||null,
     latest_history_id:r.latestHistoryId,selected_history_id:r.historyId,
@@ -850,7 +835,7 @@ async function hFinanceEvidence(args){
     meaning:'개정본 식별자 비교입니다. 해당 업무 조항의 실질 변경을 의미하지 않습니다.'
   })));
   const partial=ruleCoverage.status!=='retrieved'||legal.status==='unavailable'||legal.status==='partial';
-  return success(`# ${context.workflow.title} 근거 확인\n\n조회상태: ${partial?'일부 확인 필요':'조회됨'}\n\n${context.notice}\n\n${rules.map(r=>r.content[0].text).join('\n\n')}`,{
+  return success(`# ${context.workflow.title} 근거 확인\n\n조회상태: ${partial?'일부 확인 필요':'조회됨'}\n\n${context.notice}\n\n## 교내 규정 근거\n\n${rules.map(r=>r.content[0].text).join('\n\n')}\n\n${formatLegalEvidence(legal)}`,{
     context,rules,rule_coverage:ruleCoverage,legal,freshness,legal_date_scope:legal.scope||'거래 기준일에 따른 조회 상태를 출처별로 확인하세요.',evidence_status:partial?'partial':'retrieved',applicability:'requires_review',retrieved_at:new Date().toISOString(),
   });
 }
@@ -858,10 +843,10 @@ async function hFinanceEvidence(args){
 function normalizeLookupArguments(args={}) {
   const query=validStr(args.query) || '';
   const explicitKeyword=validStr(args.rule_keyword) || '';
-  const ruleName=query.match(/([가-힣A-Za-z0-9·]+규정)/)?.[1] || '';
+  const ruleName=ruleNameFromQuery(query);
   return {
     keyword:explicitKeyword || ruleName || query,
-    terms:validStr(args.terms) || (!explicitKeyword ? query : ''),
+    terms:validStr(args.terms) || query,
   };
 }
 
@@ -875,7 +860,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   {name:'get_finance_context',description:'재무팀 출장·강사료·소득정정 질문을 판단카드·필수 사실·법령/규정 조회 경로·처리절차·완료증빙으로 연결합니다. 실제 신고·지급은 수행하지 않습니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   {name:'get_finance_evidence',description:'재무지식 팩이 지정한 교내 규정과 국가 법령 식별자를 실조회해 사전검토용 근거 묶음을 반환합니다. 각 출처의 조회 성공과 적용 판단은 구분합니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   {name:'search_finance_handbook',description:'특례규칙 해설서의 계정과목·회계 개념·사례를 짧은 질문으로 검색합니다. 판본·원문 위치·추출 품질을 반환합니다. 법적 적용과 분개표 원문 검증은 별도입니다.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200},limit:{type:'integer',minimum:1,maximum:5}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
-  {name:'review_finance_case',description:'일반 비용·계정·증빙·기안문 검토의 기본 도구. 짧은 질문과 제공된 문맥으로 법령·별표·교내규정·해설서·실무 후보를 함께 조회합니다. facts는 대화에서 확인한 조건만 전달하고 한 번에 필요한 질문 최대 3개를 제시하세요. 조회 성공을 적정 판정으로 단정하지 마세요. 출장·강사료·소득정정 상세 흐름은 get_finance_evidence도 사용하세요.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:2000},text:{type:'string',maxLength:20000,description:'검토할 기안문 본문. 개인번호·계좌·인증정보 제외.'},facts:{type:'object',additionalProperties:false,properties:Object.fromEntries(Object.entries(require('./finance-desk.js').FACT_LABELS).map(([key,label])=>[key,{type:'string',maxLength:120,description:label}]))}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
+  {name:'review_finance_case',description:'출장비·외부 강사료의 교내 규정과 한국법령을 자동 연계하는 기본 도구. 확인한 기준일·캠퍼스·회계·대상 조건을 facts로 전달하세요. 필요한 사실이 없으면 먼저 질문하며 지원 범위 밖 급여·연금·국외 강연·비거주자 업무는 별도 조회가 필요합니다. 일반 교비 비용·계정·증빙·기안문 검토도 지원합니다. 부분 조회·적용 미확인을 지급 가능이나 소득구분 확정으로 해석하지 마세요.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:2000},text:{type:'string',maxLength:20000,description:'검토할 기안문 본문. 개인번호·계좌·인증정보 제외.'},facts:{type:'object',additionalProperties:false,properties:Object.fromEntries(Object.entries(require('./finance-desk.js').FACT_LABELS).map(([key,label])=>[key,{type:'string',maxLength:120,description:label}]))}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   { name:'lookup_dongguk_rule', description:'동국대학교 규정 질문의 기본·우선 도구. 자연어 query 또는 짧은 rule_keyword를 받아 규정 검색→최신 원문 HWP→관련 조문·별표(금액표 포함)를 한 번에 반환합니다. 근거가 충분하면 중복 조회를 생략하세요. partial·모호한 후보·적용범위 미확인 시 추가 확인이 필요합니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'선택 LAW_ID. 모호한 후보를 선택한 후 직접 원문·별표 조회'},
@@ -979,7 +964,26 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     }
     let r;
     switch(name){
-      case 'get_service_info': r=success(`동국 규정 MCP v${VERSION} · ${profile}\n\n${campusScope().notice}`,{version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'공식 규정 원문. 별표 비교는 추출 텍스트 범위.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']}); break;
+      case 'get_service_info': {
+        const data={version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'공식 규정 원문. 별표 비교는 추출 텍스트 범위.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
+        data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
+        r=success([
+          '동국 규정 MCP 서비스 정보',
+          '',
+          '- version: '+data.version,
+          '- profile: '+data.profile,
+          '- toolCount: '+data.toolCount,
+          '- readOnly: '+data.readOnly,
+          '- source: '+data.source,
+          '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (설정 여부이며 실제 연결 검증은 별도)',
+          '- jointWorkflows: '+(data.integrations.jointWorkflows.join(', ')||'없음'),
+          '- privatePacksConfigured: '+data.privacy.privatePacksConfigured,
+          '',
+          '공식 목록에는 캠퍼스 필터가 없습니다. 캠퍼스·직군별 적용은 규정 제목과 적용범위 조문을 확인하세요.',
+        ].join('\n'),data);
+        break;
+      }
       case 'get_finance_context': r=getFinanceContext(a.query,a.facts,a.workflow_id); break;
       case 'get_finance_evidence': r=await hFinanceEvidence(a); break;
       case 'search_finance_handbook': {const result=searchHandbook(a.query,{limit:a.limit});r=['ok','no_match'].includes(result.status)?success(result.results.map(x=>`${x.heading}\n${x.excerpt}`).join('\n\n')||'해당 해설을 찾지 못했습니다.',result):failure('HANDBOOK_'+result.status.toUpperCase(),result.notice||'해설서 조회를 완료하지 못했습니다.');break;}
@@ -1018,6 +1022,8 @@ return server;
 
 // === HTTP 모드 (Streamable HTTP, stateless) ===
 function startHttp() {
+  const {parseWarmRules,startWarmup}=require('./warmup.js');
+  const warmRules=noCache()?[]:parseWarmRules(process.env.DONGGUK_MCP_WARM_RULES||'');
   normalizeProfile(PROFILE);
   if (!validHost(HTTP_HOST)) throw new Error('HTTP host는 IP 주소 또는 유효한 호스트 이름이어야 합니다.');
   if (!validPort(argOf('--port') || process.env.DONGGUK_MCP_PORT || '3845')) throw new Error('HTTP port는 1~65535 범위의 정수여야 합니다.');
@@ -1031,9 +1037,20 @@ function startHttp() {
     maxQueue:Number(process.env.DONGGUK_MCP_MAX_QUEUE||32),
     allowedOrigins:(process.env.DONGGUK_MCP_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean),
   });
-  server.listen(HTTP_PORT,HTTP_HOST,()=>console.error(`dongguk-rule-mcp v${VERSION} HTTP 시작 (${PROFILE}, ${HTTP_HOST}:${HTTP_PORT})`));
+  let warmer;
+  const baseStatus=server.getStatus.bind(server);
+  server.getStatus=()=>({...baseStatus(),cacheWarmup:warmer?.getStatus()||{enabled:false,ruleCount:0}});
+  server.listen(HTTP_PORT,HTTP_HOST,()=>{
+    console.error(`dongguk-rule-mcp v${VERSION} HTTP 시작 (${PROFILE}, ${HTTP_HOST}:${HTTP_PORT})`);
+    warmer=startWarmup({
+      rules:warmRules,
+      isBusy:()=>{const s=baseStatus();return s.status!=='ok'||s.activeRequests>0||s.queuedRequests>0;},
+      warm:keyword=>withPublicWarmup(()=>hLookup(keyword,{maxChars:1000})),
+    });
+  });
+  server.once('close',()=>warmer?.stop());
   server.on('error',()=>{console.error('HTTP 기동 실패: 바인드 주소·포트·인증 설정을 확인하세요.');process.exitCode=1;});
-  const shutdown=()=>server.shutdown().finally(()=>process.exit(0));
+  const shutdown=()=>{warmer?.stop();return server.shutdown().finally(()=>process.exit(0));};
   process.once('SIGINT',shutdown);process.once('SIGTERM',shutdown);
   return server;
 }

@@ -1,8 +1,10 @@
 # 동국 규정 MCP
 
-동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **v0.10.0의 기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
+동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
 
 [구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.10.0)
+
+현재 소스는 **v0.11.0 개선본**입니다. 출장비·외부 강사료의 교내 규정과 한국법령을 업무 조건에 따라 함께 조회하는 선택 기능을 추가했습니다. 원격 HTTP 법령 연결, 과거 별표의 시점 검증, 법령 근거의 화면 표시를 지원합니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [자동 법령 연계 안내](docs/AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
 
 ## 시작하기
 
@@ -39,6 +41,16 @@ dongguk-rule-mcp --print-config cursor
 
 > 동국 규정 MCP의 `get_service_info`로 버전과 도구를 확인해줘. 이어서 `lookup_dongguk_rule`로 출장 관련 규정을 찾아줘. 소속·캠퍼스는 [입력], 신분은 [입력], 업무 기준일은 [YYYY-MM-DD]야. 정확한 규정명·LAW_ID·HISTORY_ID·조문/별표·원문 링크를 보여주고, 적용범위·시행일·표의 행과 단위를 확인하기 전 금액이나 전결권자를 확정하지 마.
 
+### 평소 빠르게 질문하기
+
+연결 확인 후에는 `get_service_info`를 매번 부를 필요가 없습니다. 규정명과 핵심어를 포함해 바로 조회하고, 근거가 충분하면 같은 검색·본문·목차를 반복 조회하지 않습니다.
+
+> 동국규정에서 여비규정의 국내 숙박비 기준을 찾아줘. 관련 조문·별표와 원문 링크를 먼저 보여주고 핵심만 짧게 정리해줘. 근거가 부족하거나 잘렸으면 그 부분만 추가 확인해줘.
+
+`lookup_dongguk_rule` 한 번으로 검색·최신 개정본·원문 HWP·관련 별표를 함께 받습니다. 짧은 답변과 별개로 필요한 표의 행·단위·주석, 적용범위와 시행일은 확인해야 합니다. [앱 지침 예시와 캐시 사전 준비](docs/PERFORMANCE.md)
+
+급여·출장비·위임전결·과거 감사·기안문 인용에 바로 적용할 질문과 도구 입력 예시는 [업무 활용 가이드](docs/WORKFLOWS.md)를 참고하세요.
+
 ## 공개 규정 도구 — 기본 10개
 
 | 도구 | 용도 |
@@ -66,7 +78,9 @@ dongguk-rule-mcp --print-config cursor
 - **인용:** 인용의 실존 확인과 해당 업무의 적용 적합성은 다릅니다. 검색 0건·확인 필요·부분 조회는 검증 통과가 아닙니다.
 - **업무와 데이터:** 공개 `rules`는 로그인 쿠키와 내부 지식팩을 사용하지 않습니다. 개인별 급여·계좌·학생기록·인증정보를 입력하지 않습니다. 신고·지급·결재 또는 외부 발송을 수행하지 않습니다.
 
-모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
+모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. v0.10.2부터 `structuredContent`를 표시하지 않는 클라이언트에서도 확인할 수 있도록 `get_service_info`의 `version`·`profile`·`toolCount`와 `lookup_dongguk_rule`의 `sourceType`·`evidenceStatus`·부분 조회 사유를 Markdown에도 표시합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
+
+v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾으며 명시한 `terms`가 우선합니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
 
 ## 공용 서버와 선택 기능
 
@@ -89,7 +103,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **14개 도구**가 됩니다. 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **14개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
 
 ## 소스 실행과 검증
 
@@ -109,6 +123,7 @@ npm pack --dry-run
 | `npm run test:live` | 새 MCP 프로세스에서 공식 원문 조회·연혁·별표 등 대표 경로 |
 | `npm run test:live:cop` | 학사·인사·회계 등 대표 업무 규정의 LAW_ID 직접조회·최신 연혁·본문 연결 확인 |
 | `npm run doctor -- --json` | 설치와 도구 등록; `--live`로 대표 원문 조회 추가 |
+| `npm run audit:deps` | 설치 의존성의 알려진 취약점 조회; CI에서도 실행 |
 | `npm run benchmark` | 로컬 HTTP 부하 측정; 전교 운영 용량이나 원문 서버 SLA 검증은 아님 |
 | `npm run issue-token -- --help` | 운영자용 개인/그룹 자격증명 발급 도구 사용법 |
 
