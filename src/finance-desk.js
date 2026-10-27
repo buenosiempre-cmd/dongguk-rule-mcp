@@ -2,9 +2,13 @@
 const {parseDateLoose} = require('./timeline.js');
 const {hasSensitiveInput} = require('./finance.js');
 const {findAccountCandidates}=require('./accounts.js');
+const {ruleNameFromQuery}=require('./lookup.js');
+const {prepareJointWorkflow,JOINT_FACT_LABELS}=require('./joint-workflows.js');
+const {formatLegalEvidence}=require('./legal-format.js');
 
 const SPECIAL_RULE = '사학기관 재무ㆍ회계 규칙에 대한 특례규칙';
 const FACT_LABELS = {
+  ...JOINT_FACT_LABELS,
   base_date:'어느 날짜의 거래 또는 검토인가요?', campus:'서울캠퍼스와 WISE 중 어디 업무인가요?',
   accounting_unit:'교비회계·법인회계·산학협력단 등 어느 회계의 업무인가요?',
   purpose:'새 비용 지급인가요, 자산 취득이나 기존 거래의 취소·반환인가요?',
@@ -48,7 +52,8 @@ function prepareFinanceCase({query, text='', facts={}} = {}) {
   const unit = known.accounting_unit ? UNIT_ALIASES.get(compact(known.accounting_unit)) : null;
   if(known.accounting_unit&&!unit) return {error:'INVALID_ARGUMENT',message:'회계구분을 교비·법인 일반·산학협력단·병원·수익사업 중 해당 범위로 알려주세요.'};
   const unsupported = unit && !['school','corporation_general'].includes(unit);
-  const referenceOnly = !text && /(?:조문|해설|설명|내용|불러|찾아|제\s*\d+\s*조)/.test(query) && !/(?:검토|적정|맞[는아]|처리|지급|샀|구입|구매|취득)/.test(query);
+  const clauseLookup = !text && /제\s*\d+\s*조/.test(query) && /조회|찾아|내용|알려|설명|불러/.test(query) && !/검토|적정|맞[는아]|처리|가능|계산|분류|비과세|원천징수|과세/.test(query);
+  const referenceOnly = clauseLookup || (!text && /(?:조문|해설|설명|내용|불러|찾아|제\s*\d+\s*조)/.test(query) && !/(?:검토|적정|맞[는아]|처리|지급|샀|구입|구매|취득)/.test(query));
   const needsPractice = /(?:증빙|결의|세금계산서|카드|영수증|지급)/.test(queryText);
   const required = referenceOnly ? [] : ['base_date','campus','accounting_unit','purpose',...(needsPractice?['payment_route','payment_status','evidence_type','evidence_status']:[])];
   const missing = required.filter(key=>!known[key]).map(key=>({key,label:FACT_LABELS[key]}));
@@ -56,7 +61,8 @@ function prepareFinanceCase({query, text='', facts={}} = {}) {
   const lookupQuery = [known.account_code,terms.join(' '),query].filter(Boolean).join(' ').slice(0,200);
   const quotedRules = [...new Set([...queryText.matchAll(/[「『]([^」』\n]{2,60}규정)[」』]/g)].map(m=>m[1]))];
   const plainRules = [...new Set([...query.matchAll(/(?:^|\s)([가-힣·ㆍ]{2,25}규정)/g)].map(m=>m[1]))];
-  const namedRules=quotedRules.length?quotedRules:plainRules;
+  const singleRule=ruleNameFromQuery(query);
+  const namedRules=(quotedRules.length?quotedRules:singleRule?[singleRule]:plainRules).filter(name=>!name.replace(/\s+/g,'').endsWith('특례규칙'));
   const explicitSpecial=/특례규칙/.test(query);
   const explicitArticles=[...new Set([...query.matchAll(/제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g)].map(m=>`제${Number(m[1])}조${m[2]?'의'+Number(m[2]):''}`))];
   const explicitAnnexes=[...new Set([...query.matchAll(/별표\s*(\d+)(?:\s*의\s*(\d+))?/g)].map(m=>`별표 ${Number(m[1])}${m[2]?'의'+Number(m[2]):''}`))];
@@ -73,7 +79,7 @@ function prepareFinanceCase({query, text='', facts={}} = {}) {
     ...(!referenceOnly?[{law_name:SPECIAL_RULE,article:'제12조'}]:[]),
     ...(/계정|분개|자산|선급|소모품|구입|구매/.test(queryText)?[{law_name:SPECIAL_RULE,article:'제17조',annex:'별표 1'}]:[]),
   ];
-  return {
+  const context = {
     query, facts:known, fact_basis:basis, base_date:date?.iso||null,campus,accounting_unit:unit,
     intent:referenceOnly?'reference_lookup':'case_review',needs_practice:needsPractice&&!referenceOnly,
     needs_handbook:!referenceOnly||(!namedRules.length&&!explicitSpecial)||/해설/.test(query),
@@ -83,16 +89,19 @@ function prepareFinanceCase({query, text='', facts={}} = {}) {
     applicability:'not_determined',external_action_state:'none',
     notice:unsupported?'해당 회계단위는 이번 일반 비용 검토 범위 밖입니다. 특례규칙·교비 해설을 자동 적용하지 않습니다.':'원문 조회와 업무 적정성 판단을 구분합니다. 필요한 조건과 근거가 갖춰진 결론만 제시하세요.',
   };
+  const joint=prepareJointWorkflow({query,text,known,unit,campus,referenceOnly,namedRules,explicitSpecial,labels:FACT_LABELS});
+  return joint?.error ? joint : joint ? {...context,...joint} : context;
 }
 
 async function reviewFinanceCase(args, {searchHandbook,selectPractice,queryLegalReferences,lookupRules,verifyCitations} = {}) {
   const context=prepareFinanceCase(args);
   if(context.error) return context;
   if(context.scope_status==='unsupported_accounting_unit') return {context,evidence_status:'scope_review_required',handbook:{status:'not_requested',results:[]},practice:{status:'not_requested',candidates:[]},rules:[],legal:{status:'not_requested',results:[]},review:{status:'requires_specialist_review',findings:[context.notice]},applicability:'not_determined',external_action_state:'none'};
+  if(context.routing_status && context.routing_status!=='ready') return {context,evidence_status:context.routing_status==='needs_input'?'needs_input':'scope_review_required',handbook:{status:'not_requested',results:[]},practice:{status:'not_requested',candidates:[]},rules:[],rule_coverage:{status:'not_requested',results:[]},legal:{status:'not_requested',results:[]},review:{status:context.routing_status==='needs_input'?'needs_input':'requires_specialist_review',findings:[context.notice],questions:context.questions},applicability:'not_determined',external_action_state:'none'};
   const safe = async (fn, fallback) => {try{return await fn();}catch{return fallback;}};
   const [handbook,practice,rules,legal,citations]=await Promise.all([
     context.needs_handbook ? safe(()=>searchHandbook(context.lookup_query),{status:'unavailable',results:[],code:'HANDBOOK_LOOKUP_FAILED'}) : {status:'not_requested',results:[]},
-    context.accounting_unit==='school' ? safe(()=>selectPractice({...context.facts,campus:context.campus||context.facts.campus}),{status:'unavailable',candidates:[],code:'PRACTICE_LOOKUP_FAILED'}) : {status:'not_requested',candidates:[],reason:'school_accounting_not_confirmed'},
+    context.needs_practice&&context.accounting_unit==='school' ? safe(()=>selectPractice({...context.facts,campus:context.campus||context.facts.campus}),{status:'unavailable',candidates:[],code:'PRACTICE_LOOKUP_FAILED'}) : {status:'not_requested',candidates:[],reason:'school_accounting_not_confirmed'},
     context.rule_requests.length ? safe(()=>lookupRules(context.rule_requests,context),{results:[],status:'unavailable',requested:context.rule_requests.length,omitted:context.rule_requests}) : {status:'not_requested',results:[]},
     context.legal_requests.length ? safe(()=>queryLegalReferences(context.legal_requests,{baseDate:context.base_date}),{status:'unavailable',results:[],requested:context.legal_requests.length,code:'LEGAL_LOOKUP_FAILED'}) : {status:'not_requested',results:[]},
     args.text && verifyCitations ? safe(()=>verifyCitations(args.text,context.campus||'all'),{status:'unavailable'}) : {status:'not_requested'},
@@ -101,7 +110,7 @@ async function reviewFinanceCase(args, {searchHandbook,selectPractice,queryLegal
   const citationData=citations.structuredContent?.data;
   const citationTruncated=citationData?.truncated===true||['citations','rules'].some(key=>citationData?.truncated?.[key]>0);
   const citationsIncomplete=!!args.text&&(citations.status==='unavailable'||citations.structuredContent?.ok===false||citationTruncated||['notFound','needsReview','floating'].some(key=>citationData?.summary?.[key]>0));
-  const findings=[];
+  const findings=[...(context.workflow_warnings||[]),...(context.source_gaps||[]).map(g=>g.message)];
   if(context.missing_facts.length) findings.push('거래 조건이 부족하여 적정 여부와 계정을 확정하지 않았습니다.');
   if(!context.base_date) findings.push('기준일 미확인: 법령은 현재 조회 시점의 참고 자료입니다.');
   if(!context.accounting_unit) findings.push('회계단위 미확인: 교비·법인 일반회계의 자료를 적용 근거로 확정하지 마세요.');
@@ -111,7 +120,7 @@ async function reviewFinanceCase(args, {searchHandbook,selectPractice,queryLegal
   if(practice.candidates?.length) findings.push('실무 후보는 보유 매뉴얼 근거이며 현재 nDRIMS 화면과 담당 검토는 별도입니다.');
   if(practiceIncomplete) findings.push('요청한 증빙·실무 절차 근거를 조회하지 못했습니다.');
   if(citationsIncomplete) findings.push('기안문의 규정 인용 검증을 완료하지 못했습니다. 인용이 없거나 원문 확인이 필요한 항목을 확인하세요.');
-  const partial=(context.needs_handbook&&handbook.status!=='ok')||(context.rule_requests.length&&rules.status!=='retrieved')||(context.legal_requests.length&&legal.status!=='retrieved')||practiceIncomplete||citationsIncomplete;
+  const partial=(context.needs_handbook&&handbook.status!=='ok')||(context.rule_requests.length&&rules.status!=='retrieved')||(context.legal_requests.length&&legal.status!=='retrieved')||practiceIncomplete||citationsIncomplete||!!context.source_gaps?.length;
   const accounts=findAccountCandidates(legal,context.lookup_query,context.accounting_unit);
   return {
     context,handbook,practice,accounts,rules:rules.results||[],rule_coverage:rules,legal,citations,
@@ -130,17 +139,8 @@ function formatFinanceReview(result) {
   if(result.review?.findings?.length) parts.push(result.review.findings.map(x=>'- '+x).join('\n'));
   if(result.context.questions?.length) parts.push('## 필요한 확인',result.context.questions.map(x=>'- '+x.label).join('\n'));
   if(result.handbook?.results?.length) parts.push('## 해설서 근거',result.handbook.results.map(r=>`${r.heading}\n${r.excerpt}\n출처: ${r.edition}, ${r.locator?.start_line}~${r.locator?.end_line}줄 (${r.original_url})`).join('\n\n'));
-  if(result.legal?.results?.length) parts.push('## 법령 근거',result.legal.results.map(r=>{
-    const sources=[...(r.articles||[]),...(r.annexes||[])].map(a=>[
-      `${a.selector||'본문'}: ${a.status}${a.code?` (${a.code})`:''}`,
-      a.dateStatus?`시점 확인: ${a.dateStatus}`:'',
-      a.referenceOnly?'참고용: 요청한 기준일의 적용 근거로 확정하지 마세요.':'',
-      a.truncated?'본문 일부 잘림: 전체 원문을 확인하세요.':'',
-      a.source?.url?`원문: ${a.source.url}`:'',
-      a.text||'본문을 확보하지 못했습니다.',
-    ].filter(Boolean).join('\n'));
-    return [`${r.request?.law_name} ${[r.request?.article,r.request?.annex].filter(Boolean).join(' · ')}: ${r.status}`, ...sources].join('\n\n');
-  }).join('\n\n'));
+  const legalText=formatLegalEvidence(result.legal);
+  if(legalText) parts.push(legalText);
   if(result.practice?.candidates?.length) parts.push('## 실무 후보',JSON.stringify(result.practice.candidates,null,2));
   if(result.accounts?.candidates?.length) parts.push('## 계정 후보',result.accounts.candidates.map(a=>`${a.code} ${a.name}: ${a.description}\n${result.accounts.notice}`).join('\n\n'));
   if(result.citations?.content?.length) parts.push('## 기안문 인용 확인',result.citations.content.filter(c=>c.type==='text').map(c=>c.text).join('\n'));

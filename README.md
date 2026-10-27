@@ -4,7 +4,7 @@
 
 [구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.10.0)
 
-현재 소스는 **v0.10.4 개선본**입니다. 기존 공개 규정 사전 조회에 더해, 취업규칙·지침 등 자연어 규정명 인식, 발췌 블록 누락 표시, 원문 연결 진단과 의존성을 개선했습니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [이번 변경 및 검증 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
+현재 소스는 **v0.11.0 개선본**입니다. 출장비·외부 강사료의 교내 규정과 한국법령을 업무 조건에 따라 함께 조회하는 선택 기능을 추가했습니다. 원격 HTTP 법령 연결, 과거 별표의 시점 검증, 법령 근거의 화면 표시를 지원합니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [자동 법령 연계 안내](docs/AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
 
 ## 시작하기
 
@@ -103,7 +103,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **14개 도구**가 됩니다. 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **14개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
 
 ## 소스 실행과 검증
 

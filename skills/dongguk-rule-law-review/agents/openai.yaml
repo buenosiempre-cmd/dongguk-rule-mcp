@@ -1,0 +1,4 @@
+interface:
+  display_name: "동국 규정·법령 함께 검토"
+  short_description: "동국대 출장비·강사료 등의 교내 규정과 국가 법령을 함께 조회"
+  default_prompt: "$dongguk-rule-law-review로 이 업무의 교내 규정과 한국법령 근거를 함께 확인해줘."
