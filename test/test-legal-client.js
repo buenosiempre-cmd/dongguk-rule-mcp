@@ -197,6 +197,13 @@ test('total-budget expiry is stable even before the wall clock advances',async()
     assert.equal(result.results[2].attempted,false);assert.equal(result.results[2].code,'LEGAL_TOTAL_TIMEOUT');assert.equal(bodies,2);
   } finally {Date.now=realNow;}
 });
+test('an immediate upstream timeout does not exhaust the whole-query budget',async()=>{
+  let bodies=0;
+  const client=fake(r=>{if(r.name==='get_law_text'&&++bodies===1)throw Object.assign(new Error('Upstream timed out'),{code:-32001});});
+  const result=await run([1,2].map(n=>({law_name:LAW,article:`제${n}조`})),client,{timeoutMs:5000,totalTimeoutMs:1000});
+  assert.equal(result.results[0].code,'LEGAL_TIMEOUT');assert.equal(result.results[1].attempted,true);
+  assert.equal(result.results[1].status,'retrieved');assert.equal(bodies,2);
+});
 const datedAnnex=(date='2024.01.15',effective='2020.01.01',mst='111111',name=LAW)=>text(`📅 기준일 ${date} 당시 시행 버전의 별표입니다.\n  「${name}」 [시행 ${effective}] [제123호, 2019.12.01 일부개정] (MST ${mst})\n  ↳ 이후 개정됨\n\n${annex().content[0].text}`);
 const datedCapabilities=()=>({tools:[{name:'legal_analysis'},{name:'get_annexes',inputSchema:{type:'object',properties:{date:{type:'string'}}}}]});
 test('dated annex uses advertised date parameter and verifies historical MST and effective date',async()=>{

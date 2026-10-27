@@ -18,10 +18,10 @@ const compactDate=value=>parseDateLoose(value)?.iso.replace(/-/g,'')||null;
 const responseFailed=response=>!response||response.isError===true||Boolean(response.error)||response.structuredContent?.ok===false;
 
 // A local deadline also bounds injected/older clients that ignore the SDK timeout.
-async function bounded(operation,timeoutMs){
+async function bounded(operation,timeoutMs,onTimeout=()=>{}){
   const controller=new AbortController();
   let timer;
-  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(failure('LEGAL_TIMEOUT'));},timeoutMs);});
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{onTimeout();controller.abort();reject(failure('LEGAL_TIMEOUT'));},timeoutMs);});
   try{return await Promise.race([Promise.resolve().then(()=>operation(controller.signal)),timeout]);}
   finally{clearTimeout(timer);}
 }
@@ -221,16 +221,17 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   }
   if(!eligible.length) return summarize(results,date,limits);
   let client;
-  try{const {allowed,totalLimited}=remaining();client=injectedClient||await bounded(()=>legalClient(allowed),allowed).catch(error=>{if(totalLimited&&errorCode(error)==='LEGAL_TIMEOUT')throw failure('LEGAL_TOTAL_TIMEOUT');throw error;});if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
+  try{const {allowed,totalLimited}=remaining();let timerExpired=false;client=injectedClient||await bounded(()=>legalClient(allowed),allowed,()=>{timerExpired=true;}).catch(error=>{if(timerExpired&&totalLimited&&errorCode(error)==='LEGAL_TIMEOUT')throw failure('LEGAL_TOTAL_TIMEOUT');throw error;});if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
   catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code});}
   const deadlineCall=async operation=>{
     const {allowed,totalLimited}=remaining();
-    try{return await bounded(signal=>operation(signal,allowed),allowed);}
+    let timerExpired=false;
+    try{return await bounded(signal=>operation(signal,allowed),allowed,()=>{timerExpired=true;});}
     catch(error){
       // A timer can fire just before Date.now reaches its millisecond deadline.
       // Classify by the budget that limited this call, and never start another
       // request after that total-budget timer has fired.
-      if(errorCode(error)==='LEGAL_TIMEOUT'&&(totalLimited||Date.now()>=deadline)) {
+      if(errorCode(error)==='LEGAL_TIMEOUT'&&((timerExpired&&totalLimited)||Date.now()>=deadline)) {
         totalExpired=true;throw failure('LEGAL_TOTAL_TIMEOUT');
       }
       throw error;
