@@ -2,9 +2,9 @@
 
 동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
 
-[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.10.0)
+[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.11.0)
 
-현재 소스는 **v0.11.0 개선본**입니다. 출장비·외부 강사료의 교내 규정과 한국법령을 업무 조건에 따라 함께 조회하는 선택 기능을 추가했습니다. 원격 HTTP 법령 연결, 과거 별표의 시점 검증, 법령 근거의 화면 표시를 지원합니다. 아래 공개 설치 링크는 기존 v0.10.0 배포본이며, 새 패키지는 릴리스 게시 후 제공됩니다. [자동 법령 연계 안내](docs/AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
+**v0.11.0**이 배포되었습니다. 출장비·외부 강사료의 교내 규정과 한국법령을 업무 조건에 따라 함께 조회하는 선택 기능을 추가했습니다. 원격 HTTP 법령 연결, 과거 별표의 시점 검증, 법령 근거의 화면 표시를 지원합니다. 아래 설치 링크는 게시된 v0.11.0 패키지입니다. [자동 법령 연계 안내](docs/AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
 
 ## 시작하기
 
@@ -20,12 +20,12 @@
 **npm 레지스트리는 현재 미발행**입니다. GitHub의 고정 버전 패키지로 설치합니다.
 
 ```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.10.0/dongguk-rule-mcp-0.10.0.tgz
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.11.0/dongguk-rule-mcp-0.11.0.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json
 ```
 
-[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.10.0/dongguk-rule-mcp-0.10.0.tgz) `npm install -g ./dongguk-rule-mcp-0.10.0.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](docs/COP_GUIDE.md) 또는 공용 연결을 확인하세요.
+[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.11.0/dongguk-rule-mcp-0.11.0.tgz) `npm install -g ./dongguk-rule-mcp-0.11.0.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](docs/COP_GUIDE.md) 또는 공용 연결을 확인하세요.
 
 사용할 앱의 설정 예시를 출력합니다. 아래 중 하나를 선택해 기존 MCP 설정에 추가한 뒤 앱을 완전히 종료하고 다시 실행합니다.
 
@@ -108,7 +108,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 ## 소스 실행과 검증
 
 ```bash
-git clone --branch v0.10.0 https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
+git clone --branch v0.11.0 https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
 cd dongguk-rule-mcp
 npm ci
 npm test
