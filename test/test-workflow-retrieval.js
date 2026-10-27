@@ -32,7 +32,7 @@ function seedRule(lawId, title, markdown) {
   }
   seed('history', String(lawId), [{ historyId: hit.historyId, revisedAt: hit.revisedAt }]);
   seed('content', `${lawId}_${hit.historyId}`, { title, markdown });
-  seed('original', `${lawId}_${hit.historyId}`, { markdown });
+  seed('original-structure-v1', `${lawId}_${hit.historyId}`, { markdown });
 }
 const manyMatches = Array.from({ length: 6 }, (_, i) => `제${i + 1}조(숙박비)\n숙박비 합성 기준 ${i + 1}`).join('\n\n');
 seedRule(1, '여비규정', manyMatches);

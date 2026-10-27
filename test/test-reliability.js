@@ -31,8 +31,8 @@ seed('search', searchKey, { total: 1, hits: [{ lawId: 1, historyId: 10, title: '
 seed('search', crypto.createHash('md5').update(['여비',false,1,10,'0'].join('|')).digest('hex'), { total:0,hits:[] });
 seed('search', crypto.createHash('md5').update(['여비규정',false,1,10,'1'].join('|')).digest('hex'),{total:1,hits:[{lawId:1,historyId:10,title:'여비규정'}]});
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
-seed('original', '1_20', { markdown: '제1조(여비)\n최신 숙박비 기준' });
-seed('original', '1_10', { markdown: '제1조(여비)\n과거 숙박비 기준' });
+seed('original-structure-v1', '1_20', { markdown: '제1조(여비)\n최신 숙박비 기준' });
+seed('original-structure-v1', '1_10', { markdown: '제1조(여비)\n과거 숙박비 기준' });
 seed('content', '1_10', { title: '여비규정', markdown: '### 제1조(여비)\n과거 기준' });
 seed('content', '1_20', { title: '여비규정', markdown: '### 제1조(여비)\n최신 기준' });
 let passed = 0;
@@ -79,11 +79,11 @@ async function main() {
     check('양쪽에 없는 조문은 NOT_FOUND', missing.structuredContent.error.code === 'NOT_FOUND');
     const comparison = await call('compare_rule_versions', { law_id: '1', from_history_id: 10, include_appendices:false });
     check('정상 비교 및 숫자 문자열 호환', comparison.structuredContent.data.counts.changed === 1);
-    check('비교 범위 표시', comparison.structuredContent.data.comparisonScope === 'html_articles' && comparison.content[0].text.includes('HWP 별표'));
+    check('비교 범위 표시', comparison.structuredContent.data.comparisonScope === 'html_articles_fallback' && comparison.structuredContent.data.evidenceStatus === 'partial');
     check('조문 없는 문서 비교 거부', compareRuleMarkdown('# 제목\n본문', '# 제목\n다른 본문').error === 'CONTENT_UNAVAILABLE');
     check('한쪽 파싱 실패를 전체 삭제로 오인하지 않음', compareRuleMarkdown('### 제1조(목적)\n본문', '# 제목').error === 'CONTENT_UNAVAILABLE');
     check('앞선 검증은 외부 요청 없이 수행', networkCalls === 0);
-    fs.unlinkSync(path.join(dir, 'original', '1_20.json'));
+    fs.unlinkSync(path.join(dir, 'original-structure-v1', '1_20.json'));
     const fallback = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('HWP 실패 시 HTML 대체와 경고', fallback.structuredContent.data.rules[0].warning.code === 'HWP_FALLBACK');
     check('텍스트 전용 클라이언트도 partial과 사유 확인', fallback.content[0].text.includes('(evidenceStatus): partial') && fallback.content[0].text.includes('(incompleteReasons): HWP_FALLBACK'));

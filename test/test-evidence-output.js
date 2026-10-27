@@ -14,7 +14,7 @@ const {createServer}=require('../src/index.js');
 const seed=(type,key,value)=>{const dir=path.join(temp,'dongguk-rule-mcp/v2/public',type);fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,key+'.json'),JSON.stringify(value));};
 const hit={lawId:1,historyId:10,title:'합성규정',revisedAt:'2026.01.01'};
 for(const q of ['합성규정','합성'])seed('search',crypto.createHash('md5').update([q,false,1,10,'0'].join('|')).digest('hex'),{total:1,hits:[hit]});
-seed('history','1',[{historyId:10,revisedAt:'2026.01.01'}]);seed('original','1_10',{markdown:'제1조(목적) 합성 교내 규정 원문'});
+seed('history','1',[{historyId:10,revisedAt:'2026.01.01'}]);seed('original-structure-v1','1_10',{markdown:'제1조(목적) 합성 교내 규정 원문'});
 let passed=0;async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
 (async()=>{const server=createServer({profile:'finance'}),client=new Client({name:'evidence-output',version:'1'});const[a,b]=InMemoryTransport.createLinkedPair();try{
  await server.connect(b);await client.connect(a);

@@ -25,8 +25,8 @@ for(const scope of ['public',privateScope]){
   seed(scope,'search',hash('여비',false,1,10,'0'),{total:0,hits:[]});
   seed(scope,'content','1_10',{title:'여비규정',markdown:'### 제1조(숙박비)\n과거 숙박비'});
   seed(scope,'content','1_20',{title:'여비규정',markdown:'### 제1조(숙박비)\n'+(scope==='public'?'공개 숙박비':'내부 쿠키 숙박비')});
-  seed(scope,'original','1_10',{markdown:'제1조(숙박비)\n과거\n\n< 별 표 1 > 국내 여비\n\n| 항목 | 금액 |\n| 숙박비 | 100,000원 |'});
-  seed(scope,'original','1_20',{markdown:'제1조(숙박비)\n현재\n\n< 별 표 1 > 국내 여비\n\n| 항목 | 금액 |\n| 숙박비 | 120,000원 |'});
+  seed(scope,'original-structure-v1','1_10',{markdown:'제1조(숙박비)\n과거\n\n< 별 표 1 > 국내 여비\n\n| 항목 | 금액 |\n| 숙박비 | 100,000원 |'});
+  seed(scope,'original-structure-v1','1_20',{markdown:'제1조(숙박비)\n현재\n\n< 별 표 1 > 국내 여비\n\n| 항목 | 금액 |\n| 숙박비 | 120,000원 |'});
 }
 seed('public','search',hash('학칙',false,1,10,'0'),{total:2,hits:[{lawId:2,title:'학칙'},{lawId:3,title:'학칙'}]});
 for(const query of ['전결규정','전결']) seed('public','search',hash(query,false,1,10,'0'),{total:1,hits:[{lawId:5,title:'위원회전결규정'}]});
@@ -37,10 +37,17 @@ seed('public','search',hash('교원복무규정',false,1,10,'0'),{total:1,hits:[
 seed('public','search',hash('직원복무규정',false,1,10,'0'),{total:1,hits:[{lawId:7,title:'직원복무규정'}]});
 seed('public','history','4',[{historyId:40,revisedAt:'2024.01.01'}]);
 seed('public','content','4_40',{title:'위임전결규정',markdown:'### 제1조(목적)\n본 규정의 목적'});
-seed('public','original','4_40',{markdown:'제1조(목적)\n본 규정의 목적'});
+seed('public','original-structure-v1','4_40',{markdown:'제1조(목적)\n본 규정의 목적'});
 let count=0;function check(name,fn){fn();count++;console.log('PASS '+name);}
 async function connect(profile){const s=createServer({profile}),c=new Client({name:'profile-test',version:'1'});const[a,b]=InMemoryTransport.createLinkedPair();await s.connect(b);await c.connect(a);return{c,s,call:async(name,args={})=>(await c.callTool({name,arguments:args})).structuredContent};}
 async function main(){
+  const {markdownToHwpDocument}=await import('@ssabrojs/hwpxjs');
+  const {buildOriginalEvidence}=require('../src/hwp-evidence.js');
+  for(const scope of ['public',privateScope]) for(const id of [10,20]) {
+    const entry=JSON.parse(fs.readFileSync(path.join(root,'dongguk-rule-mcp','v2',scope,'original-structure-v1','1_'+id+'.json'),'utf8'));
+    seed(scope,'original-structure-v1','1_'+id,buildOriginalEvidence(markdownToHwpDocument(entry.markdown)));
+  }
+
   const pub=await connect('rules'),priv=await connect('finance');
   try{
     const pubTools=(await pub.c.listTools()).tools,privTools=(await priv.c.listTools()).tools;

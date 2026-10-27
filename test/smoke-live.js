@@ -39,7 +39,7 @@ async function main() {
   check('foreign history rejected through MCP', rejected.structuredContent?.error?.code === 'HISTORY_NOT_FOUND');
   if (history.length > 1) {
     const comparison = await call('compare_rule_versions', { law_id: rule.lawId, from_history_id: history[1].historyId });
-    check('comparison uses latest and declares HTML scope', comparison.toHistoryId === rule.historyId && comparison.comparisonScope === 'html_articles');
+    check('comparison uses latest original HWP', comparison.toHistoryId === rule.historyId && comparison.comparisonScope === 'hwp_original_articles');
   }
   const deep = await call('search_rule_deep', { query: keyword.replace(/규정$/, ''), top: 1, per_doc: 1 });
   const doc = deep.documents[0];

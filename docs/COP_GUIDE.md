@@ -2,7 +2,7 @@
 
 교원·직원·학생이 공개된 동국대학교 규정의 원문과 개정 이력을 찾아 업무를 검토하는 도구입니다. CoP에서는 같은 질문을 다른 구성원도 재현할 수 있도록 **질문 조건 → 근거 확인 → 검토 기록**을 함께 연습합니다.
 
-이 문서는 v0.11.0 배포용 가이드입니다. 학교의 공식 해석이나 전 구성원 계정 개통을 의미하지 않습니다. 실제 사용 앱별 연결·권한과 현업 효과는 해당 환경에서 확인해야 합니다.
+이 문서는 v0.12.0 배포용 가이드입니다. 학교의 공식 해석이나 전 구성원 계정 개통을 의미하지 않습니다. 실제 사용 앱별 연결·권한과 현업 효과는 해당 환경에서 확인해야 합니다.
 
 출장비·외부 강사료의 공개 규정·한국법령 공동 조회는 선택 `finance` 설정에서 사용할 수 있습니다. [자동 법령 연계 안내](AUTO_LEGAL_INTEGRATION.md)와 [공개자료용 환경 설정 예시](../examples/finance-public.env.example)를 참고하세요. 공용 `/mcp/rules`는 기존 공개 규정 10개 도구를 유지합니다.
 
@@ -22,7 +22,7 @@
 명령은 macOS 터미널 또는 Windows PowerShell에서 실행합니다. `node --version`으로 20.19 이상인지 먼저 확인합니다.
 
 ```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.11.0/dongguk-rule-mcp-0.11.0.tgz
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.12.0/dongguk-rule-mcp-0.12.0.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json
 ```
@@ -42,7 +42,7 @@ dongguk-rule-mcp --print-config cursor
 글로벌 설치 권한이 없다면, 쓰기 가능한 작업 폴더에서 아래처럼 별도 하위 폴더에 설치할 수 있습니다. 설정 출력의 `codex`는 `claude` 또는 `cursor`로 바꿔도 됩니다.
 
 ```bash
-npm install --prefix ./dongguk-rule-client https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.11.0/dongguk-rule-mcp-0.11.0.tgz
+npm install --prefix ./dongguk-rule-client https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.12.0/dongguk-rule-mcp-0.12.0.tgz
 node ./dongguk-rule-client/node_modules/dongguk-rule-mcp/src/index.js --doctor --json
 node ./dongguk-rule-client/node_modules/dongguk-rule-mcp/src/index.js --print-config codex
 ```
@@ -107,7 +107,11 @@ node ./dongguk-rule-client/node_modules/dongguk-rule-mcp/src/index.js --print-co
 | 완전성 | 발췌 잘림·HTML 대체·HWP 실패·검색어 미일치 여부 |
 | 검토 | 작성자 이외 검토 여부, 미해결 질문, 담당 부서 확인 필요 사항 |
 
-`verify_rule_citations`의 확인 결과는 인용의 실존 점검입니다. 해당 사안의 최종 해석이나 적용 적합성을 보장하지 않습니다. `applicable_rule`의 기준일 결과도 개정 이력을 바탕으로 한 후보이므로 부칙을 함께 봅니다. `compare_rule_versions`는 기본적으로 HTML 조문과 HWP 별표·서식의 추출 텍스트를 각각 비교합니다. 표의 의미·병합 셀·그림·첨부파일까지 완전히 검증하지는 않으며, 금액·전결권의 실제 변화와 적용은 원문에서 확인해야 합니다. 별표를 식별하지 못했거나 추출에 실패한 부분 상태를 “변경 없음”으로 해석하지 않습니다.
+`verify_rule_citations`의 확인 결과는 인용의 실존 점검입니다. 해당 사안의 최종 해석이나 적용 적합성을 보장하지 않습니다. `applicable_rule`의 기준일 결과도 개정 이력을 바탕으로 한 후보이므로 부칙을 함께 봅니다.
+
+`compare_rule_versions`는 HWP 조문을 우선 비교합니다. 기본 설정에서는 별표·서식 텍스트, 표 셀의 행·열 좌표·병합 범위·값, 포함된 그림 파일의 내용 변경도 보여줍니다. HWP를 읽지 못하면 HTML 조문으로 대체한 사실과 부분 상태가 표시됩니다. 문서별 진단에서 실제 누락·미지원 객체·식별 모호성이 있는 부분을 확인하세요.
+
+그림의 변경 판정은 파일 내용의 해시 비교입니다. 그림 속 글자를 읽는 OCR이나 의미·페이지 배치 비교는 포함하지 않습니다. 모든 병합 셀이나 그림을 일괄적으로 미확인 처리하는 것은 아니며, 실제 진단과 비교 결과를 함께 읽습니다. 별표를 식별하지 못했거나 추출에 실패한 부분 상태는 “변경 없음”을 뜻하지 않습니다.
 
 답변에 `partial`, `확인필요`, 원문 누락 또는 잘림이 표시되면 해당 항목을 검토 메모에 남깁니다. 검색 결과가 없으면 검색어를 짧게 바꾸고 정확한 규정명이나 원문 시스템을 확인합니다. 검색 0건을 “관련 규정 없음”으로 단정하지 않습니다.
 
@@ -122,6 +126,9 @@ node ./dongguk-rule-client/node_modules/dongguk-rule-mcp/src/index.js --print-co
 
 ## 7. 도움이 필요할 때
 
+- 업데이트 뒤에는 실제 앱에서 `get_service_info`의 버전이 v0.12.0인지 확인합니다. 설치 파일이나 `/health`의 버전만으로 기존 연결까지 갱신됐다고 판단하지 않습니다.
+- Codex의 기존 연결이 구버전을 유지하면 진행 중인 작업을 정리한 뒤 앱을 완전히 종료하고 다시 실행합니다. 재실행 후 `get_service_info`와 대표 비교를 다시 호출합니다.
+- Aside는 운영자가 공식 설정 기능으로 동국규정 도구 목록을 갱신합니다. 갱신된 목록과 실제 도구 호출 성공은 별도로 확인합니다.
 - 도구가 보이지 않으면 앱 재시작, 설정 문법, Node 버전, 실행 경로를 확인합니다.
 - 인증 실패는 공용 서버 운영자에게, 원문 접속 실패는 발생 시각과 오류코드를 운영자에게 알립니다.
 - 잘못된 적용범위·금액·전결권·인용은 해당 업무 담당자에게 원문과 함께 확인합니다.
