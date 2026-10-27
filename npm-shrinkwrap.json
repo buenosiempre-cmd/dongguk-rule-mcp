@@ -1,18 +1,19 @@
 {
   "name": "dongguk-rule-mcp",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "lockfileVersion": 3,
   "requires": true,
   "packages": {
     "": {
       "name": "dongguk-rule-mcp",
-      "version": "0.11.0",
+      "version": "0.12.0",
       "license": "MIT",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.0",
-        "@ssabrojs/hwpxjs": "^0.4.0",
+        "@ssabrojs/hwpxjs": "0.4.0",
         "cheerio": "^1.0.0",
-        "node-fetch": "^2.7.0"
+        "node-fetch": "^2.7.0",
+        "cfb": "1.2.2"
       },
       "bin": {
         "dongguk-rule-mcp": "src/index.js"

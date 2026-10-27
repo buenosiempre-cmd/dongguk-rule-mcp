@@ -74,6 +74,7 @@ function compareRuleMarkdown(beforeMarkdown, afterMarkdown, options = {}) {
         key: selector.canonical,
         status,
         headingChanged:!!before && !!after && articleHeading(before) !== articleHeading(after),
+        truncated:before.length>1600||after.length>1600,
         before:clip(before),
         after:clip(after),
       }],
@@ -99,6 +100,7 @@ function compareRuleMarkdown(beforeMarkdown, afterMarkdown, options = {}) {
         key,
         status,
         headingChanged:!!oldText && !!newText && articleHeading(oldText) !== articleHeading(newText),
+        truncated:oldText.length>1600||newText.length>1600,
         before:clip(oldText),
         after:clip(newText),
       });

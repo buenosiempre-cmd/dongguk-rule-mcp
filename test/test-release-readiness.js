@@ -28,7 +28,7 @@ seed('search', key('여비',false,1,10,'0'), {total:0,hits:[]});
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
 seed('content', '1_10', { markdown: '### 제1조(숙박비)\n과거 숙박비' });
 seed('content', '1_20', { markdown: '### 제1조(숙박비)\n최신 숙박비' });
-seed('original', '1_20', { markdown: '제1조(숙박비)\n최신 숙박비' });
+seed('original-structure-v1', '1_20', { markdown: '제1조(숙박비)\n최신 숙박비' });
 const packPath = path.join(root, 'pack.json');
 fs.writeFileSync(packPath, JSON.stringify({ version: 'synthetic', workflows: [{
   id: 'travel', title: '출장', keywords: ['출장'], required_facts: [{ key: 'base_date', label: '기준일' }, { key: 'campus', label: '캠퍼스' }],
@@ -67,7 +67,7 @@ async function main() {
     const toc = await call('get_rule_toc', { law_id: 1, history_id: 999 });
     check('TOC rejects foreign history', () => assert.equal(toc.error?.code, 'HISTORY_NOT_FOUND'));
     check('seeded requests made no external calls', () => assert.equal(networkCalls, 0));
-    fs.unlinkSync(path.join(root, 'dongguk-rule-mcp/v2/public/original/1_20.json'));
+    fs.unlinkSync(path.join(root, 'dongguk-rule-mcp/v2/public/original-structure-v1/1_20.json'));
     seed('content', '1_20', { markdown: '   ' });
     const empty = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('missing HWP plus empty HTML is not success', () => {

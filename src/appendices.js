@@ -47,7 +47,14 @@ function extractAppendices(markdown) {
     let boundary=null;
     for(let row=item.start+1;row<end;row++) {
       const kind=isBodyBoundary(lines[row]);
-      if(kind) {end=row;boundary={kind,heading:lines[row].trim(),ambiguous:kind==='article' && /별지|서식/.test(item.key)};break;}
+      if(kind) {
+        const ambiguous=/별지|서식/.test(item.key);
+        boundary={kind,heading:lines[row].trim(),ambiguous};
+        // A contract form can contain its own chapters, articles and supplements.
+        // Keep that content rather than silently truncating the form at its heading.
+        if(!ambiguous) end=row;
+        break;
+      }
     }
     return {...item,boundary,text:lines.slice(item.start,end).join('\n').trim()};
   });
@@ -64,6 +71,6 @@ function compareAppendices(before,after,{maxChanges=20,maxChars=2000}={}) {
     const type=!a.length?'added':!b.length?'removed':normalize(old)===normalize(next)?'unchanged':'changed';counts[type]++;
     if(type!=='unchanged') changes.push({appendix:key,type,before:old.slice(0,maxChars),after:next.slice(0,maxChars),truncated:old.length>maxChars||next.length>maxChars,beforeHash:crypto.createHash('sha256').update(normalize(old)).digest('hex'),afterHash:crypto.createHash('sha256').update(normalize(next)).digest('hex')});
   }
-  return {status:!keys.length?'not_identified':(!left.length||!right.length||ambiguous.length||boundaryWarnings.length)?'partial':'compared',scope:'hwp_appendix_text',counts,changes:changes.slice(0,maxChanges),changesTruncated:changes.length>maxChanges,ambiguous,boundaryWarnings,beforeCount:left.length,afterCount:right.length,caveat:'HWP에서 추출된 별표·서식의 텍스트 비교입니다. 병합 셀·그림·첨부파일·파서가 추출하지 못한 내용과 법적 적용성은 원문 대조가 필요합니다.'+(boundaryWarnings.length?' 서식 안의 조문일 수 있는 경계에서 추출을 중단했으므로 서식 전체를 원문 대조하세요.':'')};
+  return {status:!keys.length?'not_identified':(!left.length||!right.length||ambiguous.length||boundaryWarnings.length)?'partial':'compared',scope:'hwp_appendix_text',counts,changes:changes.slice(0,maxChanges),changesTruncated:changes.length>maxChanges,ambiguous,boundaryWarnings,beforeCount:left.length,afterCount:right.length,caveat:'HWP에서 추출된 별표·서식의 텍스트 비교입니다. 병합 셀·그림·첨부파일·파서가 추출하지 못한 내용과 법적 적용성은 원문 대조가 필요합니다.'+(boundaryWarnings.length?' 서식 내부일 수 있는 장·조문·부칙은 내용에 보존했으며 본칙과의 경계는 확인이 필요합니다.':'')};
 }
-module.exports={extractAppendices,compareAppendices};
+module.exports={extractAppendices,compareAppendices,appendixHeading,isBodyBoundary,normalizeAppendixText:normalize};

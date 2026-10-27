@@ -217,17 +217,6 @@ async function getContent(lawId, hid) {
 }
 
 // === 원문 HWP (HTML 본문에 없는 별표·표 포함) ===
-let hwpToMarkdown;
-async function parseOriginalHwp(buffer) {
-  if (!hwpToMarkdown) {
-    const mod = await import('@ssabrojs/hwpxjs');
-    hwpToMarkdown = mod.hwpToMarkdown;
-  }
-  if (typeof hwpToMarkdown !== 'function') throw new Error('HWP 파서를 불러올 수 없습니다.');
-  const markdown = await hwpToMarkdown(new Uint8Array(buffer));
-  if (!validStr(markdown)) throw new Error('HWP 원문에서 텍스트를 추출할 수 없습니다.');
-  return markdown.trim();
-}
 async function getOriginalContent(historyId) {
   const body = new URLSearchParams({ FILE_SEQ:String(historyId), FILE_TYPE:'ori' });
   const buffer = await fpBuffer(FILE_URL, {
@@ -236,7 +225,7 @@ async function getOriginalContent(historyId) {
     body:body.toString(),
   });
   if (buffer.length < 512) throw new Error(`HISTORY_ID ${historyId}의 HWP 원문을 다운로드할 수 없습니다.`);
-  return { markdown:await parseOriginalHwp(buffer) };
+  return require('./hwp-evidence.js').parseOriginalEvidence(buffer);
 }
 
 // === 연혁 (POST → select#histroySeq 파싱) ===
@@ -509,11 +498,12 @@ async function hLookup(rawKeyword, {
       selected=candidate.entry;
     }
     const {historyId,revisedAt}=selected;
-    let markdown, sourceType='원문 HWP(별표 포함)', warning='', warningData=null;
+    let markdown, sourceType='원문 HWP(별표 포함)', warning='', warningData=null, originalCoverage=null;
     try{
-      const original=await cached('original',`${lawId}_${historyId}`,TTL.content,
+      const original=await cached('original-structure-v1',`${lawId}_${historyId}`,TTL.content,
         ()=>getOriginalContent(historyId));
       markdown=original.markdown;
+      originalCoverage=original.structure?.coverage||null;
     }catch(e){
       const html=await cached('content',`${lawId}_${historyId}`,TTL.content,
         ()=>getContent(lawId,historyId));
@@ -538,6 +528,7 @@ async function hLookup(rawKeyword, {
     }
     const incompleteReasons = [
       ...(warningData ? [warningData.code] : []),
+      ...(originalCoverage?.status==='partial' ? ['HWP_STRUCTURE_PARTIAL'] : []),
       ...(!excerpt.text.trim() ? ['NO_MATCHING_EXCERPT'] : []),
       ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
       ...(excerpt.blocksTruncated ? ['EXCERPT_BLOCK_LIMIT'] : []),
@@ -572,7 +563,7 @@ async function hLookup(rawKeyword, {
       applicability:'requires_enforcement_review',
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
-      evidenceStatus,incompleteReasons,
+      evidenceStatus,incompleteReasons,originalCoverage,
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated},
     });
   }
@@ -602,47 +593,26 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   if(!fromEntry || !toEntry) return failure('HISTORY_NOT_FOUND', '비교할 HISTORY_ID가 해당 규정의 연혁에 없습니다.', {
     details:{lawId,fromHistoryId,toHistoryId},
   });
-  const [before,after]=await Promise.all([
-    cached('content',`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)),
-    cached('content',`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)),
+  const [beforeOriginal,afterOriginal,beforeHtml,afterHtml]=await Promise.all([
+    cached('original-structure-v1',`${lawId}_${fromHistoryId}`,TTL.content,()=>getOriginalContent(fromHistoryId)).catch(()=>null),
+    cached('original-structure-v1',`${lawId}_${toHistoryId}`,TTL.content,()=>getOriginalContent(toHistoryId)).catch(()=>null),
+    cached('content',`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)).catch(()=>null),
+    cached('content',`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)).catch(()=>null),
   ]);
-  if(!before.markdown || !after.markdown) {
-    return failure('CONTENT_UNAVAILABLE', '비교할 개정본 중 하나의 본문을 가져올 수 없습니다.', {
-      details:{lawId,fromHistoryId,toHistoryId},
-    });
-  }
-  const comparison=compareRuleMarkdown(before.markdown,after.markdown,{article});
-  if(comparison.error) return failure(comparison.error, comparison.error === 'NOT_FOUND'
-    ? '선택한 조문이 두 개정본 모두에 없습니다.'
-    : '비교할 조문을 추출할 수 없습니다. 원문과 목차를 확인하세요.');
   maxChanges=clampNumber(maxChanges,20,1,50);
-  const title=after.title||before.title||`LAW_ID ${lawId}`;
-  let text='> 조문 비교 범위: HTML 본문입니다. HWP 별표 비교 결과는 별도로 표시하며, 첨부파일·시행일 판단은 포함하지 않습니다.\n\n'+formatVersionComparison(comparison,{
-    title:`${title} (${fromHistoryId} → ${toHistoryId})`,fromHistoryId,toHistoryId,maxChanges,
-  });
-  let appendixComparison={status:'not_requested',scope:'hwp_appendix_text'};
-  if(includeAppendices){
-    try{
-      const [left,right]=await Promise.all([
-        cached('original',`${lawId}_${fromHistoryId}`,TTL.content,()=>getOriginalContent(fromHistoryId)),
-        cached('original',`${lawId}_${toHistoryId}`,TTL.content,()=>getOriginalContent(toHistoryId)),
-      ]);
-      appendixComparison=require('./appendices.js').compareAppendices(left.markdown,right.markdown,{maxChanges});
-      text+=`\n\n## HWP 별표·서식 텍스트 비교\n상태: ${appendixComparison.status}\n${appendixComparison.caveat}\n`;
-      for(const change of appendixComparison.changes) text+=`\n### ${change.appendix}: ${change.type}\n이전:\n${change.before}\n\n이후:\n${change.after}\n`;
-    }catch{appendixComparison={status:'unavailable',scope:'hwp_appendix_text',code:'HWP_COMPARISON_UNAVAILABLE'};text+='\n\n> HWP 별표 비교를 완료하지 못했습니다. HTML 조문 결과만으로 별표가 동일하다고 판단하지 마세요.';}
-  }
-  return success(text,{
-    lawId,title,fromHistoryId,toHistoryId,
-    appendixComparison,evidenceStatus:includeAppendices&&appendixComparison.status!=='compared'?'partial':'retrieved',
+  const {compareEvidence,formatEvidence}=require('./comparison-evidence.js');
+  const result=compareEvidence({beforeOriginal,afterOriginal,beforeHtml,afterHtml,article,maxChanges,includeAppendices});
+  if(result.error) return failure(result.error,result.error==='NOT_FOUND'
+    ?'선택한 조문이 두 개정본 모두에 없습니다.'
+    :'비교할 조문을 확인할 수 없습니다. 원본 HWP와 HTML 본문을 확인하세요.');
+  const title=afterHtml?.title||beforeHtml?.title||`LAW_ID ${lawId}`;
+  const {comparison,...evidence}=result;
+  return success(formatEvidence(result,{title:`${title} (${fromHistoryId} → ${toHistoryId})`,fromHistoryId,toHistoryId,maxChanges}),{
+    lawId,title,fromHistoryId,toHistoryId,...evidence,
     fromRevisedAt:fromEntry?.revisedAt||'',toRevisedAt:toEntry?.revisedAt||'',
-    article:comparison.article,counts:comparison.counts,changes:comparison.changes.slice(0,maxChanges),changesTruncated:comparison.changes.length>maxChanges,
-    comparisonScope:'html_articles',
-    source:{
-      fromUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${fromHistoryId}`,
-      toUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${toHistoryId}`,
-      returnedAt:new Date().toISOString(),
-    },
+    article:comparison.article,counts:comparison.counts,changes:comparison.changes.slice(0,maxChanges),
+    source:{fromUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${fromHistoryId}`,
+      toUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${toHistoryId}`,returnedAt:new Date().toISOString()},
   });
 }
 
@@ -907,11 +877,11 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'compare_rule_versions', description:'같은 규정의 두 HISTORY_ID를 조문 단위로 비교합니다. to_history_id를 생략하면 최신 개정본과 비교합니다.',
+  { name:'compare_rule_versions', description:'원본 HWP의 조문·별표와 표의 셀·병합 구조, 그림 파일 변경을 비교합니다. 원문 실패 시 HTML 대체 여부와 구체적인 추출 진단을 표시합니다. to_history_id 생략 시 최신 개정본입니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       from_history_id:{type:'number',description:'비교 시작 HISTORY_ID'},
-      include_appendices:{type:'boolean',description:'HWP 별표·서식 텍스트도 비교(기본 true)',default:true},
+      include_appendices:{type:'boolean',description:'HWP 별표·서식의 텍스트·표 구조·그림도 비교(기본 true)',default:true},
       to_history_id:{type:'number',description:'비교 종료 HISTORY_ID. 생략하면 최신'},
       article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 제10조의2, 부칙 제2조'},
       max_changes:{type:'number',description:'본문에 표시할 최대 변경 조문 수. 기본 20, 최대 50',default:20},
@@ -965,7 +935,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'공식 규정 원문. 별표 비교는 추출 텍스트 범위.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([

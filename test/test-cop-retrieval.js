@@ -124,6 +124,12 @@ async function main() {
   check('중복 별표 번호의 임의 비교는 여전히 차단', () => assert.equal(compareAppendices(`${appendix}\n\n${appendix}`,appendix).status,'partial'));
   const form='[별지 제1호 서식]\n계약서\n제1조(계약기간)\n계약기간은 별도로 정한다.';
   check('서식 내부일 수 있는 조문 경계는 완료로 단정하지 않음', () => assert.equal(compareAppendices(form,form).status,'partial'));
+  for(const heading of ['제1장 총칙','제1조(계약기간)','부칙']) {
+    const text='[별지 제1호 서식] 계약서\n'+heading+'\n서식 내부 내용';
+    check('서식 내부 경계 내용 보존 '+heading,()=>{
+      const form=extractAppendices(text)[0];assert(form.text.includes('서식 내부 내용'));assert.equal(form.boundary.ambiguous,true);
+    });
+  }
   check('서식 조문 경계의 원문 대조 사유 반환', () => assert(compareAppendices(form,form).boundaryWarnings.length>0));
   console.log(`📊 CoP 검색·인용 정확성 회귀 검증: ${passed}개 통과`);
 }
