@@ -198,7 +198,8 @@ function summarize(results,baseDate,limits,extra={}){
 async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,totalTimeoutMs=DEFAULT_TOTAL_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date()}={}){
   const limits={maxRequests,maxTextChars,timeoutMs,totalTimeoutMs};
   const deadline=Date.now()+totalTimeoutMs;
-  const remaining=()=>{const ms=deadline-Date.now();if(ms<=0)throw failure('LEGAL_TOTAL_TIMEOUT');return Math.min(timeoutMs,ms);};
+  let totalExpired=false;
+  const remaining=()=>{const ms=deadline-Date.now();if(totalExpired||ms<=0)throw failure('LEGAL_TOTAL_TIMEOUT');return {allowed:Math.min(timeoutMs,ms),totalLimited:ms<=timeoutMs};};
   if(!Array.isArray(requests)) return summarize([],null,limits,{code:'INVALID_LEGAL_REQUESTS'});
   const today=parseDateLoose(new Date(now).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}));
   const date=baseDate===undefined||baseDate===null?today:parseDateLoose(baseDate);
@@ -220,12 +221,20 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   }
   if(!eligible.length) return summarize(results,date,limits);
   let client;
-  try{const allowed=remaining();client=injectedClient||await bounded(()=>legalClient(allowed),allowed);if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
+  try{const {allowed,totalLimited}=remaining();client=injectedClient||await bounded(()=>legalClient(allowed),allowed).catch(error=>{if(totalLimited&&errorCode(error)==='LEGAL_TIMEOUT')throw failure('LEGAL_TOTAL_TIMEOUT');throw error;});if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
   catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code});}
   const deadlineCall=async operation=>{
-    const allowed=remaining();
+    const {allowed,totalLimited}=remaining();
     try{return await bounded(signal=>operation(signal,allowed),allowed);}
-    catch(error){if(errorCode(error)==='LEGAL_TIMEOUT'&&Date.now()>=deadline)throw failure('LEGAL_TOTAL_TIMEOUT');throw error;}
+    catch(error){
+      // A timer can fire just before Date.now reaches its millisecond deadline.
+      // Classify by the budget that limited this call, and never start another
+      // request after that total-budget timer has fired.
+      if(errorCode(error)==='LEGAL_TIMEOUT'&&(totalLimited||Date.now()>=deadline)) {
+        totalExpired=true;throw failure('LEGAL_TOTAL_TIMEOUT');
+      }
+      throw error;
+    }
   };
   const call=(name,args)=>deadlineCall((signal,allowed)=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal}));
   let discoveredTools;
@@ -276,7 +285,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   };
   const safeCode=error=>/^LEGAL_|^HISTORICAL_/.test(error?.code||'')?error.code:errorCode(error);
   for(const {result,lawName,selector,annexNo} of eligible){
-    if(Date.now()>=deadline){Object.assign(result,{code:'LEGAL_TOTAL_TIMEOUT',dateStatus:historical?'historical_unverified':'current',referenceOnly:historical});continue;}
+    if(totalExpired||Date.now()>=deadline){Object.assign(result,{code:'LEGAL_TOTAL_TIMEOUT',dateStatus:historical?'historical_unverified':'current',referenceOnly:historical});continue;}
     result.attempted=true;
     result.dateStatus=historical?'historical_unverified':'current';
     const needsLawBody=Boolean(selector)||!annexNo;
