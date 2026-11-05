@@ -280,7 +280,7 @@ async function hSearch(kw, {fullText=false,limit=10,offset=0,campus='all'}={}) {
   o+='| 분류 | 제목 | 개정일 | LAW_ID | HISTORY_ID |\n|------|------|--------|--------|------------|\n';
   hits.forEach(h=>{ o+=`| ${h.code} | ${h.title} | ${h.revisedAt} | ${h.lawId} | ${h.historyId} |\n`; });
   if(offset+limit<r.total) o+=`\n다음: offset=${offset+limit}`;
-  o+='\n\n💡 get_rule_content로 본문 조회 가능';
+  o+='\n\n💡 조문·별표는 lookup_dongguk_rule로 조회하세요. get_rule_content는 HTML 본문 전용이며 별표가 빠질 수 있습니다.';
   return success(o,{
     query:{keyword,fullText,campus,limit,offset},
     counts:{sourceTotal:r.total,...metrics,returned:hits.length},
@@ -530,6 +530,7 @@ async function hLookup(rawKeyword, {
       ...(warningData ? [warningData.code] : []),
       ...(originalCoverage?.status==='partial' ? ['HWP_STRUCTURE_PARTIAL'] : []),
       ...(!excerpt.text.trim() ? ['NO_MATCHING_EXCERPT'] : []),
+      ...(excerpt.missingAppendices.length ? ['APPENDIX_NOT_FOUND'] : []),
       ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
       ...(excerpt.blocksTruncated ? ['EXCERPT_BLOCK_LIMIT'] : []),
       ...(identityStatus === 'candidate_preview' ? ['RULE_IDENTITY_UNCONFIRMED'] : []),
@@ -556,6 +557,7 @@ async function hLookup(rawKeyword, {
       out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
     }
 
+    if(excerpt.missingAppendices.length) out+=`\n\n> 요청한 ${excerpt.missingAppendices.join(', ')}의 본체를 조회 본문에서 찾지 못했습니다. 본문의 참조 문구만으로 별표 내용이 확인된 것은 아닙니다. 사이트의 별도 첨부는 직접 확인해야 합니다.`;
     if(incompleteReasons.length) out+='\n\n> 근거 조회 상태: 일부 확인 필요. 원문 유형·발췌 누락·잘림과 규정 선택 상태를 확인하세요.';
     rules.push({
       ...hit,lawId,historyId,revisedAt,sourceType,sourceUrl,history,
@@ -564,7 +566,7 @@ async function hLookup(rawKeyword, {
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
       evidenceStatus,incompleteReasons,originalCoverage,
-      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated},
+      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
     });
   }
   return success(out,{
@@ -831,7 +833,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   {name:'get_finance_evidence', title:'재무 업무 근거 조회',description:'재무지식 팩이 지정한 교내 규정과 국가 법령 식별자를 실조회해 사전검토용 근거 묶음을 반환합니다. 각 출처의 조회 성공과 적용 판단은 구분합니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   {name:'search_finance_handbook', title:'재무 해설서 검색',description:'특례규칙 해설서의 계정과목·회계 개념·사례를 짧은 질문으로 검색합니다. 판본·원문 위치·추출 품질을 반환합니다. 법적 적용과 분개표 원문 검증은 별도입니다.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200},limit:{type:'integer',minimum:1,maximum:5}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   {name:'review_finance_case', title:'재무 사례 공동 검토',description:'출장비·외부 강사료의 교내 규정과 한국법령을 자동 연계하는 기본 도구. 확인한 기준일·캠퍼스·회계·대상 조건을 facts로 전달하세요. 필요한 사실이 없으면 먼저 질문하며 지원 범위 밖 급여·연금·국외 강연·비거주자 업무는 별도 조회가 필요합니다. 일반 교비 비용·계정·증빙·기안문 검토도 지원합니다. 부분 조회·적용 미확인을 지급 가능이나 소득구분 확정으로 해석하지 마세요.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:2000},text:{type:'string',maxLength:20000,description:'검토할 기안문 본문. 개인번호·계좌·인증정보 제외.'},facts:{type:'object',additionalProperties:false,properties:Object.fromEntries(Object.entries(require('./finance-desk.js').FACT_LABELS).map(([key,label])=>[key,{type:'string',maxLength:120,description:label}]))}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
-  { name:'lookup_dongguk_rule', title:'동국 규정 통합 조회', description:'동국대학교 규정 질문의 기본·우선 도구. 자연어 query 또는 짧은 rule_keyword를 받아 규정 검색→최신 원문 HWP→관련 조문·별표(금액표 포함)를 한 번에 반환합니다. 근거가 충분하면 중복 조회를 생략하세요. partial·모호한 후보·적용범위 미확인 시 추가 확인이 필요합니다.',
+  { name:'lookup_dongguk_rule', title:'동국 규정 통합 조회', description:'동국대학교 규정 질문의 기본·우선 도구. 자연어 query 또는 짧은 rule_keyword를 받아 규정 검색→최신 원문 HWP→관련 조문·원문 내 별표(금액표·주석 포함)를 한 번에 반환합니다. 별표 번호도 지정할 수 있습니다. 별도 첨부 자동 조회·OCR은 미지원입니다. 근거가 충분하면 중복 조회를 생략하세요. partial이면 사유를 확인하고, 발췌 한도인 경우 max_sections·max_chars를 늘려 조회하세요. 모호한 후보·적용범위는 추가 확인이 필요합니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'선택 LAW_ID. 모호한 후보를 선택한 후 직접 원문·별표 조회'},
       query:{type:'string',description:'전체 자연어 질문. 예: 대전 출장 여비규정의 최신 개정일, 철도운임, 일비, 숙박비를 알려줘'},

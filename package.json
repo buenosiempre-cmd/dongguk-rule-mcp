@@ -1,6 +1,6 @@
 {
   "name": "dongguk-rule-mcp",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "description": "동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버. Claude Desktop, Cursor 등에서 동국대 규정을 직접 검색·조회.",
   "main": "src/index.js",
   "bin": {
