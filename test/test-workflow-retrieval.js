@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const { ruleNameFromQuery, searchVariants, extractRelevantBlocks } = require('../src/lookup.js');
+const { buildOriginalEvidence } = require('../src/hwp-evidence.js');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dongguk-workflow-retrieval-'));
 process.env.XDG_CACHE_HOME = root;
@@ -32,12 +33,20 @@ function seedRule(lawId, title, markdown) {
   }
   seed('history', String(lawId), [{ historyId: hit.historyId, revisedAt: hit.revisedAt }]);
   seed('content', `${lawId}_${hit.historyId}`, { title, markdown });
-  seed('original-structure-v1', `${lawId}_${hit.historyId}`, { markdown });
+  seed('original-structure-v2', `${lawId}_${hit.historyId}`, { markdown });
 }
 const manyMatches = Array.from({ length: 6 }, (_, i) => `제${i + 1}조(숙박비)\n숙박비 합성 기준 ${i + 1}`).join('\n\n');
 seedRule(1, '여비규정', manyMatches);
 seedRule(2, '취업규칙', '제62조(임금 지급일)\n직원 임금 지급일 합성 조문');
 seedRule(3, '연구비 관리규정', '제5조(정산)\n연구비 정산 합성 조문');
+const paragraph = text => ({ text, runs: [], controls: [] });
+const splitArticle = buildOriginalEvidence({
+  sections: [{ paragraphs: ['제1조(목적)', '적용 목적', '제2조(지급기준)',
+    '① 숙박비는 실비로 지급한다.', '② 다만, 증빙이 없으면 지급하지 않는다.',
+    '제3조(무관한 기준)', '무관한 본문', '<별표 1> 지급표', '별표 본문'].map(paragraph) }],
+  binData: new Map(), docInfo: { binData: [] },
+}).markdown;
+seedRule(4, '합성지급규정', splitArticle);
 
 let passed = 0;
 async function check(name, action) { await action(); passed++; console.log('PASS ' + name); }
@@ -83,6 +92,40 @@ async function main() {
     assert.equal(excerpt.truncated, true);
     assert.match(excerpt.text, /원문 블록 2개 생략/);
   });
+  await check('HWP heading and body matches preserve the full article and exceptions', () => {
+    for (const terms of ['제2조', '숙박비']) {
+      const excerpt = extractRelevantBlocks(splitArticle, terms, { maxBlocks: 1 });
+      assert.match(excerpt.text, /제2조/);
+      assert.match(excerpt.text, /① 숙박비/);
+      assert.match(excerpt.text, /② 다만/);
+      assert.doesNotMatch(excerpt.text, /제3조|별표 본문/);
+      assert.equal(excerpt.truncated, false);
+    }
+  });
+  await check('article context ends at chapters, supplements, and formatted appendices', () => {
+    for (const boundary of ['## 제2장(다음 장)', '## 부칙', '**별표 1** 지급표', '### 별지 제1호서식']) {
+      const excerpt = extractRelevantBlocks(`### 제2조(기준)\n\n첫 항\n\n${boundary}\n\n다른 구간`, '제2조', { maxBlocks: 1 });
+      assert.match(excerpt.text, /첫 항/);
+      assert.doesNotMatch(excerpt.text, /다른 구간/);
+    }
+  });
+  await check('long recovered article context declares clipping', () => {
+    const excerpt = extractRelevantBlocks('### 제2조(기준)\n\n' + '본문'.repeat(1000), '제2조', { maxBlocks: 1, maxChars: 1000 });
+    assert.equal(excerpt.charactersTruncated, true);
+    assert.equal(excerpt.truncated, true);
+  });
+  await check('exact article headings outrank historical references and subarticles', () => {
+    const source = '### 제60조(이전 기준)\n\n제62조에서 제60조로 이동했다.\n\n### 제62조의2(다른 조)\n\n가지조문 본문\n\n### 제62조(지급일)\n\n① 지급일 본문\n\n② 예외 항';
+    const excerpt = extractRelevantBlocks(source, '제62조', { maxBlocks: 1 });
+    assert.match(excerpt.text, /^### 제62조\(지급일\)/);
+    assert.match(excerpt.text, /② 예외 항/);
+    assert.doesNotMatch(excerpt.text, /제60조|가지조문 본문/);
+    assert.equal(excerpt.blocksTruncated, true);
+  });
+  await check('table context cannot pull in the next formatted article heading', () => {
+    const excerpt = extractRelevantBlocks('지급표\n\n| 숙박비 |\n| 100원 |\n\n### 제3조(다른 기준)', '숙박비', { maxBlocks: 1 });
+    assert.doesNotMatch(excerpt.text, /제3조/);
+  });
 
   const server = createServer({ profile: 'rules' });
   const client = new Client({ name: 'workflow-retrieval', version: '1' });
@@ -122,6 +165,12 @@ async function main() {
       const result = (await call({ rule_keyword: '취업규칙', query: '여비규정의 임금 지급일', terms: '임금' })).structuredContent;
       assert.equal(result.data.query.keyword, '취업규칙');
       assert.equal(result.data.rules[0].lawId, 2);
+    });
+    await check('MCP HWP clause lookup includes nonmatching exception paragraphs', async () => {
+      const result = (await call({ law_id: 4, terms: '제2조', max_sections: 1 })).structuredContent;
+      assert.equal(result.ok, true);
+      assert.match(result.data.rules[0].excerpt.text, /② 다만/);
+      assert.equal(result.data.rules[0].excerpt.truncated, false);
     });
     await check('all fixture lookups complete without external requests', () => assert.equal(networkCalls, 0));
   } finally { await client.close(); await server.close(); }

@@ -62,6 +62,69 @@ check('requested scope excludes appendix structures explicitly',()=>{
  assert.equal(r.appendixComparison.status,'not_requested');
  assert.equal(r.originalComparison.images.counts.changed,0);
 });
+const scopedOriginal=(value,{appendix=false,supplement=false,nested=false}={})=>buildOriginalEvidence({
+ sections:[{paragraphs:[p('제1조(목적)'),p('같은 내용'),p('제2조(금액)'),
+ p('',[table([cell(value,0),cell('B',1)])]),
+ ...(supplement?[p('부칙 (2026.1.1.)'),p('제1조(시행일)'),p('',[table([cell(value,0),cell('B',1)])])]:[]),
+ ...(nested?[p('제3조(별도)'),p('',[{kind:'footnote',paragraphs:[p('',[table([cell(value,0),cell('B',1)])])]}])]:[]),
+ ...(appendix?[p('<별표 1> 지급표'),p('',[table([cell(value,0),cell('B',1)])])]:[])]}],
+ binData:new Map(),docInfo:{binData:[]}
+});
+check('selected article excludes structures belonging to other body articles',()=>{
+ const r=run(scopedOriginal('100원'),scopedOriginal('200원'),{article:'제1조',includeAppendices:false});
+ assert.equal(r.comparison.counts.unchanged,1);
+ assert.equal(r.originalComparison.tables.beforeCount,0);
+ assert.equal(r.originalComparison.tables.counts.changed,0);
+ assert.equal(r.originalComparison.article,'제1조');
+ assert.equal(r.originalComparison.bodyScope,'selected_article');
+ assert.equal(r.evidenceStatus,'retrieved');
+});
+check('selected article retains its table changes and independently includes appendices',()=>{
+ const a=scopedOriginal('100원',{appendix:true}),b=scopedOriginal('200원',{appendix:true});
+ const selected=run(a,b,{article:2,includeAppendices:false});
+ assert.equal(selected.originalComparison.tables.counts.changed,1);
+ const withAppendix=run(a,b,{article:'제1조'});
+ assert.equal(withAppendix.originalComparison.tables.counts.changed,1);
+ assert.equal(withAppendix.originalComparison.tables.changes[0].appendix,'별표 1');
+ assert.match(formatEvidence(withAppendix,{title:'test'}),/본문 범위: 제1조; 별표·서식: 별도로 전체 비교/);
+});
+check('supplement articles and nested structures retain their article identity',()=>{
+ const a=scopedOriginal('100원',{supplement:true}),b=scopedOriginal('200원',{supplement:true});
+ assert.equal(run(a,b,{article:'제1조',includeAppendices:false}).originalComparison.tables.counts.changed,0);
+ assert.equal(run(a,b,{article:'부칙 제1조',includeAppendices:false}).originalComparison.tables.counts.changed,1);
+ const nested=run(scopedOriginal('100원',{nested:true}),scopedOriginal('200원',{nested:true}),{article:'제3조',includeAppendices:false});
+ assert.equal(nested.originalComparison.tables.counts.changed,1);
+ assert.equal(nested.originalComparison.objects.counts.changed,1);
+});
+check('main article table deletion cannot renumber identical supplementary tables',()=>{
+ const doc=mainTable=>buildOriginalEvidence({sections:[{paragraphs:[
+  p('제1조(목적)'),p('본문'),...(mainTable?[p('',[table([cell('main',0),cell('B',1)])])]:[]),
+  p('부칙 (2026.1.1.)'),p('제1조(시행일)'),p('',[table([cell('same',0),cell('B',1)])])
+ ]}],binData:new Map(),docInfo:{binData:[]}});
+ const r=run(doc(true),doc(false),{article:'부칙 제1조',includeAppendices:false});
+ assert.equal(r.comparison.counts.unchanged,1);
+ assert.deepEqual(r.originalComparison.tables.counts,{added:0,removed:0,changed:0,unchanged:1});
+ assert.equal(r.evidenceStatus,'retrieved');
+});
+check('distinct supplementary headings keep independent structure ordinals',()=>{
+ const doc=firstTable=>buildOriginalEvidence({sections:[{paragraphs:[
+  p('제1조(목적)'),p('본문'),
+  p('부칙 (2025.1.1.)'),p('제1조(시행일)'),...(firstTable?[p('',[table([cell('old',0),cell('B',1)])])]:[]),
+  p('부칙 (2026.1.1.)'),p('제1조(시행일)'),p('',[table([cell('same',0),cell('B',1)])])
+ ]}],binData:new Map(),docInfo:{binData:[]}});
+ const r=run(doc(true),doc(false),{includeAppendices:false});
+ assert.deepEqual(r.originalComparison.tables.counts,{added:0,removed:1,changed:0,unchanged:1});
+ assert.equal(r.evidenceStatus,'retrieved');
+});
+check('legacy structure caches without article identity are explicitly partial',()=>{
+ const a=scopedOriginal('100원'),b=scopedOriginal('200원');
+ for(const doc of [a,b])for(const item of doc.structure.tables)delete item.article;
+ const r=run(a,b,{article:'제1조',includeAppendices:false});
+ assert.equal(r.evidenceStatus,'partial');
+ assert.equal(r.originalComparison.status,'partial');
+ assert.equal(r.originalComparison.coverage.articleScope.unassignedStructures,2);
+ assert.match(formatEvidence(r,{title:'test'}),/STRUCTURE_ARTICLE_SCOPE_UNAVAILABLE/);
+});
 check('missing originals and HTML fail instead of returning empty success',()=>{
  assert.equal(compareEvidence({}).error,'CONTENT_UNAVAILABLE');
 });

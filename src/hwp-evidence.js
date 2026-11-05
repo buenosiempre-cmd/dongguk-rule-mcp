@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 const {fork}=require('node:child_process');
 const {appendixHeading, isBodyBoundary} = require('./appendices');
+const {normalizeArticleSelector} = require('./parsers');
 const LIMITS = Object.freeze({inputBytes:32*1024*1024, streamBytes:16*1024*1024,
   expandedBytes:64*1024*1024, streams:1024, sections:128, records:100000,
   depth:32, paragraphs:50000, controls:20000, cells:50000, grid:100000, appendices:2000,
@@ -234,7 +235,7 @@ function buildOriginalEvidence(document, options={}) {
   limit(document?.docInfo?.binData?.length||0,LIMITS.controls,'binary references');
   let imageBytes=0;
   for(const value of assets.values()) {imageBytes+=value?.data?.byteLength||0;limit(imageBytes,LIMITS.expandedBytes,'image bytes');}
-  let group='body', appendix=null, currentArticle=null;
+  let group='body', appendix=null, currentArticle=null, supplementary=false, supplementaryGroup=null;
   const nextKey=(kind,context)=>{
     const base=`${context.group}/${kind}`;
     const n=(groupOrdinals.get(base)||0)+1;groupOrdinals.set(base,n);
@@ -259,7 +260,7 @@ function buildOriginalEvidence(document, options={}) {
       for(const control of Array.isArray(p.controls)?p.controls:[]) {
         counts.controls++;limit(counts.controls,LIMITS.controls,'controls');
         const c=control||{}, key=nextKey(c.kind||'unknown',context);
-        const common={key,location,group:context.group,appendix:context.appendix||null};
+        const common={key,location,group:context.group,appendix:context.appendix||null,article:context.article||null};
         if(c.kind==='table') {
           counts.tables++;const cells=[];
           const rows=c.rowCount,cols=c.colCount;
@@ -358,11 +359,12 @@ function buildOriginalEvidence(document, options={}) {
         audit.add('APPENDIX_BODY_BOUNDARY_AMBIGUOUS',group,'별표·서식 안의 장·조문·부칙일 수 있어 본칙 비교에서 제외했습니다.',{heading:text.slice(0,120)});
       } else if(boundary==='supplementary'||boundary==='chapter') {
         appendix=null;currentArticle=null;group=`body:${text.length>120?text.slice(0,120)+'#'+sha(text).slice(0,16):text}`;
+        if(boundary==='supplementary') {supplementary=true;supplementaryGroup=group;}
       } else if(boundary==='article') {
         if(appendix) audit.add('APPENDIX_BODY_BOUNDARY_AMBIGUOUS',group,'별표·서식 뒤의 조문은 서식 내부일 수 있어 본칙 비교에서 제외했습니다.',{heading:text.slice(0,120)});
-        else {currentArticle=/^제\s*\d+\s*조(?:\s*의\s*\d+)?/.exec(text)?.[0].replace(/\s/g,'')||text;limit(currentArticle.length,128,'article key characters');group=`body:${currentArticle}`;}
+        else {const article=/^제\s*\d+\s*조(?:\s*의\s*\d+)?/.exec(text)?.[0].replace(/\s/g,'')||text;currentArticle=(supplementary?'부칙 ':'')+article;limit(currentArticle.length,128,'article key characters');group=supplementary?`${supplementaryGroup}/${article}`:`body:${article}`;}
       }
-      const context={group,appendix,location:`section:${sectionIndex}/paragraph:${paragraphIndex}`};
+      const context={group,appendix,article:currentArticle,location:`section:${sectionIndex}/paragraph:${paragraphIndex}`};
       let rendered=walkParagraphs([p],context,0);
       if(!appendix && boundary==='article' && rendered) rendered='### '+rendered;
       else if(!appendix && (boundary==='chapter'||boundary==='supplementary') && rendered) rendered='## '+rendered;
@@ -472,15 +474,26 @@ if(require.main===module && process.argv[2]==='--hwp-evidence-worker') {
   });
 }
 
-function compareOriginalEvidence(before,after,{maxChanges=20,includeAppendices=true}={}) {
+function compareOriginalEvidence(before,after,{maxChanges=20,includeAppendices=true,article}={}) {
   const maximum=Number.isFinite(Number(maxChanges))?Math.max(1,Math.min(LIMITS.changes,Math.floor(Number(maxChanges)))):20;
   const left=before?.structure||before,right=after?.structure||after;
   if(!left?.coverage||!right?.coverage) return {status:'partial',scope:'hwp_original_structure',code:'STRUCTURE_EVIDENCE_MISSING',coverage:{diagnostics:[{code:'STRUCTURE_EVIDENCE_MISSING',message:'구조 정보가 없는 이전 캐시는 다시 조회해야 합니다.'}]}};
-  const relevant=x=>includeAppendices||!x.appendix;
+  const selector=article===undefined||article===null||article===''?null:normalizeArticleSelector(article);
+  if(article!==undefined&&article!==null&&article!==''&&!selector) return {status:'partial',scope:'hwp_original_structure',code:'INVALID_ARTICLE_SELECTOR',coverage:{diagnostics:[{code:'INVALID_ARTICLE_SELECTOR',message:'구조 비교의 조문 선택자를 확인할 수 없습니다.'}]}};
+  let unassignedStructures=0;
+  const relevant=x=>{
+    // Appendix inclusion is independent of the selected body article.
+    if(x.appendix)return includeAppendices;
+    if(!selector)return true;
+    // Older caches and raw binary objects do not identify their article. Do
+    // not turn omitted, unassigned objects into an "unchanged" comparison.
+    if(!Object.prototype.hasOwnProperty.call(x,'article')) {unassignedStructures++;return false;}
+    return x.article===selector.canonical;
+  };
   const changedAppendices=new Set();
   let remainingCellDetails=maximum;
   const excerpt=value=>typeof value==='string'?value.slice(0,LIMITS.excerptChars):value;
-  const summary=x=>!x?null:{key:x.key,location:x.location,appendix:x.appendix,sha256:x.sha256,...(x.rows!==undefined?{rows:x.rows,columns:x.columns,cells:x.cells.length}:{}),...(x.bytes!==undefined?{bytes:x.bytes}:{}),...(x.status?{status:x.status}:{}),...(x.text!==undefined?{text:excerpt(x.text),textTruncated:x.text.length>LIMITS.excerptChars}:{})};
+  const summary=x=>!x?null:{key:x.key,location:x.location,appendix:x.appendix,article:x.article??null,sha256:x.sha256,...(x.rows!==undefined?{rows:x.rows,columns:x.columns,cells:x.cells.length}:{}),...(x.bytes!==undefined?{bytes:x.bytes}:{}),...(x.status?{status:x.status}:{}),...(x.text!==undefined?{text:excerpt(x.text),textTruncated:x.text.length>LIMITS.excerptChars}:{})};
   function compare(kind) {
     const a=(left[kind]||[]).filter(relevant),b=(right[kind]||[]).filter(relevant);
     const am=new Map(a.map(x=>[x.key,x])),bm=new Map(b.map(x=>[x.key,x]));
@@ -517,9 +530,12 @@ function compareOriginalEvidence(before,after,{maxChanges=20,includeAppendices=t
   }
   const tables=compare('tables'),images=compare('images'),objects=compare('objects');
   const coverage={before:left.coverage,after:right.coverage};
-  const partial=left.coverage.status!=='covered'||right.coverage.status!=='covered';
+  if(unassignedStructures) coverage.articleScope={status:'partial',unassignedStructures,diagnostics:[{
+    code:'STRUCTURE_ARTICLE_SCOPE_UNAVAILABLE',message:`조문 소속을 확인할 수 없는 구조 ${unassignedStructures}건은 선택 조문 비교에서 제외했습니다. 캐시 재조회 또는 원문 확인이 필요합니다.`
+  }]};
+  const partial=left.coverage.status!=='covered'||right.coverage.status!=='covered'||unassignedStructures>0;
   return {status:partial?'partial':'compared',scope:'hwp_original_structure',scopeDescription:left.scopeDescription,
-    includeAppendices,coordinateBase:0,tables,images,objects,coverage,
+    article:selector?.canonical||null,bodyScope:selector?'selected_article':'all_articles',includeAppendices,coordinateBase:0,tables,images,objects,coverage,
     changedAppendices:[...changedAppendices],
     changesTruncated:[tables,images,objects].some(x=>x.changesTruncated||x.changes.some(c=>c.cellChangesTruncated)),
     sourceHashes:{before:left.sourceSha256,after:right.sourceSha256}};
