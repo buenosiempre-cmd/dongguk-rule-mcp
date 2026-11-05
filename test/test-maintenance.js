@@ -100,11 +100,27 @@ async function main() {
       assert.equal(result.data.evidenceStatus, 'partial');
       assert(result.data.rules[0].incompleteReasons.includes('EXCERPT_TRUNCATED'));
     });
+    await check('natural-language appendix query returns tables and all following notes through MCP', async () => {
+      seed('original-structure-v2', '1_10', { markdown: '< 별 표 1 > 국내 여비\n\n| 구분 | 기준 |\n| --- | --- |\n| 합성 | 첫째표 |\n\n① 첫째 주석\n\n② 둘째 주석\n\n< 별 표 2 > 국외 여비\n\n| 구분 | 기준 |\n| --- | --- |\n| 합성 | 둘째표 |' });
+      const result = await call('lookup_dongguk_rule', { query: '여비규정 별표를 보여줘' });
+      assert.equal(result.ok, true);
+      assert.equal(result.data.evidenceStatus, 'retrieved');
+      const excerpt = result.data.rules[0].excerpt;
+      for (const text of ['첫째표', '둘째표', '① 첫째 주석', '② 둘째 주석']) assert(excerpt.text.includes(text));
+      assert(!result.data.rules[0].incompleteReasons.includes('NO_MATCHING_EXCERPT'));
+    });
     await check('HTML fallback remains explicitly partial', async () => {
       fs.unlinkSync(path.join(root, 'dongguk-rule-mcp/v2/public/original-structure-v2/1_10.json'));
       const result = await call('lookup_dongguk_rule', { law_id: 1 });
       assert.equal(result.data.evidenceStatus, 'partial');
       assert(result.data.rules[0].incompleteReasons.includes('HWP_FALLBACK'));
+    });
+    await check('an article reference does not prove the requested appendix was retrieved', async () => {
+      seed('original-structure-v2', '1_10', { markdown: '제1조(지급) 지급액은 별표99에 따른다.' });
+      const result = await call('lookup_dongguk_rule', { query: '여비규정 별표99를 보여줘' });
+      assert.equal(result.data.evidenceStatus, 'partial');
+      assert(result.data.rules[0].incompleteReasons.includes('APPENDIX_NOT_FOUND'));
+      assert.deepEqual(result.data.rules[0].excerpt.missingAppendices, ['별표99']);
     });
     await check('bad upstream page is not NOT_FOUND and is never cached', async () => {
       const before = requests;

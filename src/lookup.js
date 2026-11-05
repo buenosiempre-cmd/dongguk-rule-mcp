@@ -1,7 +1,7 @@
 'use strict';
 
 const { expandAliases, middotVariants, normalizeMiddots } = require('./aliases.js');
-const { appendixHeading, isBodyBoundary } = require('./appendices.js');
+const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
   const n = Number(value);
@@ -92,13 +92,28 @@ function selectRuleCandidate(hits, keyword) {
   };
 }
 
+function normalizeAppendixLabels(value) {
+  return String(value || '').replace(/(\d+)[ \t]*호[ \t]*의[ \t]*(\d+)/g, '$1의$2호')
+    .replace(/별[ \t]*표(?:[ \t]*(?:제[ \t]*)?(\d+(?:[ \t]*(?:의|-)[ \t]*\d+)?)(?:[ \t]*호)?)?/g,
+    (_, number) => '별표' + (number || '').replace(/\s/g, ''));
+}
+
+function appendixSelectors(value) {
+  return [...normalizeAppendixLabels(value).matchAll(/별표(?:\d+(?:(?:의|-)\d+)?)?/g)].map(match => match[0]);
+}
+
 function termTokens(rawTerms) {
-  const source = Array.isArray(rawTerms) ? rawTerms.join(' ') : String(rawTerms || '');
+  const source = normalizeAppendixLabels(Array.isArray(rawTerms) ? rawTerms.join(' ') : rawTerms);
   const base = source
     .split(/[\s,;|/·]+/)
     .map(x => x.trim().toLowerCase())
     .filter(x => x.length >= 2);
-  const expanded = [];
+  // Natural-language particles ("별표를", "별표의") must not hide the
+  // appendix selector. Numbered selectors remain distinct: 1 != 10 != 1의2.
+  const expanded = [
+    ...appendixSelectors(source),
+    ...[...source.matchAll(/제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?/g)].map(match => match[0].replace(/[ \t]/g, '')),
+  ];
   for (const token of base) {
     expanded.push(token);
     if (token.length >= 4 && token.endsWith('운임')) expanded.push(token.slice(0, -2));
@@ -119,8 +134,14 @@ function countOccurrences(text, token) {
 
 function scoreBlock(block, tokens, context = '') {
   const isTable = /^\|.+\|/m.test(block);
-  const text = `${isTable ? context : ''}\n${block}`.toLowerCase();
-  const matched = tokens.filter(token => text.includes(token));
+  const appendix = appendixHeading(block.split('\n', 1)[0]);
+  const requested = tokens.filter(token => /^별표\d+(?:(?:의|-)\d+)?$/.test(token));
+  const appendixKey = appendix && normalizeAppendixLabels(appendix.key);
+  if (appendixKey?.startsWith('별표') && requested.length && !requested.includes(appendixKey)) return null;
+  const text = normalizeAppendixLabels(`${isTable && !appendix ? context : ''}\n${block}`).toLowerCase();
+  const selectors = appendixSelectors(text);
+  const matched = tokens.filter(token => /^별표\d+(?:(?:의|-)\d+)?$/.test(token)
+    ? selectors.includes(token) : text.includes(token));
   if (!matched.length) return null;
   let score = matched.length * 12;
   score += matched.reduce((sum, token) => sum + Math.min(countOccurrences(text, token), 4), 0);
@@ -128,12 +149,21 @@ function scoreBlock(block, tokens, context = '') {
   if (/[0-9][0-9,]*(?:원|%|등급)/.test(block)) score += 8;
   if (/별\s*표|별표/.test(block)) score += 6;
   if (/^제\s*\d+\s*조/m.test(block)) score += 3;
+  if (appendixKey && (tokens.includes('별표') || requested.includes(appendixKey))) score += 100;
   // An exact article heading outranks mentions in other articles, including
   // revision notes such as "제62조에서 제60조로 이동".
   const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)(?=[ \t(（.:*]|$)/.exec(block);
   if (heading && tokens.includes(heading[1].replace(/[ \t]/g, ''))) score += 100;
   const wantsDomestic = tokens.includes('국내');
   const wantsForeign = tokens.includes('국외');
+  // Notes can refer to a different travel scope. The appendix's own title
+  // (before its table) determines scope, and an exact-label boost must not
+  // cancel a scope exclusion.
+  if (appendix) {
+    const title = block.split(/^\|/m, 1)[0];
+    if (wantsDomestic && !wantsForeign && /국외/.test(title) && !/국내/.test(title)) return null;
+    if (wantsForeign && !wantsDomestic && /국내/.test(title) && !/국외/.test(title)) return null;
+  }
   if (wantsDomestic && /국외/.test(text) && !/국내/.test(text)) score -= 100;
   if (wantsForeign && /국내/.test(text) && !/국외/.test(text)) score -= 100;
   if (score <= 0) return null;
@@ -153,14 +183,27 @@ function truncateText(text, maxChars) {
 function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const maxBlocks = clampNumber(options.maxBlocks, 6, 1, 12);
   const maxChars = clampNumber(options.maxChars, 12000, 1000, 30000);
-  const blocks = String(markdown || '')
-    .split(/\n\s*\n/)
-    .map(x => x.trim())
-    .filter(Boolean);
+  const source = String(markdown || '').replace(/\r\n?/g, '\n');
+  const lines = source.split('\n');
+  const blocks = [];
+  const appendBlocks = text => blocks.push(...text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean));
+  let cursor = 0;
+  // A table's following notes can span many HWP paragraphs. Rank and return
+  // the entire appendix, stopping at the next appendix or body boundary.
+  const appendices = extractAppendices(source).filter(item => item.key.startsWith('별표'));
+  for (const appendix of appendices) {
+    appendBlocks(lines.slice(cursor, appendix.start).join('\n'));
+    blocks.push(appendix.text);
+    cursor = appendix.start + appendix.text.split('\n').length;
+  }
+  appendBlocks(lines.slice(cursor).join('\n'));
   const tokens = termTokens(rawTerms);
+  const appendixKeys = appendices.map(item => normalizeAppendixLabels(item.key));
+  const missingAppendices = [...new Set(tokens.filter(token => /^별표(?:\d+(?:(?:의|-)\d+)?)?$/.test(token)))]
+    .filter(selector => selector === '별표' ? !appendices.length : !appendixKeys.includes(selector));
 
   if (!blocks.length) {
-    return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false };
+    return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false, missingAppendices };
   }
 
   if (!tokens.length) {
@@ -176,6 +219,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
       omittedBlockCount,
       matchedTerms: [],
       blockCount: Math.min(maxBlocks, blocks.length),
+      missingAppendices,
     };
   }
 
@@ -189,7 +233,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     .sort((a, b) => b.score - a.score || a.index - b.index);
 
   if (!scored.length) {
-    return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false };
+    return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false, missingAppendices };
   }
 
   // HWP paragraphs are separate Markdown blocks. A matching heading or one
@@ -208,7 +252,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const selectedIndexes = new Set(scored.slice(0, maxBlocks).map(x => x.index));
   for (const item of scored.slice(0, maxBlocks)) {
     for (const index of articleContexts[item.index] || []) selectedIndexes.add(index);
-    if (/^\|.+\|/m.test(item.block)) {
+    if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0])) {
       if (item.index > 0) selectedIndexes.add(item.index - 1);
       if (item.index + 1 < blocks.length) {
         const next = blocks[item.index + 1];
@@ -238,6 +282,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     omittedBlockCount,
     matchedTerms,
     blockCount: orderedIndexes.length,
+    missingAppendices,
   };
 }
 
