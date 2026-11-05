@@ -1,6 +1,6 @@
 {
   "name": "dongguk-rule-mcp",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "동국대학교 통합규정관리시스템(rule.dongguk.edu) MCP 서버. Claude Desktop, Cursor 등에서 동국대 규정을 직접 검색·조회.",
   "main": "src/index.js",
   "bin": {
@@ -44,11 +44,11 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@ssabrojs/hwpxjs": "0.4.0",
+    "cfb": "1.2.2",
     "cheerio": "^1.0.0",
-    "node-fetch": "^2.7.0",
-    "cfb": "1.2.2"
+    "node-fetch": "^2.7.0"
   },
   "author": "오승훈 (Dongguk University Finance Team)",
   "repository": {

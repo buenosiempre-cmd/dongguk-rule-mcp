@@ -1,6 +1,7 @@
 'use strict';
 
 const { expandAliases, middotVariants, normalizeMiddots } = require('./aliases.js');
+const { appendixHeading, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
   const n = Number(value);
@@ -127,6 +128,10 @@ function scoreBlock(block, tokens, context = '') {
   if (/[0-9][0-9,]*(?:원|%|등급)/.test(block)) score += 8;
   if (/별\s*표|별표/.test(block)) score += 6;
   if (/^제\s*\d+\s*조/m.test(block)) score += 3;
+  // An exact article heading outranks mentions in other articles, including
+  // revision notes such as "제62조에서 제60조로 이동".
+  const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)(?=[ \t(（.:*]|$)/.exec(block);
+  if (heading && tokens.includes(heading[1].replace(/[ \t]/g, ''))) score += 100;
   const wantsDomestic = tokens.includes('국내');
   const wantsForeign = tokens.includes('국외');
   if (wantsDomestic && /국외/.test(text) && !/국내/.test(text)) score -= 100;
@@ -187,13 +192,28 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false };
   }
 
+  // HWP paragraphs are separate Markdown blocks. A matching heading or one
+  // matching paragraph must retain the rest of that article, including its
+  // exceptions. Context does not consume another ranked match; maxChars still
+  // bounds the response and reports any clipping.
+  let articleContext = null;
+  const articleContexts = blocks.map((block, index) => {
+    const firstLine = block.split('\n', 1)[0];
+    const boundary = isBodyBoundary(firstLine);
+    if (appendixHeading(firstLine) || (boundary && boundary !== 'article')) articleContext = null;
+    else if (boundary === 'article') articleContext = [];
+    if (articleContext) articleContext.push(index);
+    return articleContext;
+  });
   const selectedIndexes = new Set(scored.slice(0, maxBlocks).map(x => x.index));
   for (const item of scored.slice(0, maxBlocks)) {
+    for (const index of articleContexts[item.index] || []) selectedIndexes.add(index);
     if (/^\|.+\|/m.test(item.block)) {
       if (item.index > 0) selectedIndexes.add(item.index - 1);
       if (item.index + 1 < blocks.length) {
         const next = blocks[item.index + 1];
-        if (!/^(?:<\s*별\s*표|부\s*칙|제\s*\d+\s*조|\*\*제\s*\d+\s*장)/.test(next)) {
+        const firstLine = next.split('\n', 1)[0];
+        if (!appendixHeading(firstLine) && !isBodyBoundary(firstLine)) {
           selectedIndexes.add(item.index + 1);
         }
       }

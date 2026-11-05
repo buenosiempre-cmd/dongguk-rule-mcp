@@ -43,7 +43,7 @@ function compareEvidence({beforeOriginal,afterOriginal,beforeHtml,afterHtml,arti
     scope='html_articles_fallback';
   }
   if(comparison.error) return {error:comparison.error};
-  const originalComparison=originals?compareOriginalEvidence(beforeOriginal,afterOriginal,{maxChanges:50,includeAppendices}):
+  const originalComparison=originals?compareOriginalEvidence(beforeOriginal,afterOriginal,{maxChanges:50,includeAppendices,article}):
     {status:'unavailable',scope:'hwp_original_structure',coverage:{diagnostics:[fallback]},tables:null,images:null,objects:null};
   const appendixComparison=!includeAppendices?{status:'not_requested',scope:'hwp_appendix_text_and_structure'}:
     originals?combineAppendices(beforeOriginal,afterOriginal,originalComparison,maxChanges):
@@ -70,6 +70,7 @@ function formatEvidence(result,{title,fromHistoryId,toHistoryId,maxChanges=20}) 
     if(ap.changesTruncated) text+='\n> 일부 별표 변경 표시가 생략됐습니다.\n';
   }
   text+='\n\n## 원본 구조 비교\n상태: '+oc.status+'\n';
+  if(oc.article)text+='본문 범위: '+oc.article+'; 별표·서식: '+(oc.includeAppendices?'별도로 전체 비교':'비교 제외')+'\n';
   for(const [key,label] of [['tables','표'],['images','그림 파일'],['objects','기타 개체']]) {
     const group=oc[key];if(!group)continue;
     const c=group.counts;
@@ -82,7 +83,7 @@ function formatEvidence(result,{title,fromHistoryId,toHistoryId,maxChanges=20}) 
     }
     if(group.changesTruncated||group.changes.length>maxChanges)text+='\n> 일부 구조 변경 표시가 생략됐습니다.\n';
   }
-  const diagnostics=oc.coverage?.diagnostics||['before','after'].flatMap(side=>(oc.coverage?.[side]?.diagnostics||[]).map(x=>({...x,side})));
+  const diagnostics=[...(oc.coverage?.diagnostics||['before','after'].flatMap(side=>(oc.coverage?.[side]?.diagnostics||[]).map(x=>({...x,side})))),...(oc.coverage?.articleScope?.diagnostics||[])];
   if(diagnostics.length) {
     text+='\n\n### 확인된 추출 진단\n';
     for(const x of diagnostics.slice(0,50))text+='- '+(x.side?x.side+' ':'')+(x.code||'HWP_COVERAGE')+': '+(x.message||x.reason||'')+(x.location?' ('+x.location+')':'')+'\n';
