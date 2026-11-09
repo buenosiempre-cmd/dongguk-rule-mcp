@@ -121,7 +121,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, queryContentTokens } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -129,8 +129,10 @@ const {
   searchResultMetrics,
   normalizeArticleSelector,
   extractArticleSections,
+  supplementarySelector,
   extractChapter,
   grepArticleSections,
+  rankArticlesByTokens,
 } = require('./parsers.js');
 const { compareRuleMarkdown, formatVersionComparison } = require('./versioning.js');
 const { verifyRuleCitations } = require('./citations.js');
@@ -152,6 +154,9 @@ const FILE_URL = `${BASE_URL}/fileDown.srv`;                    // POST (원문 
 const MAIN_URL = `${BASE_URL}/lmxsrv/main/main.srv`;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)';
 // LAWGROUP is document type, not campus (official screen verified 2026-09-08).
+// Bump when parseContent output changes; parsed bodies are cached for 30 days.
+// v3: 부칙(div.addenda) headings are now kept.
+const CONTENT_CACHE = 'content-v3';
 const TTL = { search: 3600, searchFull: 86400, history: 600, content: 30*86400 };
 let lastReq = 0;
 
@@ -290,24 +295,30 @@ async function hSearch(kw, {fullText=false,limit=10,offset=0,campus='all'}={}) {
   });
 }
 
+function ambiguousArticleMessage(sections) {
+  const selectors=[...new Set(sections.map(supplementarySelector).filter(Boolean))];
+  return '여러 부칙에 같은 조문 번호가 있습니다. article에 "부칙(2024.8.27.) 제1조"처럼 부칙 개정일을 함께 지정하세요.'+
+    (selectors.length?` 선택 가능: ${selectors.slice(-8).join(', ')}`:'');
+}
+
 async function hContent(rawLawId, hid, {article,chapter,grep,head}={}) {
   const lawId = toId(rawLawId);
   if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요. (예: law_id=491)');
   const hasArticle=article!==undefined && article!==null && article!=='';
   const articleSelector=hasArticle?normalizeArticleSelector(article):null;
-  if(hasArticle && !articleSelector) return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+  if(hasArticle && !articleSelector) return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
   const chp = toId(chapter);
   if(chapter!==undefined && chapter!==null && !chp) return failure('INVALID_ARGUMENT', 'chapter는 양의 정수여야 합니다. (예: chapter=5 → 제5장)');
   const resolved=await resolve(lawId,hid);
   const {historyId:rid, note}=resolved;
-  const c=await cached('content',`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
+  const c=await cached(CONTENT_CACHE,`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
   if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `본문을 가져올 수 없습니다 (LAW_ID ${lawId}). law_id/history_id를 확인하세요.`);
   let r=c.markdown;
   let selectedArticles=[];
   if(articleSelector){
     const extracted=extractArticleSections(r,article);
-    if(extracted.error) return failure(extracted.error,'여러 부칙에 같은 조문 번호가 있습니다. 원문에서 부칙 제목과 개정일을 선택하세요.',{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading}))}});
-    if(!extracted.text) return failure('NOT_FOUND', `${articleSelector.canonical}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
+    if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections),{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading,selector:supplementarySelector(x)}))}});
+    if(!extracted.text) return failure('NOT_FOUND', `${articleSelector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
       details:{lawId,historyId:rid,article:articleSelector.canonical},
     });
     selectedArticles=extracted.sections.map(section=>({
@@ -347,7 +358,7 @@ async function hToc(rawLawId,hid){
   if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. (예: law_id=491)');
   const resolved=await resolve(lawId,hid);
   const {historyId:rid,note}=resolved;
-  const c=await cached('content',`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
+  const c=await cached(CONTENT_CACHE,`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
   if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `본문을 가져올 수 없습니다 (LAW_ID ${lawId}).`);
   const toc=c.markdown.split('\n').filter(l=>/^#{1,3} /.test(l)).join('\n');
   const text=note?`${note}\n\n${toc||'장·조 헤더가 없습니다.'}`:(toc||'장·조 헤더가 없습니다.');
@@ -371,31 +382,65 @@ async function hHistory(rawLawId){
   });
 }
 
+// Keyword fallback for questions whose literal wording is absent. The upstream
+// full-text search ANDs every word and takes about 10 seconds per request, so
+// search the content words first, then drop trailing words one at a time.
+const TERM_SEARCH_BUDGET_MS=35000;
+async function searchByTerms(query,{pageShow=15,lawgroup='0'}={}){
+  const tokens=queryContentTokens(query);
+  if(!tokens.length) return null;
+  const attempts=[tokens];
+  for(let i=tokens.length-1;i>=0&&tokens.length>1;i--) attempts.push(tokens.filter((_,index)=>index!==i));
+  const original=String(query).trim();
+  const started=Date.now();
+  let tried=0,firstError=null;
+  for(const terms of attempts.filter(x=>x.join(' ')!==original).slice(0,3)){
+    if(tried&&Date.now()-started>TERM_SEARCH_BUDGET_MS) break;
+    tried++;
+    const text=terms.join(' ');
+    try{
+      const result=await cached('search',hk(text,true,1,pageShow,lawgroup),TTL.searchFull,()=>searchRules(text,{fullText:true,page:1,pageShow,lawgroup}));
+      if(result.hits.length) return {...result,tokens:terms,droppedTerms:tokens.filter(x=>!terms.includes(x))};
+    }catch(error){firstError=firstError||error;}
+  }
+  // An upstream outage is not evidence that no rule matches.
+  if(firstError) throw firstError;
+  return null;
+}
+
 async function hDeep(rawQuery,{top=3,perDoc}={}){
   const query = validStr(rawQuery);
   if(!query) return failure('INVALID_ARGUMENT', '검색어(query)를 입력해주세요. 예: "겸직", "위임전결"');
   top=Math.max(1,Math.min(Number(top)||3,10));
   const pd = toId(perDoc);
   const ps=top*5, ck=hk(query,true,1,ps,'0');
-  const r=await cached('search',ck,TTL.searchFull,()=>searchRules(query,{fullText:true,page:1,pageShow:ps}));
+  let r=await cached('search',ck,TTL.searchFull,()=>searchRules(query,{fullText:true,page:1,pageShow:ps}));
+  let fallback=null;
+  if(!r.hits.length){
+    fallback=await searchByTerms(query,{pageShow:ps});
+    if(fallback) r=fallback;
+  }
   const metrics=searchResultMetrics(r);
   if(!r.hits.length) return failure('NOT_FOUND', `'${query}' 전문 검색 결과가 없습니다. 더 일반적인 키워드로 시도해보세요.`, {details:{query}});
   const hits=r.hits.slice(0,top);
   const documents=[];
-  let o=`# '${query}' 깊이 검색\n- 원문 집계 ${r.total}건, 고유 후보 ${metrics.uniqueRows}건, 상위 ${hits.length}개 grep\n\n`;
+  let o=`# '${query}' 깊이 검색\n`+
+    (fallback?`- 입력 문구 그대로는 결과가 없어 핵심어 '${fallback.tokens.join(' ')}'로 검색했습니다.`+
+      (fallback.droppedTerms.length?` '${fallback.droppedTerms.join(', ')}'은(는) 함께 나오는 규정이 없어 제외했으니 원문에서 해당 내용을 확인하세요.`:'')+'\n':'')+
+    `- 원문 집계 ${r.total}건, 고유 후보 ${metrics.uniqueRows}건, 상위 ${hits.length}개 grep\n\n`;
   for(let i=0;i<hits.length;i++){
     const h=hits[i];
     o+=`## [${i+1}] ${h.title} (LAW_ID ${h.lawId})\n`;
     try{
       const selected=await resolve(h.lawId);
       const currentHit={...h,historyId:selected.historyId,revisedAt:selected.revisedAt};
-      const c=await cached('content',`${h.lawId}_${selected.historyId}`,TTL.content,()=>getContent(h.lawId,selected.historyId));
+      const c=await cached(CONTENT_CACHE,`${h.lawId}_${selected.historyId}`,TTL.content,()=>getContent(h.lawId,selected.historyId));
       if(!c.markdown){
         o+='- 본문 조회 실패\n\n';
         documents.push({...currentHit,error:{code:'CONTENT_UNAVAILABLE',message:'본문 조회 실패'}});
         continue;
       }
-      let matches=grepArticleSections(c.markdown,query);
+      let matches=fallback?rankArticlesByTokens(c.markdown,fallback.tokens):grepArticleSections(c.markdown,query);
       const count=matches.length;
       if(pd&&count>pd)matches=matches.slice(0,pd);
       o+=count?`- 매칭 ${count}건\n\n${matches.map(x=>x.content).join('\n\n')}\n\n`:`- 매칭 조문 없음 (제목/메타 매칭)\n\n`;
@@ -407,7 +452,7 @@ async function hDeep(rawQuery,{top=3,perDoc}={}){
     }
   }
   return success(o,{
-    query,counts:{sourceTotal:r.total,uniqueCandidates:metrics.uniqueRows,duplicatesRemoved:metrics.duplicatesRemoved,returned:hits.length},documents,
+    query,...(fallback?{searchMode:'content_terms',terms:fallback.tokens,droppedTerms:fallback.droppedTerms}:{searchMode:'phrase'}),counts:{sourceTotal:r.total,uniqueCandidates:metrics.uniqueRows,duplicatesRemoved:metrics.duplicatesRemoved,returned:hits.length},documents,
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
   });
 }
@@ -433,12 +478,16 @@ async function hLookup(rawKeyword, {
   let searchMode='제목', queryUsed=keyword, result=null;
   if(explicitLawId){
     const latest=await resolve(explicitLawId);
-    const content=await cached('content',`${explicitLawId}_${latest.historyId}`,TTL.content,()=>getContent(explicitLawId,latest.historyId));
+    const content=await cached(CONTENT_CACHE,`${explicitLawId}_${latest.historyId}`,TTL.content,()=>getContent(explicitLawId,latest.historyId));
     result={total:1,hits:[{lawId:explicitLawId,historyId:latest.historyId,title:content.title||keyword,revisedAt:latest.revisedAt}]};
     searchMode='LAW_ID';
   }
   const candidateHits=new Map();
+  const questionTerms=queryContentTokens(keyword);
   for(const fullText of (result?[]:[false,true])){
+    // A multi-word question rarely appears verbatim; searchByTerms below
+    // covers full text with its content words instead of 10-second literal tries.
+    if(fullText&&questionTerms.length>1) break;
     for(const variant of variants){
       const ck=hk(variant,fullText,1,pageShow,lg);
       const candidate=await cached('search',ck,fullText?TTL.searchFull:TTL.search,()=>searchRules(variant,{fullText,page:1,pageShow,lawgroup:lg}));
@@ -455,6 +504,10 @@ async function hLookup(rawKeyword, {
     // Full-text fallback is needed only when title searches found no candidates.
     if(result)break;
   }
+  if(!result){
+    const fallback=await searchByTerms(keyword,{pageShow,lawgroup:lg});
+    if(fallback){result=fallback;queryUsed=fallback.tokens.join(' ');searchMode='핵심어 전문';}
+  }
   if(candidateHits.size){
     const collected=[...candidateHits.values()];
     const identity=selectRuleCandidate(collected,keyword);
@@ -470,7 +523,18 @@ async function hLookup(rawKeyword, {
 
   const selection=selectRuleCandidate(result.hits,keyword);
   const candidates=selection.candidates;
-  if(!explicitLawId && maxRules===1 && selection.status!=='unique') return failure('AMBIGUOUS_RULE','여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.',{details:{candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt})),campus:campusScope(campus)}});
+  if(!explicitLawId && maxRules===1 && selection.status!=='unique') {
+    const titleUnmatched=selection.matchType==='none';
+    const message=titleUnmatched
+      ?`제목이 '${keyword}'에 해당하는 규정은 없습니다. 아래는 본문에 '${queryUsed}' 검색어가 나오는 규정 후보입니다. 질문에 맞는 규정을 확인한 뒤 law_id로 선택하세요.`
+      :'여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.';
+    const text=`${message}\n\n`+candidates.map(x=>`- ${x.title} (LAW_ID ${x.lawId}, 개정 ${x.revisedAt||'미상'})`).join('\n');
+    return failure('AMBIGUOUS_RULE',message,{text,details:{
+      matchType:selection.matchType,searchMode,queryUsed,
+      candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt})),
+      campus:campusScope(campus),
+    }});
+  }
   const hits=(selection.status==='unique'?[selection.hit]:rankRuleHits(result.hits,keyword)).slice(0,maxRules);
   const identityStatus=explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
   const metrics=searchResultMetrics(result);
@@ -505,7 +569,7 @@ async function hLookup(rawKeyword, {
       markdown=original.markdown;
       originalCoverage=original.structure?.coverage||null;
     }catch(e){
-      const html=await cached('content',`${lawId}_${historyId}`,TTL.content,
+      const html=await cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,
         ()=>getContent(lawId,historyId));
       markdown=html.markdown;
       sourceType='HTML 본문';
@@ -585,7 +649,7 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   if(!fromHistoryId) return failure('INVALID_ARGUMENT', 'from_history_id는 비교 시작 개정본의 양의 정수 HISTORY_ID여야 합니다.');
   const hasArticle=article!==undefined && article!==null && article!=='';
   if(hasArticle && !normalizeArticleSelector(article)) {
-    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
   }
   const history=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
   const toHistoryId=rawToHistoryId?toId(rawToHistoryId):history[0]?.historyId;
@@ -598,8 +662,8 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   const [beforeOriginal,afterOriginal,beforeHtml,afterHtml]=await Promise.all([
     cached('original-structure-v2',`${lawId}_${fromHistoryId}`,TTL.content,()=>getOriginalContent(fromHistoryId)).catch(()=>null),
     cached('original-structure-v2',`${lawId}_${toHistoryId}`,TTL.content,()=>getOriginalContent(toHistoryId)).catch(()=>null),
-    cached('content',`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)).catch(()=>null),
-    cached('content',`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)).catch(()=>null),
+    cached(CONTENT_CACHE,`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)).catch(()=>null),
+    cached(CONTENT_CACHE,`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)).catch(()=>null),
   ]);
   maxChanges=clampNumber(maxChanges,20,1,50);
   const {compareEvidence,formatEvidence}=require('./comparison-evidence.js');
@@ -629,7 +693,7 @@ async function hVerifyCitations(rawText,{campus='all'}={}) {
       return cached('search',ck,TTL.search,()=>searchRules(q,{fullText:false,page:1,pageShow:10,lawgroup:lg}));
     },
     getRuleMarkdown: async(lawId,historyId)=>{
-      const c=await cached('content',`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId));
+      const c=await cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId));
       return c.markdown||'';
     },
     resolveLatest: async lawId=>await resolve(lawId),
@@ -652,7 +716,7 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
   if(!target) return failure('INVALID_ARGUMENT', 'date는 기준일이며 YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD 형식이어야 합니다. 예: 2024-03-15');
   const hasArticle=article!==undefined && article!==null && article!=='';
   if(hasArticle && !normalizeArticleSelector(article)){
-    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
   }
   max_changes=clampNumber(max_changes,10,1,30);
 
@@ -688,15 +752,15 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
 
   if(res.error) return failure(res.error,'같은 날짜의 복수 개정본 등으로 기준일 후보를 확정할 수 없습니다.',{details:res});
   const picked=res.entry;
-  const c=await cached('content',`${lawId}_${picked.historyId}`,TTL.content,()=>getContent(lawId,picked.historyId));
+  const c=await cached(CONTENT_CACHE,`${lawId}_${picked.historyId}`,TTL.content,()=>getContent(lawId,picked.historyId));
   if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `적용 개정본 본문을 가져올 수 없습니다 (LAW_ID ${lawId} / HISTORY_ID ${picked.historyId}).`);
   const title=c.title||matched?.title||`LAW_ID ${lawId}`;
 
   let bodyText=c.markdown, selectedArticles=[];
   if(hasArticle){
     const extracted=extractArticleSections(c.markdown,article);
-    if(extracted.error) return failure(extracted.error,'여러 부칙에 같은 조문 번호가 있습니다. 원문에서 부칙 제목과 개정일을 선택하세요.',{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading}))}});
-    if(!extracted.text) return failure('NOT_FOUND', `${extracted.selector.canonical}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.`, {
+    if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections),{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading,selector:supplementarySelector(x)}))}});
+    if(!extracted.text) return failure('NOT_FOUND', `${extracted.selector.label}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.`, {
       details:{lawId,historyId:picked.historyId,article:extracted.selector.canonical},
     });
     selectedArticles=extracted.sections.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}));
@@ -721,7 +785,7 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
 
   let comparison=null;
   if(compare_with_current && !res.isLatest){
-    const latest=await cached('content',`${lawId}_${res.latest.historyId}`,TTL.content,()=>getContent(lawId,res.latest.historyId));
+    const latest=await cached(CONTENT_CACHE,`${lawId}_${res.latest.historyId}`,TTL.content,()=>getContent(lawId,res.latest.historyId));
     if(latest.markdown){
       comparison=compareRuleMarkdown(c.markdown,latest.markdown,hasArticle?{article}:{});
       if(!comparison.error){
@@ -860,7 +924,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신)'},
-      article:{oneOf:[{type:'number'},{type:'string'}],description:'특정 조문. 예: 48, 제48조, 제10조의2, 부칙 제2조'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'특정 조문. 예: 48, 제48조, 제10조의2, 부칙 제2조, 부칙(2024.8.27.) 제1조(여러 부칙의 같은 번호는 개정일로 선택)'},
       chapter:{type:'number',description:'특정 장만'},
       grep:{type:'string',description:'키워드 포함 조문'},
       head:{type:'number',description:'상위 N줄'},

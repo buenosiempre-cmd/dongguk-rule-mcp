@@ -23,8 +23,8 @@ for(const scope of ['public',privateScope]){
   seed(scope,'history','1',[{historyId:20,revisedAt:'2026.09.01'},{historyId:10,revisedAt:'2024.01.01'}]);
   seed(scope,'search',hash('여비규정',false,1,10,'0'),{total:1,hits:[hit]});
   seed(scope,'search',hash('여비',false,1,10,'0'),{total:0,hits:[]});
-  seed(scope,'content','1_10',{title:'여비규정',markdown:'### 제1조(숙박비)\n과거 숙박비'});
-  seed(scope,'content','1_20',{title:'여비규정',markdown:'### 제1조(숙박비)\n'+(scope==='public'?'공개 숙박비':'내부 쿠키 숙박비')});
+  seed(scope,'content-v3','1_10',{title:'여비규정',markdown:'### 제1조(숙박비)\n과거 숙박비'});
+  seed(scope,'content-v3','1_20',{title:'여비규정',markdown:'### 제1조(숙박비)\n'+(scope==='public'?'공개 숙박비':'내부 쿠키 숙박비')});
   seed(scope,'original-structure-v2','1_10',{markdown:'제1조(숙박비)\n과거\n\n< 별 표 1 > 국내 여비\n\n| 항목 | 금액 |\n| 숙박비 | 100,000원 |'});
   seed(scope,'original-structure-v2','1_20',{markdown:'제1조(숙박비)\n현재\n\n< 별 표 1 > 국내 여비\n\n| 항목 | 금액 |\n| 숙박비 | 120,000원 |'});
 }
@@ -36,7 +36,7 @@ for(const query of require('../src/lookup.js').searchVariants('직군통합'))se
 seed('public','search',hash('교원복무규정',false,1,10,'0'),{total:1,hits:[{lawId:6,title:'교원복무규정'}]});
 seed('public','search',hash('직원복무규정',false,1,10,'0'),{total:1,hits:[{lawId:7,title:'직원복무규정'}]});
 seed('public','history','4',[{historyId:40,revisedAt:'2024.01.01'}]);
-seed('public','content','4_40',{title:'위임전결규정',markdown:'### 제1조(목적)\n본 규정의 목적'});
+seed('public','content-v3','4_40',{title:'위임전결규정',markdown:'### 제1조(목적)\n본 규정의 목적'});
 seed('public','original-structure-v2','4_40',{markdown:'제1조(목적)\n본 규정의 목적'});
 let count=0;function check(name,fn){fn();count++;console.log('PASS '+name);}
 async function connect(profile){const s=createServer({profile}),c=new Client({name:'profile-test',version:'1'});const[a,b]=InMemoryTransport.createLinkedPair();await s.connect(b);await c.connect(a);return{c,s,call:async(name,args={})=>(await c.callTool({name,arguments:args})).structuredContent};}
