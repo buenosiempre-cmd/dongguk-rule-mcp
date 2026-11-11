@@ -386,7 +386,7 @@ async function hHistory(rawLawId){
 // full-text search ANDs every word and takes about 10 seconds per request, so
 // search the content words first, then drop trailing words one at a time.
 const TERM_SEARCH_BUDGET_MS=35000;
-async function searchByTerms(query,{pageShow=15,lawgroup='0'}={}){
+async function searchByTerms(query,{pageShow=15,lawgroup='0',skipOriginal=false}={}){
   const tokens=queryContentTokens(query);
   if(!tokens.length) return null;
   const attempts=[tokens];
@@ -394,7 +394,7 @@ async function searchByTerms(query,{pageShow=15,lawgroup='0'}={}){
   const original=String(query).trim();
   const started=Date.now();
   let tried=0,firstError=null;
-  for(const terms of attempts.filter(x=>x.join(' ')!==original).slice(0,3)){
+  for(const terms of attempts.filter(x=>!skipOriginal||x.join(' ')!==original).slice(0,3)){
     if(tried&&Date.now()-started>TERM_SEARCH_BUDGET_MS) break;
     tried++;
     const text=terms.join(' ');
@@ -417,7 +417,7 @@ async function hDeep(rawQuery,{top=3,perDoc}={}){
   let r=await cached('search',ck,TTL.searchFull,()=>searchRules(query,{fullText:true,page:1,pageShow:ps}));
   let fallback=null;
   if(!r.hits.length){
-    fallback=await searchByTerms(query,{pageShow:ps});
+    fallback=await searchByTerms(query,{pageShow:ps,skipOriginal:true});
     if(fallback) r=fallback;
   }
   const metrics=searchResultMetrics(r);
