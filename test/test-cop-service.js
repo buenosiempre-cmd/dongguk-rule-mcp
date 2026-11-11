@@ -51,8 +51,8 @@ async function main(){
   const pub=await connect('rules'),priv=await connect('finance');
   try{
     const pubTools=(await pub.c.listTools()).tools,privTools=(await priv.c.listTools()).tools;
-    check('10 public tools; finance hidden',()=>{assert.equal(pubTools.length,10);assert.ok(!pubTools.some(x=>x.name.startsWith('get_finance_')));});
-    check('14 opt-in finance tools',()=>assert.equal(privTools.length,14));
+    check('12 public tools; finance hidden',()=>{assert.equal(pubTools.length,12);assert.ok(!pubTools.some(x=>x.name.startsWith('get_finance_')));});
+    check('16 opt-in finance tools',()=>assert.equal(privTools.length,16));
     for(const tool of ['search_finance_handbook','review_finance_case']) {
       check(`${tool} hidden in public profile`,()=>assert.ok(!pubTools.some(x=>x.name===tool)));
       const blocked=await pub.call(tool,{query:'소모품비'});

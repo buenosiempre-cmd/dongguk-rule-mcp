@@ -19,7 +19,7 @@ async function doctor({createServer,version,profile='rules',live=false}) {
     await server.connect(b);await client.connect(a);
     checks.push({name:'initialize',ok:client.getServerVersion()?.version===version});
     const tools=(await client.listTools()).tools;
-    checks.push({name:'tools',ok:tools.length===(profile==='rules'?10:14),count:tools.length});
+    checks.push({name:'tools',ok:tools.length===(profile==='rules'?12:16),count:tools.length});
     const info=await client.callTool({name:'get_service_info',arguments:{}});
     checks.push({name:'profile',ok:info.isError!==true&&info.structuredContent?.ok===true&&info.structuredContent?.data?.profile===profile});
     if(live){

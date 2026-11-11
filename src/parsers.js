@@ -139,7 +139,7 @@ function searchResultMetrics(result) {
 
 function normalizeArticleSelector(value) {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) {
-    return { number: value, subNumber: null, supplementary: false, canonical: `제${value}조` };
+    return { number: value, subNumber: null, supplementary: false, supplementaryDate: null, canonical: `제${value}조`, label: `제${value}조` };
   }
   if (typeof value !== 'string') return null;
   const compact = value.trim().replace(/\s+/g, '');

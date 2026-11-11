@@ -13,7 +13,7 @@ const success=rule=>({content:[{type:'text',text:'lookup fixture'}],structuredCo
 function factory(response,{profileFailure=false,calls=[]}={}) {
   return ({profile})=>{
     const server=new Server({name:'doctor-fixture',version},{capabilities:{tools:{}}});
-    server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:Array.from({length:profile==='rules'?10:14},(_,i)=>({name:'fixture_'+i,inputSchema:{type:'object'}}))}));
+    server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:Array.from({length:profile==='rules'?12:16},(_,i)=>({name:'fixture_'+i,inputSchema:{type:'object'}}))}));
     server.setRequestHandler(CallToolRequestSchema,async request=>{
       calls.push(request.params.name);
       if(request.params.name==='get_service_info')return {content:[],structuredContent:{ok:!profileFailure,data:{profile}}};
