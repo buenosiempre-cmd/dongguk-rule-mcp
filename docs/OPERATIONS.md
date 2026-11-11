@@ -187,3 +187,15 @@ Mac mini가 꺼지거나 잠자기에 들어가거나 인터넷이 끊기면 공
 - **보류:** 기관 계정·승인·담당자 지정 등 외부 조건이 필요한 작업과 그 사유.
 
 기관 SSO와 전 구성원 명부가 연결되어 있지 않으면 “전원 설치 완료”라고 보고하지 않습니다. [구성원 가이드](COP_GUIDE.md)와 [실증평가 양식](EVALUATION.md)을 배포하더라도 실제 통지·교육·계정 개통·효과 측정은 각 증빙으로 확인합니다.
+
+## 공개 엔드포인트 호출 제한
+
+토큰 없이 호출하는 요청은 클라이언트 IP별로 제한합니다. Cloudflare Tunnel 뒤에서는 loopback 피어에서 온 `CF-Connecting-IP`만 신뢰합니다. 토큰 보유자는 멤버 레지스트리로 관리하므로 IP 제한에서 제외합니다.
+
+| 환경 변수 | 기본값 | 설명 |
+|---|---|---|
+| `DONGGUK_MCP_RATE_LIMIT_PER_MINUTE` | 60 | IP별 분당 호출 수. 0이면 해제 |
+| `DONGGUK_MCP_RATE_LIMIT_PER_DAY` | 1000 | IP별 24시간 호출 수. 0이면 해제 |
+| `DONGGUK_MCP_TRUST_PROXY` | 1 | 0이면 `CF-Connecting-IP`를 무시 |
+
+초과 시 HTTP 429와 `Retry-After`(초)를 반환합니다. `/health`, `/ready`, 안내 페이지는 제한하지 않습니다. 이 서비스는 동국대학교의 공식 서비스가 아니며, `get_service_info`와 MCP `instructions`에 같은 안내가 포함됩니다.

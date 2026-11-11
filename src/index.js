@@ -40,6 +40,7 @@ process.noDeprecation = true;
 // === 버전/CLI ===
 let VERSION = '0.7.0';
 try { VERSION = require('../package.json').version; } catch {}
+const DISCLAIMER='동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다. 공개 규정 원문(rule.dongguk.edu)을 조회해 전달하며, 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.';
 
 const ARGV = process.argv.slice(2);
 function validHost(value) {
@@ -825,7 +826,7 @@ function normalizeLookupArguments(args={}) {
 // === MCP 서버 팩토리 (stdio: 1회 / HTTP: 요청당 1회 — stateless) ===
 function createServer({profile=PROFILE}={}) {
 profile=normalizeProfile(profile);
-const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabilities:{tools:{}} });
+const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabilities:{tools:{}}, instructions:DISCLAIMER });
 
 server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   {name:'get_service_info', title:'동국 규정 MCP 서비스 정보',description:'동국 규정 MCP 버전·공통/내부 기능 범위·캠퍼스 검색 한계·입력 안내를 확인합니다.',inputSchema:{type:'object',properties:{}},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:{readOnlyHint:true}},
@@ -937,7 +938,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
@@ -953,6 +954,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- privatePacksConfigured: '+data.privacy.privatePacksConfigured,
           '',
           '공식 목록에는 캠퍼스 필터가 없습니다. 캠퍼스·직군별 적용은 규정 제목과 적용범위 조문을 확인하세요.',
+          '',
+          '※ '+DISCLAIMER,
         ].join('\n'),data);
         break;
       }
@@ -1007,6 +1010,9 @@ function startHttp() {
     publicPage:fs.readFileSync(path.join(__dirname,'../docs/quickstart.html'),'utf8'),
     maxConcurrent:Number(process.env.DONGGUK_MCP_MAX_CONCURRENT||8),
     maxQueue:Number(process.env.DONGGUK_MCP_MAX_QUEUE||32),
+    rateLimitPerMinute:Number(process.env.DONGGUK_MCP_RATE_LIMIT_PER_MINUTE??60),
+    rateLimitPerDay:Number(process.env.DONGGUK_MCP_RATE_LIMIT_PER_DAY??1000),
+    trustProxy:process.env.DONGGUK_MCP_TRUST_PROXY!=='0',
     allowedOrigins:(process.env.DONGGUK_MCP_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean),
   });
   let warmer;
