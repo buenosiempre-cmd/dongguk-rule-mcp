@@ -9,6 +9,18 @@ function isLoopbackAddress(address) {
   return value === '::1' || (net.isIPv4(value) && value.startsWith('127.'));
 }
 
+// IPv6 clients usually own a whole /64, so they are grouped by that prefix.
+function clientKey(address) {
+  const value = String(address || '').replace(/^::ffff:(?=\d+\.)/i, '').toLowerCase();
+  if (net.isIPv4(value) || !net.isIPv6(value)) return value;
+  const [head, tail = ''] = value.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  if (right.length && net.isIPv4(right[right.length - 1])) right.splice(-1, 1, '0', '0');
+  const full = value.includes('::') ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right] : left;
+  return full.slice(0, 4).map(h => (parseInt(h, 16) || 0).toString(16)).join(':') + '::/64';
+}
+
 // Behind cloudflared the TCP peer is always loopback, so the Cloudflare
 // CF-Connecting-IP header is trusted only for loopback peers when enabled.
 function clientAddress(req, { trustProxy = true } = {}) {
@@ -16,9 +28,9 @@ function clientAddress(req, { trustProxy = true } = {}) {
   if (trustProxy && isLoopbackAddress(peer)) {
     const forwarded = req.headers['cf-connecting-ip'];
     const candidate = typeof forwarded === 'string' ? forwarded.trim() : '';
-    if (net.isIP(candidate)) return candidate.toLowerCase();
+    if (net.isIP(candidate)) return clientKey(candidate);
   }
-  return peer;
+  return clientKey(peer);
 }
 
 function createRateLimiter({ perMinute = 60, perDay = 1000, maxClients = 50000, now = Date.now } = {}) {
@@ -63,4 +75,4 @@ function createRateLimiter({ perMinute = 60, perDay = 1000, maxClients = 50000, 
   return { take, size: () => clients.size, limits: { perMinute, perDay } };
 }
 
-module.exports = { createRateLimiter, clientAddress, isLoopbackAddress };
+module.exports = { createRateLimiter, clientAddress, clientKey, isLoopbackAddress };

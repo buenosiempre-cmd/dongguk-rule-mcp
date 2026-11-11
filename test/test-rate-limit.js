@@ -9,7 +9,7 @@ const path = require('path');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const { createHttpServer, validateConfiguration } = require('../src/http-server');
-const { createRateLimiter, clientAddress } = require('../src/rate-limit');
+const { createRateLimiter, clientAddress, clientKey } = require('../src/rate-limit');
 
 let passed = 0;
 async function check(name, fn) { await fn(); passed++; console.log(`  ✅ ${name}`); }
@@ -57,10 +57,18 @@ function list(server, headers = {}) {
   await check('CF-Connecting-IP is trusted only from loopback peers', () => {
     const req = (peer, ip) => ({ socket: { remoteAddress: peer }, headers: ip ? { 'cf-connecting-ip': ip } : {} });
     assert.equal(clientAddress(req('127.0.0.1', '203.0.113.7')), '203.0.113.7');
-    assert.equal(clientAddress(req('::ffff:127.0.0.1', '2001:db8::1')), '2001:db8::1');
+    assert.equal(clientAddress(req('::ffff:127.0.0.1', '2001:db8::1')), '2001:db8:0:0::/64');
     assert.equal(clientAddress(req('198.51.100.2', '203.0.113.7')), '198.51.100.2');
     assert.equal(clientAddress(req('127.0.0.1', 'not-an-ip')), '127.0.0.1');
     assert.equal(clientAddress(req('127.0.0.1', '203.0.113.7'), { trustProxy: false }), '127.0.0.1');
+  });
+  await check('IPv6 clients are grouped by /64 prefix', () => {
+    assert.equal(clientKey('2a09:bac5:4736:db9::15e:137'), '2a09:bac5:4736:db9::/64');
+    assert.equal(clientKey('2A09:BAC5:4736:0DB9:1:2:3:4'), '2a09:bac5:4736:db9::/64');
+    assert.equal(clientKey('::1'), '0:0:0:0::/64');
+    assert.equal(clientKey('::ffff:203.0.113.5'), '203.0.113.5');
+    assert.equal(clientKey('64:ff9b::203.0.113.5'), '64:ff9b:0:0::/64');
+    assert.equal(clientKey('198.51.100.20'), '198.51.100.20');
   });
   await check('configuration validates limits', () => {
     assert.throws(() => validateConfiguration({ createServer: factory, rateLimitPerMinute: -1 }), /rateLimitPerMinute/);
