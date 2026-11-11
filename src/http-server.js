@@ -1,12 +1,15 @@
 'use strict';
 
-// HTTP policy is shared by every MCP endpoint. No request text, headers, or
-// credential identifiers are written to logs or returned by the status API.
+// HTTP policy is shared by every MCP endpoint. Headers and credential
+// identifiers are never logged or returned by the status API. When usageLogDir
+// is set, tools/call names, arguments summary and client IP are appended to a
+// local JSONL usage log (usage-log.js).
 const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const net = require('net');
 const { createRateLimiter, clientAddress } = require('./rate-limit.js');
+const { createUsageLog } = require('./usage-log.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
 function isLoopback(host) {
@@ -93,6 +96,7 @@ function validateConfiguration(options = {}) {
     rateLimitPerMinute: integer(options.rateLimitPerMinute, 60, 0, 100000, 'rateLimitPerMinute'),
     rateLimitPerDay: integer(options.rateLimitPerDay, 1000, 0, 10000000, 'rateLimitPerDay'),
     trustProxy: options.trustProxy !== false,
+    usageLogDir: typeof options.usageLogDir === 'string' ? options.usageLogDir.trim() : '',
   };
 }
 
@@ -148,6 +152,8 @@ function createHttpServer(options = {}) {
   let active = 0, peakActive = 0, peakQueued = 0, draining = false, shutdownPromise;
   const counters = { requests: 0, completed: 0, unauthorized: 0, forbidden: 0, rejected: 0, rateLimited: 0, errors: 0 };
   const limiter = createRateLimiter({ perMinute: config.rateLimitPerMinute, perDay: config.rateLimitPerDay });
+  // Opt-in tools/call usage log (see usage-log.js); never affects responses.
+  const usageLog = createUsageLog({ dir: config.usageLogDir, trustProxy: config.trustProxy });
 
   function authenticate(header) {
     if (!config.configuredAuth) return null;
@@ -215,6 +221,7 @@ function createHttpServer(options = {}) {
 
   const httpServer = http.createServer({ maxHeaderSize: 16384 }, async (req, res) => {
     counters.requests++;
+    const receivedAt = Date.now();
     // IncomingMessage can emit an error after its aborted event. Body readers
     // remove their listeners when settled; keep a harmless terminal listener.
     req.on('error', () => {});
@@ -269,6 +276,7 @@ function createHttpServer(options = {}) {
         counters.rateLimited++;
         const error = problem(429, `Rate limit exceeded: 클라이언트당 ${verdict.window === 'day' ? '하루' : '분당'} ${verdict.limit}회 제한입니다. ${verdict.retryAfter}초 후 다시 시도하세요.`);
         error.retryAfter = verdict.retryAfter;
+        usageLog?.trackRejected(req, res, pathname === '/mcp/rules' ? 'rules' : 'slack', receivedAt, 'rate_limited');
         rejectRequest(req, res, error); return;
       }
     }
@@ -293,6 +301,7 @@ function createHttpServer(options = {}) {
       if (Array.isArray(body)) throw problem(400, 'JSON-RPC batch requests are not supported', -32600);
       if (!body || typeof body !== 'object') throw problem(400, 'Invalid JSON-RPC request', -32600);
       if (res.destroyed) throw problem(499, 'Client disconnected');
+      usageLog?.track(req, res, credential ? 'token' : pathname === '/mcp/rules' ? 'rules' : 'slack', receivedAt, body);
       running.add(operation);
       server = await config.endpointFactories[pathname]();
       transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

@@ -1,0 +1,10 @@
+'use strict';
+const assert = require('assert');
+const { summarize, queryText, kstParts } = require('../src/usage-log.js');
+assert.strictEqual(kstParts(Date.UTC(2026, 10, 11, 15, 30, 0)).iso, '2026-11-12T00:30:00.000+09:00');
+assert.strictEqual(kstParts(Date.UTC(2026, 10, 30, 15, 0, 0)).month, '2026-12');
+assert.strictEqual(queryText({ keyword: '여비', law_id: 184, article: '제3조' }), '여비 | law_id=184 | article=제3조');
+assert.deepStrictEqual(summarize({ counts: { returned: 2 }, rules: [{ title: 'A' }, { title: 'B' }] }), { titles: ['A', 'B'], count: 2 });
+assert.deepStrictEqual(summarize({ title: '여 비 규 정', articles: [{}] }), { titles: ['여비규정'], count: 1 });
+assert.deepStrictEqual(summarize({ rules: [1, 2, 3, 4].map(i => ({ title: 'R' + i })) }).titles.length, 3);
+console.log('usage-log tests passed');

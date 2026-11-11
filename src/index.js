@@ -1013,6 +1013,7 @@ function startHttp() {
     rateLimitPerMinute:Number(process.env.DONGGUK_MCP_RATE_LIMIT_PER_MINUTE??60),
     rateLimitPerDay:Number(process.env.DONGGUK_MCP_RATE_LIMIT_PER_DAY??1000),
     trustProxy:process.env.DONGGUK_MCP_TRUST_PROXY!=='0',
+    usageLogDir:process.env.DONGGUK_MCP_USAGE_LOG_DIR||'',
     allowedOrigins:(process.env.DONGGUK_MCP_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean),
   });
   let warmer;
