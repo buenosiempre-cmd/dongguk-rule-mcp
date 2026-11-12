@@ -31,8 +31,10 @@ const seed = (category, key, value) => {
 const key = (...parts) => crypto.createHash('md5').update(parts.join('|')).digest('hex');
 const hit = { lawId: 1, historyId: 10, title: '여비규정', revisedAt: '2026.01.01' };
 for (const keyword of ['여비규정', '여비']) seed('search', key(keyword, false, 1, 10, '0'), { total: 1, hits: [hit] });
+for (const keyword of ['출장 숙박비', '출장숙박비']) seed('search', key(keyword, false, 1, 10, '0'), { total: 0, hits: [] });
+seed('search', key('출장 숙박비', true, 1, 10, '0'), { total: 1, hits: [hit] });
 seed('history', '1', [{ historyId: 10, revisedAt: '2026.01.01' }]);
-seed('content', '1_10', { title: '여비규정', markdown: '### 제1조(목적)\n합성 본문' });
+seed('content-v3', '1_10', { title: '여비규정', markdown: '### 제1조(목적)\n합성 본문' });
 seed('original-structure-v2', '1_10', { markdown: '제1조(목적) 합성 목적\n\n제2조(대상) 합성 대상\n\n제3조(범위) 합성 범위\n\n제4조(신청) 합성 신청\n\n제5조(숙박비) 숙박비는 합성 기준을 따른다.\n\n제6조(운임) 철도운임은 합성 기준을 따른다.' });
 
 let passed = 0, failed = 0;
@@ -77,6 +79,12 @@ async function main() {
       assert.equal(result.ok, true);
       assert.match(result.data.rules[0].excerpt.text, /제5조/);
       assert(result.data.rules[0].excerpt.matchedTerms.includes('숙박비'));
+    });
+    await check('unnamed multiword lookup tries the exact full-text terms first', async () => {
+      const result = await call('lookup_dongguk_rule', { query: '출장 숙박비' });
+      assert.equal(result.error?.code, 'AMBIGUOUS_RULE');
+      assert.equal(result.error?.details?.queryUsed, '출장 숙박비');
+      assert.equal(result.error?.details?.candidates?.[0]?.lawId, 1);
     });
     await check('explicit terms take priority over the question', async () => {
       const result = await call('lookup_dongguk_rule', { rule_keyword: '여비규정', query: '숙박비 알려줘', terms: '철도운임' });
