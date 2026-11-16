@@ -90,7 +90,10 @@ function parseContent(html) {
     const classes = ($(this).attr('class') || '').split(/\s+/);
     const text = $(this).text().replace(/\s+/g, ' ').trim();
     if (!text || classes.includes('lawname')) return;
-    if (classes.includes('chapter')) lines.push('', `## ${text}`, '');
+    // The live site marks each 부칙 heading as div.addenda. Without it, 부칙 제1조
+    // is indistinguishable from 본칙 제1조 and every repeated number becomes ambiguous.
+    if (classes.includes('addenda')) lines.push('', `## ${text.replace(/^부\s*칙\s*/, '부칙 ').trim()}`, '');
+    else if (classes.includes('chapter')) lines.push('', `## ${text}`, '');
     else if (classes.includes('section')) lines.push('', `### ${text}`, '');
     else if (classes.includes('article')) lines.push('', `### ${text}`);
     else if (classes.includes('none')) lines.push(text);
@@ -136,12 +139,21 @@ function searchResultMetrics(result) {
 
 function normalizeArticleSelector(value) {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) {
-    return { number: value, subNumber: null, supplementary: false, canonical: `제${value}조` };
+    return { number: value, subNumber: null, supplementary: false, supplementaryDate: null, canonical: `제${value}조`, label: `제${value}조` };
   }
   if (typeof value !== 'string') return null;
   const compact = value.trim().replace(/\s+/g, '');
   const supplementary = compact.startsWith('부칙');
-  const source = supplementary ? compact.slice(2) : compact;
+  let source = supplementary ? compact.slice(2) : compact;
+  // Optional 부칙 revision date, e.g. "부칙(2024.8.27.) 제1조" or "부칙 2024-08-27 제1조".
+  let supplementaryDate = null;
+  if (supplementary) {
+    const dated = /^[(（<〈\[]?(\d{4})[.\-/년](\d{1,2})[.\-/월](\d{1,2})[.일]?(?:개정|제정|신설)?[)）>〉\]]?/.exec(source);
+    if (dated) {
+      supplementaryDate = `${dated[1]}.${parseInt(dated[2], 10)}.${parseInt(dated[3], 10)}`;
+      source = source.slice(dated[0].length);
+    }
+  }
   const match = /^(?:제)?(\d+)(?:조)?(?:의(\d+))?$/.exec(source);
   if (!match) return null;
   const number = parseInt(match[1], 10);
@@ -152,8 +164,15 @@ function normalizeArticleSelector(value) {
     number,
     subNumber,
     supplementary,
+    supplementaryDate,
     canonical: supplementary ? `부칙 ${article}` : article,
+    label: supplementaryDate ? `부칙(${supplementaryDate}.) ${article}` : (supplementary ? `부칙 ${article}` : article),
   };
+}
+
+function headingDate(heading) {
+  const match = /(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})/.exec(String(heading || ''));
+  return match ? `${match[1]}.${parseInt(match[2], 10)}.${parseInt(match[3], 10)}` : null;
 }
 
 function listArticleBlocks(markdown) {
@@ -198,6 +217,12 @@ function listArticleBlocks(markdown) {
   });
 }
 
+// A ready-to-use article selector for one 부칙 block, or null when its heading has no date.
+function supplementarySelector(block) {
+  const date = block?.supplementary ? headingDate(block.supplementaryHeading) : null;
+  return date ? `부칙(${date}.) ${block.canonical}` : null;
+}
+
 function extractArticleSections(markdown, rawSelector) {
   const selector = normalizeArticleSelector(rawSelector);
   if (!selector) return { selector: null, sections: [], text: '' };
@@ -206,6 +231,7 @@ function extractArticleSections(markdown, rawSelector) {
   );
   if (selector.supplementary) {
     matches = matches.filter(block => block.supplementary);
+    if (selector.supplementaryDate) matches = matches.filter(block => headingDate(block.supplementaryHeading) === selector.supplementaryDate);
   } else {
     matches = matches.filter(block => !block.supplementary);
   }
@@ -234,7 +260,20 @@ function grepArticleSections(markdown, query) {
   return listArticleBlocks(markdown).filter(block => tokens.every(token => block.content.includes(token)));
 }
 
+// Articles containing the most query words; used when no article has them all.
+function rankArticlesByTokens(markdown, tokens) {
+  const words = (tokens || []).filter(Boolean);
+  if (!words.length) return [];
+  const scored = listArticleBlocks(markdown).map(block => ({
+    block, matched: words.filter(token => block.content.includes(token)),
+  }));
+  const best = Math.max(0, ...scored.map(item => item.matched.length));
+  if (!best) return [];
+  return scored.filter(item => item.matched.length === best).map(item => ({ ...item.block, matchedTerms: item.matched }));
+}
+
 module.exports = {
+  rankArticlesByTokens,
   parseSearch,
   parseContent,
   parseHistory,
@@ -242,6 +281,7 @@ module.exports = {
   normalizeArticleSelector,
   listArticleBlocks,
   extractArticleSections,
+  supplementarySelector,
   extractChapter,
   grepArticleSections,
 };

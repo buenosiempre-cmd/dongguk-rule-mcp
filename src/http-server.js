@@ -6,6 +6,7 @@ const http = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const net = require('net');
+const { createRateLimiter, clientAddress } = require('./rate-limit.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
 function isLoopback(host) {
@@ -88,6 +89,10 @@ function validateConfiguration(options = {}) {
     bodyTimeoutMs: integer(options.bodyTimeoutMs, 10000, 10, 300000, 'bodyTimeoutMs'),
     maxBodyBytes: integer(options.maxBodyBytes, 1000000, 128, 10000000, 'maxBodyBytes'),
     shutdownTimeoutMs: integer(options.shutdownTimeoutMs, 10000, 10, 60000, 'shutdownTimeoutMs'),
+    // Per-client limits apply to unauthenticated MCP calls; 0 disables a window.
+    rateLimitPerMinute: integer(options.rateLimitPerMinute, 60, 0, 100000, 'rateLimitPerMinute'),
+    rateLimitPerDay: integer(options.rateLimitPerDay, 1000, 0, 10000000, 'rateLimitPerDay'),
+    trustProxy: options.trustProxy !== false,
   };
 }
 
@@ -141,7 +146,8 @@ function createHttpServer(options = {}) {
   const startedAt = Date.now();
   const queue = [], sockets = new Set(), running = new Set();
   let active = 0, peakActive = 0, peakQueued = 0, draining = false, shutdownPromise;
-  const counters = { requests: 0, completed: 0, unauthorized: 0, forbidden: 0, rejected: 0, errors: 0 };
+  const counters = { requests: 0, completed: 0, unauthorized: 0, forbidden: 0, rejected: 0, rateLimited: 0, errors: 0 };
+  const limiter = createRateLimiter({ perMinute: config.rateLimitPerMinute, perDay: config.rateLimitPerDay });
 
   function authenticate(header) {
     if (!config.configuredAuth) return null;
@@ -164,7 +170,7 @@ function createHttpServer(options = {}) {
     if (status >= 500) counters.errors++;
     const headers = { Connection: 'close' };
     if (status === 401) headers['WWW-Authenticate'] = 'Bearer realm="dongguk-rule-mcp"';
-    if (status === 429 || status === 503) headers['Retry-After'] = '5';
+    if (status === 429 || status === 503) headers['Retry-After'] = String(error.retryAfter || 5);
     json(res, status, { jsonrpc: '2.0', error: { code: error.rpcCode || -32000, message: error.status ? error.message : 'Internal server error' }, id: null }, headers);
     // Let the error response flush before closing unread input. Destroying req
     // inside a data callback loses the 413 response on real TCP connections.
@@ -256,6 +262,16 @@ function createHttpServer(options = {}) {
       counters.forbidden++;
       rejectRequest(req, res, problem(403, 'Token does not permit this endpoint')); return;
     }
+    // Token holders are governed by the member registry; anonymous callers by IP.
+    if (pathname !== '/status' && !credential) {
+      const verdict = limiter.take(clientAddress(req, { trustProxy: config.trustProxy }));
+      if (!verdict.allowed) {
+        counters.rateLimited++;
+        const error = problem(429, `Rate limit exceeded: 클라이언트당 ${verdict.window === 'day' ? '하루' : '분당'} ${verdict.limit}회 제한입니다. ${verdict.retryAfter}초 후 다시 시도하세요.`);
+        error.retryAfter = verdict.retryAfter;
+        rejectRequest(req, res, error); return;
+      }
+    }
     if (pathname === '/status') {
       if (!['GET','HEAD'].includes(req.method)) { json(res, 405, { error: 'Method not allowed' }, { Allow: 'GET, HEAD' }); return; }
       json(res, 200, httpServer.getStatus()); return;
@@ -303,7 +319,7 @@ function createHttpServer(options = {}) {
     transport: 'streamable-http', uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
     activeRequests: active, queuedRequests: queue.length,
     peakActiveRequests: peakActive, peakQueuedRequests: peakQueued,
-    limits: { maxConcurrent: config.maxConcurrent, maxQueue: config.maxQueue, maxBodyBytes: config.maxBodyBytes, bodyTimeoutMs: config.bodyTimeoutMs, queueTimeoutMs: config.queueTimeoutMs },
+    limits: { maxConcurrent: config.maxConcurrent, maxQueue: config.maxQueue, rateLimitPerMinute: config.rateLimitPerMinute, rateLimitPerDay: config.rateLimitPerDay, trackedClients: limiter.size(), maxBodyBytes: config.maxBodyBytes, bodyTimeoutMs: config.bodyTimeoutMs, queueTimeoutMs: config.queueTimeoutMs },
     counters: { ...counters },
   });
   httpServer.shutdown = () => {

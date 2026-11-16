@@ -26,8 +26,8 @@ seed('search', key('숙박비', true, 1, 5, '0'), { total: 1, hits: [oldHit] });
 for (const campus of ['0', '1', '2']) seed('search', key('여비규정', false, 1, 10, campus), { total: 1, hits: [oldHit] });
 seed('search', key('여비',false,1,10,'0'), {total:0,hits:[]});
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
-seed('content', '1_10', { markdown: '### 제1조(숙박비)\n과거 숙박비' });
-seed('content', '1_20', { markdown: '### 제1조(숙박비)\n최신 숙박비' });
+seed('content-v3', '1_10', { markdown: '### 제1조(숙박비)\n과거 숙박비' });
+seed('content-v3', '1_20', { markdown: '### 제1조(숙박비)\n최신 숙박비' });
 seed('original-structure-v2', '1_20', { markdown: '제1조(숙박비)\n최신 숙박비' });
 const packPath = path.join(root, 'pack.json');
 fs.writeFileSync(packPath, JSON.stringify({ version: 'synthetic', workflows: [{
@@ -68,12 +68,12 @@ async function main() {
     check('TOC rejects foreign history', () => assert.equal(toc.error?.code, 'HISTORY_NOT_FOUND'));
     check('seeded requests made no external calls', () => assert.equal(networkCalls, 0));
     fs.unlinkSync(path.join(root, 'dongguk-rule-mcp/v2/public/original-structure-v2/1_20.json'));
-    seed('content', '1_20', { markdown: '   ' });
+    seed('content-v3', '1_20', { markdown: '   ' });
     const empty = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('missing HWP plus empty HTML is not success', () => {
       assert.equal(empty.ok, false); assert.equal(empty.error.code, 'CONTENT_UNAVAILABLE');
     });
-    seed('content', '1_20', { markdown: '### 제1조(숙박비)\n대체 본문' });
+    seed('content-v3', '1_20', { markdown: '### 제1조(숙박비)\n대체 본문' });
     const fallback = await call('lookup_dongguk_rule', { rule_keyword: '여비규정' });
     check('usable HTML fallback retained with warning', () => { assert.equal(fallback.ok, true); assert.equal(fallback.data.rules[0].warning.code, 'HWP_FALLBACK'); });
   } finally { await client.close(); await server.close(); }

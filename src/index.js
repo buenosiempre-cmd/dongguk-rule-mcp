@@ -40,6 +40,7 @@ process.noDeprecation = true;
 // === 버전/CLI ===
 let VERSION = '0.7.0';
 try { VERSION = require('../package.json').version; } catch {}
+const DISCLAIMER='동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다. 공개 규정 원문(rule.dongguk.edu)을 조회해 전달하며, 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.';
 
 const ARGV = process.argv.slice(2);
 function validHost(value) {
@@ -51,7 +52,7 @@ function validHost(value) {
 function validPort(value) { return /^\d+$/.test(String(value)) && Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 65535; }
 function parseCliArguments(argv) {
   const valued = new Set(['--profile','--port','--host','--token','--token-file','--print-config']);
-  const flags = new Set(['--http','--doctor','--json','--live','--help','-h','--version','-v']);
+  const flags = new Set(['--http','--doctor','--json','--live','--help','-h','--version','-v','--build-index']);
   const values = new Map();
   for (let i = 0; i < argv.length; i++) {
     const name = argv[i];
@@ -85,6 +86,7 @@ if (require.main === module && (ARGV.includes('--help') || ARGV.includes('-h')))
   dongguk-rule-mcp --http          HTTP 모드 (공용 서버)
   dongguk-rule-mcp --doctor --json 설치 자체 점검 (--live: 실제 원문 조회 추가)
   dongguk-rule-mcp --print-config codex  설치 경로에 맞는 설정 출력 (claude/cursor 지원)
+  dongguk-rule-mcp --build-index   전체 공개 규정의 전문 색인 생성·갱신 (약 5분, 바뀐 규정만 다시 읽음)
   --profile rules|finance         기본 rules, 내부 재무 기능은 finance 선택
 
 HTTP 옵션:
@@ -95,7 +97,8 @@ HTTP 옵션:
 
 환경변수:
   DONGGUK_RULE_COOKIE   비공개 규정 열람용 쿠키
-  DONGGUK_MCP_NO_CACHE  1이면 디스크 캐시 비활성화`);
+  DONGGUK_MCP_NO_CACHE  1이면 디스크 캐시 비활성화
+  DONGGUK_MCP_INDEX_REFRESH_HOURS  HTTP 모드에서 전문 색인을 이 시간마다 갱신 (예: 24)`);
   process.exit(0);
 }
 
@@ -121,7 +124,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, queryContentTokens } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -129,8 +132,10 @@ const {
   searchResultMetrics,
   normalizeArticleSelector,
   extractArticleSections,
+  supplementarySelector,
   extractChapter,
   grepArticleSections,
+  rankArticlesByTokens,
 } = require('./parsers.js');
 const { compareRuleMarkdown, formatVersionComparison } = require('./versioning.js');
 const { verifyRuleCitations } = require('./citations.js');
@@ -142,6 +147,9 @@ const {
   serializeException,
   TOOL_OUTPUT_SCHEMA,
 } = require('./protocol.js');
+const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
+const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
+const { normalizeName, createResolver, extractReferences, summarizeExternalLaws } = require('./references.js');
 
 // === 상수 (Python 원본에서 검증된 엔드포인트) ===
 const BASE_URL = 'https://rule.dongguk.edu';
@@ -152,7 +160,12 @@ const FILE_URL = `${BASE_URL}/fileDown.srv`;                    // POST (원문 
 const MAIN_URL = `${BASE_URL}/lmxsrv/main/main.srv`;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)';
 // LAWGROUP is document type, not campus (official screen verified 2026-09-08).
-const TTL = { search: 3600, searchFull: 86400, history: 600, content: 30*86400 };
+// Bump when parseContent output changes; parsed bodies are cached for 30 days.
+// v3: 부칙(div.addenda) headings are now kept.
+const CONTENT_CACHE = 'content-v3';
+const TTL = { search: 3600, searchFull: 86400, history: 600, content: 30*86400, catalog: 600 };
+// A local index older than this is ignored unless the caller asks for it.
+const INDEX_MAX_AGE_MS = 8*86400*1000;
 let lastReq = 0;
 
 // === 입력 검증 유틸 ===
@@ -171,6 +184,10 @@ function cacheDir() {
   const scope=cookie?`private-${crypto.createHash('sha256').update(cookie).digest('hex').slice(0,12)}`:'public';
   // Parser fixes must not reuse older search titles or incomplete parsed bodies.
   return path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(),'.cache'), 'dongguk-rule-mcp', 'v2', scope);
+}
+// The full-text index holds public rule text only, whatever the request profile.
+function publicCacheDir() {
+  return path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(),'.cache'), 'dongguk-rule-mcp', 'v2', 'public');
 }
 function noCache() {
   return ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE||'').trim().toLowerCase());
@@ -250,8 +267,193 @@ async function resolve(lawId, hid) {
   return { historyId:l.historyId, revisedAt:l.revisedAt, note:`> 자동 해석: LAW_ID ${lawId} / HISTORY_ID ${l.historyId} (최신, ${l.revisedAt})` };
 }
 
+// === 현행 규정 전체 목록 (요청 1회) ===
+async function loadCatalog() {
+  return cached('catalog','all',TTL.catalog,async()=>validateCatalog(await searchRules(' ',{pageShow:CATALOG_PAGE_SIZE})));
+}
+
+// === 전문 색인 (후보 탐색용, 공개 규정만) ===
+async function buildRuleIndex({onProgress}={}) {
+  return withProfile('rules',async()=>{
+    const catalog=await loadCatalog();
+    const previous=loadCorpus(publicCacheDir());
+    const corpus=await buildCorpus({
+      catalog,previous,onProgress,
+      loadContent:(lawId,historyId)=>cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId)),
+    });
+    const filename=saveCorpus(publicCacheDir(),corpus);
+    const coverage=corpusCoverage(corpus);
+    return {ok:corpus.failed.length<=corpus.catalogTotal*0.05,file:filename,...coverage,reusedRules:corpus.reused,failed:corpus.failed.slice(0,20)};
+  });
+}
+function indexStatus() {
+  const corpus=loadCorpus(publicCacheDir());
+  if(!corpus) return {available:false};
+  return {available:true,...corpusCoverage(corpus),stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
+}
+
 // === MCP 핸들러 ===
 function cmap(){ return '0'; }
+
+async function hCheckUpdates({law_ids,previous,since,limit}={}) {
+  const hasIds=law_ids!==undefined&&law_ids!==null;
+  if(hasIds&&(!Array.isArray(law_ids)||!law_ids.length||law_ids.length>50||law_ids.some(id=>!toId(id)))) return failure('INVALID_ARGUMENT','law_ids는 LAW_ID(양의 정수) 1~50개의 배열이어야 합니다. 예: [184, 103]');
+  const sinceDate=since===undefined||since===null||since===''?null:isoDate(since);
+  if(since!==undefined&&since!==null&&since!==''&&!sinceDate) return failure('INVALID_ARGUMENT','since는 YYYY-MM-DD 형식의 실제 날짜여야 합니다. 예: 2026-10-01');
+  if(!hasIds&&!sinceDate) return failure('INVALID_ARGUMENT','law_ids(점검할 규정) 또는 since(이 날짜 이후 개정된 규정 목록) 중 하나를 입력하세요.');
+  const snapshot={};
+  if(previous!==undefined&&previous!==null){
+    if(typeof previous!=='object'||Array.isArray(previous)) return failure('INVALID_ARGUMENT','previous는 이전 응답의 nextSnapshot 객체({LAW_ID: HISTORY_ID})여야 합니다.');
+    for(const [key,value] of Object.entries(previous)){
+      if(!toId(key)||!toId(value)) return failure('INVALID_ARGUMENT','previous의 키와 값은 양의 정수여야 합니다.');
+      snapshot[Number(key)]=Number(value);
+    }
+  }
+  const catalog=await loadCatalog();
+  const data=checkRuleUpdates({catalog,lawIds:hasIds?law_ids.map(Number):[],previous:snapshot,since:sinceDate,limit:clampNumber(limit,50,1,50)});
+  data.checkedAt=new Date().toISOString();
+  data.catalogCacheSeconds=TTL.catalog;
+  data.source={name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:data.checkedAt};
+  return success(formatRuleUpdates(data),data);
+}
+
+async function hReferences(rawLawId,{article,historyId,direction='outgoing',limit}={}) {
+  const lawId=toId(rawLawId);
+  if(!lawId) return failure('INVALID_ARGUMENT','law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요.');
+  if(!['outgoing','incoming','both'].includes(direction)) return failure('INVALID_ARGUMENT','direction은 outgoing, incoming, both 중 하나여야 합니다.');
+  const hasArticle=article!==undefined&&article!==null&&article!=='';
+  const selector=hasArticle?normalizeArticleSelector(article):null;
+  if(hasArticle&&!selector) return failure('INVALID_ARGUMENT','article은 48, "제48조", "제10조의2", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
+  limit=clampNumber(limit,30,1,50);
+  const resolved=await resolve(lawId,historyId);
+  const rid=resolved.historyId;
+  const c=await cached(CONTENT_CACHE,`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
+  if(!c.markdown) return failure('CONTENT_UNAVAILABLE',`본문을 가져올 수 없습니다 (LAW_ID ${lawId}).`);
+  let catalog=[],catalogAvailable=true;
+  try{catalog=await loadCatalog();}catch{catalogAvailable=false;}
+  const title=catalog.find(rule=>rule.lawId===lawId)?.title||String(c.title||'').replace(/\s+/g,'');
+  const references=[];
+  const totals={outgoing:0,incoming:0};
+  const location=(rule,block)=>({lawId:rule.lawId,historyId:rule.historyId,title:rule.title,article:block.article?(block.supplementary?`부칙 ${block.article}`:block.article):null,supplementaryHeading:block.supplementaryHeading||null});
+
+  if(direction!=='incoming'){
+    let blocks=blocksOf(c.markdown);
+    if(selector){
+      const extracted=extractArticleSections(c.markdown,article);
+      if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections));
+      if(!extracted.sections.length) return failure('NOT_FOUND',`${selector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`,{details:{lawId,historyId:rid,article:selector.canonical}});
+      blocks=extracted.sections.map(section=>({article:section.canonical,supplementary:section.supplementary,supplementaryHeading:section.supplementaryHeading,content:section.content}));
+    }
+    const resolver=createResolver(catalog,{lawId,title});
+    for(const block of blocks){
+      // The heading repeats the article's own number; cite only the body.
+      for(const item of extractReferences(block.content.replace(/^###.*$/m,''),resolver)){
+        if(item.scope==='same_rule'&&!item.article) continue;
+        totals.outgoing++;
+        if(references.filter(x=>x.direction==='outgoing').length<limit) references.push({direction:'outgoing',...item,sourceLocation:location({lawId,historyId:rid,title},block)});
+      }
+    }
+  }
+
+  let incoming={scanned:false};
+  if(direction!=='outgoing'){
+    const corpus=loadCorpus(publicCacheDir());
+    if(!corpus) incoming={scanned:false,code:'INDEX_UNAVAILABLE',notice:'역방향 조회에는 전문 색인이 필요합니다. 운영자가 `dongguk-rule-mcp --build-index`를 실행해야 합니다.'};
+    else{
+      const key=normalizeName(title);
+      for(const rule of corpus.rules){
+        if(rule.lawId===lawId) continue;
+        const resolver=createResolver(catalog.length?catalog:[{lawId,title,historyId:rid}],{lawId:rule.lawId,title:rule.title});
+        for(const block of rule.blocks){
+          if(!normalizeName(block.content).includes(key)) continue;
+          for(const item of extractReferences(block.content.replace(/^###.*$/m,''),resolver)){
+            if(item.scope!=='dongguk_rule'||item.target.lawId!==lawId) continue;
+            if(selector&&item.article!==selector.canonical.replace(/^부칙 /,'')) continue;
+            totals.incoming++;
+            if(references.filter(x=>x.direction==='incoming').length<limit) references.push({direction:'incoming',...item,sourceLocation:location(rule,block)});
+          }
+        }
+      }
+      incoming={scanned:true,...corpusCoverage(corpus),stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
+    }
+  }
+
+  const externalLaws=summarizeExternalLaws(references.filter(x=>x.direction==='outgoing'));
+  const shown={outgoing:references.filter(x=>x.direction==='outgoing').length,incoming:references.filter(x=>x.direction==='incoming').length};
+  const omittedCount=(totals.outgoing-shown.outgoing)+(totals.incoming-shown.incoming);
+  const scopeLabel={same_rule:'같은 규정',dongguk_rule:'교내 규정',external_law:'국가 법령',unresolved:'미확정'};
+  const row=x=>`| ${x.sourceLocation.title} ${x.sourceLocation.article||''} | ${scopeLabel[x.scope]} | ${x.target.title||x.target.lawName||x.target.name}${x.target.lawId?` (LAW_ID ${x.target.lawId})`:''} ${x.article||''} | ${x.citationText.replace(/\|/g,'/')} |`;
+  let o=`## ${title} ${selector?selector.label+' ':''}인용 관계\n- LAW_ID ${lawId} / HISTORY_ID ${rid} (${resolved.revisedAt||'개정일 미상'})\n`;
+  if(!catalogAvailable) o+='- 현행 규정 목록을 불러오지 못해 교내 규정명 대조를 생략했습니다.\n';
+  if(direction!=='incoming'){
+    o+=`\n### 이 규정이 인용하는 근거 (${totals.outgoing}건)\n`;
+    o+=shown.outgoing?`\n| 위치 | 구분 | 인용 대상 | 원문 |\n|---|---|---|---|\n${references.filter(x=>x.direction==='outgoing').map(row).join('\n')}\n`:'\n명시적으로 인용한 다른 규정·법령을 찾지 못했습니다.\n';
+    if(externalLaws.length) o+=`\n**한국법령 MCP로 확인할 법령**\n${externalLaws.map(x=>`- ${x.lawName}${x.articles.length?` ${x.articles.join(', ')}`:''}${x.confirmedLawName?'':' (법령 여부 미확인)'}`).join('\n')}\n`;
+  }
+  if(direction!=='outgoing'){
+    o+=`\n### 이 규정을 인용하는 교내 규정 (${totals.incoming}건)\n`;
+    if(!incoming.scanned) o+=`\n${incoming.notice}\n`;
+    else o+=(shown.incoming?`\n| 위치 | 구분 | 인용 대상 | 원문 |\n|---|---|---|---|\n${references.filter(x=>x.direction==='incoming').map(row).join('\n')}\n`:'\n색인 범위에서 이 규정을 이름으로 인용한 조문을 찾지 못했습니다.\n')+
+      `\n- 색인 기준: ${incoming.indexedAt}, ${incoming.indexedRules}/${incoming.totalRules}개 규정${incoming.complete?'':' (일부 누락)'}${incoming.stale?' — 색인이 오래되어 최근 개정이 빠졌을 수 있습니다':''}\n`;
+  }
+  if(omittedCount) o+=`\n표시 한도(${limit}건)를 넘은 ${omittedCount}건은 생략했습니다. article을 지정하거나 limit를 늘리세요.\n`;
+  o+='\n명시적으로 이름을 적은 인용만 찾습니다. "관계 법령", "동법", 약칭 인용은 빠질 수 있으며, 인용이 있다는 것과 해당 근거가 적용된다는 것은 다릅니다.';
+  return success(o,{
+    source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
+    direction,references,externalLaws,
+    counts:{...totals,shown},
+    coverage:{outgoing:direction==='incoming'?null:{scope:selector?'selected_article':'whole_rule',complete:true},incoming:direction==='outgoing'?null:incoming,catalogAvailable},
+    truncated:omittedCount>0,omittedCount,
+    evidenceStatus:(direction==='outgoing'||(incoming.scanned&&incoming.complete&&!incoming.stale))&&catalogAvailable&&!omittedCount?'retrieved':'partial',
+    returnedAt:new Date().toISOString(),
+  });
+}
+
+// Candidate search over the local index. Each hit is checked against the
+// current catalog and re-read from the source when its revision has changed.
+async function deepFromIndex(query,{top,perDoc,required}) {
+  if(requestCookie()) return null;
+  const corpus=loadCorpus(publicCacheDir());
+  if(!corpus) return null;
+  const stale=Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS;
+  if(stale&&!required) return null;
+  const found=searchCorpus(corpus,query,{top,perDoc});
+  if(!found.hits.length) return null;
+  let current=null;
+  try{current=new Map((await loadCatalog()).map(rule=>[rule.lawId,rule]));}catch{}
+  const documents=[];
+  for(const hit of found.hits){
+    const doc={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,matchedTerms:hit.matchedTerms,matchCount:hit.matchCount,articles:hit.articles,versionCheck:'current'};
+    const latest=current?.get(hit.lawId);
+    if(!current) doc.versionCheck='unverified';
+    else if(!latest) doc.versionCheck='not_in_current_catalog';
+    else if(latest.historyId!==hit.historyId){
+      try{
+        const c=await cached(CONTENT_CACHE,`${hit.lawId}_${latest.historyId}`,TTL.content,()=>getContent(hit.lawId,latest.historyId));
+        const {scored}=matchBlocks(blocksOf(c.markdown),found.tokens,new Map());
+        Object.assign(doc,{historyId:latest.historyId,revisedAt:latest.revisedAt,title:latest.title,matchCount:scored.length,versionCheck:'refetched',
+          articles:scored.slice(0,perDoc).map(x=>({article:x.block.article,supplementary:x.block.supplementary,supplementaryHeading:x.block.supplementaryHeading,content:x.block.content,matchedTerms:x.matched}))});
+      }catch{doc.versionCheck='unverified';}
+    }
+    documents.push(doc);
+  }
+  const coverage={...corpusCoverage(corpus),stale,newRulesNotIndexed:current?[...current.keys()].filter(id=>!corpus.rules.some(rule=>rule.lawId===id)).length:null};
+  const note={current:'색인과 현행 개정본 일치',refetched:'색인 이후 개정되어 현행 본문을 다시 읽음',unverified:'현행 개정본 여부를 확인하지 못함',not_in_current_catalog:'현행 목록에 없음(폐지·통합 가능)'};
+  let o=`# '${query}' 깊이 검색 (전문 색인)\n- 핵심어: ${found.tokens.join(', ')}`+(found.missingTerms.length?` / 어느 규정에도 없는 단어: ${found.missingTerms.join(', ')}`:'')+
+    `\n- 색인 기준 ${coverage.indexedAt}, ${coverage.indexedRules}/${coverage.totalRules}개 규정${coverage.complete?'':' (일부 누락)'}${stale?' — 색인이 오래되었습니다':''}\n\n`;
+  documents.forEach((doc,i)=>{
+    o+=`## [${i+1}] ${doc.title} (LAW_ID ${doc.lawId})\n- 일치 조문 ${doc.matchCount}건 / 일치 단어: ${doc.matchedTerms.join(', ')}\n\n`;
+    if(doc.articles.length) o+=`${doc.articles.map(x=>(x.supplementary&&x.supplementaryHeading?`(${x.supplementaryHeading.replace(/^#+\s*/,'')})\n`:'')+x.content).join('\n\n')}\n\n`;
+    o+=`- 조회 개정일: ${doc.revisedAt} / HISTORY_ID ${doc.historyId} — ${note[doc.versionCheck]}\n\n`;
+  });
+  o+='색인 검색은 단어가 많이 일치하는 조문 순의 후보입니다. 별표·금액표는 lookup_dongguk_rule(law_id 지정)로 원문을 확인하세요.';
+  return success(o,{
+    query,searchMode:'index',terms:found.tokens,missingTerms:found.missingTerms,index:coverage,
+    counts:{returned:documents.length},documents,
+    evidenceStatus:documents.every(doc=>['current','refetched'].includes(doc.versionCheck))?'retrieved':'partial',
+    source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
+  });
+}
 
 async function hSearch(kw, {fullText=false,limit=10,offset=0,campus='all'}={}) {
   const keyword = validStr(kw);
@@ -290,24 +492,30 @@ async function hSearch(kw, {fullText=false,limit=10,offset=0,campus='all'}={}) {
   });
 }
 
+function ambiguousArticleMessage(sections) {
+  const selectors=[...new Set(sections.map(supplementarySelector).filter(Boolean))];
+  return '여러 부칙에 같은 조문 번호가 있습니다. article에 "부칙(2024.8.27.) 제1조"처럼 부칙 개정일을 함께 지정하세요.'+
+    (selectors.length?` 선택 가능: ${selectors.slice(-8).join(', ')}`:'');
+}
+
 async function hContent(rawLawId, hid, {article,chapter,grep,head}={}) {
   const lawId = toId(rawLawId);
   if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요. (예: law_id=491)');
   const hasArticle=article!==undefined && article!==null && article!=='';
   const articleSelector=hasArticle?normalizeArticleSelector(article):null;
-  if(hasArticle && !articleSelector) return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+  if(hasArticle && !articleSelector) return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
   const chp = toId(chapter);
   if(chapter!==undefined && chapter!==null && !chp) return failure('INVALID_ARGUMENT', 'chapter는 양의 정수여야 합니다. (예: chapter=5 → 제5장)');
   const resolved=await resolve(lawId,hid);
   const {historyId:rid, note}=resolved;
-  const c=await cached('content',`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
+  const c=await cached(CONTENT_CACHE,`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
   if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `본문을 가져올 수 없습니다 (LAW_ID ${lawId}). law_id/history_id를 확인하세요.`);
   let r=c.markdown;
   let selectedArticles=[];
   if(articleSelector){
     const extracted=extractArticleSections(r,article);
-    if(extracted.error) return failure(extracted.error,'여러 부칙에 같은 조문 번호가 있습니다. 원문에서 부칙 제목과 개정일을 선택하세요.',{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading}))}});
-    if(!extracted.text) return failure('NOT_FOUND', `${articleSelector.canonical}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
+    if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections),{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading,selector:supplementarySelector(x)}))}});
+    if(!extracted.text) return failure('NOT_FOUND', `${articleSelector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
       details:{lawId,historyId:rid,article:articleSelector.canonical},
     });
     selectedArticles=extracted.sections.map(section=>({
@@ -347,7 +555,7 @@ async function hToc(rawLawId,hid){
   if(!lawId) return failure('INVALID_ARGUMENT', 'law_id는 양의 정수여야 합니다. (예: law_id=491)');
   const resolved=await resolve(lawId,hid);
   const {historyId:rid,note}=resolved;
-  const c=await cached('content',`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
+  const c=await cached(CONTENT_CACHE,`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
   if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `본문을 가져올 수 없습니다 (LAW_ID ${lawId}).`);
   const toc=c.markdown.split('\n').filter(l=>/^#{1,3} /.test(l)).join('\n');
   const text=note?`${note}\n\n${toc||'장·조 헤더가 없습니다.'}`:(toc||'장·조 헤더가 없습니다.');
@@ -371,31 +579,73 @@ async function hHistory(rawLawId){
   });
 }
 
-async function hDeep(rawQuery,{top=3,perDoc}={}){
+// Keyword fallback for questions whose literal wording is absent. The upstream
+// full-text search ANDs every word and takes about 10 seconds per request, so
+// search the content words first, then drop trailing words one at a time.
+const TERM_SEARCH_BUDGET_MS=35000;
+async function searchByTerms(query,{pageShow=15,lawgroup='0',skipOriginal=false}={}){
+  const tokens=queryContentTokens(query);
+  if(!tokens.length) return null;
+  const attempts=[tokens];
+  for(let i=tokens.length-1;i>=0&&tokens.length>1;i--) attempts.push(tokens.filter((_,index)=>index!==i));
+  const original=String(query).trim();
+  const started=Date.now();
+  let tried=0,firstError=null;
+  for(const terms of attempts.filter(x=>!skipOriginal||x.join(' ')!==original).slice(0,3)){
+    if(tried&&Date.now()-started>TERM_SEARCH_BUDGET_MS) break;
+    tried++;
+    const text=terms.join(' ');
+    try{
+      const result=await cached('search',hk(text,true,1,pageShow,lawgroup),TTL.searchFull,()=>searchRules(text,{fullText:true,page:1,pageShow,lawgroup}));
+      if(result.hits.length) return {...result,tokens:terms,droppedTerms:tokens.filter(x=>!terms.includes(x))};
+    }catch(error){firstError=firstError||error;}
+  }
+  // An upstream outage is not evidence that no rule matches.
+  if(firstError) throw firstError;
+  return null;
+}
+
+async function hDeep(rawQuery,{top=3,perDoc,mode='auto'}={}){
   const query = validStr(rawQuery);
   if(!query) return failure('INVALID_ARGUMENT', '검색어(query)를 입력해주세요. 예: "겸직", "위임전결"');
+  if(!['auto','index','live'].includes(mode)) return failure('INVALID_ARGUMENT','mode는 auto, index, live 중 하나여야 합니다.');
   top=Math.max(1,Math.min(Number(top)||3,10));
   const pd = toId(perDoc);
+  if(mode!=='live'){
+    const indexed=await deepFromIndex(query,{top,perDoc:pd||5,required:mode==='index'});
+    if(indexed) return indexed;
+    if(mode==='index') return indexStatus().available
+      ? failure('NOT_FOUND',`'${query}'의 핵심어가 색인된 규정에 없습니다. mode="live"로 공식 사이트 전문검색을 시도하세요.`,{details:{query}})
+      : failure('INDEX_UNAVAILABLE','전문 색인이 없습니다. 운영자가 `dongguk-rule-mcp --build-index`를 실행하거나 mode="live"로 조회하세요.');
+  }
   const ps=top*5, ck=hk(query,true,1,ps,'0');
-  const r=await cached('search',ck,TTL.searchFull,()=>searchRules(query,{fullText:true,page:1,pageShow:ps}));
+  let r=await cached('search',ck,TTL.searchFull,()=>searchRules(query,{fullText:true,page:1,pageShow:ps}));
+  let fallback=null;
+  if(!r.hits.length){
+    fallback=await searchByTerms(query,{pageShow:ps,skipOriginal:true});
+    if(fallback) r=fallback;
+  }
   const metrics=searchResultMetrics(r);
   if(!r.hits.length) return failure('NOT_FOUND', `'${query}' 전문 검색 결과가 없습니다. 더 일반적인 키워드로 시도해보세요.`, {details:{query}});
   const hits=r.hits.slice(0,top);
   const documents=[];
-  let o=`# '${query}' 깊이 검색\n- 원문 집계 ${r.total}건, 고유 후보 ${metrics.uniqueRows}건, 상위 ${hits.length}개 grep\n\n`;
+  let o=`# '${query}' 깊이 검색\n`+
+    (fallback?`- 입력 문구 그대로는 결과가 없어 핵심어 '${fallback.tokens.join(' ')}'로 검색했습니다.`+
+      (fallback.droppedTerms.length?` '${fallback.droppedTerms.join(', ')}'은(는) 함께 나오는 규정이 없어 제외했으니 원문에서 해당 내용을 확인하세요.`:'')+'\n':'')+
+    `- 원문 집계 ${r.total}건, 고유 후보 ${metrics.uniqueRows}건, 상위 ${hits.length}개 grep\n\n`;
   for(let i=0;i<hits.length;i++){
     const h=hits[i];
     o+=`## [${i+1}] ${h.title} (LAW_ID ${h.lawId})\n`;
     try{
       const selected=await resolve(h.lawId);
       const currentHit={...h,historyId:selected.historyId,revisedAt:selected.revisedAt};
-      const c=await cached('content',`${h.lawId}_${selected.historyId}`,TTL.content,()=>getContent(h.lawId,selected.historyId));
+      const c=await cached(CONTENT_CACHE,`${h.lawId}_${selected.historyId}`,TTL.content,()=>getContent(h.lawId,selected.historyId));
       if(!c.markdown){
         o+='- 본문 조회 실패\n\n';
         documents.push({...currentHit,error:{code:'CONTENT_UNAVAILABLE',message:'본문 조회 실패'}});
         continue;
       }
-      let matches=grepArticleSections(c.markdown,query);
+      let matches=fallback?rankArticlesByTokens(c.markdown,fallback.tokens):grepArticleSections(c.markdown,query);
       const count=matches.length;
       if(pd&&count>pd)matches=matches.slice(0,pd);
       o+=count?`- 매칭 ${count}건\n\n${matches.map(x=>x.content).join('\n\n')}\n\n`:`- 매칭 조문 없음 (제목/메타 매칭)\n\n`;
@@ -407,7 +657,7 @@ async function hDeep(rawQuery,{top=3,perDoc}={}){
     }
   }
   return success(o,{
-    query,counts:{sourceTotal:r.total,uniqueCandidates:metrics.uniqueRows,duplicatesRemoved:metrics.duplicatesRemoved,returned:hits.length},documents,
+    query,indexUsed:false,...(fallback?{searchMode:'content_terms',terms:fallback.tokens,droppedTerms:fallback.droppedTerms}:{searchMode:'phrase'}),counts:{sourceTotal:r.total,uniqueCandidates:metrics.uniqueRows,duplicatesRemoved:metrics.duplicatesRemoved,returned:hits.length},documents,
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
   });
 }
@@ -433,12 +683,16 @@ async function hLookup(rawKeyword, {
   let searchMode='제목', queryUsed=keyword, result=null;
   if(explicitLawId){
     const latest=await resolve(explicitLawId);
-    const content=await cached('content',`${explicitLawId}_${latest.historyId}`,TTL.content,()=>getContent(explicitLawId,latest.historyId));
+    const content=await cached(CONTENT_CACHE,`${explicitLawId}_${latest.historyId}`,TTL.content,()=>getContent(explicitLawId,latest.historyId));
     result={total:1,hits:[{lawId:explicitLawId,historyId:latest.historyId,title:content.title||keyword,revisedAt:latest.revisedAt}]};
     searchMode='LAW_ID';
   }
   const candidateHits=new Map();
+  const questionTerms=queryContentTokens(keyword);
   for(const fullText of (result?[]:[false,true])){
+    // A multi-word question rarely appears verbatim; searchByTerms below
+    // covers full text with its content words instead of 10-second literal tries.
+    if(fullText&&questionTerms.length>1) break;
     for(const variant of variants){
       const ck=hk(variant,fullText,1,pageShow,lg);
       const candidate=await cached('search',ck,fullText?TTL.searchFull:TTL.search,()=>searchRules(variant,{fullText,page:1,pageShow,lawgroup:lg}));
@@ -455,6 +709,10 @@ async function hLookup(rawKeyword, {
     // Full-text fallback is needed only when title searches found no candidates.
     if(result)break;
   }
+  if(!result){
+    const fallback=await searchByTerms(keyword,{pageShow,lawgroup:lg});
+    if(fallback){result=fallback;queryUsed=fallback.tokens.join(' ');searchMode='핵심어 전문';}
+  }
   if(candidateHits.size){
     const collected=[...candidateHits.values()];
     const identity=selectRuleCandidate(collected,keyword);
@@ -470,7 +728,18 @@ async function hLookup(rawKeyword, {
 
   const selection=selectRuleCandidate(result.hits,keyword);
   const candidates=selection.candidates;
-  if(!explicitLawId && maxRules===1 && selection.status!=='unique') return failure('AMBIGUOUS_RULE','여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.',{details:{candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt})),campus:campusScope(campus)}});
+  if(!explicitLawId && maxRules===1 && selection.status!=='unique') {
+    const titleUnmatched=selection.matchType==='none';
+    const message=titleUnmatched
+      ?`제목이 '${keyword}'에 해당하는 규정은 없습니다. 아래는 본문에 '${queryUsed}' 검색어가 나오는 규정 후보입니다. 질문에 맞는 규정을 확인한 뒤 law_id로 선택하세요.`
+      :'여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.';
+    const text=`${message}\n\n`+candidates.map(x=>`- ${x.title} (LAW_ID ${x.lawId}, 개정 ${x.revisedAt||'미상'})`).join('\n');
+    return failure('AMBIGUOUS_RULE',message,{text,details:{
+      matchType:selection.matchType,searchMode,queryUsed,
+      candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt})),
+      campus:campusScope(campus),
+    }});
+  }
   const hits=(selection.status==='unique'?[selection.hit]:rankRuleHits(result.hits,keyword)).slice(0,maxRules);
   const identityStatus=explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
   const metrics=searchResultMetrics(result);
@@ -505,7 +774,7 @@ async function hLookup(rawKeyword, {
       markdown=original.markdown;
       originalCoverage=original.structure?.coverage||null;
     }catch(e){
-      const html=await cached('content',`${lawId}_${historyId}`,TTL.content,
+      const html=await cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,
         ()=>getContent(lawId,historyId));
       markdown=html.markdown;
       sourceType='HTML 본문';
@@ -585,7 +854,7 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   if(!fromHistoryId) return failure('INVALID_ARGUMENT', 'from_history_id는 비교 시작 개정본의 양의 정수 HISTORY_ID여야 합니다.');
   const hasArticle=article!==undefined && article!==null && article!=='';
   if(hasArticle && !normalizeArticleSelector(article)) {
-    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
   }
   const history=await cached('history',String(lawId),TTL.history,()=>getHistory(lawId));
   const toHistoryId=rawToHistoryId?toId(rawToHistoryId):history[0]?.historyId;
@@ -598,8 +867,8 @@ async function hCompareVersions(rawLawId, rawFromHistoryId, rawToHistoryId, {art
   const [beforeOriginal,afterOriginal,beforeHtml,afterHtml]=await Promise.all([
     cached('original-structure-v2',`${lawId}_${fromHistoryId}`,TTL.content,()=>getOriginalContent(fromHistoryId)).catch(()=>null),
     cached('original-structure-v2',`${lawId}_${toHistoryId}`,TTL.content,()=>getOriginalContent(toHistoryId)).catch(()=>null),
-    cached('content',`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)).catch(()=>null),
-    cached('content',`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)).catch(()=>null),
+    cached(CONTENT_CACHE,`${lawId}_${fromHistoryId}`,TTL.content,()=>getContent(lawId,fromHistoryId)).catch(()=>null),
+    cached(CONTENT_CACHE,`${lawId}_${toHistoryId}`,TTL.content,()=>getContent(lawId,toHistoryId)).catch(()=>null),
   ]);
   maxChanges=clampNumber(maxChanges,20,1,50);
   const {compareEvidence,formatEvidence}=require('./comparison-evidence.js');
@@ -629,7 +898,7 @@ async function hVerifyCitations(rawText,{campus='all'}={}) {
       return cached('search',ck,TTL.search,()=>searchRules(q,{fullText:false,page:1,pageShow:10,lawgroup:lg}));
     },
     getRuleMarkdown: async(lawId,historyId)=>{
-      const c=await cached('content',`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId));
+      const c=await cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId));
       return c.markdown||'';
     },
     resolveLatest: async lawId=>await resolve(lawId),
@@ -652,7 +921,7 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
   if(!target) return failure('INVALID_ARGUMENT', 'date는 기준일이며 YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD 형식이어야 합니다. 예: 2024-03-15');
   const hasArticle=article!==undefined && article!==null && article!=='';
   if(hasArticle && !normalizeArticleSelector(article)){
-    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조" 형식이어야 합니다.');
+    return failure('INVALID_ARGUMENT', 'article은 48, "제48조", "제10조의2", "부칙 제2조", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
   }
   max_changes=clampNumber(max_changes,10,1,30);
 
@@ -688,15 +957,15 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
 
   if(res.error) return failure(res.error,'같은 날짜의 복수 개정본 등으로 기준일 후보를 확정할 수 없습니다.',{details:res});
   const picked=res.entry;
-  const c=await cached('content',`${lawId}_${picked.historyId}`,TTL.content,()=>getContent(lawId,picked.historyId));
+  const c=await cached(CONTENT_CACHE,`${lawId}_${picked.historyId}`,TTL.content,()=>getContent(lawId,picked.historyId));
   if(!c.markdown) return failure('CONTENT_UNAVAILABLE', `적용 개정본 본문을 가져올 수 없습니다 (LAW_ID ${lawId} / HISTORY_ID ${picked.historyId}).`);
   const title=c.title||matched?.title||`LAW_ID ${lawId}`;
 
   let bodyText=c.markdown, selectedArticles=[];
   if(hasArticle){
     const extracted=extractArticleSections(c.markdown,article);
-    if(extracted.error) return failure(extracted.error,'여러 부칙에 같은 조문 번호가 있습니다. 원문에서 부칙 제목과 개정일을 선택하세요.',{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading}))}});
-    if(!extracted.text) return failure('NOT_FOUND', `${extracted.selector.canonical}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.`, {
+    if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections),{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading,selector:supplementarySelector(x)}))}});
+    if(!extracted.text) return failure('NOT_FOUND', `${extracted.selector.label}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.`, {
       details:{lawId,historyId:picked.historyId,article:extracted.selector.canonical},
     });
     selectedArticles=extracted.sections.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}));
@@ -721,7 +990,7 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
 
   let comparison=null;
   if(compare_with_current && !res.isLatest){
-    const latest=await cached('content',`${lawId}_${res.latest.historyId}`,TTL.content,()=>getContent(lawId,res.latest.historyId));
+    const latest=await cached(CONTENT_CACHE,`${lawId}_${res.latest.historyId}`,TTL.content,()=>getContent(lawId,res.latest.historyId));
     if(latest.markdown){
       comparison=compareRuleMarkdown(c.markdown,latest.markdown,hasArticle?{article}:{});
       if(!comparison.error){
@@ -825,7 +1094,7 @@ function normalizeLookupArguments(args={}) {
 // === MCP 서버 팩토리 (stdio: 1회 / HTTP: 요청당 1회 — stateless) ===
 function createServer({profile=PROFILE}={}) {
 profile=normalizeProfile(profile);
-const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabilities:{tools:{}} });
+const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabilities:{tools:{}}, instructions:DISCLAIMER });
 
 server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   {name:'get_service_info', title:'동국 규정 MCP 서비스 정보',description:'동국 규정 MCP 버전·공통/내부 기능 범위·캠퍼스 검색 한계·입력 안내를 확인합니다.',inputSchema:{type:'object',properties:{}},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:{readOnlyHint:true}},
@@ -860,7 +1129,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신)'},
-      article:{oneOf:[{type:'number'},{type:'string'}],description:'특정 조문. 예: 48, 제48조, 제10조의2, 부칙 제2조'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'특정 조문. 예: 48, 제48조, 제10조의2, 부칙 제2조, 부칙(2024.8.27.) 제1조(여러 부칙의 같은 번호는 개정일로 선택)'},
       chapter:{type:'number',description:'특정 장만'},
       grep:{type:'string',description:'키워드 포함 조문'},
       head:{type:'number',description:'상위 N줄'},
@@ -911,7 +1180,27 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   { name:'search_rule_deep', title:'여러 규정 전문 탐색', description:'여러 규정의 전문을 탐색해야 할 때만 사용하는 보조 도구. 단일 규정 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       query:{type:'string'}, top:{type:'number',default:3}, per_doc:{type:'number'},
+      mode:{type:'string',enum:['auto','index','live'],default:'auto',description:'auto: 전문 색인이 있으면 색인, 없으면 공식 사이트 검색. index: 색인만. live: 공식 사이트 전문검색만(모든 단어 일치).'},
     }, required:['query']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'check_rule_updates', title:'규정 개정 여부 일괄 점검', description:'여러 규정의 최신 개정본을 한 번에 확인합니다. law_ids와 이전 응답의 nextSnapshot(previous)을 주면 규정별로 개정됨·변동 없음·첫 확인을 구분하고, since(날짜)를 주면 그 날짜 이후 개정된 규정 목록을 반환합니다. 변경 내용은 compare_rule_versions로 이어서 확인하세요. 시행일·적용 여부는 판단하지 않습니다.',
+    inputSchema:{ type:'object', properties:{
+      law_ids:{type:'array',items:{type:'integer',minimum:1},minItems:1,maxItems:50,description:'점검할 LAW_ID 목록. 예: [184, 103, 180]'},
+      previous:{type:'object',additionalProperties:{type:'integer',minimum:1},description:'이전 응답의 nextSnapshot. {LAW_ID: HISTORY_ID}'},
+      since:{type:'string',description:'이 날짜 이후 개정된 규정 목록. YYYY-MM-DD'},
+      limit:{type:'integer',minimum:1,maximum:50,default:50,description:'since 목록의 최대 건수'},
+    }},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'get_rule_references', title:'규정 인용 관계 조회', description:'규정(또는 특정 조문)이 명시적으로 인용한 다른 교내 규정·국가 법령(outgoing)과, 이 규정을 인용하는 교내 규정(incoming, 전문 색인 필요)을 찾습니다. 국가 법령은 법령명·조문을 externalLaws로 정리하므로 한국법령 MCP 조회에 그대로 사용할 수 있습니다. 인용의 존재와 적용 여부는 다릅니다.',
+    inputSchema:{ type:'object', properties:{
+      law_id:{type:'number',description:'LAW_ID'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 3, 제10조의2'},
+      history_id:{type:'number',description:'HISTORY_ID (생략=최신). 인용 대상은 현행 목록과 대조합니다.'},
+      direction:{type:'string',enum:['outgoing','incoming','both'],default:'outgoing'},
+      limit:{type:'integer',minimum:1,maximum:50,default:30,description:'방향별 최대 표시 건수'},
+    }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
 ].filter(t=>profile==='finance'||!FINANCE_TOOLS.has(t.name))}));
@@ -937,8 +1226,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,toolCount:profile==='rules'?10:14,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?12:16,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
+        data.fullTextIndex=indexStatus();
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
           '동국 규정 MCP 서비스 정보',
@@ -951,8 +1241,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (설정 여부이며 실제 연결 검증은 별도)',
           '- jointWorkflows: '+(data.integrations.jointWorkflows.join(', ')||'없음'),
           '- privatePacksConfigured: '+data.privacy.privatePacksConfigured,
+          '- fullTextIndex: '+(data.fullTextIndex.available?`${data.fullTextIndex.indexedRules}/${data.fullTextIndex.totalRules}개 규정, ${data.fullTextIndex.indexedAt}${data.fullTextIndex.stale?' (오래됨)':''}`:'없음(공식 사이트 검색 사용)'),
           '',
           '공식 목록에는 캠퍼스 필터가 없습니다. 캠퍼스·직군별 적용은 규정 제목과 적용범위 조문을 확인하세요.',
+          '',
+          '※ '+DISCLAIMER,
         ].join('\n'),data);
         break;
       }
@@ -975,7 +1268,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
       case 'compare_rule_versions': r=await hCompareVersions(a.law_id,a.from_history_id,a.to_history_id,{article:a.article,maxChanges:a.max_changes,includeAppendices:a.include_appendices}); break;
       case 'verify_rule_citations': r=await hVerifyCitations(a.text,{campus:a.campus}); break;
       case 'applicable_rule': r=await hApplicableRule(a); break;
-      case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc}); break;
+      case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc,mode:a.mode}); break;
+      case 'check_rule_updates': r=await hCheckUpdates(a); break;
+      case 'get_rule_references': r=await hReferences(a.law_id,{article:a.article,historyId:a.history_id,direction:a.direction,limit:a.limit}); break;
       default: r=failure('UNKNOWN_TOOL', `알 수 없는 도구: ${name}`, {isError:true});
     }
     const response=serializeOutcome(name,r);
@@ -1007,6 +1302,9 @@ function startHttp() {
     publicPage:fs.readFileSync(path.join(__dirname,'../docs/quickstart.html'),'utf8'),
     maxConcurrent:Number(process.env.DONGGUK_MCP_MAX_CONCURRENT||8),
     maxQueue:Number(process.env.DONGGUK_MCP_MAX_QUEUE||32),
+    rateLimitPerMinute:Number(process.env.DONGGUK_MCP_RATE_LIMIT_PER_MINUTE??60),
+    rateLimitPerDay:Number(process.env.DONGGUK_MCP_RATE_LIMIT_PER_DAY??1000),
+    trustProxy:process.env.DONGGUK_MCP_TRUST_PROXY!=='0',
     allowedOrigins:(process.env.DONGGUK_MCP_ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean),
   });
   let warmer;
@@ -1020,7 +1318,22 @@ function startHttp() {
       warm:keyword=>withPublicWarmup(()=>hLookup(keyword,{maxChars:1000})),
     });
   });
-  server.once('close',()=>warmer?.stop());
+  const refreshHours=Number(process.env.DONGGUK_MCP_INDEX_REFRESH_HOURS||0);
+  let indexTimer,indexRunning=false,indexLast=null;
+  if(Number.isFinite(refreshHours)&&refreshHours>=1&&!noCache()){
+    const refresh=async()=>{
+      if(indexRunning) return;
+      indexRunning=true;
+      try{const r=await buildRuleIndex();indexLast={ok:r.ok,at:new Date().toISOString(),indexedRules:r.indexedRules,failedRules:r.failedRules};}
+      catch(e){indexLast={ok:false,at:new Date().toISOString(),error:'INDEX_BUILD_FAILED'};}
+      finally{indexRunning=false;}
+    };
+    indexTimer=setInterval(refresh,refreshHours*3600*1000);indexTimer.unref();
+    setTimeout(refresh,30000).unref();
+  }
+  const withWarmStatus=server.getStatus;
+  server.getStatus=()=>({...withWarmStatus(),fullTextIndex:{...indexStatus(),autoRefreshHours:indexTimer?refreshHours:0,running:indexRunning,lastRefresh:indexLast}});
+  server.once('close',()=>{warmer?.stop();clearInterval(indexTimer);});
   server.on('error',()=>{console.error('HTTP 기동 실패: 바인드 주소·포트·인증 설정을 확인하세요.');process.exitCode=1;});
   const shutdown=()=>{warmer?.stop();return server.shutdown().finally(()=>process.exit(0));};
   process.once('SIGINT',shutdown);process.once('SIGTERM',shutdown);
@@ -1037,9 +1350,15 @@ if (require.main === module) {
       console.log(ARGV.includes('--json')?JSON.stringify(result,null,2):`동국 규정 MCP ${VERSION}: ${result.ok?'정상':'점검 필요'}\n${JSON.stringify(result.checks,null,2)}\n${result.notice}`);
       if(!result.ok)process.exitCode=1;return;
     }
+    if(ARGV.includes('--build-index')){
+      let last=0;
+      const result=await buildRuleIndex({onProgress:p=>{if(p.done-last>=50||p.done===p.total){last=p.done;console.error(`색인 ${p.done}/${p.total} (재사용 ${p.reused}, 실패 ${p.failed})`);}}});
+      console.log(JSON.stringify(result,null,2));
+      if(!result.ok)process.exitCode=1;return;
+    }
     if(MODE_HTTP){startHttp();return;}
     const server=createServer({profile:PROFILE});await server.connect(new StdioServerTransport());
     console.error(`dongguk-rule-mcp v${VERSION} 시작됨 (${PROFILE}, stdio, Node ${process.version})`);
   })().catch(e=>{console.error('서버 시작 실패:',e.message);process.exitCode=1;});
 }
-module.exports={createServer};
+module.exports={createServer,buildRuleIndex};

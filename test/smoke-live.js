@@ -25,7 +25,7 @@ async function main() {
   await client.connect(transport); transport.stderr?.resume();
   check('MCP initialize version matches package', client.getServerVersion()?.version === version);
   const list = await client.listTools();
-  check('10 tools available', list.tools.length === 10);
+  check('12 tools available', list.tools.length === 12);
   const lookup = await call('lookup_dongguk_rule', { rule_keyword: keyword, include_history: true, max_chars: 2500 });
   const rule = lookup.rules[0];
   check('lookup returns parsed HWP (no fallback)', !rule.warning && rule.sourceType.includes('HWP') && rule.excerpt.text.trim().length > 0);

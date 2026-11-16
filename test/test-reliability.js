@@ -33,8 +33,8 @@ seed('search', crypto.createHash('md5').update(['여비규정',false,1,10,'1'].j
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 10, revisedAt: '2024.01.01' }]);
 seed('original-structure-v2', '1_20', { markdown: '제1조(여비)\n최신 숙박비 기준' });
 seed('original-structure-v2', '1_10', { markdown: '제1조(여비)\n과거 숙박비 기준' });
-seed('content', '1_10', { title: '여비규정', markdown: '### 제1조(여비)\n과거 기준' });
-seed('content', '1_20', { title: '여비규정', markdown: '### 제1조(여비)\n최신 기준' });
+seed('content-v3', '1_10', { title: '여비규정', markdown: '### 제1조(여비)\n과거 기준' });
+seed('content-v3', '1_20', { title: '여비규정', markdown: '### 제1조(여비)\n최신 기준' });
 let passed = 0;
 function check(name, value) { assert.ok(value, name); passed++; console.log(`  ✅ ${name}`); }
 async function main() {

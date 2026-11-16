@@ -44,7 +44,7 @@ async function main() {
     const lawId = 900000001, historyId = 900000101;
     const cacheRoot = path.join(temp, 'dongguk-rule-mcp', 'v2', 'public');
     const historyDir = path.join(cacheRoot, 'history');
-    const contentDir = path.join(cacheRoot, 'content');
+    const contentDir = path.join(cacheRoot, 'content-v3');
     fs.mkdirSync(historyDir, { recursive: true, mode: 0o700 });
     fs.mkdirSync(contentDir, { recursive: true, mode: 0o700 });
     const markdown = '# 합성 부하검증 전용 규정\n\n' + Array.from({ length: 40 }, (_, index) => `### 제${index + 1}조(검증 자료 ${index + 1})\n① 이 문서는 HTTP 캐시 적중 부하를 측정하기 위한 합성 자료이며 실제 학교 규정이 아닙니다.\n② 요청 처리는 공식 원문 연결 없이 임시 캐시의 본문과 연혁을 사용합니다.\n③ 결과의 규정 식별자와 날짜는 실제 업무에 인용하지 않습니다.\n`).join('\n');

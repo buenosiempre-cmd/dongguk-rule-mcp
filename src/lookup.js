@@ -286,6 +286,32 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   };
 }
 
+// Content words of a natural-language question for keyword search. The
+// upstream full-text search ANDs every word, so one absent word ("상한",
+// "자격은?") makes the whole question return nothing.
+const QUESTION_STOPWORDS = new Set([
+  '알려줘', '알려주세요', '알려', '주세요', '무엇', '뭐야', '뭔가요', '어떻게', '어떤', '있나요', '있는지',
+  '되나요', '하나요', '인가요', '경우', '관련', '대한', '대해', '대해서', '관한', '내용', '규정', '기준은', '방법',
+  '동국대', '동국대학교', '우리', '학교', '얼마', '얼마야', '얼마인가요', '가능', '가능한가요', '여부',
+]);
+const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
+
+function queryContentTokens(value, maxTokens = 4) {
+  const tokens = [];
+  for (const raw of String(value || '').split(/[\s,;|/·?!.()（）"'「」]+/)) {
+    let token = raw.trim();
+    if (!token || /^제?\d+조?$/.test(token)) continue;
+    const stripped = token.replace(PARTICLE_SUFFIX, '');
+    // Three-syllable nouns ending in 가 (전문가, 낙찰가) are not "noun + 가".
+    if (stripped.length >= 2 && !(token.length === 3 && token.endsWith('가'))) token = stripped;
+    if (token.length < 2 || QUESTION_STOPWORDS.has(token) || tokens.includes(token)) continue;
+    tokens.push(token);
+  }
+  // Prefer the most specific words while preserving the question order.
+  const kept = new Set([...tokens].sort((a, b) => b.length - a.length).slice(0, maxTokens));
+  return tokens.filter(token => kept.has(token));
+}
+
 module.exports = {
   clampNumber,
   normalizeText,
@@ -295,4 +321,5 @@ module.exports = {
   selectRuleCandidate,
   termTokens,
   extractRelevantBlocks,
+  queryContentTokens,
 };

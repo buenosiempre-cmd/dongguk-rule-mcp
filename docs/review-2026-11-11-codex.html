@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>동국규정 MCP v0.12.3 교차검증 · 2026-11-11</title>
+  <style>
+    :root{color-scheme:light;--ink:#17243a;--muted:#526175;--line:#d7e0e8;--blue:#174b89;--pale:#eef5fc;--green:#166047}
+    *{box-sizing:border-box}body{margin:0;background:#f5f8fb;color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+    main{max-width:850px;margin:auto;padding:36px 22px 70px}header,section{background:#fff;border:1px solid var(--line);border-radius:14px;padding:25px 28px;margin-bottom:16px}
+    h1{font-size:1.8rem;line-height:1.3;margin:.2em 0 .4em}h2{font-size:1.16rem;color:var(--blue);margin:0 0 12px}p{margin:0 0 12px}p:last-child{margin-bottom:0}
+    .eyebrow{font-size:.84rem;font-weight:700;letter-spacing:.07em;color:var(--blue)}.lead{font-size:1.13rem;font-weight:650}.meta{color:var(--muted);font-size:.9rem}
+    .badge{display:inline-block;background:#e7f5ef;color:var(--green);padding:3px 10px;border-radius:999px;font-size:.85rem;font-weight:700}
+    ul{padding-left:1.35em;margin:10px 0 0}li{margin:6px 0}code{font:0.9em ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f4f7;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}
+    a{color:var(--blue)}.callout{background:var(--pale);border-left:4px solid var(--blue);padding:14px 16px;border-radius:5px;margin-top:15px}
+    @media(max-width:600px){main{padding:14px}header,section{padding:20px 18px}h1{font-size:1.5rem}}
+    @media print{body{background:#fff}main{max-width:none;padding:0}header,section{border:0;border-bottom:1px solid var(--line);border-radius:0;break-inside:avoid;padding:16px 0;margin:0}a{color:inherit}}
+  </style>
+</head>
+<body><main>
+  <header>
+    <div class="eyebrow">CODEX 교차검증 · 2026.11.11</div>
+    <h1>동국규정 MCP v0.12.3 검수</h1>
+    <p class="lead">자연어 규정 조회가 정확한 다단어 전문검색 결과를 건너뛰는 회귀를 찾아 수정했습니다.</p>
+    <p><span class="badge">수정 및 재검증 완료</span></p>
+    <p class="meta">대상: 로컬 <code>maintenance/2026-11-09</code> 브랜치 · 기준 커밋 <code>f71a1d9</code></p>
+  </header>
+  <section>
+    <h2>우선 조치</h2>
+    <p><a href="../src/index.js">검색 로직</a>과 <a href="../test/test-maintenance.js">회귀 테스트</a>는 로컬 브랜치에 커밋했습니다. 원격 게시에는 GitHub 인증 갱신이 필요합니다. 실행 중 MCP 교체는 아직 수행하지 않았습니다.</p>
+  </section>
+  <section>
+    <h2>발견과 수정</h2>
+    <p>규정명이 없는 <code>출장 숙박비</code> 같은 두 단어 질문은 제목 검색이 실패하면 전문검색으로 넘어갑니다. 기존 코드에서는 핵심어와 원문이 같을 때 그 조합을 재시도 목록에서 제외했습니다. 따라서 정확한 다단어 전문검색 결과가 있어도 <code>출장</code> 또는 <code>숙박비</code>처럼 넓은 검색을 먼저 수행했습니다.</p>
+    <p>통합 조회에서는 정확한 조합을 먼저 시도하도록 했습니다. <code>search_rule_deep</code>은 이미 원문 조합을 조회하므로 중복 요청을 계속 피합니다.</p>
+  </section>
+  <section>
+    <h2>검증 근거</h2>
+    <ul>
+      <li>합성 캐시에 다단어 전문검색 결과를 넣은 MCP 회귀 테스트: 수정 전 <code>UPSTREAM_FORMAT_CHANGED</code>로 실패, 수정 후 통과.</li>
+      <li><code>npm test</code>: 전체 오프라인 테스트 통과(종료 코드 0).</li>
+      <li><code>node test/smoke-live.js</code>: 공개 규정 실사이트 9개 항목 통과. 캐시와 쿠키를 사용하지 않고 HWP 조회, HTML 본문, 목차, 연혁, 비교, 깊이 검색을 확인.</li>
+      <li><code>git diff --check</code>: 공백 및 패치 형식 오류 없음.</li>
+    </ul>
+    <div class="callout">실사이트 스모크는 대표 규정 1건의 연결 상태를 확인합니다. 새 다단어 경로의 분기와 후보 선택은 외부 사이트 상태에 흔들리지 않는 MCP 합성 테스트로 검증했습니다.</div>
+  </section>
+  <section>
+    <h2>검토 범위와 남은 확인</h2>
+    <p>기존 v0.12.3의 부칙 파싱·날짜 선택 로직은 코드와 회귀 테스트를 대조했고 전체 테스트에서 통과했습니다. 이번 수정은 자연어 검색 재시도 경로 두 곳과 회귀 테스트에 한정됩니다. <code>git push -u origin maintenance/2026-11-09</code>는 로컬 GitHub 인증 오류로 실패했습니다. 설치된 MCP 클라이언트와 원격 브랜치는 갱신되지 않았습니다.</p>
+  </section>
+</main></body></html>
