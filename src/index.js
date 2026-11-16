@@ -103,7 +103,7 @@ HTTP 옵션:
 }
 
 const MODE_HTTP = ARGV.includes('--http');
-const {normalizeProfile,withProfile,withPublicWarmup,refreshAhead,requestCookie,normalizeCampus,campusScope}=require('./runtime-context.js');
+const {normalizeProfile,currentProfile,withProfile,withPublicWarmup,refreshAhead,requestCookie,normalizeCampus,campusScope}=require('./runtime-context.js');
 const PROFILE=argOf('--profile') || process.env.DONGGUK_MCP_PROFILE || 'rules';
 const HTTP_PORT = Number(argOf('--port') || process.env.DONGGUK_MCP_PORT || 3845);
 const HTTP_HOST = argOf('--host') || process.env.DONGGUK_MCP_HOST || '127.0.0.1';
@@ -115,6 +115,7 @@ const {selectPractice}=require('./practice.js');
 const {reviewFinanceCase,formatFinanceReview}=require('./finance-desk.js');
 const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
 const { queryLegalReferences } = require('./legal-client.js');
+const { lawLinkConfigured, fetchCitedLaws, formatCitedLaws } = require('./law-link.js');
 const { formatLegalEvidence } = require('./legal-format.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
@@ -317,7 +318,7 @@ async function hCheckUpdates({law_ids,previous,since,limit}={}) {
   return success(formatRuleUpdates(data),data);
 }
 
-async function hReferences(rawLawId,{article,historyId,direction='outgoing',limit}={}) {
+async function hReferences(rawLawId,{article,historyId,direction='outgoing',limit,includeLawText=false}={}) {
   const lawId=toId(rawLawId);
   if(!lawId) return failure('INVALID_ARGUMENT','law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요.');
   if(!['outgoing','incoming','both'].includes(direction)) return failure('INVALID_ARGUMENT','direction은 outgoing, incoming, both 중 하나여야 합니다.');
@@ -396,11 +397,18 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
     else o+=(shown.incoming?`\n| 위치 | 구분 | 인용 대상 | 원문 |\n|---|---|---|---|\n${references.filter(x=>x.direction==='incoming').map(row).join('\n')}\n`:'\n색인 범위에서 이 규정을 이름으로 인용한 조문을 찾지 못했습니다.\n')+
       `\n- 색인 기준: ${incoming.indexedAt}, ${incoming.indexedRules}/${incoming.totalRules}개 규정${incoming.complete?'':' (일부 누락)'}${incoming.stale?' — 색인이 오래되어 최근 개정이 빠졌을 수 있습니다':''}\n`;
   }
+  // Law text is an addition: a failure here never fails the rule lookup.
+  let lawTexts=null;
+  if(includeLawText===true&&direction!=='incoming'){
+    try{lawTexts=await fetchCitedLaws(externalLaws,{profile:currentProfile(),cached,queryLegalReferences});}
+    catch{lawTexts={status:'unavailable',code:'LEGAL_LOOKUP_FAILED',laws:[],skipped:[],limits:{}};}
+    o+=formatCitedLaws(lawTexts);
+  }
   if(omittedCount) o+=`\n표시 한도(${limit}건)를 넘은 ${omittedCount}건은 생략했습니다. article을 지정하거나 limit를 늘리세요.\n`;
   o+='\n명시적으로 이름을 적은 인용만 찾습니다. "관계 법령", "동법", 약칭 인용은 빠질 수 있으며, 인용이 있다는 것과 해당 근거가 적용된다는 것은 다릅니다.';
   return success(o,{
     source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
-    direction,references,externalLaws,
+    direction,references,externalLaws,...(lawTexts?{lawTexts}:{}),
     counts:{...totals,shown},
     coverage:{outgoing:direction==='incoming'?null:{scope:selector?'selected_article':'whole_rule',complete:true},incoming:direction==='outgoing'?null:incoming,catalogAvailable},
     truncated:omittedCount>0,omittedCount,
@@ -1193,13 +1201,14 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'get_rule_references', title:'규정 인용 관계 조회', description:'규정(또는 특정 조문)이 명시적으로 인용한 다른 교내 규정·국가 법령(outgoing)과, 이 규정을 인용하는 교내 규정(incoming, 전문 색인 필요)을 찾습니다. 국가 법령은 법령명·조문을 externalLaws로 정리하므로 한국법령 MCP 조회에 그대로 사용할 수 있습니다. 인용의 존재와 적용 여부는 다릅니다.',
+  { name:'get_rule_references', title:'규정 인용 관계 조회', description:'규정(또는 특정 조문)이 명시적으로 인용한 다른 교내 규정·국가 법령(outgoing)과, 이 규정을 인용하는 교내 규정(incoming, 전문 색인 필요)을 찾습니다. 국가 법령은 법령명·조문을 externalLaws로 정리합니다. include_law_text=true이면 인용된 법령 조문의 현행 원문(최대 3개 조문)을 한국법령 MCP에서 함께 가져옵니다. 인용의 존재와 적용 여부는 다릅니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 3, 제10조의2'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신). 인용 대상은 현행 목록과 대조합니다.'},
       direction:{type:'string',enum:['outgoing','incoming','both'],default:'outgoing'},
       limit:{type:'integer',minimum:1,maximum:50,default:30,description:'방향별 최대 표시 건수'},
+      include_law_text:{type:'boolean',default:false,description:'true이면 인용된 국가 법령 조문의 현행 원문을 함께 가져옵니다(조문이 특정된 인용만, 최대 3개). 법령 서버가 응답하지 않아도 규정 인용 결과는 반환합니다.'},
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
@@ -1229,6 +1238,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?12:16,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.fullTextIndex=indexStatus();
+        data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text'};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
           '동국 규정 MCP 서비스 정보',
@@ -1270,7 +1280,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
       case 'applicable_rule': r=await hApplicableRule(a); break;
       case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc,mode:a.mode}); break;
       case 'check_rule_updates': r=await hCheckUpdates(a); break;
-      case 'get_rule_references': r=await hReferences(a.law_id,{article:a.article,historyId:a.history_id,direction:a.direction,limit:a.limit}); break;
+      case 'get_rule_references': r=await hReferences(a.law_id,{article:a.article,historyId:a.history_id,direction:a.direction,limit:a.limit,includeLawText:a.include_law_text}); break;
       default: r=failure('UNKNOWN_TOOL', `알 수 없는 도구: ${name}`, {isError:true});
     }
     const response=serializeOutcome(name,r);
