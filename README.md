@@ -61,7 +61,7 @@ dongguk-rule-mcp --print-config cursor
 
 급여·출장비·위임전결·과거 감사·기안문 인용에 바로 적용할 질문과 도구 입력 예시는 [업무 활용 가이드](docs/WORKFLOWS.md)를 참고하세요.
 
-## 공개 규정 도구 — 기본 13개
+## 공개 규정 도구 — 기본 14개
 
 | 도구 | 용도 |
 |---|---|
@@ -78,6 +78,7 @@ dongguk-rule-mcp --print-config cursor
 | `check_rule_updates` | 여러 규정의 개정 여부 일괄 점검, 기준일 이후 개정된 규정 목록 |
 | `get_rule_references` | 규정·조문이 인용한 교내 규정·국가 법령과 역방향 인용(색인 필요). `include_law_text=true`이면 인용된 법령 조문의 현행 원문까지 |
 | `get_rule_upper_laws` | 규정·조문이 인용한 국가 법령을 현행 법령 목록과 대조: 현행 여부·시행일, 인용 조문의 존재·삭제, 옛 법령명, 규정 개정 뒤 법령 개정, 시행예정 개정을 점검 신호로 표시. `include_text=true`이면 조문 원문 대조 |
+| `compare_university_rules` | 동국대와 타대학(최대 5개) 규정에서 주제어가 든 조문을 학교별로 나란히 표시. 기본 꺼짐(`DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`), 자세한 범위는 아래 "타대학 규정 비교" |
 
 기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
 
@@ -107,7 +108,7 @@ HTTP는 stateless Streamable HTTP이며 MCP 경로는 POST 요청을 사용합�
 | 경로 | 범위 |
 |---|---|
 | `/`, `/guide` | 인증정보를 포함하지 않는 구성원 안내 페이지 |
-| `/mcp/rules` | 서버 프로필과 무관하게 공개 규정 13개 도구. 공용 서버에서는 인증 없이 열고 IP별 호출 제한 적용 |
+| `/mcp/rules` | 서버 프로필과 무관하게 공개 규정 14개 도구. 공용 서버에서는 인증 없이 열고 IP별 호출 제한 적용 |
 | `/mcp` | 운영자가 지정한 프로필의 도구, 기존 연결 경로. 공용 서버에서는 토큰 필요 |
 | `/health`, `/ready` | 프로세스·요청 수용 상태; 원문 조회 성공을 의미하지 않음 |
 | `/status` | 관리용 인증이 필요한 집계 운영 상태 |
@@ -121,7 +122,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **17개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **18개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
 
 ## 소스 실행과 검증
 
@@ -157,3 +158,27 @@ MIT. 원본 Python 구현: 서준호. Node.js MCP 포팅·운영 개선: 오승�
 [GitHub Issues](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues)에 버전·비식별 재현 질문·오류코드를 남겨주세요. 개인 정보·인증값·내부 문서를 첨부하지 않습니다.
 
 [Finance Desk 통합 기능과 외부 자료팩 설정](docs/FINANCE_DESK.md)
+
+## 타대학 규정 비교 (개발 중)
+
+`compare_university_rules`는 동국대와 타대학의 주제어 일치 조문을 학교별 열로 나란히 보여줍니다. 행 순서나 조문 번호는 법적 동등성을 뜻하지 않습니다.
+
+```json
+{"topic":"여비","universities":["korea","uos"],"max_articles":3}
+```
+
+- 동국대 자동 포함. 타대학 키: `korea`(고려), `uos`(서울시립), `konkuk`(건국), `kookmin`(국민), `ssu`(숭실). 최대 5개. 다른 영문 키는 `unsupported`.
+- `columns`마다 조문 번호·본문·규정명·URL·개정일(동국만 확인, 타대학 미확인)·시행일(`effectiveAt:null`은 미확인), `status`, `coverage`, 실패 내역 제공. 학교당 최대 5개 조문, 조문당 2,000자이며 잘림 표시.
+- 국민·숭실은 `.do` 전문검색 첫 페이지, 서울시립은 `.srv` 전문검색 첫 페이지에서 최대 3개 규정을 조회합니다. 고려·건국은 **최근 목록의 최대 3개 규정**만 탐색하며 전체 검색이 아니므로 `partial` 또는 `no_match_in_scope`입니다. 동국은 제목 검색 우선·미발견 시 전문검색으로 후보 최대 5개를 조회합니다.
+- `retrieved`, `partial`, `no_match_in_scope`, `unsupported`, `unavailable` 구분. 조문 미발견은 규정 부존재를 뜻하지 않음. HWP 별표·시행일·법적 적용성은 미확인.
+- 참고 저장소 2026년 7월 탐지 설정 포팅으로 현재 가용성을 보장하지 않음. 차단 우회·로그인·리다이렉트 없음. 서울시립·숭실은 참고 자료의 HTTP 공개 주소.
+- 기본 비활성입니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`로 켜야 요청이 나갑니다(공개·재무 프로필 모두). `get_service_info`에 설정 여부를 표시합니다.
+- 외부대학에 쿠키·인증정보 전송 없음. 호출 전체 40초 제한, 요청당 8초, 외부대학당 15초 예산, 대학별 500ms 간격, 응답 2 MiB 제한. 시간 초과 시 받은 결과는 유지하고 남은 대학은 `TOTAL_TIMEOUT`으로 표시합니다. 공개 응답 10분/최대 64개 메모리 캐시와 중복 요청 합치기. 백그라운드 크롤링·재시도 없음.
+
+합성 테스트 출력 예: 동국대 `제9조`와 고려대 `제3조`를 각각 발췌하고 고려대 열에 `coverage.mode:"recent_list_only"`, `status:"partial"`을 표시합니다. 실제 학교의 지급 기준을 뜻하지 않습니다.
+
+포팅 출처·라이선스: [THIRD_PARTY](docs/THIRD_PARTY.md).
+
+비교 표에는 짧은 발췌를, 표 아래에는 학교별 조문 본문을 제공합니다.
+
+호출의 대기 취소는 공유 캐시 로더를 취소하지 않습니다. 다른 요청이 기다리는 원문 요청은 자체 시간 제한(외부대학 8초, 기존 동국 요청 20초) 내에서 완료되며, 취소된 비교 호출은 다음 원문 요청을 시작하지 않습니다. 타대학 전문검색 후보도 제목의 주제 일치를 우선 정렬합니다.

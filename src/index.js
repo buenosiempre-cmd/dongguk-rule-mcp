@@ -113,6 +113,7 @@ const { loadFinancePack, routeFinance, getFinanceContext, hasSensitiveInput } = 
 const {searchHandbook}=require('./handbook.js');
 const {selectPractice}=require('./practice.js');
 const {reviewFinanceCase,formatFinanceReview}=require('./finance-desk.js');
+const { compareUniversityRules, formatComparison, validateArguments: validateComparison, safeCode: comparisonErrorCode } = require('./university-rules');
 const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
 const { queryLegalReferences, inspectLaws } = require('./legal-client.js');
 const { buildUpperLaws, formatUpperLaws, latestAnnotatedDate, CAVEAT: UPPER_LAW_CAVEAT } = require('./upper-laws.js');
@@ -233,6 +234,27 @@ async function searchRules(q, {fullText=false, page=1, pageShow=10, lawgroup='0'
 async function getContent(lawId, hid) {
   const html = await fp(`${CONTENT_URL}?SEQ=${lawId}&SEQ_HISTORY=${hid}`);
   return parseContent(html);
+}
+
+async function loadDonggukComparison(topic, terms, {signal}={}) {
+  const titled=await cached('university-title-search',hk(topic,1,5),TTL.history,()=>searchRules(topic,{pageShow:5}));
+  if(signal?.aborted) throw Object.assign(new Error('comparison timeout'),{code:'TOTAL_TIMEOUT'});
+  const found=titled.hits.length?{...titled,mode:'title_search'}:
+    {...await cached('university-full-search',hk(topic,1,5),TTL.history,()=>searchRules(topic,{fullText:true,pageShow:5})),mode:'full_text_search'};
+  const rules=[], failures=[];
+  for (const hit of rankRuleHits(found.hits,topic).slice(0,5)) {
+    if(signal?.aborted) break;
+    try {
+      const latest=await resolve(hit.lawId);
+      if(signal?.aborted) break;
+      const content=await cached(CONTENT_CACHE,`${hit.lawId}_${latest.historyId}`,TTL.content,()=>getContent(hit.lawId,latest.historyId));
+      if (!content.markdown) throw Object.assign(new Error('empty content'),{code:'UPSTREAM_FORMAT_CHANGED'});
+      const title=/^(?:\S\s+)+\S$/.test(content.title||'')?content.title.replace(/\s+/g,''):content.title;
+      rules.push({...hit,...content,title,historyId:latest.historyId,revisedAt:latest.revisedAt,
+        url:`${FULLVIEW_URL}?SEQ=${hit.lawId}&SEQ_HISTORY=${latest.historyId}`});
+    } catch(e) { const code=comparisonErrorCode(e);failures.push({lawId:hit.lawId,code});if(code!=='UPSTREAM_FORMAT_CHANGED') break; }
+  }
+  return {rules,failures,coverage:{mode:found.mode,totalCandidates:found.total,scannedRules:rules.length,truncated:found.total>rules.length}};
 }
 
 // === 원문 HWP (HTML 본문에 없는 별표·표 포함) ===
@@ -1254,6 +1276,14 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['query']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'compare_university_rules', title:'타대학 규정 조문 비교',
+    description:'동국대와 타대학의 같은 주제 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 서버에서 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 허용 필요. 국민·숭실은 전문검색, 고려·건국은 최근 목록만 탐색합니다. 외부대학별 최대 3개 규정, 전체 40초 제한입니다. 미지원 대학·접속 실패·미발견을 구분합니다. HTML 별표 누락 및 시행일 미확인에 유의하세요.',
+    inputSchema:{type:'object',properties:{
+      topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여'},
+      universities:{type:'array',minItems:1,maxItems:5,items:{type:'string'},description:'타대학 키: korea, uos, konkuk, kookmin, ssu. dongguk은 자동 포함. 다른 키는 unsupported로 표시.'},
+      max_articles:{type:'integer',minimum:1,maximum:5,default:3}
+    },required:['topic','universities']}, outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'check_rule_updates', title:'규정 개정 여부 일괄 점검', description:'여러 규정의 최신 개정본을 한 번에 확인합니다. law_ids와 이전 응답의 nextSnapshot(previous)을 주면 규정별로 개정됨·변동 없음·첫 확인을 구분하고, since(날짜)를 주면 그 날짜 이후 개정된 규정 목록을 반환합니다. 변경 내용은 compare_rule_versions로 이어서 확인하세요. 시행일·적용 여부는 판단하지 않습니다.',
     inputSchema:{ type:'object', properties:{
       law_ids:{type:'array',items:{type:'integer',minimum:1},minItems:1,maxItems:50,description:'점검할 LAW_ID 목록. 예: [184, 103, 180]'},
@@ -1291,7 +1321,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
   const name = req.params.name;
   const a = req.params.arguments || {};   // [하드닝] arguments 누락 방어
   try{
-    if(['query','keyword','rule_keyword','terms','text','grep'].some(key=>typeof a[key]==='string'&&hasSensitiveInput(a[key]))) return serializeOutcome(name,failure('SENSITIVE_INPUT','개인번호·계좌·인증정보를 제거한 업무 질문만 입력하세요.'));
+    if(['query','keyword','rule_keyword','terms','text','grep','topic'].some(key=>typeof a[key]==='string'&&hasSensitiveInput(a[key]))) return serializeOutcome(name,failure('SENSITIVE_INPUT','개인번호·계좌·인증정보를 제거한 업무 질문만 입력하세요.'));
     for(const [key,min,max] of [['limit',1,50],['offset',0,500],['top',1,10],['per_doc',1,100],['head',1,10000]]){if(a[key]!==undefined&&(!Number.isInteger(a[key])||a[key]<min||a[key]>max))return serializeOutcome(name,failure('INVALID_ARGUMENT',`${key}는 ${min}~${max} 범위 정수여야 합니다.`));}
     if(a.include_appendices!==undefined&&typeof a.include_appendices!=='boolean')return serializeOutcome(name,failure('INVALID_ARGUMENT','include_appendices는 boolean이어야 합니다.'));
     if(profile!=='finance' && FINANCE_TOOLS.has(name)) return serializeOutcome(name,failure('TOOL_NOT_AVAILABLE','공통 규정 프로필에서는 내부 재무 기능을 제공하지 않습니다.'));
@@ -1308,9 +1338,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?13:17,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?14:18,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.fullTextIndex=indexStatus();
+        data.integrations.universityComparison={configured:process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED==='1',tool:'compare_university_rules',totalTimeoutMs:40000};
         data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws'};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
@@ -1346,6 +1377,13 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           maxChars:a.max_chars,includeHistory:a.include_history,explicitLawId:a.law_id||normalized.catalogRule?.lawId,catalogRule:normalized.catalogRule,
         });
         break;
+      }
+      case 'compare_university_rules': {
+        if(process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED!=='1'){r=failure('NOT_CONFIGURED','타대학 비교는 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1로 켠 경우에만 외부 요청을 수행합니다.');break;}
+        const invalid=validateComparison(a);
+        if(invalid){r=failure('INVALID_ARGUMENT',invalid);break;}
+        const data=await compareUniversityRules(a,{loadDongguk:loadDonggukComparison});
+        r=success(formatComparison(data),data);break;
       }
       case 'search_rule': r=await hSearch(a.keyword,{fullText:a.full_text,limit:a.limit,offset:a.offset,campus:a.campus}); break;
       case 'get_rule_content': r=await hContent(a.law_id,a.history_id,{article:a.article,chapter:a.chapter,grep:a.grep,head:a.head}); break;
