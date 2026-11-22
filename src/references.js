@@ -208,7 +208,7 @@ function extractReferences(text, resolver) {
 
   const seen = new Set();
   return found.sort((a, b) => a.position - b.position).filter(item => {
-    const key = [item.scope, normalizeName(item.name), item.article || ''].join('|');
+    const key = [item.scope, normalizeName(item.name), item.article || '', item.paragraph || ''].join('|');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

@@ -99,6 +99,9 @@ async function main() {
     const found = extractReferences('「사립학교법」 제29조, 제31조 및 제32조의2제3항에 따른다.', resolver);
     assert.deepEqual(found.map(x => x.article), ['제29조', '제31조', '제32조의2']);
     assert.equal(found[2].paragraph, '제3항');
+    const paragraphs = extractReferences('「사립학교법」 제29조제1항 및 「사립학교법」 제29조제2항, 「사립학교법」 제29조제1항', createResolver([]));
+    assert.deepEqual(paragraphs.map(x => `${x.article} ${x.paragraph}`), ['제29조 제1항', '제29조 제2항']);
+    assert.deepEqual(summarizeExternalLaws(paragraphs)[0].articles, ['제29조']);
     assert.deepEqual(refs('「학칙」 제5조 및 「사립학교법」 제53조의2와 제54조').slice(1), ['external_law|사립학교법|제53조의2|quoted_name', 'external_law|사립학교법|제54조|quoted_name']);
   });
   await check('동법·같은 법은 바로 앞 법령으로 연결', async () => {
