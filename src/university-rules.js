@@ -96,13 +96,10 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
     const pending = (async () => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), Math.max(1, Math.min(timeoutMs, budgetMs)));
-      const stop = () => controller.abort();
-      signal?.addEventListener('abort', stop, {once:true});
       try {
         const slot = Math.max(Date.now(), nextRequest.get(source.key) || 0);
         nextRequest.set(source.key, slot + minIntervalMs);
         await abortable(new Promise(resolve => setTimeout(resolve, Math.max(0, slot - Date.now()))), controller.signal, 'UPSTREAM_UNAVAILABLE');
-        if (signal?.aborted) throw error('TOTAL_TIMEOUT');
         const res = await fetchImpl(source.origin + path, {
           method: body ? 'POST' : 'GET', body, redirect: 'manual',
           signal: controller.signal, size: 2 * 1024 * 1024,
@@ -124,10 +121,12 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
         if (cache.size >= maxEntries) cache.delete(cache.keys().next().value);
         if (!disabled()) cache.set(key, { at: now(), text: html });
         return html;
-      } finally { clearTimeout(timer); signal?.removeEventListener('abort', stop); }
+      } finally { clearTimeout(timer); }
     })();
     inflight.set(key, pending);
-    try { return await abortable(pending, signal); } finally { inflight.delete(key); }
+    const cleanup = () => { if (inflight.get(key) === pending) inflight.delete(key); };
+    pending.then(cleanup, cleanup);
+    return abortable(pending, signal);
   }
   return { request };
 }
@@ -162,6 +161,13 @@ async function loadExternal(source, topic, terms, client, signal) {
     coverage = { mode: 'recent_list_only', totalCandidates: pairs.length, truncated: pairs.length > hits.length, complete: false };
   }
   const rules = [], failures = [];
+  const compact = s => String(s).replace(/\s+/g,'');
+  const query = compact(topic);
+  const rank = hit => {
+    const title = compact(hit.title.split(/제\s*\d+\s*조/)[0]);
+    return title === query || title === query+'규정' ? 100 : title.includes(query) ? 10 : 0;
+  };
+  hits.sort((a,b)=>rank(b)-rank(a));
   for (const hit of hits.slice(0, 3)) {
     try {
       const parsed = parseExternalContent(await request(`/lmxsrv/law/lawFullContent.${source.ext}?SEQ=${hit.lawId}&SEQ_HISTORY=${hit.historyId}`));

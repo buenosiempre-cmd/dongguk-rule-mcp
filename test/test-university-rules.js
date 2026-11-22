@@ -8,7 +8,10 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'university-test-'));
 process.env.XDG_CACHE_HOME = root;
 process.env.DONGGUK_MCP_NO_CACHE = '0';
 const fetchPath = require.resolve('node-fetch');
-require.cache[fetchPath].exports = async url => {
+const searchModes=[];
+require.cache[fetchPath].exports = async (url,options) => {
+  const params=new URLSearchParams(options.body);searchModes.push(params.get('SEARCH_TYPE'));
+  if(params.get('SEARCH_TEXT')==='빈제목'&&params.get('SEARCH_TYPE')==='LAWNAME') return response('<p class="infoLeft"><span>0</span>건</p>');
   assert(String(url).startsWith('https://rule.dongguk.edu/lmxsrv/search/'));
   return response(`<p class="infoLeft"><span>1</span>건</p><table><tbody class="tbody"><tr><td class="tbody_txt"><a href="javascript:lawSearchFullViewSrv('1','2');"><span onclick='showSearchText("1-1")'></span><span onclick='showSearchText("여비규정")'></span></a></td></tr></tbody></table>`);
 };
@@ -105,6 +108,15 @@ async function main() {
     assert.equal(d.columns[1].coverage.mode,'full_text_search_first_page');
     assert.equal(parseUniversitySearch('<p>전체:0건</p>',true).hits.length,0);
   });
+  await check('전문검색 후보는 주제 규정 제목을 먼저 조회', async () => {
+    const paths=[];
+    const c={request:async(s,path)=>{
+      if(path.includes('searchEngineTotal')) return '<p>전체:4건</p>'+[1,2,3,4].map(id=>`<a onclick="thisReadLaw(${id},10)">${id===4?'여비규정':'기타규정'} 제1조</a>`).join('');
+      paths.push(path);return body('여비규정');
+    }};
+    const r=await loadExternal(SOURCES[4],'여비',['여비'],c);
+    assert.match(paths[0],/SEQ=4&/);assert.equal(paths.length,3);assert(r.coverage.truncated);
+  });
   await check('전체 시간 제한 후 후속 대학 요청 금지 및 취소 전달', async () => {
     let calls=0,signal;
     const started=Date.now();
@@ -114,6 +126,17 @@ async function main() {
     });
     assert(Date.now()-started<500);assert(signal.aborted);assert.equal(calls,0);
     assert(d.columns.every(c=>c.code==='TOTAL_TIMEOUT'));
+  });
+  await check('공유 원문은 한 호출 취소로 다른 대기자가 실패하지 않음', async () => {
+    let calls=0,release;
+    const ready=new Promise(resolve=>{release=resolve;});
+    const c=createPublicClient({minIntervalMs:0,fetchImpl:async(url,opts)=>{calls++;await ready;assert(!opts.signal.aborted);return response(body('여비규정'));}});
+    const controller=new AbortController(),path='/lmxsrv/law/lawFullContent.do?SEQ=1&SEQ_HISTORY=2';
+    const first=c.request(SOURCES[1],path,undefined,8000,controller.signal);
+    const rejected=assert.rejects(first,e=>e.code==='TOTAL_TIMEOUT');
+    const second=c.request(SOURCES[1],path);
+    controller.abort();await rejected;release();
+    assert.match(await second,/여비규정/);assert.equal(calls,1);
   });
   await check('같은 대학 요청은 간격을 두고 실행', async () => {
     const starts=[];
@@ -130,11 +153,13 @@ async function main() {
       const disabled=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['uos']}})).structuredContent;assert.equal(disabled.error.code,'NOT_CONFIGURED');
       process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='1';
       seed('history','1',[{historyId:3,revisedAt:'2026.11.01'}]);
-      seed('content-v3','1_3',{title:'여비규정',markdown:'### 제2조(여비)\n여비 출장 숙박 지급'});
+      seed('content-v3','1_3',{title:'여 비 규 정',markdown:'### 제2조(여비)\n여비 출장 숙박 지급'});
       const live=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['yonsei']}})).structuredContent;
-      assert.equal(live.data.columns[0].status,'retrieved');assert.equal(live.data.columns[0].articles[0].historyId,3);
+      assert.equal(live.data.columns[0].status,'retrieved');assert.equal(live.data.columns[0].articles[0].historyId,3);assert.equal(live.data.columns[0].articles[0].universityRule,'여비규정');
       assert.equal(live.data.columns[0].articles[0].revisedAt,'2026.11.01');
       assert.equal(live.data.columns[1].status,'unsupported');
+      const fallback=(await client.callTool({name:'compare_university_rules',arguments:{topic:'빈제목',universities:['yonsei']}})).structuredContent;
+      assert.equal(fallback.data.columns[0].coverage.mode,'full_text_search');assert.deepEqual(searchModes.slice(-2),['LAWNAME','CONTENTS']);
       const invalid=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:[]}})).structuredContent;assert.equal(invalid.error.code,'INVALID_ARGUMENT');
       const sensitive=(await client.callTool({name:'compare_university_rules',arguments:{topic:'password=example-secret',universities:['uos']}})).structuredContent;assert.equal(sensitive.error.code,'SENSITIVE_INPUT');
     } finally {delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;await client.close();await server.close();}

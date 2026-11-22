@@ -218,37 +218,38 @@ async function fpBuffer(url, opts={}) {
 }
 
 // === 검색 (POST — Python 원본 그대로) ===
-async function searchRules(q, {fullText=false, page=1, pageShow=10, lawgroup='0', signal}={}) {
+async function searchRules(q, {fullText=false, page=1, pageShow=10, lawgroup='0'}={}) {
   const body = new URLSearchParams({
     PAGE:String(page), PAGE_SHOW:String(pageShow), LAWGROUP:lawgroup,
     SEARCH_TYPE: fullText?'CONTENTS':'LAWNAME', SEARCH_TEXT:q,
   });
   const html = await fp(SEARCH_URL, {
-    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString(), signal,
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString(),
   });
   return parseSearch(html, page, pageShow);
 }
 
 // === 본문 (GET + CSS 클래스 기반 파싱) ===
-async function getContent(lawId, hid, {signal}={}) {
-  const html = await fp(`${CONTENT_URL}?SEQ=${lawId}&SEQ_HISTORY=${hid}`, {signal});
+async function getContent(lawId, hid) {
+  const html = await fp(`${CONTENT_URL}?SEQ=${lawId}&SEQ_HISTORY=${hid}`);
   return parseContent(html);
 }
 
 async function loadDonggukComparison(topic, terms, {signal}={}) {
-  const found = await cached('university-search-v2',hk(topic,1,5),TTL.history,async()=>{
-    const titled=await searchRules(topic,{pageShow:5,signal});
-    if(titled.hits.length) return {...titled,mode:'title_search'};
-    return {...await searchRules(topic,{fullText:true,pageShow:5,signal}),mode:'full_text_search'};
-  });
+  const titled=await cached('university-title-search',hk(topic,1,5),TTL.history,()=>searchRules(topic,{pageShow:5}));
+  if(signal?.aborted) throw Object.assign(new Error('comparison timeout'),{code:'TOTAL_TIMEOUT'});
+  const found=titled.hits.length?{...titled,mode:'title_search'}:
+    {...await cached('university-full-search',hk(topic,1,5),TTL.history,()=>searchRules(topic,{fullText:true,pageShow:5})),mode:'full_text_search'};
   const rules=[], failures=[];
   for (const hit of rankRuleHits(found.hits,topic).slice(0,5)) {
     if(signal?.aborted) break;
     try {
-      const latest=await resolve(hit.lawId,undefined,{signal});
-      const content=await cached(CONTENT_CACHE,`${hit.lawId}_${latest.historyId}`,TTL.content,()=>getContent(hit.lawId,latest.historyId,{signal}));
+      const latest=await resolve(hit.lawId);
+      if(signal?.aborted) break;
+      const content=await cached(CONTENT_CACHE,`${hit.lawId}_${latest.historyId}`,TTL.content,()=>getContent(hit.lawId,latest.historyId));
       if (!content.markdown) throw Object.assign(new Error('empty content'),{code:'UPSTREAM_FORMAT_CHANGED'});
-      rules.push({...hit,...content,historyId:latest.historyId,revisedAt:latest.revisedAt,
+      const title=/^(?:\S\s+)+\S$/.test(content.title||'')?content.title.replace(/\s+/g,''):content.title;
+      rules.push({...hit,...content,title,historyId:latest.historyId,revisedAt:latest.revisedAt,
         url:`${FULLVIEW_URL}?SEQ=${hit.lawId}&SEQ_HISTORY=${latest.historyId}`});
     } catch(e) { const code=comparisonErrorCode(e);failures.push({lawId:hit.lawId,code});if(code!=='UPSTREAM_FORMAT_CHANGED') break; }
   }
@@ -268,20 +269,20 @@ async function getOriginalContent(historyId) {
 }
 
 // === 연혁 (POST → select#histroySeq 파싱) ===
-async function getHistory(lawId,{signal}={}) {
+async function getHistory(lawId) {
   const body = new URLSearchParams({
     PAGE:'1', PAGE_SHOW:'10', LAWGROUP:'0',
     SEARCH_TYPE:'LAWNAME', SEARCH_TEXT:' ',
     SEQ:String(lawId), SEQ_HISTORY:'0', REFID:'',
   });
   const html = await fp(FULLVIEW_URL, {
-    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString(), signal,
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString(),
   });
   return parseHistory(html);
 }
-async function resolve(lawId, hid,{signal}={}) {
+async function resolve(lawId, hid) {
   const h = toId(hid);
-  const entries = await cached('history', String(lawId), TTL.history, ()=>getHistory(lawId,{signal}));
+  const entries = await cached('history', String(lawId), TTL.history, ()=>getHistory(lawId));
   if(!entries.length) throw new Error(`LAW_ID ${lawId}의 연혁을 찾을 수 없습니다. law_id가 올바른지 확인하세요.`);
   const l=h?entries.find(entry=>entry.historyId===h):entries[0];
   if(!l) throw Object.assign(new Error(`HISTORY_ID ${h}는 LAW_ID ${lawId}의 연혁에 없습니다.`),{code:'HISTORY_NOT_FOUND'});
