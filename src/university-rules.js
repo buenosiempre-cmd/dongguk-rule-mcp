@@ -2,7 +2,7 @@
 
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
-const { parseContent, listArticleBlocks } = require('./parsers');
+const { listArticleBlocks } = require('./parsers');
 
 // Endpoint settings and LawMaster pair parsing ported from kr-univ-rule-mcp,
 // tools/probe/probe.js (e56044f), MIT; attribution in docs/THIRD_PARTY.md.
@@ -11,8 +11,8 @@ const SOURCES = Object.freeze([
   { key: 'korea', name: '고려대학교', origin: 'https://policies.korea.ac.kr', ext: 'do', mode: 'recent_list' },
   { key: 'uos', name: '서울시립대학교', origin: 'http://rule.uos.ac.kr', ext: 'srv', mode: 'search' },
   { key: 'konkuk', name: '건국대학교', origin: 'https://rule.konkuk.ac.kr', ext: 'do', mode: 'recent_list' },
-  { key: 'kookmin', name: '국민대학교', origin: 'https://rule.kookmin.ac.kr', ext: 'do', mode: 'recent_list' },
-  { key: 'ssu', name: '숭실대학교', origin: 'http://rule.ssu.ac.kr', ext: 'do', mode: 'recent_list' },
+  { key: 'kookmin', name: '국민대학교', origin: 'https://rule.kookmin.ac.kr', ext: 'do', mode: 'search_do' },
+  { key: 'ssu', name: '숭실대학교', origin: 'http://rule.ssu.ac.kr', ext: 'do', mode: 'search_do' },
 ].map(Object.freeze));
 const TOPICS = {
   '여비': ['여비', '출장', '숙박'], '겸직': ['겸직', '겸업'],
@@ -38,7 +38,7 @@ function parsePairs(html) {
   };
   $('a, [onclick]').each(function () {
     const el = $(this), source = (el.attr('href') || '') + ' ' + (el.attr('onclick') || '');
-    const m = /(?:fullPopupPost|lawSearchFullView\w*)\(\s*['"]?(\d+)['"]?\s*,\s*['"]?(\d+)/.exec(source)
+    const m = /(?:fullPopupPost|thisReadLaw|lawSearchFullView\w*)\(\s*['"]?(\d+)['"]?\s*,\s*['"]?(\d+)/.exec(source)
       || /SEQ=(\d+)&(?:amp;)?SEQ_HISTORY=(\d+)/.exec(source);
     if (m) add(m[1], m[2], el.text().replace(/\s+/g, ' ').trim());
   });
@@ -48,26 +48,61 @@ function parsePairs(html) {
   return pairs;
 }
 
-function parseUniversitySearch(html) {
+function parseExternalContent(html) {
   const $ = cheerio.load(html);
-  const totalMatch = /([\d,]+)\s*건/.exec($('p.infoLeft').text());
+  $('.doc_btn, caption, script, style').remove();
+  const root = $('.fullbody').length ? $('.fullbody') : $('body');
+  const title = root.find('.lawname').first().text().replace(/\s+/g, ' ').trim();
+  const lines = [];
+  root.find('div, span').each(function () {
+    const classes = ($(this).attr('class') || '').split(/\s+/);
+    const text = $(this).text().replace(/\s+/g, ' ').trim();
+    if (!text || classes.includes('lawname')) return;
+    if (classes.includes('addenda')) lines.push(`## ${text.replace(/^부\s*칙\s*/, '부칙 ')}`);
+    else if (classes.includes('chapter')) lines.push(`## ${text}`);
+    else if (classes.includes('article') && /^제\s*\d+\s*조/.test(text)) lines.push(`### ${text}`);
+    else if (['none','hang','ho','mok'].some(c => classes.includes(c))) lines.push(text);
+  });
+  return {title,markdown:lines.join('\n')};
+}
+
+function parseUniversitySearch(html, modern = false) {
+  const $ = cheerio.load(html);
+  const totalMatch = modern ? /전체\s*:\s*([\d,]+)\s*건/.exec($('body').text()) : /([\d,]+)\s*건/.exec($('p.infoLeft').text());
   const hits = parsePairs(html);
   if (!totalMatch || (+totalMatch[1].replaceAll(',', '') > 0 && !hits.length)) throw error('UPSTREAM_FORMAT_CHANGED');
   return { total: Number(totalMatch[1].replaceAll(',', '')), hits };
 }
 
-function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000, maxEntries = 64, timeoutMs = 8000, disabled = () => ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE || '').trim().toLowerCase()) } = {}) {
-  const cache = new Map(), inflight = new Map();
-  async function request(source, path, body, budgetMs = timeoutMs) {
+function abortable(promise, signal, code = 'TOTAL_TIMEOUT') {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(error(code));
+  return new Promise((resolve, reject) => {
+    const stop = () => reject(error(code));
+    signal.addEventListener('abort', stop, { once: true });
+    Promise.resolve(promise).then(resolve, reject).finally(() => signal.removeEventListener('abort', stop));
+  });
+}
+
+function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000, maxEntries = 64, timeoutMs = 8000, minIntervalMs = 500, disabled = () => ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE || '').trim().toLowerCase()) } = {}) {
+  const cache = new Map(), inflight = new Map(), nextRequest = new Map();
+  async function request(source, path, body, budgetMs = timeoutMs, signal) {
+    if (signal?.aborted) throw error('TOTAL_TIMEOUT');
     if (!SOURCES.includes(source) || source.key === 'dongguk' || !/^\/lmxsrv\/(law|search)\//.test(path)) throw error('SOURCE_NOT_ALLOWED');
     const key = source.key + ':' + path + ':' + (body || '');
     const hit = cache.get(key);
     if (!disabled() && hit && now() - hit.at < ttlMs) return hit.text;
-    if (inflight.has(key)) return inflight.get(key);
+    if (inflight.has(key)) return abortable(inflight.get(key), signal);
     const pending = (async () => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), Math.max(1, Math.min(timeoutMs, budgetMs)));
+      const stop = () => controller.abort();
+      signal?.addEventListener('abort', stop, {once:true});
       try {
+        const slot = Math.max(Date.now(), nextRequest.get(source.key) || 0);
+        nextRequest.set(source.key, slot + minIntervalMs);
+        await abortable(new Promise(resolve => setTimeout(resolve, Math.max(0, slot - Date.now()))), controller.signal, 'UPSTREAM_UNAVAILABLE');
+        if (signal?.aborted) throw error('TOTAL_TIMEOUT');
         const res = await fetchImpl(source.origin + path, {
           method: body ? 'POST' : 'GET', body, redirect: 'manual',
           signal: controller.signal, size: 2 * 1024 * 1024,
@@ -81,17 +116,18 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
         if (/type\s*=\s*["']password/i.test(html)) throw error('SESSION_REQUIRED');
         if (path.includes('lawNewList.') && !parsePairs(html).length) throw error('UPSTREAM_FORMAT_CHANGED');
         if (path.includes('lawSerach.')) parseUniversitySearch(html);
+        if (path.includes('searchEngineTotal.')) parseUniversitySearch(html, true);
         if (path.includes('lawFullContent.')) {
-          const parsed = parseContent(html);
+          const parsed = parseExternalContent(html);
           if (!parsed.title || !listArticleBlocks(parsed.markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
         }
         if (cache.size >= maxEntries) cache.delete(cache.keys().next().value);
         if (!disabled()) cache.set(key, { at: now(), text: html });
         return html;
-      } finally { clearTimeout(timer); }
+      } finally { clearTimeout(timer); signal?.removeEventListener('abort', stop); }
     })();
     inflight.set(key, pending);
-    try { return await pending; } finally { inflight.delete(key); }
+    try { return await abortable(pending, signal); } finally { inflight.delete(key); }
   }
   return { request };
 }
@@ -100,41 +136,48 @@ function sourceUrl(s, hit) {
   return `${s.origin}/lmxsrv/law/lawFullView.${s.ext}?SEQ=${hit.lawId}&SEQ_HISTORY=${hit.historyId}`;
 }
 
-async function loadExternal(source, topic, terms, client) {
+async function loadExternal(source, topic, terms, client, signal) {
   let hits, coverage;
   const deadline = Date.now() + 15000;
   const request = (path, body) => {
+    if (signal?.aborted) throw error('TOTAL_TIMEOUT');
     if (Date.now() >= deadline) throw error('UPSTREAM_UNAVAILABLE');
-    return client.request(source, path, body, deadline - Date.now());
+    return client.request(source, path, body, deadline - Date.now(), signal);
   };
   if (source.mode === 'search') {
     const body = new URLSearchParams({ PAGE: '1', PAGE_SHOW: '5', LAWGROUP: '0', SEARCH_TYPE: 'CONTENTS', SEARCH_TEXT: topic }).toString();
     const result = parseUniversitySearch(await request(`/lmxsrv/search/lawSerach.${source.ext}`, body));
     hits = result.hits;
-    coverage = { mode: 'full_text_search', totalCandidates: result.total, truncated: result.total > hits.length };
+    coverage = { mode: 'full_text_search', totalCandidates: result.total, truncated: result.total > Math.min(hits.length, 3) };
+  } else if (source.mode === 'search_do') {
+    const body = new URLSearchParams({currentYN:'1',search_keyword:topic,search_type:'lawContents',search_page:'1'}).toString();
+    const result = parseUniversitySearch(await request('/lmxsrv/search/searchEngineTotal.do', body), true);
+    hits = result.hits;
+    coverage = {mode:'full_text_search_first_page',totalCandidates:result.total,truncated:result.total > Math.min(hits.length,3)};
   } else {
     const pairs = parsePairs(await request(`/lmxsrv/law/lawNewList.${source.ext}`));
     if (!pairs.length) throw error('UPSTREAM_FORMAT_CHANGED');
     const named = pairs.filter(x => terms.some(t => x.title.includes(t)));
-    hits = [...named, ...pairs.filter(x => !named.includes(x))].slice(0, 8);
+    hits = [...named, ...pairs.filter(x => !named.includes(x))].slice(0, 3);
     coverage = { mode: 'recent_list_only', totalCandidates: pairs.length, truncated: pairs.length > hits.length, complete: false };
   }
   const rules = [], failures = [];
-  for (const hit of hits.slice(0, 8)) {
+  for (const hit of hits.slice(0, 3)) {
     try {
-      const parsed = parseContent(await request(`/lmxsrv/law/lawFullContent.${source.ext}?SEQ=${hit.lawId}&SEQ_HISTORY=${hit.historyId}`));
+      const parsed = parseExternalContent(await request(`/lmxsrv/law/lawFullContent.${source.ext}?SEQ=${hit.lawId}&SEQ_HISTORY=${hit.historyId}`));
       if (!parsed.title || !listArticleBlocks(parsed.markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
       rules.push({ ...hit, ...parsed, url: sourceUrl(source, hit), revisedAt: hit.revisedAt || null, effectiveAt: null });
     } catch (e) {
       failures.push({ lawId: hit.lawId, historyId: hit.historyId, code: safeCode(e) });
-      if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED'].includes(safeCode(e))) break;
+      if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
   return { rules, failures, coverage: { ...coverage, scannedRules: rules.length, attemptedRules: rules.length + failures.length } };
 }
 
 function safeCode(e) {
-  return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
+  if (/^HTTP (401|403):/.test(e?.message || '')) return 'ACCESS_DENIED';
+  return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE', 'TOTAL_TIMEOUT'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
 }
 
 function selectArticles(rules, terms, limit) {
@@ -149,28 +192,33 @@ function selectArticles(rules, terms, limit) {
         matchedTerms, url: rule.url, revisedAt: rule.revisedAt || null, effectiveAt: null });
     }
   }
-  matches.sort((a, b) => b.matchedTerms.length - a.matchedTerms.length);
+  matches.sort((a, b) => (b.matchedTerms.length + (b.matchedTerms.includes(terms[0]) ? 0.5 : 0)) - (a.matchedTerms.length + (a.matchedTerms.includes(terms[0]) ? 0.5 : 0)));
   return { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
 }
 
 const publicClient = createPublicClient();
-async function compareUniversityRules(a, { loadDongguk, client = publicClient, now = () => new Date() } = {}) {
+async function compareUniversityRules(a, { loadDongguk, client = publicClient, now = () => new Date(), totalTimeoutMs = 40000 } = {}) {
   const invalid = validateArguments(a);
   if (invalid) throw Object.assign(new Error(invalid), { code: 'INVALID_ARGUMENT' });
   const topic = a.topic.trim(), terms = TOPICS[topic] || topic.split(/\s+/), columns = [];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), totalTimeoutMs);
+  try {
   // Sequential schools bound upstream concurrency and preserve deterministic order.
   for (const key of ['dongguk', ...new Set(a.universities)]) {
     const source = SOURCES.find(x => x.key === key);
     if (!source) { columns.push({ university: key, status: 'unsupported', articles: [] }); continue; }
     try {
-      const result = key === 'dongguk' ? await loadDongguk(topic, terms) : await loadExternal(source, topic, terms, client);
+      if (controller.signal.aborted) throw error('TOTAL_TIMEOUT');
+      const result = await abortable(key === 'dongguk' ? loadDongguk(topic, terms, {signal:controller.signal}) : loadExternal(source, topic, terms, client, controller.signal), controller.signal);
       const selected = selectArticles(result.rules, terms, a.max_articles || 3);
       const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated);
       columns.push({ university: key, name: source.name, status: result.rules.length === 0 && result.failures.length ? 'unavailable' : selected.articles.length ? (partial ? 'partial' : 'retrieved') : 'no_match_in_scope', ...selected, coverage: result.coverage, failures: result.failures });
     } catch (e) { columns.push({ university: key, name: source.name, status: 'unavailable', code: safeCode(e), articles: [] }); }
   }
   return { topic, terms, checkedAt: now().toISOString(), status: columns.every(x => x.status === 'retrieved') ? 'retrieved' : 'partial', columns,
-    alignment: 'topic_keyword_matches_not_legal_equivalence', notice: NOTICE, supportedUniversities: SOURCES.map(x => ({ key: x.key, name: x.name, scope: x.mode })) };
+    alignment: 'topic_keyword_matches_not_legal_equivalence', notice: NOTICE, supportedUniversities: SOURCES.map(x => ({ key: x.key, name: x.name, scope: x.mode })), limits:{totalTimeoutMs,externalRulesPerUniversity:3,minRequestIntervalMs:500} };
+  } finally { clearTimeout(timer); }
 }
 
 function formatComparison(data) {
@@ -182,11 +230,16 @@ function formatComparison(data) {
   for (let i = 0; i < Math.max(0, ...data.columns.map(c => c.articles.length)); i++) {
     lines.push(`| 발췌 ${i + 1} | ` + data.columns.map(c => {
       const a = c.articles[i];
-      return a ? `${esc(a.universityRule)} ${esc(a.article)}<br>${esc(a.text)}${a.textTruncated ? ' [잘림]' : ''}<br>개정일 ${esc(a.revisedAt)} / 시행일 미확인<br>[원문](${a.url})` : '범위 내 발췌 없음';
+      return a ? `${esc(a.universityRule)} ${esc(a.article)}<br>${esc(a.text.slice(0,240))}${a.text.length>240 ? ' …(본문 아래)' : ''}<br>개정일 ${esc(a.revisedAt)} / 시행일 미확인<br>[원문](${a.url})` : '범위 내 발췌 없음';
     }).join(' | ') + ' |');
+  }
+  for (const c of data.columns) {
+    if (!c.articles.length) continue;
+    lines.push('', `## ${c.name || c.university} 조문 본문`);
+    for (const a of c.articles) lines.push('', `### ${a.universityRule} ${a.article}`, a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`);
   }
   lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}`));
   return lines.join('\n');
 }
 
-module.exports = { SOURCES, parsePairs, parseUniversitySearch, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal };
+module.exports = { SOURCES, parsePairs, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode };
