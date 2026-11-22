@@ -93,7 +93,7 @@ async function main() {
   const call = async (name, args) => (await client.callTool({ name, arguments: args })).structuredContent;
   try {
     const tools = (await client.listTools()).tools.map(t => t.name);
-    check('새 도구 등록', tools.includes('check_rule_updates') && tools.includes('get_rule_references') && tools.length === 12);
+    check('새 도구 등록', tools.includes('check_rule_updates') && tools.includes('get_rule_references') && tools.length === 14);
     for (const args of [{}, { law_ids: [] }, { law_ids: [1.5] }, { law_ids: 'x' }, { since: '2026-13-01' }, { law_ids: [1], previous: [1] }, { law_ids: [1], previous: { a: 1 } }]) {
       check(`잘못된 입력 거부: ${JSON.stringify(args)}`, (await call('check_rule_updates', args)).error.code === 'INVALID_ARGUMENT');
     }
@@ -130,7 +130,7 @@ async function main() {
     check('현행 목록에 없는 규정은 partial', gone.data.documents[0].versionCheck === 'not_in_current_catalog' && gone.data.evidenceStatus === 'partial');
 
     const info = await call('get_service_info', {});
-    check('서비스 정보에 색인 상태', info.data.toolCount === 12 && info.data.fullTextIndex.available === true && info.data.fullTextIndex.indexedRules === 4);
+    check('서비스 정보에 색인 상태', info.data.toolCount === 14 && info.data.fullTextIndex.available === true && info.data.fullTextIndex.indexedRules === 4);
     check('외부 요청 없음', networkCalls === 0);
   } finally { await client.close(); await server.close(); fs.rmSync(root, { recursive: true, force: true }); }
   console.log(`📊 개정 점검·인용 관계·전문 색인 검증: ${passed}개 통과`);

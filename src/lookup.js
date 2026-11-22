@@ -34,6 +34,33 @@ function ruleNameFromQuery(value) {
   return new Set(names.map(normalizeText)).size === 1 ? names[0] : '';
 }
 
+// The longest current rule title written out in a question, spaces ignored.
+// Returns null when no title (or two unrelated titles) appears, so the caller
+// never picks one rule for a question that names several.
+function titleInQuery(query, catalog) {
+  const text = normalizeText(query);
+  const hits = [];
+  for (const rule of catalog || []) {
+    const title = normalizeText(rule.title);
+    if (title.length >= 4 && text.includes(title)) hits.push({ rule, title });
+  }
+  if (!hits.length) return null;
+  hits.sort((a, b) => b.title.length - a.title.length);
+  const longest = hits[0].title;
+  if (hits.some(hit => !longest.includes(hit.title))) return null;
+  const same = hits.filter(hit => hit.title === longest).map(hit => hit.rule);
+  return { title: same[0].title, rules: same };
+}
+
+// The question without the rule's own name, for ranking articles inside that rule.
+function withoutRuleName(query, name) {
+  const source = String(query || '');
+  const key = normalizeMiddots(String(name || '')).replace(/\s+/g, '');
+  if (!key) return source.trim();
+  const pattern = [...key].map(char => char === 'ㆍ' ? '[·ㆍ‧•・]' : char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[ \\t]*');
+  return source.replace(new RegExp(`[「『“‘"']?${pattern}[」』”’"']?(?:의|에서|에|은|는)?`, 'g'), ' ').replace(/\s+/g, ' ').trim();
+}
+
 function searchVariants(value) {
   const input = String(value || '').trim().replace(/\s+/g, ' ');
   if (!input) return [];
@@ -316,6 +343,8 @@ module.exports = {
   clampNumber,
   normalizeText,
   ruleNameFromQuery,
+  titleInQuery,
+  withoutRuleName,
   searchVariants,
   rankRuleHits,
   selectRuleCandidate,

@@ -37,14 +37,14 @@
 
 ## 연결 설정
 
-공개 `rules` 프로필과 `/mcp/rules`는 공개 규정 12개 도구를 제공합니다. 자동 연계는 선택한 `finance` 프로필의 기존 도구를 사용하며 도구 수는 16개입니다. 내부 자료팩 없이 출장비·강사료의 공개 원문 공동 조회를 사용할 수 있습니다. 해설서·실무팩·기존 카드 기능은 별도 설정이 필요합니다.
+공개 `rules` 프로필과 `/mcp/rules`는 공개 규정 14개 도구를 제공합니다. 자동 연계는 선택한 `finance` 프로필의 기존 도구를 사용하며 도구 수는 18개입니다. 내부 자료팩 없이 출장비·강사료의 공개 원문 공동 조회를 사용할 수 있습니다. 해설서·실무팩·기존 카드 기능은 별도 설정이 필요합니다.
 
 원격 한국법령 MCP를 사용할 때 필요한 설정:
 
 ```text
 DONGGUK_LEGAL_MCP_ENABLED=1
 DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http
-DONGGUK_LEGAL_MCP_URL=https://korean-law-mcp.fly.dev/mcp
+DONGGUK_LEGAL_MCP_URL=https://mcp.gomdori.app/law
 ```
 
 인증이 필요한 운영 서버에는 `DONGGUK_LEGAL_MCP_BEARER_TOKEN`을 별도 접근제한 설정으로 지정합니다. URL·질문·공개 저장소에 인증정보를 넣지 않습니다. 원격 연결에는 HTTPS를 사용하며 로컬 회귀검사용 loopback HTTP만 예외입니다. HTTP 모드는 `LAW_OC`를 요구하지 않습니다. 기존 stdio 방식과 `LAW_OC` 사용 방식도 유지합니다.

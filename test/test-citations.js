@@ -113,6 +113,9 @@ const deps = {
   check('부칙 실존 = ✓', by('부칙 제1조')?.status === 'EXISTS');
   check('부칙 미존재 = ✗', by('부칙 제9조')?.status === 'NOT_FOUND');
   check('검색 0건 = ⚠ (미존재 단정 금지)', r.citations.find(c => c.ruleName === '유령규정')?.status === 'RULE_SEARCH_MISS');
+  const law = await verifyRuleCitations('「사립학교법」 제29조와 「소득세법 시행령」 제12조, 「유령규정」 제1조', deps);
+  check('국가 법령 인용은 규정명 오기가 아니라 EXTERNAL_LAW', law.citations.filter(c => c.status === 'EXTERNAL_LAW').map(c => c.ruleName).join() === '사립학교법,소득세법 시행령'
+    && law.citations.find(c => c.ruleName === '유령규정')?.status === 'RULE_SEARCH_MISS' && law.summary.needsReview === 3, JSON.stringify(law.citations.map(c => [c.ruleName, c.status])));
   check('무관 검색결과 = ⚠ RULE_AMBIGUOUS', r.citations.find(c => c.ruleName === '장학규정')?.status === 'RULE_AMBIGUOUS');
   check('정규화 검색 변형은 규정당 각 1회 조회', calls.filter(q => q.includes('보수')).length === 2 && new Set(calls.filter(q => q.includes('보수'))).size === 2, JSON.stringify(calls));
   check('요약 집계 일치', r.summary.exists === 3 && r.summary.notFound === 3 && r.summary.needsReview === 3, JSON.stringify(r.summary));
