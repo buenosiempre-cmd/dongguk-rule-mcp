@@ -29,8 +29,11 @@ v0.14.0까지의 변경은 `docs/review-*.md`와 `docs/RELEASE-v0.12.0.md`에 �
 #### 테스트
 - `test/test-upper-laws.js` 19개 추가. `test/test-workflow-retrieval.js` 2개, `test/test-citations.js` 1개 추가.
 
+#### 실연결 확인 (2026-11-22)
+- 원격 한국법령 MCP `https://mcp.gomdori.app/law`(서버 표시 korean-law 4.15.25, 인증 없이 연결)로 `get_rule_upper_laws`를 실행했다. 재무회계규정(LAW_ID 180)은 법령 6건, 산학협력단 취업규칙(LAW_ID 379)은 법령 9건을 모두 `retrieved`로 확인했고, 옛 법령명 2건(「지가공시 및 토지 등의 평가에 관한 법률」, 「향토예비군설치법」)과 시행예정 개정을 표시했다.
+- 문서와 예시 파일의 원격 법령 서버 주소를 운영이 끝난 `korean-law-mcp.fly.dev/mcp`에서 `mcp.gomdori.app/law`로 바꿨다(`docs/AUTO_LEGAL_INTEGRATION.md`, `examples/finance-public.env.example`). 설치본과 공용 서버 설정은 바꾸지 않았다.
+
 #### 알려진 한계
-- 법령 서버 실연결로는 검증하지 못했다. 응답 형식은 한국법령 MCP v4.15.6의 실제 응답을 보고 맞췄다.
 - 법령은 조회 시점의 현행본과만 대조한다. 규정 개정 당시의 법령 조문과는 비교하지 않는다.
 - 주제 후보는 규정 제목의 단어로 고른다. 근거 법령으로 확정된 것이 아니다.
 

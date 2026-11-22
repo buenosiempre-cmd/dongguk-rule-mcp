@@ -44,7 +44,7 @@
 ```text
 DONGGUK_LEGAL_MCP_ENABLED=1
 DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http
-DONGGUK_LEGAL_MCP_URL=https://korean-law-mcp.fly.dev/mcp
+DONGGUK_LEGAL_MCP_URL=https://mcp.gomdori.app/law
 ```
 
 인증이 필요한 운영 서버에는 `DONGGUK_LEGAL_MCP_BEARER_TOKEN`을 별도 접근제한 설정으로 지정합니다. URL·질문·공개 저장소에 인증정보를 넣지 않습니다. 원격 연결에는 HTTPS를 사용하며 로컬 회귀검사용 loopback HTTP만 예외입니다. HTTP 모드는 `LAW_OC`를 요구하지 않습니다. 기존 stdio 방식과 `LAW_OC` 사용 방식도 유지합니다.
