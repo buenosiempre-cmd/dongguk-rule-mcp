@@ -61,7 +61,7 @@ dongguk-rule-mcp --print-config cursor
 
 급여·출장비·위임전결·과거 감사·기안문 인용에 바로 적용할 질문과 도구 입력 예시는 [업무 활용 가이드](docs/WORKFLOWS.md)를 참고하세요.
 
-## 공개 규정 도구 — 기본 12개
+## 공개 규정 도구 — 기본 13개
 
 | 도구 | 용도 |
 |---|---|
@@ -155,3 +155,22 @@ MIT. 원본 Python 구현: 서준호. Node.js MCP 포팅·운영 개선: 오승�
 [GitHub Issues](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues)에 버전·비식별 재현 질문·오류코드를 남겨주세요. 개인 정보·인증값·내부 문서를 첨부하지 않습니다.
 
 [Finance Desk 통합 기능과 외부 자료팩 설정](docs/FINANCE_DESK.md)
+
+## 타대학 규정 비교 (개발 중)
+
+`compare_university_rules`는 동국대와 타대학의 주제어 일치 조문을 학교별 열로 나란히 보여줍니다. 행 순서나 조문 번호는 법적 동등성을 뜻하지 않습니다.
+
+```json
+{"topic":"여비","universities":["korea","uos"],"max_articles":3}
+```
+
+- 동국대 자동 포함. 타대학 키: `korea`(고려), `uos`(서울시립), `konkuk`(건국), `kookmin`(국민), `ssu`(숭실). 최대 5개. 다른 영문 키는 `unsupported`.
+- `columns`마다 조문 번호·본문·규정명·URL·개정일·시행일(`effectiveAt:null`은 미확인), `status`, `coverage`, 실패 내역 제공. 학교당 최대 5개 조문, 조문당 2,000자이며 잘림 표시.
+- 고려·건국·국민·숭실은 **최근 목록의 최대 8개 규정**만 탐색. 제목 일치 후보 우선. 전체 검색이 아니므로 항상 `partial` 또는 `no_match_in_scope`. 동국·서울시립은 주제 문자열 전문검색 첫 5건.
+- `retrieved`, `partial`, `no_match_in_scope`, `unsupported`, `unavailable` 구분. 조문 미발견은 규정 부존재를 뜻하지 않음. HWP 별표·시행일·법적 적용성은 미확인.
+- 참고 저장소 2026년 7월 탐지 설정 포팅으로 현재 가용성을 보장하지 않음. 차단 우회·로그인·리다이렉트 없음. 서울시립·숭실은 참고 자료의 HTTP 공개 주소.
+- 외부대학에 쿠키·인증정보 전송 없음. 요청당 8초, 외부대학당 15초 예산, 응답 2 MiB 제한. 공개 응답 10분/최대 64개 메모리 캐시와 중복 요청 합치기. 백그라운드 크롤링·재시도 없음.
+
+합성 테스트 출력 예: 동국대 `제9조`와 고려대 `제3조`를 각각 발췌하고 고려대 열에 `coverage.mode:"recent_list_only"`, `status:"partial"`을 표시합니다. 실제 학교의 지급 기준을 뜻하지 않습니다.
+
+포팅 출처·라이선스: [THIRD_PARTY](docs/THIRD_PARTY.md).
