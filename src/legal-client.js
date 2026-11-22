@@ -344,5 +344,154 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   }
   return summarize(results,date,limits);
 }
+// --- Law identity and cited-article inspection (get_rule_upper_laws) ---
+// Reads the provider's listing as written: "N. 이름 [현행]" blocks, the
+// "옛 법령명" notice for renamed laws and the "개정 시행예정" notice.
+function listedLaws(text){
+  const laws=[];
+  for(const m of text.matchAll(/^\d+\. (.+?) \[현행\]\r?\n\s*- 법령ID: (\d+)\r?\n\s*- MST: (\d+)\r?\n\s*- 공포일: (\d+) \/ 시행일: (\d+)(?:\r?\n\s*- 구분: ([^\r\n]+))?/gm)){
+    if(compactDate(m[4])&&compactDate(m[5])) laws.push({name:m[1].trim(),lawId:m[2],mst:m[3],promulgatedAt:m[4],effectiveAt:m[5],kind:m[6]?.trim()||null,url:`https://www.law.go.kr/법령/${encodeURIComponent(m[1].trim())}`});
+  }
+  return laws;
+}
+function renameNotice(text,name){
+  for(const m of text.matchAll(/「([^」\r\n]+)」은\(는\) 옛 법령명입니다[^\r\n「]*현행은 「([^」\r\n]+)」(?:\(법령ID (\d+), MST (\d+)\))?/g)){
+    if(normalize(m[1])===normalize(name)) return {from:m[1],to:m[2],lawId:m[3]||null,mst:m[4]||null};
+  }
+  return null;
+}
+function pendingAmendments(text,name){
+  const found=[];
+  for(const m of text.matchAll(/「([^」\r\n]+)」 개정 시행예정 \(([^,)\r\n]+), (\d{4}-\d{2}-\d{2}) 공포[^,)\r\n]*, 시행 (\d{4}-\d{2}-\d{2})/g)){
+    if(normalize(m[1])===normalize(name)) found.push({kind:m[2].trim(),promulgatedAt:m[3],effectiveAt:m[4]});
+  }
+  return found;
+}
+const isoOf=compact=>compact?`${compact.slice(0,4)}-${compact.slice(4,6)}-${compact.slice(6,8)}`:null;
+// Amendment marks inside an article: <개정 2019.9.17>, [전문개정 2020.1.1], 삭제<1999.1.29>.
+// These are promulgation dates, not effective dates.
+function amendmentDates(text){
+  const dates=new Set();
+  for(const mark of text.matchAll(/[<\[]\s*(?:개정|신설|전문개정|본조신설|제목개정|삭제)?\s*((?:\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\.?\s*,?\s*)+)[>\]]/g)){
+    for(const d of mark[1].matchAll(/(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})/g)){const parsed=parseDateLoose(`${d[1]}-${d[2]}-${d[3]}`);if(parsed)dates.add(parsed.iso);}
+  }
+  return [...dates].sort();
+}
+function articleFacts(text,selector){
+  const headers=[...text.matchAll(/^(제\d+조(?:의\d+)?)(\([^\r\n]*?\))?[^\S\r\n]*([^\r\n]*)/gm)];
+  const first=headers.findIndex(h=>h[1]===selector);
+  if(first<0) return null;
+  let last=first;
+  while(headers[last+1]?.[1]===selector) last++;
+  const end=headers[last+1]?.index??text.length;
+  const titled=headers.slice(first,last+1).find(h=>h[2]);
+  const plain=headers[first][2]?'':headers[first][3].trim();
+  const title=titled?titled[2].slice(1,-1).trim():(/^삭제/.test(plain)?'':plain);
+  const body=text.slice(headers[last].index,end).trim();
+  const inline=headers[last][2]?headers[last][3]:/^삭제(?:\s|<|$)/.test(headers[last][3])?headers[last][3]:'';
+  const prose=(inline+'\n'+text.slice(headers[last].index+headers[last][0].length,end)).trim();
+  return {title:title||null,deleted:/^삭제\s*(?:<[^>]*>)?\s*$/.test(prose),amendedDates:amendmentDates(body),body};
+}
+
+/**
+ * Identify each named law in the current-law listing and, for cited articles,
+ * report whether the article exists today. One search per law; article bodies
+ * share a separate cap. A name that only partly matches is never accepted,
+ * except `suffixMatch` names (written without 낫표, so earlier words may have
+ * been swept in): the longest listed name that ends the given name is taken.
+ */
+async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,totalTimeoutMs=40000,maxLaws=12,maxArticles=8,maxTextChars=3000,now=new Date()}={}){
+  const limits={maxLaws,maxArticles,maxTextChars,timeoutMs,totalTimeoutMs};
+  const todayCompact=compactDate(new Date(now).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}));
+  const laws=(Array.isArray(requests)?requests:[]).map((request,i)=>({request,identity:{status:i<maxLaws?'unavailable':'not_checked',...(i<maxLaws?{}:{code:'LAW_LIMIT'})},articles:(request?.articles||[]).map(article=>({article,status:'not_checked'}))}));
+  const finish=extra=>{
+    const checked=laws.filter(x=>['current','renamed','not_found'].includes(x.identity.status));
+    const status=!laws.length?'not_required':checked.length===laws.length&&laws.every(x=>x.articles.every(a=>a.status!=='unavailable'&&a.status!=='not_checked'||x.identity.status==='not_found'))?'retrieved':checked.length?'partial':'unavailable';
+    return {status,laws,limits,...extra};
+  };
+  if(!laws.length) return finish();
+  const deadline=Date.now()+totalTimeoutMs;
+  let client;
+  try{
+    client=injectedClient||await legalClient(Math.min(timeoutMs,totalTimeoutMs));
+    if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');
+  }catch(error){const code=errorCode(error);for(const law of laws) if(law.identity.status==='unavailable') law.identity.code=code;return finish({code});}
+  const codeOf=error=>/^LEGAL_/.test(error?.code||'')?error.code:errorCode(error);
+  const call=async(name,args)=>{
+    const left=deadline-Date.now();
+    if(left<500) throw failure('LEGAL_TOTAL_TIMEOUT');
+    const allowed=Math.min(timeoutMs,left);
+    return bounded(signal=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal}),allowed);
+  };
+  let articleBudget=maxArticles;
+  for(const law of laws){
+    if(law.identity.status==='not_checked') continue;
+    const name=typeof law.request?.name==='string'?law.request.name.trim():'';
+    if(!name||name.length>200||/[\r\n\0]/.test(name)){law.identity={status:'unavailable',code:'INVALID_LEGAL_REQUEST'};continue;}
+    let current=null;
+    try{
+      // The provider ANDs the words of a query. A name read from unquoted text may
+      // start with words that are not part of the law's name, so shorten it from the left.
+      const words=name.split(/\s+/);
+      const queries=law.request.suffixMatch?[...new Set([words.slice(-3).join(' '),words.slice(-2).join(' '),words.slice(-1)[0]])]:[name];
+      let text='',listed=[];
+      for(const query of queries){
+        const response=await call('search_law',{query,display:100});
+        text=textOf(response);
+        // The provider states "no such law" explicitly. An empty body, an error or a
+        // maintenance page says nothing about whether the law exists.
+        const noResult=/^\[NOT_FOUND\][^\r\n]*검색 결과가 없습니다/m.test(text);
+        if(responseFailed(response)&&!noResult) throw failure('LEGAL_LOOKUP_FAILED');
+        listed=noResult?[]:listedLaws(text);
+        if(!noResult&&!listed.length) throw failure('LEGAL_LISTING_UNVERIFIED');
+        if(listed.some(x=>normalize(name).endsWith(normalize(x.name)))) break;
+      }
+      current=listed.find(x=>normalize(x.name)===normalize(name));
+      let renamed=null,corrected=null;
+      if(!current&&law.request.suffixMatch){
+        current=listed.filter(x=>normalize(name).endsWith(normalize(x.name))).sort((a,b)=>normalize(b.name).length-normalize(a.name).length)[0]||null;
+        if(current) corrected=name;
+      }
+      if(!current){
+        renamed=renameNotice(text,name);
+        if(renamed) current=listed.find(x=>normalize(x.name)===normalize(renamed.to))||(renamed.mst?{name:renamed.to,lawId:renamed.lawId,mst:renamed.mst,promulgatedAt:null,effectiveAt:null,kind:null,url:`https://www.law.go.kr/법령/${encodeURIComponent(renamed.to)}`}:null);
+      }
+      if(!current){
+        law.identity={status:'not_found',code:'LEGAL_EXACT_LAW_NOT_FOUND',similar:listed.slice(0,3).map(x=>x.name)};
+        continue;
+      }
+      law.identity={status:renamed?'renamed':'current',name:current.name,lawId:current.lawId,mst:current.mst,kind:current.kind,
+        promulgatedAt:isoOf(current.promulgatedAt),effectiveAt:isoOf(current.effectiveAt),url:current.url,retrievedAt:new Date().toISOString(),
+        ...(renamed?{renamedFrom:renamed.from}:{}),...(corrected?{matchedFromText:corrected}:{}),
+        ...(current.effectiveAt&&current.effectiveAt>todayCompact?{notYetEffective:true}:{}),
+        pendingAmendments:pendingAmendments(text,current.name)};
+    }catch(error){law.identity={status:'unavailable',code:codeOf(error)};continue;}
+    for(const article of law.articles){
+      const selector=articleSelector(article.article);
+      if(!selector){Object.assign(article,{status:'unavailable',code:'INVALID_LEGAL_REQUEST'});continue;}
+      if(articleBudget<=0){article.code='ARTICLE_LIMIT';continue;}
+      articleBudget--;
+      try{
+        const response=await call('get_law_text',{mst:current.mst,jo:selector});
+        const text=textOf(response);
+        const header=/^법령명:\s*(.+)$/m.exec(text)?.[1];
+        if(!header||normalize(header)!==normalize(current.name)) throw failure(header?'LEGAL_BODY_LAW_MISMATCH':'LEGAL_BODY_ERROR');
+        // "Missing" needs the law's own header plus the provider's explicit statement.
+        if(/^\[NOT_FOUND\][^\r\n]*조문(?: 내용)?을 찾을 수 없습니다/m.test(text)){Object.assign(article,{status:'missing',code:'LEGAL_ARTICLE_MISSING'});continue;}
+        if(responseFailed(response)||errorText(text)) throw failure('LEGAL_BODY_ERROR');
+        const facts=articleFacts(text,selector);
+        if(!facts) throw failure('LEGAL_ARTICLE_UNVERIFIED');
+        const bodyEffective=compactDate(/^시행일:\s*(.+)$/m.exec(text)?.[1]);
+        const content=clipped(facts.body,maxTextChars);
+        Object.assign(article,{status:facts.deleted?'deleted':'found',title:facts.title,amendedDates:facts.amendedDates,lastAmendedAt:facts.amendedDates.at(-1)||null,
+          text:content.text,truncated:content.truncated,
+          // The listing and the body can state different effective dates for one MST.
+          versionCheck:bodyEffective&&current.effectiveAt&&bodyEffective===current.effectiveAt?'matches_listing':'unverified',
+          source:{provider:'Korean Law MCP',tool:'get_law_text',lawName:current.name,mst:current.mst,bodyEffectiveAt:isoOf(bodyEffective),retrievedAt:new Date().toISOString(),url:current.url}});
+      }catch(error){Object.assign(article,{status:'unavailable',code:codeOf(error)});}
+    }
+  }
+  return finish();
+}
 async function closeLegalClient(){const pending=connection;connection=null;if(pending){try{const client=await pending.promise;await client.close();}catch{ /* Failed connections already clean up their transport. */ }}}
-module.exports={queryLegalReferences,closeLegalClient,exactCurrentLaw};
+module.exports={queryLegalReferences,closeLegalClient,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};

@@ -281,6 +281,10 @@ function judgeCitation(citation, rec) {
     return { status: 'RULE_SKIPPED', symbol: '⚠', note: '규정 수 상한 초과로 이번 호출에서는 검증 생략' };
   }
   if (rec.status === 'miss') {
+    // 「사립학교법」 제29조 is a national-law citation, not a misspelled rule name.
+    if (/(?:법|법률|시행령|시행규칙)$/.test(String(citation.ruleName || '').replace(/\s+/g, ''))) {
+      return { status: 'EXTERNAL_LAW', symbol: '⚠', note: '국가 법령으로 보임 — 교내 규정집 검증 대상 아님. 한국법령 MCP로 조문을 확인하세요' };
+    }
     return { status: 'RULE_SEARCH_MISS', symbol: '⚠', note: '규정 검색 0건 — 규정명 표기 확인 필요 (미존재 단정 아님)' };
   }
   if (rec.status === 'searcherror') {

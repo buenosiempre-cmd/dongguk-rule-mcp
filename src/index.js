@@ -114,7 +114,8 @@ const {searchHandbook}=require('./handbook.js');
 const {selectPractice}=require('./practice.js');
 const {reviewFinanceCase,formatFinanceReview}=require('./finance-desk.js');
 const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
-const { queryLegalReferences } = require('./legal-client.js');
+const { queryLegalReferences, inspectLaws } = require('./legal-client.js');
+const { buildUpperLaws, formatUpperLaws, latestAnnotatedDate, CAVEAT: UPPER_LAW_CAVEAT } = require('./upper-laws.js');
 const { lawLinkConfigured, fetchCitedLaws, formatCitedLaws } = require('./law-link.js');
 const { formatLegalEvidence } = require('./legal-format.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
@@ -125,7 +126,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, queryContentTokens } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -405,7 +406,7 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
     o+=formatCitedLaws(lawTexts);
   }
   if(omittedCount) o+=`\n표시 한도(${limit}건)를 넘은 ${omittedCount}건은 생략했습니다. article을 지정하거나 limit를 늘리세요.\n`;
-  o+='\n명시적으로 이름을 적은 인용만 찾습니다. "관계 법령", "동법", 약칭 인용은 빠질 수 있으며, 인용이 있다는 것과 해당 근거가 적용된다는 것은 다릅니다.';
+  o+='\n이름을 적은 인용과, 같은 조문 안에서 그 이름을 받는 "동법"·"같은 법"·정의된 약칭을 찾습니다. "관계 법령"처럼 이름이 없는 인용은 빠지며, 인용이 있다는 것과 해당 근거가 적용된다는 것은 다릅니다.';
   return success(o,{
     source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
     direction,references,externalLaws,...(lawTexts?{lawTexts}:{}),
@@ -414,6 +415,56 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
     truncated:omittedCount>0,omittedCount,
     evidenceStatus:(direction==='outgoing'||(incoming.scanned&&incoming.complete&&!incoming.stale))&&catalogAvailable&&!omittedCount?'retrieved':'partial',
     returnedAt:new Date().toISOString(),
+  });
+}
+
+// National laws behind a rule: cited laws checked against the current-law
+// listing, with the points a reviewer should look at again.
+async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeCandidates=true,maxLaws}={}) {
+  const lawId=toId(rawLawId);
+  if(!lawId) return failure('INVALID_ARGUMENT','law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요.');
+  for(const [key,value] of [['include_text',includeText],['include_candidates',includeCandidates]]) if(typeof value!=='boolean') return failure('INVALID_ARGUMENT',`${key}는 boolean이어야 합니다.`);
+  if(maxLaws!==undefined&&(!Number.isInteger(maxLaws)||maxLaws<1||maxLaws>12)) return failure('INVALID_ARGUMENT','max_laws는 1~12 범위 정수여야 합니다.');
+  const hasArticle=article!==undefined&&article!==null&&article!=='';
+  const selector=hasArticle?normalizeArticleSelector(article):null;
+  if(hasArticle&&!selector) return failure('INVALID_ARGUMENT','article은 48, "제48조", "제10조의2", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
+  const resolved=await resolve(lawId,historyId);
+  const rid=resolved.historyId;
+  const c=await cached(CONTENT_CACHE,`${lawId}_${rid}`,TTL.content,()=>getContent(lawId,rid));
+  if(!c.markdown) return failure('CONTENT_UNAVAILABLE',`본문을 가져올 수 없습니다 (LAW_ID ${lawId}).`);
+  let catalog=[],catalogAvailable=true;
+  try{catalog=await loadCatalog();}catch{catalogAvailable=false;}
+  const title=catalog.find(rule=>rule.lawId===lawId)?.title||String(c.title||'').replace(/\s+/g,'');
+  let blocks=blocksOf(c.markdown);
+  if(selector){
+    const extracted=extractArticleSections(c.markdown,article);
+    if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections));
+    if(!extracted.sections.length) return failure('NOT_FOUND',`${selector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`,{details:{lawId,historyId:rid,article:selector.canonical}});
+    blocks=extracted.sections.map(section=>({article:section.canonical,supplementary:section.supplementary,content:section.content}));
+  }
+  const resolver=createResolver(catalog,{lawId,title});
+  const references=[];
+  for(const block of blocks){
+    const ruleArticleAnnotatedAt=latestAnnotatedDate(block.content);
+    for(const item of extractReferences(block.content.replace(/^###.*$/m,''),resolver)){
+      if(item.scope!=='external_law'&&!item.externalCandidate) continue;
+      references.push({...item,ruleArticleAnnotatedAt,sourceLocation:{article:block.article?(block.supplementary?`부칙 ${block.article}`:block.article):null}});
+    }
+  }
+  const result=await buildUpperLaws({
+    references,title,ruleRevisedAt:resolved.revisedAt,includeText,maxLaws:maxLaws||8,
+    // Topic candidates describe the whole rule, not one article.
+    includeCandidates:includeCandidates&&!selector,
+    configured:lawLinkConfigured(currentProfile()),cached,inspectLaws,
+  });
+  const complete=['retrieved','not_required'].includes(result.lookup.status)&&!result.omitted.length&&catalogAvailable;
+  let text=formatUpperLaws(result,{title,selectorLabel:selector?.label});
+  if(!catalogAvailable) text+='\n\n현행 규정 목록을 불러오지 못해 교내 규정명과 법령명을 구분하지 못한 인용이 있을 수 있습니다.';
+  return success(text,{
+    source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
+    ...result,caveat:UPPER_LAW_CAVEAT,applicability:'requires_review',
+    coverage:{scope:selector?'selected_article':'whole_rule',catalogAvailable,citationBasis:'explicit_names_only'},
+    evidenceStatus:complete?'retrieved':'partial',returnedAt:new Date().toISOString(),
   });
 }
 
@@ -679,6 +730,7 @@ async function hLookup(rawKeyword, {
   includeHistory=false,
   asOf=null,
   explicitLawId=null,
+  catalogRule=null,
 }={}) {
   const keyword = validStr(rawKeyword) || (explicitLawId ? `LAW_ID ${explicitLawId}` : null);
   if(!keyword) return failure('INVALID_ARGUMENT', '규정명 또는 질문(rule_keyword 또는 query)을 입력해주세요. 예: "여비규정", "대전 출장 여비규정의 일비와 숙박비"');
@@ -692,8 +744,10 @@ async function hLookup(rawKeyword, {
   if(explicitLawId){
     const latest=await resolve(explicitLawId);
     const content=await cached(CONTENT_CACHE,`${explicitLawId}_${latest.historyId}`,TTL.content,()=>getContent(explicitLawId,latest.historyId));
-    result={total:1,hits:[{lawId:explicitLawId,historyId:latest.historyId,title:content.title||keyword,revisedAt:latest.revisedAt}]};
-    searchMode='LAW_ID';
+    // The body title is letter-spaced ("여 비 규 정"); join it without another source request.
+    const bodyTitle=/^(?:\S\s+)+\S$/.test(content.title||'')?content.title.replace(/\s+/g,''):content.title;
+    result={total:1,hits:[{lawId:explicitLawId,historyId:latest.historyId,title:catalogRule?.title||bodyTitle||keyword,code:catalogRule?.code||'',revisedAt:latest.revisedAt}]};
+    searchMode=catalogRule?'현행 목록 제목':'LAW_ID';
   }
   const candidateHits=new Map();
   const questionTerms=queryContentTokens(keyword);
@@ -739,7 +793,7 @@ async function hLookup(rawKeyword, {
   if(!explicitLawId && maxRules===1 && selection.status!=='unique') {
     const titleUnmatched=selection.matchType==='none';
     const message=titleUnmatched
-      ?`제목이 '${keyword}'에 해당하는 규정은 없습니다. 아래는 본문에 '${queryUsed}' 검색어가 나오는 규정 후보입니다. 질문에 맞는 규정을 확인한 뒤 law_id로 선택하세요.`
+      ?`제목이 '${keyword}'에 해당하는 규정은 없습니다. 아래는 ${searchMode==='제목'?'제목에':'본문에'} '${queryUsed}' 검색어가 나오는 규정 후보입니다. 질문에 맞는 규정을 확인한 뒤 law_id로 선택하세요.`
       :'여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.';
     const text=`${message}\n\n`+candidates.map(x=>`- ${x.title} (LAW_ID ${x.lawId}, 개정 ${x.revisedAt||'미상'})`).join('\n');
     return failure('AMBIGUOUS_RULE',message,{text,details:{
@@ -749,7 +803,7 @@ async function hLookup(rawKeyword, {
     }});
   }
   const hits=(selection.status==='unique'?[selection.hit]:rankRuleHits(result.hits,keyword)).slice(0,maxRules);
-  const identityStatus=explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
+  const identityStatus=catalogRule?'catalog_title':explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
   const metrics=searchResultMetrics(result);
   const rawTerms=Array.isArray(terms)?terms.join(', '):String(terms || '');
   const effectiveTerms=rawTerms; // Campus names are not travel destinations.
@@ -1089,13 +1143,21 @@ async function hFinanceEvidence(args){
   });
 }
 
-function normalizeLookupArguments(args={}) {
+function normalizeLookupArguments(args={},catalog=null) {
   const query=validStr(args.query) || '';
   const explicitKeyword=validStr(args.rule_keyword) || '';
   const ruleName=ruleNameFromQuery(query);
+  // A title written with spaces ("등록금에 관한 시행세칙") is recognized from the
+  // current list; the bare-name pattern alone sees only its last word.
+  const listed=!explicitKeyword&&!args.law_id&&catalog?titleInQuery(query,catalog):null;
+  const useListed=listed&&listed.title.replace(/\s+/g,'').length>ruleName.replace(/\s+/g,'').length;
+  const name=explicitKeyword || (useListed?listed.title:ruleName);
+  // The rule's own name must not rank its articles: "이 개정 취업규칙은…" is in every 부칙.
+  const derivedTerms=name?withoutRuleName(query,name):query;
   return {
-    keyword:explicitKeyword || ruleName || query,
-    terms:validStr(args.terms) || query,
+    keyword:name || query,
+    terms:validStr(args.terms) || derivedTerms,
+    catalogRule:useListed&&listed.rules.length===1?listed.rules[0]:null,
   };
 }
 
@@ -1212,6 +1274,17 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'get_rule_upper_laws', title:'규정의 상위법령 관계', description:'동국대 규정(또는 한 조문)이 근거로 인용한 국가 법령을 현행 법령 목록과 대조합니다. 법령별로 현행 여부·종류·시행일, 인용한 조문이 지금도 있는지(삭제·없음), 옛 법령명 인용(제명 변경), 규정 개정 뒤 법령·조문 개정, 시행예정 개정을 점검 신호로 보여 줍니다. include_text=true이면 인용 조문의 현행 원문을 규정의 인용 문장과 나란히 붙입니다. 법령을 인용하지 않은 규정에는 제목으로 고른 주제 후보 법령을 따로 표시합니다. 점검 신호는 충돌·적용 여부의 판정이 아닙니다. 법령 연계가 꺼진 서버에서는 확인할 법령명·조문 목록만 반환합니다.',
+    inputSchema:{ type:'object', properties:{
+      law_id:{type:'number',description:'LAW_ID'},
+      article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 45, 제10조의2. 지정하면 그 조문의 인용만 보고 주제 후보는 생략합니다.'},
+      history_id:{type:'number',description:'HISTORY_ID (생략=최신)'},
+      include_text:{type:'boolean',default:false,description:'true이면 인용 조문의 현행 법령 원문(조문당 3,000자까지)을 함께 반환'},
+      include_candidates:{type:'boolean',default:true,description:'규정 제목으로 고른 주제 후보 법령 포함 여부'},
+      max_laws:{type:'integer',minimum:1,maximum:12,default:8,description:'확인할 법령 수. 인용 법령이 주제 후보보다 먼저입니다.'},
+    }, required:['law_id']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
 ].filter(t=>profile==='finance'||!FINANCE_TOOLS.has(t.name))}));
 
 server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile,async()=>{
@@ -1235,10 +1308,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?12:16,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?13:17,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.fullTextIndex=indexStatus();
-        data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text'};
+        data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws'};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
           '동국 규정 MCP 서비스 정보',
@@ -1264,10 +1337,13 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
       case 'search_finance_handbook': {const result=searchHandbook(a.query,{limit:a.limit});r=['ok','no_match'].includes(result.status)?success(result.results.map(x=>`${x.heading}\n${x.excerpt}`).join('\n\n')||'해당 해설을 찾지 못했습니다.',result):failure('HANDBOOK_'+result.status.toUpperCase(),result.notice||'해설서 조회를 완료하지 못했습니다.');break;}
       case 'review_finance_case': r=await hReviewFinanceCase(a); break;
       case 'lookup_dongguk_rule': {
-        const normalized=normalizeLookupArguments(a);
+        let catalog=null;
+        // Only a question with several words can hide a spaced title; a failed list read falls back to the name pattern.
+        if(!validStr(a.rule_keyword)&&!a.law_id&&/\s/.test(validStr(a.query)||'')){try{catalog=await loadCatalog();}catch{}}
+        const normalized=normalizeLookupArguments(a,catalog);
         r=await hLookup(normalized.keyword,{
           terms:normalized.terms,campus:a.campus,maxRules:a.max_rules,maxSections:a.max_sections,
-          maxChars:a.max_chars,includeHistory:a.include_history,explicitLawId:a.law_id,
+          maxChars:a.max_chars,includeHistory:a.include_history,explicitLawId:a.law_id||normalized.catalogRule?.lawId,catalogRule:normalized.catalogRule,
         });
         break;
       }
@@ -1281,6 +1357,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
       case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc,mode:a.mode}); break;
       case 'check_rule_updates': r=await hCheckUpdates(a); break;
       case 'get_rule_references': r=await hReferences(a.law_id,{article:a.article,historyId:a.history_id,direction:a.direction,limit:a.limit,includeLawText:a.include_law_text}); break;
+      case 'get_rule_upper_laws': r=await hUpperLaws(a.law_id,{article:a.article,historyId:a.history_id,includeText:a.include_text,includeCandidates:a.include_candidates,maxLaws:a.max_laws}); break;
       default: r=failure('UNKNOWN_TOOL', `알 수 없는 도구: ${name}`, {isError:true});
     }
     const response=serializeOutcome(name,r);

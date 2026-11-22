@@ -47,6 +47,10 @@ const splitArticle = buildOriginalEvidence({
   binData: new Map(), docInfo: { binData: [] },
 }).markdown;
 seedRule(4, '합성지급규정', splitArticle);
+// Questions with several words read the current rule list once to recognize spaced titles.
+seed('catalog', 'all', [[1, '여비규정'], [2, '취업규칙'], [3, '연구비 관리규정'], [4, '합성지급규정'], [5, '산학협력단 취업규칙'],
+  ...Array.from({ length: 116 }, (_, i) => [100 + i, `목록전용합성${i}`])].map(([lawId, title]) => ({ lawId, historyId: lawId * 10, title, code: '', revisedAt: '2026.01.01' })));
+seedRule(5, '산학협력단 취업규칙', '제37조(연차유급휴가)\n연차유급휴가 합성 조문\n\n제1조(시행일)\n이 개정 산학협력단 취업규칙은 시행한다.');
 
 let passed = 0;
 async function check(name, action) { await action(); passed++; console.log('PASS ' + name); }
@@ -171,6 +175,21 @@ async function main() {
       assert.equal(result.ok, true);
       assert.match(result.data.rules[0].excerpt.text, /② 다만/);
       assert.equal(result.data.rules[0].excerpt.truncated, false);
+    });
+    await check('spaced title is recognized from the current list, not its last word', async () => {
+      const result = (await call({ query: '산학협력단 취업규칙 연차유급휴가 일수' })).structuredContent;
+      assert.equal(result.ok, true);
+      assert.equal(result.data.rules[0].lawId, 5);
+      assert.equal(result.data.search.identityStatus, 'catalog_title');
+      assert.match(result.data.rules[0].excerpt.text, /제37조/);
+    });
+    await check('the rule name does not rank its own articles', async () => {
+      const result = (await call({ query: '산학협력단 취업규칙 연차유급휴가' })).structuredContent;
+      assert.equal(result.data.query.terms, '연차유급휴가');
+      assert.doesNotMatch(result.data.rules[0].excerpt.text, /제1조\(시행일\)/);
+      const none = (await call({ query: '취업규칙 육아휴직' })).structuredContent;
+      assert.equal(none.data.rules[0].lawId, 2);
+      assert.deepEqual(none.data.rules[0].incompleteReasons, ['NO_MATCHING_EXCERPT']);
     });
     await check('all fixture lookups complete without external requests', () => assert.equal(networkCalls, 0));
   } finally { await client.close(); await server.close(); }
