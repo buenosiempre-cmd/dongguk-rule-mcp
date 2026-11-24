@@ -57,13 +57,18 @@ function cleanListTitle(text) {
   return { title, effectiveAt: m ? `${m[1]}-${m[2]}-${m[3]}` : null };
 }
 
-// 마지막 부칙 블록의 명시 시행일(본문 순서상 첫 날짜). '공포한 날부터' 등 날짜가 없으면 null.
+// Only an explicit date in the last addendum's general commencement clause.
+// Dates for individual articles or transitional provisions are not rule dates.
 function latestAddendaEffective(markdown) {
   const parts = String(markdown || '').split(/^##\s*부\s*칙.*$/m);
   if (parts.length < 2) return null;
-  const last = parts[parts.length - 1];
-  const re = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*시행/;
-  const m = re.exec(last);
+  const last = parts[parts.length - 1].split(/다만|(?:^|[.\n])\s*단\s*[,，]/, 1)[0];
+  const general = /(?:^|[\s)）])(?:이|본)\s*(?:개정\s*)?(?:규정|규칙|시행세칙|세칙|학칙|정관|지침|내규|요령)(?:은|는)\s*([\s\S]*?시행)/.exec(last);
+  if (!general) return null;
+  // Require the date directly after the rule-wide subject. In particular,
+  // do not scan past an undated "공포한 날부터" or a scoped "제7조는".
+  const re = /^(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*시행$/;
+  const m = re.exec(general[1]);
   if (!m) return null;
   const found = extractEnforcementDates(m[0]);
   return found.length ? found[0].iso : null;

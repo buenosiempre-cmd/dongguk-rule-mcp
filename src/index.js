@@ -241,14 +241,17 @@ async function loadDonggukComparison(topic, terms, {signal, searchTerms=[topic],
   // 검색 결과는 조문 단위 행이라 같은 규정이 여러 번 나온다. 20행을 받아 규정 단위로 합친다.
   const PAGE=20, queries=[...new Set(searchTerms)].slice(0,2);
   const run=async(fullText)=>{
-    const seen=new Set(), hits=[]; let total=0;
+    const seen=new Set(), hits=[]; let total=0, truncated=false;
     for (const q of queries) {
       if(signal?.aborted) throw timeout();
       const r=await cached(fullText?'university-full-search':'university-title-search',hk(q,1,PAGE),TTL.history,()=>searchRules(q,{fullText,pageShow:PAGE}));
       total+=r.total||0;
+      // Compare upstream rows before deduplication; a page can contain only
+      // one rule even when many matching rows remain on subsequent pages.
+      truncated ||= (r.total||0) > (r.rawCount ?? r.hits.length);
       for (const h of r.hits) if(!seen.has(h.lawId)){seen.add(h.lawId);hits.push(h);}
     }
-    return {hits,total};
+    return {hits,total,truncated};
   };
   const titled=await run(false);
   if(signal?.aborted) throw timeout();
@@ -271,7 +274,7 @@ async function loadDonggukComparison(topic, terms, {signal, searchTerms=[topic],
         url:`${FULLVIEW_URL}?SEQ=${hit.lawId}&SEQ_HISTORY=${latest.historyId}`});
     } catch(e) { const code=comparisonErrorCode(e);failures.push({lawId:hit.lawId,code});if(code!=='UPSTREAM_FORMAT_CHANGED') break; }
   }
-  return {rules,failures,coverage:{mode:found.mode,queries,totalCandidates:found.total,uniqueRules:ranked.length,scannedRules:rules.length,truncated:ranked.length>rules.length}};
+  return {rules,failures,coverage:{mode:found.mode,queries,totalCandidates:found.total,uniqueRules:ranked.length,scannedRules:rules.length,searchTruncated:found.truncated,truncated:found.truncated||ranked.length>rules.length}};
 }
 
 // === 원문 HWP (HTML 본문에 없는 별표·표 포함) ===
@@ -679,23 +682,28 @@ async function hHistory(rawLawId){
 
 // Rule candidates for a natural-language question from the local index. Hits
 // only name rules: hLookup still resolves the current revision and reads the
-// live body, so a stale index is acceptable for finding candidates. The top
+// live body. Check current catalog membership before previewing an index hit:
+// an archived rule may still have a readable history and body. The top
 // hit is "dominant" when it matches at least two words and clearly outscores
 // the runner-up; callers may preview it instead of asking for a law_id.
-function candidatesFromIndex(keyword,{top=5}={}){
+async function candidatesFromIndex(keyword,{top=5}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
   const found=searchCorpus(corpus,keyword,{top,perDoc:1});
   if(!found.hits.length) return null;
+  let current=null;
+  try{current=new Map((await loadCatalog()).map(rule=>[rule.lawId,rule]));}catch{}
   const hits=found.hits.map(hit=>({lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
-    matchedTerms:hit.matchedTerms,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,score:hit.score}));
+    matchedTerms:hit.matchedTerms,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,score:hit.score,
+    catalogStatus:current?(current.has(hit.lawId)?'present':'not_in_current_catalog'):'unverified'}));
   const [first,second]=hits;
-  const dominant=first.matchedTerms.length>=Math.min(2,found.tokens.length-found.missingTerms.length)&&first.matchedTerms.length>=1&&(!second||first.score>=second.score*1.5);
+  const dominant=first.catalogStatus==='present'&&first.matchedTerms.length>=Math.min(2,found.tokens.length-found.missingTerms.length)&&first.matchedTerms.length>=1&&(!second||first.score>=second.score*1.5);
   return {total:hits.length,hits,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},dominant,
     indexedAt:corpus.builtAt,stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
 }
 const describeRewrites=map=>Object.keys(map||{}).length?Object.entries(map).map(([from,to])=>`${from}→${to}`).join(', '):'';
+const catalogNotice=status=>({not_in_current_catalog:'현행 목록에 없음(폐지·통합 가능)',unverified:'현행 목록 확인 실패'}[status]||'');
 
 // Keyword fallback for questions whose literal wording is absent. The upstream
 // full-text search ANDs every word and takes about 10 seconds per request, so
@@ -794,6 +802,7 @@ async function hDeep(rawQuery,{top=3,perDoc,mode='auto'}={}){
 
 async function hLookup(rawKeyword, {
   terms='',
+  termsFromQuery=false,
   campus='all',
   maxRules=1,
   maxSections=4,
@@ -847,7 +856,7 @@ async function hLookup(rawKeyword, {
     // words they contain, so it finds 여비규정 for "일비·숙박비" questions that
     // the literal upstream search cannot. Falls through to the live search
     // when the index is missing or has no match.
-    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5)});
+    const indexed=await candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5)});
     if(indexed){result=indexed;queryUsed=indexed.tokens.join(' ');searchMode='핵심어 색인';}
   }
   if(!result){
@@ -878,12 +887,12 @@ async function hLookup(rawKeyword, {
     const message=titleUnmatched
       ?`제목이 '${keyword}'에 해당하는 규정은 없습니다. 아래는 ${searchMode==='제목'?'제목에':'본문에'} '${queryUsed}' 검색어가 나오는 규정 후보입니다. 질문에 맞는 규정을 확인한 뒤 law_id로 선택하세요.`
       :'여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.';
-    const describe=x=>`- ${x.title} (LAW_ID ${x.lawId}, 개정 ${x.revisedAt||'미상'})`+(x.matchedTerms?` — 일치어: ${x.matchedTerms.join(', ')}${x.topArticle?` / ${x.topArticle}`:''}`:'');
+    const describe=x=>`- ${x.title} (LAW_ID ${x.lawId}, 개정 ${x.revisedAt||'미상'})`+(x.matchedTerms?` — 일치어: ${x.matchedTerms.join(', ')}${x.topArticle?` / ${x.topArticle}`:''}`:'')+(catalogNotice(x.catalogStatus)?` — ${catalogNotice(x.catalogStatus)}`:'');
     const rewrites=describeRewrites(result.rewrittenTerms);
     const text=`${message}\n\n`+candidates.map(describe).join('\n')+(rewrites?`\n\n규정 본문에 없는 단어는 짧은 형태로 바꿔 찾았습니다: ${rewrites}`:'');
     return failure('AMBIGUOUS_RULE',message,{text,details:{
       matchType:selection.matchType,searchMode,queryUsed,...(rewrites?{rewrittenTerms:result.rewrittenTerms}:{}),
-      candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt,...(x.matchedTerms?{matchedTerms:x.matchedTerms,topArticle:x.topArticle}:{})})),
+      candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt,...(x.matchedTerms?{matchedTerms:x.matchedTerms,topArticle:x.topArticle,catalogStatus:x.catalogStatus}:{})})),
       campus:campusScope(campus),
     }});
   }
@@ -891,7 +900,10 @@ async function hLookup(rawKeyword, {
   const identityStatus=catalogRule?'catalog_title':explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
   const metrics=searchResultMetrics(result);
   const rawTerms=Array.isArray(terms)?terms.join(', '):String(terms || '');
-  const effectiveTerms=rawTerms; // Campus names are not travel destinations.
+  // Use the index's normalized words for automatic excerpts as well as rule
+  // discovery. Keep original selectors (e.g. 별표 2) and explicit terms intact.
+  const effectiveTerms=termsFromQuery&&searchMode==='핵심어 색인'
+    ? [rawTerms,...result.tokens].filter(Boolean).join(', ') : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
     `- 검색 방식: ${searchMode}\n` +
@@ -900,7 +912,7 @@ async function hLookup(rawKeyword, {
     `- 선택 규정: ${hits.length}건\n`+
     (result.indexedAt?`- 색인 기준: ${result.indexedAt}${result.stale?' (8일 초과, 현행 개정본은 다시 확인함)':''}${result.missingTerms?.length?` / 어느 규정에도 없는 단어: ${result.missingTerms.join(', ')}`:''}${describeRewrites(result.rewrittenTerms)?` / 짧게 바꿔 찾은 단어: ${describeRewrites(result.rewrittenTerms)}`:''}\n`:'');
   if(identityStatus==='candidate_preview') out+=indexPreview
-    ?`\n> 질문의 핵심어(${result.hits[0].matchedTerms.join(', ')})가 가장 많이 나오는 규정의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 다른 후보: ${result.hits.slice(1,4).map(x=>`${x.title}(LAW_ID ${x.lawId})`).join(', ')||'없음'}. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n`
+    ?`\n> 질문의 핵심어(${result.hits[0].matchedTerms.join(', ')})가 가장 많이 나오는 규정의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 다른 후보: ${result.hits.slice(1,4).map(x=>`${x.title}(LAW_ID ${x.lawId})${catalogNotice(x.catalogStatus)?` [${catalogNotice(x.catalogStatus)}]`:''}`).join(', ')||'없음'}. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n`
     :'\n> 여러 후보의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n';
 
   const rules=[];
@@ -953,6 +965,8 @@ async function hLookup(rawKeyword, {
       ...(excerpt.truncated ? ['EXCERPT_TRUNCATED'] : []),
       ...(excerpt.blocksTruncated ? ['EXCERPT_BLOCK_LIMIT'] : []),
       ...(identityStatus === 'candidate_preview' ? ['RULE_IDENTITY_UNCONFIRMED'] : []),
+      ...(hit.catalogStatus === 'not_in_current_catalog' ? ['NOT_IN_CURRENT_CATALOG'] : []),
+      ...(hit.catalogStatus === 'unverified' ? ['CURRENT_CATALOG_UNVERIFIED'] : []),
     ];
     const evidenceStatus=incompleteReasons.length?'partial':'retrieved';
     const sourceUrl=`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${historyId}`;
@@ -962,6 +976,7 @@ async function hLookup(rawKeyword, {
       `- LAW_ID / HISTORY_ID: ${lawId} / ${historyId}\n` +
       `- 원문 유형 (sourceType): ${sourceType}\n` +
       `- 근거 조회 상태 (evidenceStatus): ${evidenceStatus}\n` +
+      (catalogNotice(hit.catalogStatus)?`- 주의: ${catalogNotice(hit.catalogStatus)}\n`:'') +
       (incompleteReasons.length ? `- 일부 확인 필요 사유 (incompleteReasons): ${incompleteReasons.join(', ')}\n` : '') +
       `- 원문: ${sourceUrl}` +
       (historyText?`\n- 최근 연혁: ${historyText}`:'') +
@@ -990,7 +1005,7 @@ async function hLookup(rawKeyword, {
   }
   return success(out,{
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,campus,maxRules,maxSections,maxChars,includeHistory},
-    search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus},
+    search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(result.rewrittenTerms?{rewrittenTerms:result.rewrittenTerms}:{})},
     rules,
     evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
@@ -1439,7 +1454,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         if(!validStr(a.rule_keyword)&&!a.law_id&&/\s/.test(validStr(a.query)||'')){try{catalog=await loadCatalog();}catch{}}
         const normalized=normalizeLookupArguments(a,catalog);
         r=await hLookup(normalized.keyword,{
-          terms:normalized.terms,campus:a.campus,maxRules:a.max_rules,maxSections:a.max_sections,
+          terms:normalized.terms,termsFromQuery:!validStr(a.terms),campus:a.campus,maxRules:a.max_rules,maxSections:a.max_sections,
           maxChars:a.max_chars,includeHistory:a.include_history,explicitLawId:a.law_id||normalized.catalogRule?.lawId,catalogRule:normalized.catalogRule,
         });
         break;

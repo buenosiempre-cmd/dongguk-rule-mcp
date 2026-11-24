@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { SOURCES, parsePairs, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
+const { SOURCES, parsePairs, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective, selectArticles } = require('../src/university-rules');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -140,6 +140,34 @@ async function main() {
     assert.equal(latestAddendaEffective('## 부칙\n이 규정은 2020년 3월 1일부터 시행한다.\n## 부칙\n이 규정은 공포한 날부터 시행한다.'),null);
     assert.equal(latestAddendaEffective('### 제1조(목적)\n2026년 1월 1일부터 시행'),null);
   });
+  await check('날짜 없는 일반 시행문 뒤의 예외·경과조치 날짜를 규정 시행일로 쓰지 않음', () => {
+    for (const exception of [
+      '다만 제7조는 2027년 3월 1일부터 시행한다.',
+      '단, 제7조는 2027년 3월 1일부터 시행한다.',
+      '\n### 제2조(경과조치)\n제7조의 개정규정은 2027년 3월 1일부터 시행한다.',
+    ]) {
+      const markdown = '### 제1조(여비)\n여비 지급\n## 부칙\n이 규정은 공포한 날부터 시행한다. ' + exception;
+      const effectiveAt = latestAddendaEffective(markdown);
+      assert.equal(effectiveAt, null);
+      const selected = selectArticles([{...rule,markdown,effectiveAt}], ['여비'], 5);
+      assert.equal(selected.articles[0].article, '제1조');
+      assert.equal(selected.articles[0].effectiveAt, null);
+    }
+  });
+  await check('예외 조문만 있거나 일반 시행일이 불명확하면 미확인', () => {
+    for (const clause of [
+      '제7조는 2027년 3월 1일부터 시행한다.',
+      '다만 이 규정은 2027년 3월 1일부터 시행한다.',
+      '이 규정은 제7조에 한하여 2027년 3월 1일부터 시행한다.',
+      '이 규정은 2027년 2월 30일부터 시행한다.',
+    ]) assert.equal(latestAddendaEffective('## 부칙\n' + clause), null);
+  });
+  await check('일반 시행일은 날짜 표기·줄바꿈·규정 종류가 달라도 보존', () => {
+    assert.equal(latestAddendaEffective('## 부칙\n### 제1조(시행일)\n이 규정은 2026. 3. 13.부터 시행한다. 다만 제7조는 2027년 3월 1일부터 시행한다.'), '2026-03-13');
+    assert.equal(latestAddendaEffective('## 부칙\n본 개정 시행세칙은\n2026-03-13부터 시행한다.'), '2026-03-13');
+    assert.equal(latestAddendaEffective('## 부칙\n이 학칙은 2026/3/13에 시행한다.'), '2026-03-13');
+    assert.equal(latestAddendaEffective('## 부칙\n### 제1조(시행일)이 규정은 2026년 3월 13일부터 시행한다.'), '2026-03-13');
+  });
   await check('트리 모드: 전체 규정 제목 대조, 트리 없으면 최근 목록', async () => {
     const nodes=[{folder:'1',id:1,hseq:0,name:'규정'},...Array.from({length:25},(_,i)=>({folder:'0',id:100+i,hseq:900+i,name:`3-5-${i} 기타규정`})),{folder:'0',id:382,hseq:3766,name:'3-5-1 장학규정'}];
     const tree=`<script>var zNodes = ${JSON.stringify(nodes)};</script>`;
@@ -213,6 +241,35 @@ async function main() {
       assert.equal(fallback.data.columns[0].coverage.mode,'full_text_search');assert.deepEqual(searchModes.slice(-2),['LAWNAME','CONTENTS']);
       const invalid=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:[]}})).structuredContent;assert.equal(invalid.error.code,'INVALID_ARGUMENT');
       const sensitive=(await client.callTool({name:'compare_university_rules',arguments:{topic:'password=example-secret',universities:['uos']}})).structuredContent;assert.equal(sensitive.error.code,'SENSITIVE_INPUT');
+    } finally {delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;await client.close();await server.close();}
+  });
+  await check('동국대 비교: 중복 제거 전 페이지 누락을 제목·전문·동의어 검색별로 보존', async () => {
+    process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='1';
+    const server=createServer({profile:'rules'}),client=new Client({name:'comparison-pages',version:'1'});
+    const [a,b]=InMemoryTransport.createLinkedPair();await server.connect(a);await client.connect(b);
+    const hash=q=>require('node:crypto').createHash('md5').update(`${q}|1|20`).digest('hex');
+    const page=total=>({total,rawCount:Math.min(total,20),hits:total?[{lawId:1,historyId:3,title:'여비규정'}]:[]});
+    try {
+      for (const example of [
+        {title:[40,0],full:[0,0],mode:'title_search',partial:true},
+        {title:[20,40],full:[0,0],mode:'title_search',partial:true},
+        {title:[20,20],full:[0,0],mode:'title_search',partial:false},
+        {title:[0,0],full:[40,20],mode:'full_text_search',partial:true},
+        {title:[0,0],full:[20,20],mode:'full_text_search',partial:false},
+      ]) {
+        for (const [i,q] of ['여비','출장'].entries()) {
+          seed('university-title-search',hash(q),page(example.title[i]));
+          seed('university-full-search',hash(q),page(example.full[i]));
+        }
+        const result=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['yonsei']}})).structuredContent;
+        const column=result.data.columns[0];
+        assert.equal(column.coverage.mode,example.mode);
+        assert.equal(column.coverage.uniqueRules,1);
+        assert.equal(column.coverage.scannedRules,1);
+        assert.equal(column.coverage.searchTruncated,example.partial);
+        assert.equal(column.coverage.truncated,example.partial);
+        assert.equal(column.status,example.partial?'partial':'retrieved');
+      }
     } finally {delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;await client.close();await server.close();}
   });
   fs.rmSync(root,{recursive:true,force:true});
