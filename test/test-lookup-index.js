@@ -87,6 +87,16 @@ async function main() {
     check('색인 기준·대체 단어를 본문에 표시', /색인 기준: /.test(travelLookup.text) && /짧게 바꿔 찾은 단어: 국내출장→출장/.test(travelLookup.text) && /어느 규정에도 없는 단어: 한도/.test(travelLookup.text));
     check('색인 경로에서는 전문검색을 요청하지 않음', !searches.some(s => s.type === 'CONTENTS'));
 
+    const particle = await call('lookup_dongguk_rule', { query: '국내출장 일비는?' });
+    check('조사·문장부호와 복합어가 있는 질문도 본문을 발췌', particle.sc.ok && /제9조/.test(particle.sc.data.rules[0].excerpt.text) && !particle.sc.data.rules[0].incompleteReasons.includes('NO_MATCHING_EXCERPT'));
+    const compound = await call('lookup_dongguk_rule', { query: '특강료 강사료' });
+    check('대체한 단어만 본문에 있어도 관련 조문을 반환', compound.sc.ok && compound.sc.data.rules[0].lawId === 7 && /특강 강사/.test(compound.sc.data.rules[0].excerpt.text));
+    check('발췌에 사용한 대체 단어를 구조화 결과에도 보존', compound.sc.data.search.rewrittenTerms['특강료'] === '특강' && compound.sc.data.query.effectiveTerms.includes('강사'));
+    const explicitTerms = await call('lookup_dongguk_rule', { query: '국내출장 일비는?', terms: '없는명시검색어' });
+    check('사용자가 지정한 terms를 색인 검색어로 넓히지 않음', explicitTerms.sc.ok && explicitTerms.sc.data.query.effectiveTerms === '없는명시검색어' && explicitTerms.sc.data.rules[0].excerpt.text === '');
+    const appendix = await call('lookup_dongguk_rule', { query: '국내출장 일비는? 별표 2', max_rules: 2 });
+    check('자동 발췌에서 원래 질문의 별표 번호 유지', appendix.sc.ok && appendix.sc.data.rules[0].excerpt.missingAppendices.includes('별표2'));
+
     const scholarshipLookup = await call('lookup_dongguk_rule', { query: '교내근로장학금 성적 기준' });
     const cands = scholarshipLookup.sc.error?.details?.candidates || [];
     check('비슷한 후보가 여럿이면 일치어·대표 조문과 함께 선택 요청', scholarshipLookup.sc.error?.code === 'AMBIGUOUS_RULE' && cands.some(c => c.lawId === 6 && c.topArticle === '제7조' && c.matchedTerms.includes('근로장학금')) && cands.some(c => c.lawId === 5 && c.topArticle === '제15조'));
@@ -97,6 +107,19 @@ async function main() {
 
     const titled = await call('lookup_dongguk_rule', { query: '등록금에 관한 시행세칙 제7조 반환' });
     check('규정명이 든 질문은 색인보다 현행 목록 제목으로 확정', titled.sc.ok === true && titled.sc.data.search.identityStatus === 'catalog_title' && titled.sc.data.rules[0].lawId === 8);
+
+    seed('catalog', 'all', CATALOG.filter(r => r.lawId !== 1));
+    const removed = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도' });
+    check('현행 목록에서 빠진 색인 1위는 자동 미리보기 금지', removed.sc.error?.code === 'AMBIGUOUS_RULE' && removed.sc.error.details.candidates.find(c => c.lawId === 1)?.catalogStatus === 'not_in_current_catalog' && /현행 목록에 없음/.test(removed.text));
+    const removedPreview = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도', max_rules: 2 });
+    check('여러 후보 미리보기에도 현행 목록 누락 경고를 유지', removedPreview.sc.ok && removedPreview.sc.data.rules.find(r => r.lawId === 1)?.incompleteReasons.includes('NOT_IN_CURRENT_CATALOG') && /현행 목록에 없음/.test(removedPreview.text));
+
+    fs.unlinkSync(path.join(dir, 'catalog', 'all.json'));
+    const unverified = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도' });
+    check('현행 목록 조회 실패 시 미확인 후보를 자동 선택하지 않음', unverified.sc.error?.code === 'AMBIGUOUS_RULE' && unverified.sc.error.details.candidates.every(c => c.catalogStatus === 'unverified') && /현행 목록 확인 실패/.test(unverified.text));
+    const unverifiedPreview = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도', max_rules: 2 });
+    check('목록 확인 실패 상태를 여러 후보 미리보기에도 표시', unverifiedPreview.sc.ok && unverifiedPreview.sc.data.rules.every(r => r.incompleteReasons.includes('CURRENT_CATALOG_UNVERIFIED')));
+    seed('catalog', 'all', CATALOG);
 
     fs.unlinkSync(corpusPath(dir));
     searches.length = 0;
