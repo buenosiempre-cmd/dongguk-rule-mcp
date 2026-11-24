@@ -1343,9 +1343,9 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'compare_university_rules', title:'타대학 규정 조문 비교',
-    description:'동국대와 타대학의 같은 주제 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 서버에서 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 허용 필요. 서울시립·국민·숭실·경희·숙명여대는 전문검색(대표어·동의어), 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
+    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 서버에서 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 허용 필요. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌만 제공합니다. 서울시립·국민·숭실·경희·숙명여대는 전문검색(대표어·동의어), 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
     inputSchema:{type:'object',properties:{
-      topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여'},
+      topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여, 근로장학, 장학금(사안 프레임 등록 주제). 그 밖의 주제는 주제어 일치만.'},
       universities:{type:'array',minItems:1,maxItems:5,items:{type:'string'},description:'타대학 키: korea(고려) uos(서울시립) konkuk(건국) kookmin(국민) ssu(숭실) khu(경희) sookmyung(숙명여대) kw(광운) mju(명지). dongguk은 자동 포함. 다른 키는 unsupported로 표시.'},
       max_articles:{type:'integer',minimum:1,maximum:5,default:3}
     },required:['topic','universities']}, outputSchema:TOOL_OUTPUT_SCHEMA,
@@ -1407,7 +1407,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?14:18,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.fullTextIndex=indexStatus();
-        data.integrations.universityComparison={configured:process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED==='1',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS};
+        data.integrations.universityComparison={configured:process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED==='1',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
         data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws'};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([

@@ -25,37 +25,41 @@ const SOURCES = Object.freeze([
   { key: 'kw', name: '광운대학교', origin: 'https://rule.kw.ac.kr', ext: 'do', mode: 'tree' },
   { key: 'mju', name: '명지대학교', origin: 'https://law.mju.ac.kr', ext: 'do', mode: 'tree' },
 ].map(Object.freeze));
-// terms: 조문 일치어(첫 항목이 대표어·검색어). titleHints: 규정 제목 우선순위용(조문 일치에는 쓰지 않음).
-const TOPICS = {
-  '여비': { terms: ['여비', '출장', '숙박'] }, '겸직': { terms: ['겸직', '겸업'] },
-  '연구비': { terms: ['연구비', '연구지원'] }, '등록금 반환': { terms: ['등록금', '반환', '환불'] },
-  '퇴직급여': { terms: ['퇴직', '퇴직금', '퇴직급여'] },
-  '근로장학': { terms: ['근로장학', '근로보조금', '교내근로', '근로학생'], titleHints: ['장학'] },
-  '장학금': { terms: ['장학금'], titleHints: ['장학'] },
-};
+const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, frameSummary, DROP_LABELS } = require('./issue-frames');
+// 등록 주제는 사안 프레임(issue-frames.js)에서 온다. terms: 조문 일치어(첫 항목이 대표어·검색어).
+// titleHints: 규정 제목 우선순위용(조문 일치에는 쓰지 않음).
+const TOPICS = Object.freeze(Object.fromEntries(FRAMES.map(f => [f.topic, { terms: f.terms, titleHints: f.titleHints }])));
 const TOPIC_PREFIX = /^(교내|교외|학부|대학원|학사)/;
 const MAX_RULES = 5, MIN_TREE_RULES = 20, TOTAL_TIMEOUT_MS = 60000;
 const TREE_QUERY = 'LAWGROUP=1&SEQ_TARGET=0&MODE=srvlist&TREE_SEARCH_BOOL=y';
 const FOLDER_PAGE_SIZE = 10, MAX_FOLDER_PAGES = 10;
 const PUBLIC_ONLY_NOTICE = '로그인 없이 공개된 규정만 목록에 나옵니다. 목록에 없는 규정은 비공개로 추정되며 조회할 수 없습니다.';
 const NOTICE = '주제어가 일치하는 조문 발췌를 나란히 제공합니다. 행 순서나 조문 번호는 대학 간 법적 대응·동등성을 뜻하지 않습니다. HTML만 조회하므로 HWP 별표·금액표는 누락될 수 있습니다. 개정일은 시행일이 아닙니다. 시행일은 규정 목록의 시행일자 또는 마지막 부칙의 명시 시행일만 표시하며(조문별 시행일·경과조치는 미확인), 없으면 미확인입니다.';
+const FRAME_NOTICE = '등록된 사안 프레임으로 조문을 골랐습니다. 주체·행위·규율 요소의 문자열 대조이며, 같은 단어가 다른 뜻으로 쓰인 조문(교내 겸무 등)은 제외 건수로만 표시합니다. 규율 요소 표의 빈 칸은 조회 범위에서 찾지 못했다는 뜻이고 규정 부존재가 아닙니다. 주규정·보조규정 구분과 근거 법령 대조는 법적 동등성·적용 여부 판정이 아닙니다.';
 const error = code => Object.assign(new Error(code), { code });
 const compact = s => String(s ?? '').replace(/\s+/g, '');
 const uniq = xs => [...new Set(xs.filter(Boolean))];
 
-// "교내근로장학금" → 대표어 '근로장학'과 동의어(근로보조금 등). 등록되지 않은 주제는
-// 기존처럼 띄어쓰기로 나누고, 한 단어면 접두어(교내·학부 등)·끝의 '금'을 뗀 형태도 함께 쓴다.
+// "교내근로장학금" → 대표어 '근로장학'과 동의어(근로보조금 등)를 가진 사안 프레임. 띄어 쓴 주제
+// ("교원 겸직")는 한 단어가 프레임과 맞으면 그 프레임을 쓰고 나머지 단어는 제목 단서로만 둔다.
+// 등록되지 않은 주제는 기존처럼 띄어쓰기로 나누고, 한 단어면 접두어(교내·학부 등)·끝의 '금'을 뗀 형태도 함께 쓴다.
+function topicVariants(word) {
+  const c = compact(word), core = c.replace(TOPIC_PREFIX, '');
+  return uniq([c, core, c.replace(/금$/, ''), core.replace(/금$/, '')]);
+}
 function expandTopic(topic) {
   const raw = String(topic).trim(), c = compact(raw), core = c.replace(TOPIC_PREFIX, '');
-  const variants = uniq([c, core, c.replace(/금$/, ''), core.replace(/금$/, '')]);
-  const key = Object.keys(TOPICS).find(k => variants.includes(compact(k)));
-  if (key) {
-    const { terms, titleHints } = TOPICS[key];
-    return { terms: [...terms], searchTerms: terms.slice(0, 2), titleHints: titleHints || [...terms] };
+  const fromFrame = (frame, extraHints = []) => ({ terms: [...frame.terms], searchTerms: [...frame.searchTerms], titleHints: uniq([...frame.titleHints, ...extraHints]), frame });
+  const whole = resolveFrame(topicVariants(raw));
+  if (whole) return fromFrame(whole);
+  if (/\s/.test(raw)) {
+    const words = raw.split(/\s+/);
+    const matched = uniq(words.map(w => resolveFrame(topicVariants(w))));
+    if (matched.length === 1) return fromFrame(matched[0], words.filter(w => !resolveFrame(topicVariants(w))));
+    return { terms: words, searchTerms: [raw], titleHints: words, frame: null };
   }
-  if (/\s/.test(raw)) { const terms = raw.split(/\s+/); return { terms, searchTerms: [raw], titleHints: terms }; }
   const terms = uniq([c, core.length >= 2 ? core : null]);
-  return { terms, searchTerms: [...terms].reverse(), titleHints: terms };
+  return { terms, searchTerms: [...terms].reverse(), titleHints: terms, frame: null };
 }
 
 // 목록 제목에 섞인 스크립트(시행예정 표시·new 아이콘)를 지우고 시행일자를 뽑는다.
@@ -322,30 +326,66 @@ function safeCode(e) {
   return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE', 'TOTAL_TIMEOUT'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
 }
 
-function selectArticles(rules, terms, limit, hints = terms) {
-  const matches = [];
+// frame이 있으면 사안 프레임으로 조문을 거른다: 다른 사안의 규정·조문과 언급만 있는 조문은 dropped에
+// 사유별 건수로 남기고, 남은 조문에는 규율 요소(slots)·주체·인용 법령·규정 역할(주/보조)을 붙인다.
+// slotCells는 규율 요소별 대표 조문(상위 limit 밖의 조문도 포함)으로, 비교표를 만들 때 쓴다.
+function selectArticles(rules, terms, limit, hints = terms, frame = null) {
+  const matches = [], dropped = {};
+  const perRule = new Map();
   for (const rule of rules) {
-    const ruleBonus = ruleTitleScore(rule.title, terms, hints) * 0.5;
+    const titleScore = ruleTitleScore(rule.title, terms, hints), ruleBonus = titleScore * 0.5;
+    const entry = { universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId, url: rule.url, slots: new Set(), titleScore };
     for (const block of listArticleBlocks(rule.markdown)) {
       if (block.supplementary) continue;
       const matchedTerms = terms.filter(t => block.content.includes(t));
       if (!matchedTerms.length) continue;
       // 조문 제목(첫 줄)에 주제어가 있으면 그 조문이 주제를 직접 다룬다고 보고 앞에 둔다.
       const heading = block.content.split('\n')[0];
-      const score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + (terms.some(t => heading.includes(t)) ? 2 : 0) + ruleBonus;
+      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + (terms.some(t => heading.includes(t)) ? 2 : 0) + ruleBonus;
+      const analysis = frame ? analyzeArticle(block, rule, frame) : null;
+      if (analysis?.excluded) { dropped[analysis.excluded] = (dropped[analysis.excluded] || 0) + 1; continue; }
+      if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
+      if (!perRule.has(rule)) perRule.set(rule, entry);
       matches.push({ universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId,
         article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
         matchedTerms, url: rule.url, revisedAt: rule.revisedAt || null, effectiveAt: rule.effectiveAt || null,
-        effectiveSource: rule.effectiveAt ? rule.effectiveSource || null : null, _score: score });
+        effectiveSource: rule.effectiveAt ? rule.effectiveSource || null : null,
+        ...(analysis ? { slots: analysis.slots, subjects: analysis.subjects, anchorLaws: analysis.anchorLaws } : {}), _score: score });
     }
   }
   matches.sort((a, b) => b._score - a._score);
+  const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
+  if (!frame) { for (const m of matches) delete m._score; return base; }
+  const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);
+  const roleOf = new Map(roles.map(r => [r.lawId, r.role]));
+  const slotCells = {}, anchorLaws = new Map();
+  for (const m of matches) {
+    m.role = roleOf.get(m.lawId) || 'secondary';
+    // 요소별 대표 조문: 주규정 > 조문 제목이 그 요소를 다루는 조문(제7조(겸직 기간) 등) > 점수 순.
+    for (const s of m.slots) {
+      const cur = slotCells[s.key], rank = (role, inHeading, score) => (role === 'primary' ? 1000 : 0) + (inHeading ? 100 : 0) + score;
+      if (!cur || rank(m.role, s.inHeading, m._score) > cur._rank) {
+        slotCells[s.key] = { universityRule: m.universityRule, article: m.article, role: m.role, evidence: s.evidence, url: m.url, effectiveAt: m.effectiveAt, _rank: rank(m.role, s.inHeading, m._score) };
+      }
+    }
+    for (const law of m.anchorLaws) {
+      const key = law.lawName.replace(/\s+/g, '');
+      const cur = anchorLaws.get(key) || { lawName: law.lawName, articles: [], inFrame: law.inFrame, citedBy: [] };
+      for (const art of law.articles) if (!cur.articles.includes(art)) cur.articles.push(art);
+      const ref = `${m.universityRule} ${m.article}`;
+      if (!cur.citedBy.includes(ref)) cur.citedBy.push(ref);
+      anchorLaws.set(key, cur);
+    }
+  }
+  for (const cell of Object.values(slotCells)) delete cell._rank;
   for (const m of matches) delete m._score;
-  return { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
+  const droppedTotal = Object.values(dropped).reduce((a, b) => a + b, 0);
+  return { ...base, rules: roles.map(({ titleScore, ...r }) => r), slotCells, anchorLaws: [...anchorLaws.values()],
+    dropped: { count: droppedTotal, reasons: Object.fromEntries(Object.entries(dropped).map(([k, v]) => [k, { count: v, label: DROP_LABELS[k] || k }])) } };
 }
 
 const publicClient = createPublicClient();
-async function compareUniversityRules(a, { loadDongguk, client = publicClient, now = () => new Date(), totalTimeoutMs = TOTAL_TIMEOUT_MS } = {}) {
+async function compareUniversityRules(a, { loadDongguk, client = publicClient, now = () => new Date(), totalTimeoutMs = TOTAL_TIMEOUT_MS, loadExternalImpl = loadExternal } = {}) {
   const invalid = validateArguments(a);
   if (invalid) throw Object.assign(new Error(invalid), { code: 'INVALID_ARGUMENT' });
   const topic = a.topic.trim(), spec = expandTopic(topic), terms = spec.terms, columns = [];
@@ -358,14 +398,20 @@ async function compareUniversityRules(a, { loadDongguk, client = publicClient, n
     if (!source) { columns.push({ university: key, status: 'unsupported', articles: [] }); continue; }
     try {
       if (controller.signal.aborted) throw error('TOTAL_TIMEOUT');
-      const result = await abortable(key === 'dongguk' ? loadDongguk(topic, terms, {signal:controller.signal, searchTerms:spec.searchTerms, titleHints:spec.titleHints}) : loadExternal(source, topic, terms, client, controller.signal, spec), controller.signal);
-      const selected = selectArticles(result.rules, terms, a.max_articles || 3, spec.titleHints);
+      const result = await abortable(key === 'dongguk' ? loadDongguk(topic, terms, {signal:controller.signal, searchTerms:spec.searchTerms, titleHints:spec.titleHints}) : loadExternalImpl(source, topic, terms, client, controller.signal, spec), controller.signal);
+      const selected = selectArticles(result.rules, terms, a.max_articles || 3, spec.titleHints, spec.frame);
       const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated);
       columns.push({ university: key, name: source.name, status: result.rules.length === 0 && result.failures.length ? 'unavailable' : selected.articles.length ? (partial ? 'partial' : 'retrieved') : 'no_match_in_scope', ...selected, coverage: result.coverage, failures: result.failures });
     } catch (e) { columns.push({ university: key, name: source.name, status: 'unavailable', code: safeCode(e), articles: [] }); }
   }
+  const frame = spec.frame;
+  const slotMatrix = frame ? buildSlotMatrix(frame, columns) : undefined;
+  for (const c of columns) delete c.slotCells;
   return { topic, terms, searchTerms: spec.searchTerms, checkedAt: now().toISOString(), status: columns.every(x => x.status === 'retrieved') ? 'retrieved' : 'partial', columns,
-    alignment: 'topic_keyword_matches_not_legal_equivalence', notice: NOTICE, supportedUniversities: SOURCES.map(x => ({ key: x.key, name: x.name, scope: x.mode, ...(x.mode === 'public_folders' ? { publicOnly: true } : {}) })), limits:{totalTimeoutMs,externalRulesPerUniversity:MAX_RULES,minRequestIntervalMs:500} };
+    alignment: frame ? 'issue_frame_slots_not_legal_equivalence' : 'topic_keyword_matches_not_legal_equivalence',
+    issueFrame: frame ? frameSummary(frame) : null, ...(slotMatrix ? { slotMatrix } : {}),
+    notice: frame ? `${NOTICE} ${FRAME_NOTICE}` : NOTICE, supportedTopics: FRAMES.map(f => f.topic),
+    supportedUniversities: SOURCES.map(x => ({ key: x.key, name: x.name, scope: x.mode, ...(x.mode === 'public_folders' ? { publicOnly: true } : {}) })), limits:{totalTimeoutMs,externalRulesPerUniversity:MAX_RULES,minRequestIntervalMs:500} };
   } finally { clearTimeout(timer); }
 }
 
@@ -375,19 +421,46 @@ function formatComparison(data) {
     '| 항목 | ' + data.columns.map(c => esc(c.name || c.university)).join(' | ') + ' |',
     '|---|' + data.columns.map(() => '---|').join(''),
     '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
+  const roleTag = a => a.role ? (a.role === 'primary' ? '[주규정] ' : '[보조] ') : '';
+  if (data.issueFrame) {
+    lines.push('| 주규정 | ' + data.columns.map(c => {
+      const primary = (c.rules || []).filter(r => r.role === 'primary');
+      return primary.length ? esc(primary.map(r => r.universityRule).join(', ')) : c.articles.length ? '없음(보조규정만)' : '—';
+    }).join(' | ') + ' |');
+    lines.push('| 제외 조문 | ' + data.columns.map(c => c.dropped?.count ? esc(Object.values(c.dropped.reasons).map(r => `${r.label} ${r.count}`).join(', ')) : '0').join(' | ') + ' |');
+  }
   for (let i = 0; i < Math.max(0, ...data.columns.map(c => c.articles.length)); i++) {
     lines.push(`| 발췌 ${i + 1} | ` + data.columns.map(c => {
       const a = c.articles[i];
-      return a ? `${esc(a.universityRule)} ${esc(a.article)}<br>${esc(a.text.slice(0,240))}${a.text.length>240 ? ' …(본문 아래)' : ''}<br>개정일 ${esc(a.revisedAt)} / ${effectiveLabel(a)}<br>[원문](${a.url})` : '범위 내 발췌 없음';
+      return a ? `${roleTag(a)}${esc(a.universityRule)} ${esc(a.article)}<br>${esc(a.text.slice(0,240))}${a.text.length>240 ? ' …(본문 아래)' : ''}<br>개정일 ${esc(a.revisedAt)} / ${effectiveLabel(a)}<br>[원문](${a.url})` : '범위 내 발췌 없음';
     }).join(' | ') + ' |');
+  }
+  if (data.issueFrame && data.slotMatrix) {
+    const f = data.issueFrame;
+    lines.push('', `## 사안 프레임: ${f.label}`, `주체 후보: ${f.subjects.join(', ')} / 사안어: ${f.terms.join(', ')}`,
+      f.upperLaws.length ? `근거 법령 후보: ${f.upperLaws.map(l => l.lawName + (l.articles.length ? ` ${l.articles.join('·')}` : '')).join('; ')}` : '근거 법령 후보: 등록 없음',
+      f.excluded.title.length || f.excluded.article.length ? `제외 기준: 규정명 ${f.excluded.title.join('·') || '없음'} / 조문 ${f.excluded.article.join('·') || '없음'}` : '',
+      '', '### 규율 요소 대조', '| 규율 요소 | ' + data.columns.map(c => esc(c.name || c.university)).join(' | ') + ' |', '|---|' + data.columns.map(() => '---|').join(''));
+    for (const slot of data.slotMatrix.slots) {
+      lines.push(`| ${esc(slot.label)} | ` + data.columns.map(c => {
+        const cell = slot.cells[c.university];
+        if (!cell || cell.status === 'not_found_in_scope') return '범위 내 없음';
+        if (cell.status !== 'found') return `조회 불가 (${cell.status})`;
+        return `${cell.role === 'primary' ? '[주규정] ' : ''}${esc(cell.universityRule)} ${esc(cell.article)}<br>${esc(cell.evidence.slice(0, 160))}${cell.evidence.length > 160 ? '…' : ''}`;
+      }).join(' | ') + ' |');
+    }
+    lines.push('| 인용 법령 | ' + data.columns.map(c => {
+      const laws = data.slotMatrix.anchorLaws[c.university] || [];
+      return laws.length ? esc(laws.map(l => `${l.inFrame ? '◎' : '○'} ${l.lawName}${l.articles.length ? ' ' + l.articles.join('·') : ''}`).join('<br>')) : '조문 내 인용 없음';
+    }).join(' | ') + ' |', '◎ 프레임의 근거 법령과 일치, ○ 그 밖의 인용 법령. 인용의 존재와 적용 여부는 다릅니다.');
   }
   for (const c of data.columns) {
     if (!c.articles.length) continue;
     lines.push('', `## ${c.name || c.university} 조문 본문`);
-    for (const a of c.articles) lines.push('', `### ${a.universityRule} ${a.article}`, a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`);
+    for (const a of c.articles) lines.push('', `### ${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`);
   }
-  lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}`));
-  return lines.join('\n');
+  lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
+  return lines.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');
 }
 
 function effectiveLabel(a) {
@@ -395,4 +468,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { SOURCES, TOPICS, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
+module.exports = { SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
