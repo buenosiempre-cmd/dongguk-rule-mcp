@@ -104,14 +104,45 @@ function matchBlocks(blocks, tokens, weights) {
   return { best, scored: scored.sort((a, b) => b.score - a.score) };
 }
 
+// Rules write 근로장학금 where a question says 교내근로장학금, and 출장 where it
+// says 국내출장. A word that no rule contains is replaced by its longest
+// shorter form that some rule does contain. For four or more syllables the
+// head noun is at the end, so leading syllables (교내·국내) are dropped first;
+// a three-syllable word such as 특강료 or 강사료 keeps its first two syllables
+// (특강, 강사) because its last two (강료, 사료) are fragments of other words.
+// Forms shorter than two syllables or found in most rules are not used.
+function rewriteMissingToken(token, documentFrequency, total) {
+  if (token.length < 3) return null;
+  const candidates = [];
+  if (token.length === 3) candidates.push(token.slice(0, 2), token.slice(1));
+  else {
+    for (let drop = 1; token.length - drop >= 2; drop++) candidates.push(token.slice(drop));
+    for (let cut = token.length - 1; cut >= 2; cut--) candidates.push(token.slice(0, cut));
+    candidates.sort((a, b) => b.length - a.length);
+  }
+  for (const form of candidates) {
+    const df = documentFrequency(form);
+    if (df && df <= total * 0.5) return form;
+  }
+  return null;
+}
+
 function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
-  const tokens = queryContentTokens(query, 6);
-  if (!tokens.length) return { tokens, hits: [] };
+  const original = queryContentTokens(query, 6);
+  if (!original.length) return { tokens: original, hits: [] };
   const total = corpus.rules.length || 1;
-  const weights = new Map(tokens.map(token => {
-    const df = corpus.rules.filter(rule => rule.title.includes(token) || rule.blocks.some(block => block.content.includes(token))).length;
-    return [token, df ? Math.log(1 + total / df) : 0];
-  }));
+  const documentFrequency = token => corpus.rules.filter(rule => rule.title.includes(token) || rule.blocks.some(block => block.content.includes(token))).length;
+  const rewrittenTerms = {};
+  const tokens = [];
+  for (const token of original) {
+    let form = token;
+    if (!documentFrequency(token)) {
+      const shorter = rewriteMissingToken(token, documentFrequency, total);
+      if (shorter) { rewrittenTerms[token] = shorter; form = shorter; }
+    }
+    if (!tokens.includes(form)) tokens.push(form);
+  }
+  const weights = new Map(tokens.map(token => [token, (df => df ? Math.log(1 + total / df) : 0)(documentFrequency(token))]));
   const hits = [];
   for (const rule of corpus.rules) {
     const { best, scored } = matchBlocks(rule.blocks, tokens, weights);
@@ -131,7 +162,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
     });
   }
   hits.sort((a, b) => b.score - a.score || a.lawId - b.lawId);
-  return { tokens, missingTerms: tokens.filter(token => !weights.get(token)), hits: hits.slice(0, top) };
+  return { tokens, missingTerms: tokens.filter(token => !weights.get(token)), rewrittenTerms, hits: hits.slice(0, top) };
 }
 
-module.exports = { CORPUS_VERSION, blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusPath, corpusCoverage, matchBlocks, searchCorpus };
+module.exports = { CORPUS_VERSION, blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusPath, corpusCoverage, matchBlocks, searchCorpus, rewriteMissingToken };
