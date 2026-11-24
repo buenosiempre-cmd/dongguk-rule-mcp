@@ -348,4 +348,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { SOURCES, TOPICS, MAX_RULES, parsePairs, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
+module.exports = { SOURCES, TOPICS, MAX_RULES, TOTAL_TIMEOUT_MS, parsePairs, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
