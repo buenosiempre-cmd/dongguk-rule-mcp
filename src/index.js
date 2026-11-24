@@ -236,13 +236,28 @@ async function getContent(lawId, hid) {
   return parseContent(html);
 }
 
-async function loadDonggukComparison(topic, terms, {signal}={}) {
-  const titled=await cached('university-title-search',hk(topic,1,5),TTL.history,()=>searchRules(topic,{pageShow:5}));
-  if(signal?.aborted) throw Object.assign(new Error('comparison timeout'),{code:'TOTAL_TIMEOUT'});
-  const found=titled.hits.length?{...titled,mode:'title_search'}:
-    {...await cached('university-full-search',hk(topic,1,5),TTL.history,()=>searchRules(topic,{fullText:true,pageShow:5})),mode:'full_text_search'};
+async function loadDonggukComparison(topic, terms, {signal, searchTerms=[topic], titleHints=terms}={}) {
+  const timeout=()=>Object.assign(new Error('comparison timeout'),{code:'TOTAL_TIMEOUT'});
+  // 검색 결과는 조문 단위 행이라 같은 규정이 여러 번 나온다. 20행을 받아 규정 단위로 합친다.
+  const PAGE=20, queries=[...new Set(searchTerms)].slice(0,2);
+  const run=async(fullText)=>{
+    const seen=new Set(), hits=[]; let total=0;
+    for (const q of queries) {
+      if(signal?.aborted) throw timeout();
+      const r=await cached(fullText?'university-full-search':'university-title-search',hk(q,1,PAGE),TTL.history,()=>searchRules(q,{fullText,pageShow:PAGE}));
+      total+=r.total||0;
+      for (const h of r.hits) if(!seen.has(h.lawId)){seen.add(h.lawId);hits.push(h);}
+    }
+    return {hits,total};
+  };
+  const titled=await run(false);
+  if(signal?.aborted) throw timeout();
+  const found=titled.hits.length?{...titled,mode:'title_search'}:{...await run(true),mode:'full_text_search'};
+  const {ruleTitleScore, MAX_RULES}=require('./university-rules');
+  const ranked=rankRuleHits(found.hits,topic).map((hit,i)=>({hit,i,s:ruleTitleScore(hit.title,terms,titleHints)}))
+    .sort((a,b)=>b.s-a.s||a.i-b.i).map(x=>x.hit);
   const rules=[], failures=[];
-  for (const hit of rankRuleHits(found.hits,topic).slice(0,5)) {
+  for (const hit of ranked.slice(0,MAX_RULES)) {
     if(signal?.aborted) break;
     try {
       const latest=await resolve(hit.lawId);
@@ -250,11 +265,13 @@ async function loadDonggukComparison(topic, terms, {signal}={}) {
       const content=await cached(CONTENT_CACHE,`${hit.lawId}_${latest.historyId}`,TTL.content,()=>getContent(hit.lawId,latest.historyId));
       if (!content.markdown) throw Object.assign(new Error('empty content'),{code:'UPSTREAM_FORMAT_CHANGED'});
       const title=/^(?:\S\s+)+\S$/.test(content.title||'')?content.title.replace(/\s+/g,''):content.title;
+      const effectiveAt=require('./university-rules').latestAddendaEffective(content.markdown);
       rules.push({...hit,...content,title,historyId:latest.historyId,revisedAt:latest.revisedAt,
+        effectiveAt,effectiveSource:effectiveAt?'addenda':null,
         url:`${FULLVIEW_URL}?SEQ=${hit.lawId}&SEQ_HISTORY=${latest.historyId}`});
     } catch(e) { const code=comparisonErrorCode(e);failures.push({lawId:hit.lawId,code});if(code!=='UPSTREAM_FORMAT_CHANGED') break; }
   }
-  return {rules,failures,coverage:{mode:found.mode,totalCandidates:found.total,scannedRules:rules.length,truncated:found.total>rules.length}};
+  return {rules,failures,coverage:{mode:found.mode,queries,totalCandidates:found.total,uniqueRules:ranked.length,scannedRules:rules.length,truncated:ranked.length>rules.length}};
 }
 
 // === 원문 HWP (HTML 본문에 없는 별표·표 포함) ===
@@ -1277,7 +1294,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'compare_university_rules', title:'타대학 규정 조문 비교',
-    description:'동국대와 타대학의 같은 주제 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 서버에서 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 허용 필요. 국민·숭실은 전문검색, 고려·건국은 최근 목록만 탐색합니다. 외부대학별 최대 3개 규정, 전체 40초 제한입니다. 미지원 대학·접속 실패·미발견을 구분합니다. HTML 별표 누락 및 시행일 미확인에 유의하세요.',
+    description:'동국대와 타대학의 같은 주제 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 서버에서 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 허용 필요. 서울시립·국민·숭실은 전문검색(대표어·동의어), 건국은 전체 규정 트리의 제목 대조, 고려는 공개 트리가 막혀 최근 목록만 탐색합니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
     inputSchema:{type:'object',properties:{
       topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여'},
       universities:{type:'array',minItems:1,maxItems:5,items:{type:'string'},description:'타대학 키: korea, uos, konkuk, kookmin, ssu. dongguk은 자동 포함. 다른 키는 unsupported로 표시.'},
