@@ -168,6 +168,17 @@ async function main() {
     assert.deepEqual(queries,['근로장학','근로보조금']);assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
   });
+  await check('신규 4개 대학 등록(경희·숙명·광운·명지)과 명지 본문 파싱(lawname2/addenda2)', () => {
+    const byKey=Object.fromEntries(SOURCES.map(x=>[x.key,x]));
+    assert.equal(byKey.khu?.mode,'search_do');assert.equal(byKey.sookmyung?.mode,'search_do');
+    assert.equal(byKey.kw?.mode,'tree');assert.equal(byKey.mju?.mode,'tree');
+    assert.equal(byKey.mju.origin,'https://law.mju.ac.kr');assert.equal(byKey.khu.origin,'https://rule.khu.ac.kr');
+    // 명지대는 제목·부칙을 lawname2·addenda2로, 조문을 article2로 표시한다.
+    const html='<div class="lawname2">교직원 여비 규정</div><div class="JO"><span class="article2"><span class="doc_btn">버튼</span>제 2 조 (여비의 종류)</span><div class="hang">여비는 운임, 일비, 숙박비로 구분한다.</div></div><div class="addenda2">부   칙</div><div class="none">이 규정은 2026년 11월 1일부터 시행한다.</div>';
+    const p=parseExternalContent(html);
+    assert.equal(p.title,'교직원 여비 규정');assert.match(p.markdown,/### 제 2 조 \(여비의 종류\)/);
+    assert(!p.markdown.includes('버튼'));assert.equal(latestAddendaEffective(p.markdown),'2026-11-01');
+  });
   await check('고려대 공개 분류 목록: 페이지 넘김·제목 대조·공개 범위 표시', async () => {
     const listing=(total,rows)=>`<p>전체: ${total} 건&nbsp; 페이지:</p>`+rows.map(([id,h,t])=>`<a href="/lmxsrv/law/lawFullView.do?SEQ=${id}&amp;SEQ_HISTORY=${h}">${t}</a>`).join('');
     const parsed=parseFolderListing(listing(2,[[1,2,'3-4-5 장학금 지급 규정'],[3,4,'3-1-1 직제규정']]));

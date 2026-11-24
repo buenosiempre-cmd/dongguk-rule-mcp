@@ -19,6 +19,11 @@ const SOURCES = Object.freeze([
   { key: 'konkuk', name: '건국대학교', origin: 'https://rule.konkuk.ac.kr', ext: 'do', mode: 'tree' },
   { key: 'kookmin', name: '국민대학교', origin: 'https://rule.kookmin.ac.kr', ext: 'do', mode: 'search_do' },
   { key: 'ssu', name: '숭실대학교', origin: 'http://rule.ssu.ac.kr', ext: 'do', mode: 'search_do' },
+  // 아래 4곳은 2026-11-24 공개 접근 확인. 경희·숙명은 전문검색, 광운·명지는 공개 규정트리.
+  { key: 'khu', name: '경희대학교', origin: 'https://rule.khu.ac.kr', ext: 'do', mode: 'search_do' },
+  { key: 'sookmyung', name: '숙명여자대학교', origin: 'https://rule.sookmyung.ac.kr', ext: 'do', mode: 'search_do' },
+  { key: 'kw', name: '광운대학교', origin: 'https://rule.kw.ac.kr', ext: 'do', mode: 'tree' },
+  { key: 'mju', name: '명지대학교', origin: 'https://law.mju.ac.kr', ext: 'do', mode: 'tree' },
 ].map(Object.freeze));
 // terms: 조문 일치어(첫 항목이 대표어·검색어). titleHints: 규정 제목 우선순위용(조문 일치에는 쓰지 않음).
 const TOPICS = {
@@ -111,15 +116,16 @@ function parseExternalContent(html) {
   const $ = cheerio.load(html);
   $('.doc_btn, caption, script, style').remove();
   const root = $('.fullbody').length ? $('.fullbody') : $('body');
-  const title = root.find('.lawname').first().text().replace(/\s+/g, ' ').trim();
+  // 명지대 등은 제목·부칙을 lawname2·addenda2로 표시한다(2026-11 확인). 두 표기 모두 받는다.
+  const title = root.find('.lawname, .lawname2').first().text().replace(/\s+/g, ' ').trim();
   const lines = [];
   root.find('div, span').each(function () {
     const classes = ($(this).attr('class') || '').split(/\s+/);
     const text = $(this).text().replace(/\s+/g, ' ').trim();
-    if (!text || classes.includes('lawname')) return;
-    if (classes.includes('addenda')) lines.push(`## ${text.replace(/^부\s*칙\s*/, '부칙 ')}`);
+    if (!text || classes.includes('lawname') || classes.includes('lawname2')) return;
+    if (classes.includes('addenda') || classes.includes('addenda2')) lines.push(`## ${text.replace(/^부\s*칙\s*/, '부칙 ')}`);
     else if (classes.includes('chapter')) lines.push(`## ${text}`);
-    // 고려대·건국대는 조문 제목을 span.article2로 표시한다(2026-11 확인).
+    // 고려대·건국대·명지대는 조문 제목을 span.article2로 표시한다(2026-11 확인).
     else if ((classes.includes('article') || classes.includes('article2')) && /^제\s*\d+\s*조/.test(text)) lines.push(`### ${text}`);
     else if (['none','hang','ho','mok'].some(c => classes.includes(c))) lines.push(text);
   });
