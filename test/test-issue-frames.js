@@ -45,6 +45,8 @@ async function main() {
   await check('동음어 조문 제외: 교내 겸무(JA교원)·지도교수 겸직은 빼고, 외부 겸직·행동강령은 남긴다', () => {
     const frame = resolveFrame('겸직');
     assert.equal(analyzeArticle({ content: ja.markdown }, ja, frame).excluded, 'other_issue_rule');
+    // 경희대 「교원 교내겸직 규정」(2026-11-24 실측): 제목에 겸직이 있어도 교내 겸직은 다른 사안이다.
+    assert.equal(analyzeArticle({ content: '### 제3조(겸직 신청)\n교원은 교내 다른 학과에 겸직을 신청할 수 있으며 보수는 지급하지 아니한다.' }, { title: '교원 교내겸직 규정' }, frame).excluded, 'other_issue_rule');
     assert.equal(analyzeArticle({ content: ja.markdown }, { ...ja, title: '전임교원 인사규정' }, frame).excluded, 'other_issue_article');
     assert.equal(analyzeArticle({ content: gradSchool.markdown }, { ...gradSchool, title: '교무규정' }, frame).excluded, 'other_issue_article');
     assert.equal(analyzeArticle({ content: mention.markdown }, mention, frame).excluded, 'mention_only');
