@@ -11,7 +11,10 @@ const { extractEnforcementDates } = require('./timeline');
 // when a site serves only a stub tree without a session (고려대, 2026-11 확인).
 const SOURCES = Object.freeze([
   { key: 'dongguk', name: '동국대학교', origin: 'https://rule.dongguk.edu', ext: 'srv', mode: 'search' },
-  { key: 'korea', name: '고려대학교', origin: 'https://policies.korea.ac.kr', ext: 'do', mode: 'tree' },
+  // 고려대는 로그인 없이 약 55개 규정만 공개한다(2026-11-24 확인: 다른 SEQ는 로그인으로 302).
+  // 검색·전체 트리·부서별 목록은 세션이 필요하고, 분류별 목록(lawListManager)만 열려 있다.
+  // folders는 공개 규정이 들어 있는 분류 번호(1~300 범위 조사 결과)이다.
+  { key: 'korea', name: '고려대학교', origin: 'https://policies.korea.ac.kr', ext: 'do', mode: 'public_folders', folders: [2, 3, 4, 5, 6, 7, 11, 13] },
   { key: 'uos', name: '서울시립대학교', origin: 'http://rule.uos.ac.kr', ext: 'srv', mode: 'search' },
   { key: 'konkuk', name: '건국대학교', origin: 'https://rule.konkuk.ac.kr', ext: 'do', mode: 'tree' },
   { key: 'kookmin', name: '국민대학교', origin: 'https://rule.kookmin.ac.kr', ext: 'do', mode: 'search_do' },
@@ -28,6 +31,8 @@ const TOPICS = {
 const TOPIC_PREFIX = /^(교내|교외|학부|대학원|학사)/;
 const MAX_RULES = 5, MIN_TREE_RULES = 20, TOTAL_TIMEOUT_MS = 60000;
 const TREE_QUERY = 'LAWGROUP=1&SEQ_TARGET=0&MODE=srvlist&TREE_SEARCH_BOOL=y';
+const FOLDER_PAGE_SIZE = 10, MAX_FOLDER_PAGES = 10;
+const PUBLIC_ONLY_NOTICE = '로그인 없이 공개된 규정만 목록에 나옵니다. 목록에 없는 규정은 비공개로 추정되며 조회할 수 없습니다.';
 const NOTICE = '주제어가 일치하는 조문 발췌를 나란히 제공합니다. 행 순서나 조문 번호는 대학 간 법적 대응·동등성을 뜻하지 않습니다. HTML만 조회하므로 HWP 별표·금액표는 누락될 수 있습니다. 개정일은 시행일이 아닙니다. 시행일은 규정 목록의 시행일자 또는 마지막 부칙의 명시 시행일만 표시하며(조문별 시행일·경과조치는 미확인), 없으면 미확인입니다.';
 const error = code => Object.assign(new Error(code), { code });
 const compact = s => String(s ?? '').replace(/\s+/g, '');
@@ -130,6 +135,17 @@ function parseTree(html) {
   if (!Array.isArray(nodes)) return [];
   return nodes.filter(x => x && String(x.folder) === '0' && Number.isSafeInteger(+x.id) && +x.id > 0 && Number.isSafeInteger(+x.hseq) && +x.hseq > 0)
     .map(x => ({ lawId: +x.id, historyId: +x.hseq, title: cleanListTitle(x.name).title }));
+}
+
+// 분류별 규정 목록(lawListManager) 한 페이지: "전체: N 건" 표시와 규정 링크. 페이지 크기는 10으로 고정이다.
+function parseFolderListing(html) {
+  const text = String(html || '').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ');
+  const m = /전체\s*:\s*([\d,]+)\s*건/.exec(text);
+  if (!m) throw error('UPSTREAM_FORMAT_CHANGED');
+  const total = Number(m[1].replace(/,/g, ''));
+  const pairs = parsePairs(html);
+  if (total > 0 && !pairs.length) throw error('UPSTREAM_FORMAT_CHANGED');
+  return { total, pairs };
 }
 
 function parseUniversitySearch(html, modern = false) {
@@ -247,6 +263,31 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}) {
       hits = nodes.filter(x => ruleTitleScore(x.title, terms, hints) > 0);
       coverage = { mode: 'title_tree', totalCandidates: nodes.length, titleMatches: hits.length, truncated: hits.length > MAX_RULES, complete: false };
     } else await loadRecent();
+  } else if (source.mode === 'public_folders') {
+    // 공개 분류 목록을 모두 읽어 제목을 대조한다. 목록 형식이 바뀌면 최근 목록으로 대체한다.
+    const listed = [], seen = new Set(), folders = [];
+    let formatChanged = false;
+    for (const folder of source.folders || []) {
+      let page = 1, total = 0, got = 0;
+      try {
+        do {
+          const body = new URLSearchParams({ SEQ: String(folder), PAGE: String(page), PAGE_SHOW: String(FOLDER_PAGE_SIZE), LAWGROUP: '1', SHOW_YN: 'Y' }).toString();
+          const result = parseFolderListing(await request(`/lmxsrv/law/lawListManager.${source.ext}`, body));
+          total = result.total;
+          for (const p of result.pairs) if (!seen.has(p.lawId)) { seen.add(p.lawId); listed.push({ ...p, folder }); }
+          got += result.pairs.length;
+          page++;
+        } while (got < total && page <= MAX_FOLDER_PAGES);
+        folders.push({ folder, total });
+      } catch (e) {
+        if (safeCode(e) !== 'UPSTREAM_FORMAT_CHANGED') throw e;
+        formatChanged = true; break;
+      }
+    }
+    if (!formatChanged && listed.length) {
+      hits = listed.filter(x => ruleTitleScore(x.title, terms, hints) > 0);
+      coverage = { mode: 'public_folder_list', totalCandidates: listed.length, folders, titleMatches: hits.length, truncated: hits.length > MAX_RULES, complete: false, publicOnly: true, notice: PUBLIC_ONLY_NOTICE };
+    } else await loadRecent();
   } else await loadRecent();
   const rules = [], failures = [];
   const query = compact(topic);
@@ -318,7 +359,7 @@ async function compareUniversityRules(a, { loadDongguk, client = publicClient, n
     } catch (e) { columns.push({ university: key, name: source.name, status: 'unavailable', code: safeCode(e), articles: [] }); }
   }
   return { topic, terms, searchTerms: spec.searchTerms, checkedAt: now().toISOString(), status: columns.every(x => x.status === 'retrieved') ? 'retrieved' : 'partial', columns,
-    alignment: 'topic_keyword_matches_not_legal_equivalence', notice: NOTICE, supportedUniversities: SOURCES.map(x => ({ key: x.key, name: x.name, scope: x.mode })), limits:{totalTimeoutMs,externalRulesPerUniversity:MAX_RULES,minRequestIntervalMs:500} };
+    alignment: 'topic_keyword_matches_not_legal_equivalence', notice: NOTICE, supportedUniversities: SOURCES.map(x => ({ key: x.key, name: x.name, scope: x.mode, ...(x.mode === 'public_folders' ? { publicOnly: true } : {}) })), limits:{totalTimeoutMs,externalRulesPerUniversity:MAX_RULES,minRequestIntervalMs:500} };
   } finally { clearTimeout(timer); }
 }
 
@@ -327,7 +368,7 @@ function formatComparison(data) {
   const lines = [`# 대학 규정 비교: ${data.topic}`, data.notice, `조회: ${data.checkedAt} / 상태: ${data.status}`, '',
     '| 항목 | ' + data.columns.map(c => esc(c.name || c.university)).join(' | ') + ' |',
     '|---|' + data.columns.map(() => '---|').join(''),
-    '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : ''))).join(' | ') + ' |'];
+    '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
   for (let i = 0; i < Math.max(0, ...data.columns.map(c => c.articles.length)); i++) {
     lines.push(`| 발췌 ${i + 1} | ` + data.columns.map(c => {
       const a = c.articles[i];
@@ -348,4 +389,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { SOURCES, TOPICS, MAX_RULES, TOTAL_TIMEOUT_MS, parsePairs, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
+module.exports = { SOURCES, TOPICS, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
