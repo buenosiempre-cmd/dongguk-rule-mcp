@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { SOURCES, parsePairs, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal } = require('../src/university-rules');
+const { SOURCES, parsePairs, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -84,9 +84,9 @@ async function main() {
     assert.deepEqual(d.columns.map(x=>x.status),['unavailable','unavailable','no_match_in_scope']);
     assert.equal(d.columns[1].code,'UPSTREAM_FORMAT_CHANGED'); assert(!JSON.stringify(d).includes('DO_NOT_ECHO'));
   });
-  await check('후보 3개 제한·우선순위·조문 잘림을 표시', async () => {
+  await check('최근 목록 대체 시 3개 제한·우선순위·조문 잘림을 표시', async () => {
     let contentCalls=0;
-    const c={request:async(s,path)=>path.includes('lawNewList')?Array.from({length:12},(_,i)=>`<a onclick="fullPopupPost(${i+1},${i+20})">${i===11?'여비':'기타'}규정</a>`).join(''):(contentCalls++,body('여비규정'))};
+    const c={request:async(s,path)=>path.includes('lawTree')?'<html>stub</html>':path.includes('lawNewList')?Array.from({length:12},(_,i)=>`<a onclick="fullPopupPost(${i+1},${i+20})">${i===11?'여비':'기타'}규정</a>`).join(''):(contentCalls++,body('여비규정'))};
     const r=await loadExternal(SOURCES[1],'여비',['여비'],c); assert.equal(contentCalls,3);assert.equal(r.rules[0].lawId,12); assert(r.coverage.truncated);
     const d=await compareUniversityRules({topic:'여비',universities:['korea'],max_articles:1},{loadDongguk:async()=>({...await dongguk(),rules:[{...rule,markdown:'### 제1조(여비)\n'+'여비'.repeat(1500)+'\n### 제2조(여비)\n여비 지급'}]}),client:c});
     assert(d.columns[0].articlesTruncated);assert(d.columns[0].articles[0].textTruncated);assert.equal(d.columns[0].status,'partial');
@@ -111,11 +111,62 @@ async function main() {
   await check('전문검색 후보는 주제 규정 제목을 먼저 조회', async () => {
     const paths=[];
     const c={request:async(s,path)=>{
-      if(path.includes('searchEngineTotal')) return '<p>전체:4건</p>'+[1,2,3,4].map(id=>`<a onclick="thisReadLaw(${id},10)">${id===4?'여비규정':'기타규정'} 제1조</a>`).join('');
+      if(path.includes('searchEngineTotal')) return '<p>전체:7건</p>'+[1,2,3,4,5,6,7].map(id=>`<a onclick="thisReadLaw(${id},10)">${id===4?'여비규정':'기타규정'} 제1조</a>`).join('');
       paths.push(path);return body('여비규정');
     }};
     const r=await loadExternal(SOURCES[4],'여비',['여비'],c);
-    assert.match(paths[0],/SEQ=4&/);assert.equal(paths.length,3);assert(r.coverage.truncated);
+    assert.match(paths[0],/SEQ=4&/);assert.equal(paths.length,5);assert(r.coverage.truncated);
+  });
+  await check('주제어 확장: 접두어·끝 금 제거, 동의어, 미등록 주제', () => {
+    const k=expandTopic('교내근로장학금');
+    assert.equal(k.terms[0],'근로장학');assert(k.terms.includes('근로보조금'));assert.deepEqual(k.searchTerms,['근로장학','근로보조금']);assert.deepEqual(k.titleHints,['장학']);
+    assert.equal(expandTopic('근로장학금').terms[0],'근로장학');assert.equal(expandTopic('여비').terms[0],'여비');
+    assert.deepEqual(expandTopic('학부졸업유예').terms,['학부졸업유예','졸업유예']);assert.deepEqual(expandTopic('학부졸업유예').searchTerms,['졸업유예','학부졸업유예']);
+    assert.deepEqual(expandTopic('등록금 반환').terms,['등록금','반환','환불']);assert.deepEqual(expandTopic('교원 겸직').terms,['교원','겸직']);
+  });
+  await check('목록 제목의 스크립트 제거와 시행일자 추출', () => {
+    const t=cleanListTitle(`if(chekFutureDate('20261015')){document.write("<span style='color: red;'>[시행예정]</span>");} 3-1-47 포상규정 newIcon('20261015');`);
+    assert.deepEqual(t,{title:'3-1-47 포상규정',effectiveAt:'2026-10-15'});
+    const p=parsePairs(`<a href="/lmxsrv/law/lawFullView.do?SEQ=114&amp;SEQ_HISTORY=2793">if(chekFutureDate('20261015')){document.write("[시행예정]");} 3-1-47 포상규정 newIcon('20261015');</a>`);
+    assert.deepEqual(p,[{lawId:114,historyId:2793,title:'3-1-47 포상규정',effectiveAt:'2026-10-15'}]);
+  });
+  await check('고려·건국 조문 span.article2 파싱', () => {
+    const html='<div class="lawname">포상규정</div><div class="JO"><span class="article2"><span class="doc_btn">조항 연혁</span>제1조(목적)</span><div class="none level1">이 규정은 포상을 정한다.</div></div><div class="addenda">부   칙</div><div class="none">이 규정은 2026년 10월 15일부터 시행한다.</div>';
+    const p=parseExternalContent(html);assert.match(p.markdown,/### 제1조\(목적\)/);assert(!p.markdown.includes('조항 연혁'));
+    assert.equal(latestAddendaEffective(p.markdown),'2026-10-15');
+  });
+  await check('부칙 시행일: 마지막 부칙만, 날짜 없는 부칙은 미확인', () => {
+    assert.equal(latestAddendaEffective('### 제1조(목적)\n목적\n## 부칙\n이 규정은 2020년 3월 1일부터 시행한다.\n## 부칙\n이 규정은 2026. 3. 13.부터 시행한다. 다만 제7조는 2026년 9월 1일부터 시행한다.'),'2026-03-13');
+    assert.equal(latestAddendaEffective('## 부칙\n이 규정은 2020년 3월 1일부터 시행한다.\n## 부칙\n이 규정은 공포한 날부터 시행한다.'),null);
+    assert.equal(latestAddendaEffective('### 제1조(목적)\n2026년 1월 1일부터 시행'),null);
+  });
+  await check('트리 모드: 전체 규정 제목 대조, 트리 없으면 최근 목록', async () => {
+    const nodes=[{folder:'1',id:1,hseq:0,name:'규정'},...Array.from({length:25},(_,i)=>({folder:'0',id:100+i,hseq:900+i,name:`3-5-${i} 기타규정`})),{folder:'0',id:382,hseq:3766,name:'3-5-1 장학규정'}];
+    const tree=`<script>var zNodes = ${JSON.stringify(nodes)};</script>`;
+    assert.equal(parseTree(tree).length,26);assert.equal(parseTree('<html></html>').length,0);
+    const paths=[];
+    const c={request:async(s,path)=>{paths.push(path);if(path.includes('lawTree'))return tree;return '<div class="lawname">장학규정</div><span class="article2">제7조(근로장학금)</span><div class="hang">근로장학생에게 지급한다.</div><div class="addenda">부칙</div><div class="none">이 규정은 2026년 3월 1일부터 시행한다.</div>';}};
+    const spec=expandTopic('교내근로장학금');
+    const r=await loadExternal(SOURCES.find(x=>x.key==='konkuk'),'교내근로장학금',spec.terms,c,undefined,spec);
+    assert.equal(r.coverage.mode,'title_tree');assert.equal(r.coverage.titleMatches,1);assert.equal(r.rules[0].lawId,382);
+    assert(!paths.some(x=>x.includes('lawNewList')));assert.equal(r.rules[0].effectiveAt,'2026-03-01');assert.equal(r.rules[0].effectiveSource,'addenda');
+    const d=await compareUniversityRules({topic:'교내근로장학금',universities:['konkuk']},{loadDongguk:dongguk,client:c});
+    assert.equal(d.columns[1].articles[0].article,'제7조');assert.match(formatComparison(d),/시행일 2026-03-01 \(마지막 부칙 명시 시행일\)/);
+    const stub={request:async(s,path)=>path.includes('lawTree')?'<script>var zNodes = [{"folder":"0","id":15,"hseq":2502,"name":"2-1-1 학칙"}];</script>':path.includes('lawNewList')?`<a onclick="fullPopupPost(5,6)">if(chekFutureDate('20260901')){} 3-5-1 장학규정 newIcon('20260901');</a>`:'<div class="lawname">장학규정</div><span class="article2">제7조(근로장학금)</span><div class="hang">근로장학 지급</div>'};
+    const k=await loadExternal(SOURCES.find(x=>x.key==='korea'),'근로장학',spec.terms,stub,undefined,spec);
+    assert.equal(k.coverage.mode,'recent_list_only');assert.equal(k.rules[0].effectiveAt,'2026-09-01');assert.equal(k.rules[0].effectiveSource,'list');
+  });
+  await check('동의어 검색은 후보가 부족할 때만 추가 조회, 조문 제목 일치 우선', async () => {
+    const queries=[];
+    const c={request:async(s,path,data)=>{
+      if(path.includes('lawSerach')){const q=new URLSearchParams(data).get('SEARCH_TEXT');queries.push(q);
+        return q==='근로장학'?'<p class="infoLeft">1건</p><a onclick="fullPopupPost(1,2)">사무분장규정</a>':'<p class="infoLeft">1건</p><a onclick="fullPopupPost(3,4)">장학규정</a>';}
+      return path.includes('SEQ=3&')?'<div class="lawname">장학규정</div><div class="article">제3조(종류)</div><div class="hang">근로보조금은 근로 대가로 지급한다.</div>'
+        :'<div class="lawname">사무분장규정</div><div class="article">제5조(학생팀)</div><div class="hang">근로장학생 관리</div>';
+    }};
+    const d=await compareUniversityRules({topic:'교내근로장학금',universities:['uos']},{loadDongguk:dongguk,client:c});
+    assert.deepEqual(queries,['근로장학','근로보조금']);assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
+    assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
   });
   await check('전체 시간 제한 후 후속 대학 요청 금지 및 취소 전달', async () => {
     let calls=0,signal;
