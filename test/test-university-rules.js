@@ -122,7 +122,7 @@ async function main() {
     assert.equal(k.terms[0],'근로장학');assert(k.terms.includes('근로보조금'));assert.deepEqual(k.searchTerms,['근로장학','근로보조금']);assert.deepEqual(k.titleHints,['장학']);
     assert.equal(expandTopic('근로장학금').terms[0],'근로장학');assert.equal(expandTopic('여비').terms[0],'여비');
     assert.deepEqual(expandTopic('학부졸업유예').terms,['학부졸업유예','졸업유예']);assert.deepEqual(expandTopic('학부졸업유예').searchTerms,['졸업유예','학부졸업유예']);
-    assert.deepEqual(expandTopic('등록금 반환').terms,['등록금','반환','환불']);assert.deepEqual(expandTopic('교원 겸직').terms,['교원','겸직']);
+    assert.deepEqual(expandTopic('등록금 반환').terms,['등록금','반환','환불']);assert.deepEqual(expandTopic('교원 겸직').terms,['겸직','겸업']);assert.equal(expandTopic('교원 겸직').frame.id,'external_concurrent_office');assert.deepEqual(expandTopic('교원 복무').terms,['교원','복무']);
   });
   await check('목록 제목의 스크립트 제거와 시행일자 추출', () => {
     const t=cleanListTitle(`if(chekFutureDate('20261015')){document.write("<span style='color: red;'>[시행예정]</span>");} 3-1-47 포상규정 newIcon('20261015');`);
