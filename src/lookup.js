@@ -176,6 +176,9 @@ function scoreBlock(block, tokens, context = '') {
   if (/[0-9][0-9,]*(?:원|%|등급)/.test(block)) score += 8;
   if (/별\s*표|별표/.test(block)) score += 6;
   if (/^제\s*\d+\s*조/m.test(block)) score += 3;
+  // Words in the article title mark what the article is about.
+  const title = /^(?:#{1,6}[ \t]*)?(?:\*\*)?제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?[ \t]*[(（]([^)）\n]{1,40})[)）]/.exec(block);
+  if (title) score += matched.filter(token => title[1].toLowerCase().includes(token)).length * 10;
   if (appendixKey && (tokens.includes('별표') || requested.includes(appendixKey))) score += 100;
   // An exact article heading outranks mentions in other articles, including
   // revision notes such as "제62조에서 제60조로 이동".
@@ -291,7 +294,16 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     }
   }
 
-  const orderedIndexes = [...selectedIndexes].sort((a, b) => a - b);
+  // Document order by default. A question answered from a long rule reads
+  // best-matching article first, so the length limit cuts the weaker ones.
+  const rankOf = new Map();
+  if (options.order === 'relevance') {
+    scored.slice(0, maxBlocks).forEach((item, rank) => {
+      for (const index of [item.index, ...(articleContexts[item.index] || [])]) if (!rankOf.has(index)) rankOf.set(index, rank);
+    });
+  }
+  const rank = index => rankOf.has(index) ? rankOf.get(index) : maxBlocks;
+  const orderedIndexes = [...selectedIndexes].sort((a, b) => rank(a) - rank(b) || a - b);
   const selected = orderedIndexes.map(index => blocks[index]).join('\n\n');
   const matchedTerms = [...new Set(
     scored.slice(0, maxBlocks).flatMap(x => x.matched)
@@ -320,23 +332,97 @@ const QUESTION_STOPWORDS = new Set([
   '알려줘', '알려주세요', '알려', '주세요', '무엇', '뭐야', '뭔가요', '어떻게', '어떤', '있나요', '있는지',
   '되나요', '하나요', '인가요', '경우', '관련', '대한', '대해', '대해서', '관한', '내용', '규정', '기준은', '방법',
   '동국대', '동국대학교', '우리', '학교', '얼마', '얼마야', '얼마인가요', '가능', '가능한가요', '여부',
+  // Question words and verb remnants carry no rule vocabulary; left in, their
+  // rarity outweighs the nouns ("받아" once outranked "일비").
+  '누가', '누구', '누구에게', '언제', '어디', '어디서', '무슨', '몇', '얼마나', '필요', '필요한', '있어', '있는', '없는',
+  '있나', '없나', '있을', '없을', '받아', '받나', '받는', '받을', '하려면', '하면', '해야', '하는', '하나', '되는', '됩니까',
+  '싶어', '싶은', '궁금', '궁금해', '어느', '무엇인가요', '뭐가', '뭘', '이런', '그런', '어떠한',
 ]);
 const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
+// "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
+const VERB_ENDING = /(?:하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
+// Nouns that end in 해; not "noun + 해".
+const NOUN_ENDING_HAE = /(?:피해|손해|재해|이해|방해|침해|상해|견해|화해|양해|오해|저해|유해|무해)$/;
+// Two-syllable nouns before the subject particle 가 (교수가 → 교수). Other
+// three-syllable words ending in 가 (전문가, 낙찰가) are nouns themselves.
+const SUBJECTS_BEFORE_GA = new Set(['교수', '강사', '조교', '부서', '학교', '이사', '감사', '회계', '근로자']);
+
+function contentToken(raw) {
+  let token = String(raw || '').trim();
+  if (!token || /^제?\d+조?$/.test(token)) return null;
+  const verbStem = NOUN_ENDING_HAE.test(token) ? token : token.replace(VERB_ENDING, '');
+  if (verbStem !== token) {
+    // A bare verb ("받아", "해야") leaves nothing to search for.
+    if (verbStem.length < 2) return null;
+    token = verbStem;
+  } else {
+    const stripped = token.replace(PARTICLE_SUFFIX, '');
+    // "년까지", "곳에서": a counter or pronoun before a long particle is not a search word.
+    if (stripped.length < 2 && token.length - stripped.length >= 2) return null;
+    if (stripped.length >= 2 && (!(token.length === 3 && token.endsWith('가')) || SUBJECTS_BEFORE_GA.has(stripped))) token = stripped;
+  }
+  if (token.length < 2 || QUESTION_STOPWORDS.has(token)) return null;
+  return token;
+}
 
 function queryContentTokens(value, maxTokens = 4) {
   const tokens = [];
   for (const raw of String(value || '').split(/[\s,;|/·?!.()（）"'「」]+/)) {
-    let token = raw.trim();
-    if (!token || /^제?\d+조?$/.test(token)) continue;
-    const stripped = token.replace(PARTICLE_SUFFIX, '');
-    // Three-syllable nouns ending in 가 (전문가, 낙찰가) are not "noun + 가".
-    if (stripped.length >= 2 && !(token.length === 3 && token.endsWith('가'))) token = stripped;
-    if (token.length < 2 || QUESTION_STOPWORDS.has(token) || tokens.includes(token)) continue;
-    tokens.push(token);
+    const token = contentToken(raw);
+    if (token && !tokens.includes(token)) tokens.push(token);
   }
   // Prefer the most specific words while preserving the question order.
   const kept = new Set([...tokens].sort((a, b) => b.length - a.length).slice(0, maxTokens));
   return tokens.filter(token => kept.has(token));
+}
+
+// Everyday words for what the rules call something else. Each entry lists the
+// rule vocabulary to try alongside the question word; only forms that occur in
+// the indexed rules are used, so an entry cannot invent a match.
+const RULE_VOCABULARY = new Map(Object.entries({
+  해외출장: ['국외출장', '국외여비', '국외 출장', '국외'], 해외여비: ['국외여비', '국외'], 해외: ['국외'],
+  국내출장: ['국내출장', '국내여비', '국내 출장', '출장'], 출장비: ['여비', '출장'], 출장: ['여비'],
+  퇴직금: ['퇴직급여', '퇴직급여금'], 퇴직급여: ['퇴직금'],
+  경조사비: ['경조금', '경조사'], 경조비: ['경조금', '경조사'], 조의금: ['경조금', '경조사'], 축의금: ['경조금', '경조사'],
+  강사료: ['강의료'], 특강료: ['강의료', '특강'], 강의료: ['강사료'],
+  환불: ['반환'], 반환: ['환불'],
+  중복수혜: ['이중수혜'], 이중수혜: ['중복수혜'],
+  안식년: ['연구년'], 사외이사: ['겸직'], 겸임: ['겸직'],
+  월급: ['보수', '급여'], 봉급: ['보수', '급여'], 임금: ['보수', '급여'], 연봉: ['보수'],
+  야근: ['시간외근무', '초과근무'], 초과근무: ['시간외근무'], 시간외수당: ['시간외근무'],
+  연차: ['연차휴가', '휴가'], 출산휴가: ['출산전후휴가'],
+  교수: ['교원'], 학부생: ['학생'], 대학원생: ['대학원'],
+  퍼센트: ['100분의', '비율'], 한도: ['상한', '범위'], 상한: ['한도'], 계산: ['산정'],
+  카드: ['법인카드'], 클린카드: ['법인카드'],
+}));
+
+// Search concepts of a question: each content word with the rule vocabulary
+// that may stand for it, plus adjacent words joined the way rules write them
+// ("이중 수혜" → 이중수혜, "예산 전용" → 예산전용).
+function queryConcepts(value, maxConcepts = 6) {
+  const ordered = [];
+  for (const raw of String(value || '').split(/[\s,;|/·?!.()（）"'「」]+/)) {
+    const token = contentToken(raw);
+    if (token && !ordered.includes(token)) ordered.push(token);
+  }
+  const kept = new Set([...ordered].sort((a, b) => b.length - a.length).slice(0, maxConcepts));
+  const tokens = ordered.filter(token => kept.has(token));
+  const concepts = tokens.map(term => ({ term, alternatives: [term, ...(RULE_VOCABULARY.get(term) || [])] }));
+  for (let i = 0; i + 1 < tokens.length; i++) {
+    const joined = tokens[i] + tokens[i + 1];
+    const concept = { term: joined, alternatives: [joined, ...(RULE_VOCABULARY.get(joined) || [])], joinedFrom: [tokens[i], tokens[i + 1]] };
+    concepts.push(concept);
+  }
+  return { tokens, concepts };
+}
+
+// Campus and affiliate editions of one rule ("WISE캠퍼스 구매규정", "산학협력단
+// 위임전결규정") share a family with the unprefixed rule.
+const EDITION_PREFIX = /^(?:WISE캠퍼스\s*산학협력단|WISE캠퍼스|의학계열|산학협력단)\s*/;
+function ruleFamily(title) {
+  const text = String(title || '').trim();
+  const prefix = (text.match(EDITION_PREFIX) || [''])[0].trim();
+  return { family: text.replace(EDITION_PREFIX, '').replace(/\s+/g, ''), edition: prefix || null };
 }
 
 module.exports = {
@@ -351,4 +437,7 @@ module.exports = {
   termTokens,
   extractRelevantBlocks,
   queryContentTokens,
+  queryConcepts,
+  ruleFamily,
+  appendixSelectors,
 };

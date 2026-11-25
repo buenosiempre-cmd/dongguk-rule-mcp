@@ -88,9 +88,14 @@ async function main() {
     check('색인 경로에서는 전문검색을 요청하지 않음', !searches.some(s => s.type === 'CONTENTS'));
 
     const scholarshipLookup = await call('lookup_dongguk_rule', { query: '교내근로장학금 성적 기준' });
-    const cands = scholarshipLookup.sc.error?.details?.candidates || [];
-    check('비슷한 후보가 여럿이면 일치어·대표 조문과 함께 선택 요청', scholarshipLookup.sc.error?.code === 'AMBIGUOUS_RULE' && cands.some(c => c.lawId === 6 && c.topArticle === '제7조' && c.matchedTerms.includes('근로장학금')) && cands.some(c => c.lawId === 5 && c.topArticle === '제15조'));
-    check('후보 목록에 대체 단어 안내', scholarshipLookup.sc.error.details.rewrittenTerms['교내근로장학금'] === '근로장학금' && /교내근로장학금→근로장학금/.test(scholarshipLookup.text));
+    const previews = scholarshipLookup.sc.data?.rules || [];
+    check('비슷한 후보가 여럿이면 선택 요청 대신 후보별 해당 조문을 미확정 미리보기로 반환', scholarshipLookup.sc.ok === true && scholarshipLookup.sc.data.search.selection === 'multiple_candidates' && scholarshipLookup.sc.data.search.identityStatus === 'candidate_preview' && previews.some(r => r.lawId === 6) && previews.some(r => r.lawId === 5));
+    check('여러 후보 미리보기는 모두 근거 미확정(partial)', scholarshipLookup.sc.data.evidenceStatus === 'partial' && previews.every(r => r.evidenceStatus === 'partial' && r.incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED')) && /적용할 규정이 확정된 결과가 아닙니다/.test(scholarshipLookup.text));
+    check('미리보기에 대체 단어 안내', /교내근로장학금→근로장학금/.test(scholarshipLookup.text));
+    const verb = searchCorpus(corpus, '장학금 이중 수혜하려면 어떻게 해?', { top: 3 });
+    check('동사 어미·의문사는 핵심어가 아니고 붙여 쓴 규정 표현(이중수혜)을 찾음', !verb.tokens.some(t => /하려면|어떻게/.test(t)) && verb.searchTerms.includes('이중수혜') && verb.hits[0].lawId === 5 && verb.hits[0].articles[0].article === '제15조');
+    const vocabulary = searchCorpus(corpus, '특강료 환불 기준', { top: 3 });
+    check('일상어는 규정 용어로도 찾음(특강료→강의료, 환불→반환)', vocabulary.searchTerms.includes('강의료') && vocabulary.searchTerms.includes('반환') && vocabulary.hits.some(h => h.lawId === 7) && vocabulary.hits.some(h => h.lawId === 8));
 
     const chosen = await call('lookup_dongguk_rule', { query: '교내근로장학금 성적 기준', law_id: 6 });
     check('law_id 선택 뒤에는 확정 조회', chosen.sc.ok === true && chosen.sc.data.search.identityStatus === 'explicit_id' && chosen.sc.data.rules[0].lawId === 6);

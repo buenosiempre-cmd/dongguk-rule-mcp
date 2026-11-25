@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks } = require('./parsers.js');
-const { queryContentTokens } = require('./lookup.js');
+const { queryConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
 // callers re-check each hit against the current catalog before using its text.
@@ -127,34 +127,91 @@ function rewriteMissingToken(token, documentFrequency, total) {
   return null;
 }
 
-function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
-  const original = queryContentTokens(query, 6);
-  if (!original.length) return { tokens: original, hits: [] };
-  const total = corpus.rules.length || 1;
-  const documentFrequency = token => corpus.rules.filter(rule => rule.title.includes(token) || rule.blocks.some(block => block.content.includes(token))).length;
-  const rewrittenTerms = {};
-  const tokens = [];
-  for (const token of original) {
-    let form = token;
-    if (!documentFrequency(token)) {
-      const shorter = rewriteMissingToken(token, documentFrequency, total);
-      if (shorter) { rewrittenTerms[token] = shorter; form = shorter; }
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Concepts of the question as the rules spell them. A question word keeps its
+// rule vocabulary ("해외출장" also tries 국외출장·국외); a word no rule contains
+// is replaced by vocabulary that exists, then by a shorter form.
+function planConcepts(query, documentFrequency, total) {
+  const { tokens: original, concepts: planned } = queryConcepts(query, 6);
+  const rewrittenTerms = {}, concepts = [], missingTerms = [];
+  for (const concept of planned) {
+    let forms = concept.alternatives.filter(form => documentFrequency(form));
+    if (concept.joinedFrom) {
+      // "이중 수혜" joined as 이중수혜 counts only when rules write it that way.
+      if (forms.length) concepts.push({ term: concept.term, forms, joined: true });
+      continue;
     }
-    if (!tokens.includes(form)) tokens.push(form);
+    const term = concept.term;
+    // "절차가": a noun plus the subject particle when the bare noun is far more common.
+    if (term.length === 3 && term.endsWith('가')) {
+      const stem = term.slice(0, 2), stemFrequency = documentFrequency(stem);
+      if (stemFrequency && documentFrequency(term) < stemFrequency * 0.05) { rewrittenTerms[term] = stem; forms = [stem]; }
+    }
+    if (!forms.length) {
+      const shorter = rewriteMissingToken(term, documentFrequency, total);
+      if (shorter) { rewrittenTerms[term] = shorter; forms = [shorter]; }
+    } else if (!documentFrequency(term) && !rewrittenTerms[term]) rewrittenTerms[term] = forms[0];
+    if (forms.length) concepts.push({ term, forms, joined: false });
+    else missingTerms.push(term);
   }
-  const weights = new Map(tokens.map(token => [token, (df => df ? Math.log(1 + total / df) : 0)(documentFrequency(token))]));
+  return { original, concepts, rewrittenTerms, missingTerms };
+}
+
+function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
+  const total = corpus.rules.length || 1;
+  const frequencies = new Map();
+  const documentFrequency = term => {
+    if (!frequencies.has(term)) frequencies.set(term, corpus.rules.filter(rule => rule.title.includes(term) || rule.blocks.some(block => block.content.includes(term))).length);
+    return frequencies.get(term);
+  };
+  const { original, concepts, rewrittenTerms, missingTerms } = planConcepts(query, documentFrequency, total);
+  if (!original.length) return { tokens: original, hits: [] };
+  const weight = form => Math.log(1 + total / documentFrequency(form));
+  const words = concepts.filter(concept => !concept.joined);
+  // Adjacent question words that also sit together in an article ("예산의 전용").
+  const adjacent = [];
+  for (let i = 0; i + 1 < words.length; i++) {
+    const [a, b] = [words[i].forms[0], words[i + 1].forms[0]];
+    adjacent.push({ pattern: new RegExp(`${escapeRegExp(a)}[^\\n]{0,3}${escapeRegExp(b)}`), bonus: (weight(a) + weight(b)) * 0.5 });
+  }
+  // A concept scores by the rarest of its forms that the text contains.
+  const scoreText = text => {
+    let score = 0; const matched = [], matchedConcepts = [];
+    for (const concept of concepts) {
+      const found = concept.forms.filter(form => text.includes(form));
+      if (!found.length) continue;
+      // A joined pair repeats its two words, so it adds half of its own weight.
+      score += Math.max(...found.map(weight)) * (concept.joined ? 0.5 : 1);
+      for (const form of found) if (!matched.includes(form)) matched.push(form);
+      matchedConcepts.push(concept.term);
+    }
+    return { score, matched, matchedConcepts };
+  };
   const hits = [];
   for (const rule of corpus.rules) {
-    const { best, scored } = matchBlocks(rule.blocks, tokens, weights);
-    const titleMatched = tokens.filter(token => rule.title.includes(token));
-    if (!best && !titleMatched.length) continue;
-    const matchedTerms = [...new Set([...titleMatched, ...scored.flatMap(item => item.matched)])];
+    const scored = [];
+    for (const block of rule.blocks) {
+      const result = scoreText(block.content);
+      if (!result.matched.length) continue;
+      for (const pair of adjacent) if (pair.pattern.test(block.content)) result.score += pair.bonus;
+      // An article titled with a question word ("제31조(휴학)") is about that word, not a passing mention.
+      const heading = /^[^\n]*?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]{1,40})[)）]/.exec(block.content);
+      if (heading) result.score += words.reduce((sum, word) => sum + Math.max(0, ...word.forms.filter(form => heading[1].includes(form)).map(weight)), 0) * 0.5;
+      scored.push({ block, ...result });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    const title = scoreText(rule.title);
+    if (!scored.length && !title.matched.length) continue;
+    const matchedTerms = [...new Set([...title.matched, ...scored.flatMap(item => item.matched)])];
+    const matchedConcepts = [...new Set([...title.matchedConcepts, ...scored.flatMap(item => item.matchedConcepts)])].filter(term => words.some(word => word.term === term));
+    const mostMatched = Math.max(0, ...scored.map(item => item.matched.length));
     hits.push({
       lawId: rule.lawId, historyId: rule.historyId, title: rule.title, code: rule.code, revisedAt: rule.revisedAt,
-      score: best + titleMatched.reduce((sum, token) => sum + (weights.get(token) || 1), 0) * 1.5 + matchedTerms.length * 0.01,
-      matchedTerms,
+      score: (scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01,
+      matchedTerms, matchedConcepts, ...ruleFamily(rule.title),
       // Articles containing as many of the query words as the best article does.
-      matchCount: scored.filter(item => item.matched.length === Math.max(...scored.map(x => x.matched.length))).length,
+      matchCount: scored.filter(item => item.matched.length === mostMatched).length,
       articles: scored.slice(0, perDoc).map(item => ({
         article: item.block.article, supplementary: item.block.supplementary,
         supplementaryHeading: item.block.supplementaryHeading, content: item.block.content, matchedTerms: item.matched,
@@ -162,7 +219,13 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
     });
   }
   hits.sort((a, b) => b.score - a.score || a.lawId - b.lawId);
-  return { tokens, missingTerms: tokens.filter(token => !weights.get(token)), rewrittenTerms, hits: hits.slice(0, top) };
+  const tokens = words.map(word => word.forms[0]);
+  return {
+    tokens: [...tokens, ...missingTerms], missingTerms, rewrittenTerms,
+    // Every form searched, for callers that re-read or excerpt the matched rules.
+    searchTerms: [...new Set(concepts.flatMap(concept => concept.forms))],
+    hits: hits.slice(0, top),
+  };
 }
 
 module.exports = { CORPUS_VERSION, blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusPath, corpusCoverage, matchBlocks, searchCorpus, rewriteMissingToken };
