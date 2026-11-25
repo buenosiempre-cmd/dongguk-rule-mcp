@@ -2,6 +2,15 @@
 
 v0.14.0까지의 변경은 `docs/review-*.md`와 `docs/RELEASE-v0.12.0.md`에 있습니다.
 
+## 미출시
+
+### 규정 전문 도구
+
+- `get_rule_full_text(law_id, history_id?, max_chars?, cursor?)` 추가: 지정한 규정의 조문·부칙·별표·서식 텍스트를 HWP 우선으로 원문 순서대로 반환합니다. 기존 HWP 추출기의 표 셀·병합 범위·주석과 추출 진단을 재사용합니다.
+- 페이지 한도 기본 30,000·최대 60,000 UTF-16 코드 단위. `textCoverage.nextArguments`로 같은 개정본·출처·텍스트 해시의 후속 페이지를 받습니다. `contentMarkdown`을 이어 붙이면 추출 전문이 되며, 페이지 사이 원문 변경은 `FULL_TEXT_CHANGED`로 차단합니다.
+- 페이지 일부 전달·HTML 대체·구조 해석 누락·그림 문구 미확인을 `evidenceStatus: partial`과 `incompleteReasons`로 알립니다. 모든 페이지를 받아도 추출 자체가 부분이면 `sourceEvidenceStatus: partial`을 유지합니다.
+- 공개 도구 15개·finance 도구 19개로 도구 목록, 서비스 정보, 설치 점검을 맞춥니다. 전문 색인·운영 설정, 상위법령 대조 및 타대학 어댑터 변경은 포함하지 않습니다.
+
 ## v0.15.3 (2026-11-25)
 
 ### 자연어 질문 조회 보완
