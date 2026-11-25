@@ -2,7 +2,9 @@
 
 v0.14.0까지의 변경은 `docs/review-*.md`와 `docs/RELEASE-v0.12.0.md`에 있습니다.
 
-## 미배포
+## v0.15.2 (2026-11-25)
+
+### 근거 조회 상태 전파 수정
 
 - 재무 근거 조회(`get_finance_evidence`, `review_finance_case`)가 하위 규정 조회의 일부 조회 상태(별표 누락, 원문 구조 일부 해석, 규정 미확정)를 `retrieved`로 올리던 문제를 고쳤습니다. `rule_coverage.incomplete`에 규정별 사유를 남깁니다.
 - `get_rule_upper_laws`가 `include_text=true`에서 법령 본문이 잘려도 `evidenceStatus: retrieved`를 주던 문제를 고쳤습니다. 법령 확인 상태(`lookup.status`)와 본문 전달 범위(`textCoverage.status`)를 나눴습니다. 본문이 잘리면 `LAW_TEXT_TRUNCATED`, 본문을 받지 못하면(조회 실패, 조문 수 상한, 법령 연계 미설정) `LAW_TEXT_UNAVAILABLE`을 `incompleteReasons`에 넣고, 조문과 사유는 `textCoverage.truncatedArticles`·`textCoverage.missingArticles`에 남깁니다. 기존 응답에 없던 필드이므로 `textCoverage.status`를 읽는 클라이언트는 아래 다섯 값을 모두 처리해야 합니다.
