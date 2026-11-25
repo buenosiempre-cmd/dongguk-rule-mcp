@@ -88,7 +88,7 @@ dongguk-rule-mcp --print-config cursor
 | `search_rule_deep` | 여러 규정의 전문과 관련 조문 탐색. 전문 색인이 있으면 색인 사용(`mode`로 선택) |
 | `check_rule_updates` | 여러 규정의 개정 여부 일괄 점검, 기준일 이후 개정된 규정 목록 |
 | `get_rule_references` | 규정·조문이 인용한 교내 규정·국가 법령과 역방향 인용(색인 필요). `include_law_text=true`이면 인용된 법령 조문의 현행 원문까지 |
-| `get_rule_upper_laws` | 규정·조문이 인용한 국가 법령을 현행 법령 목록과 대조: 현행 여부·시행일, 인용 조문의 존재·삭제, 옛 법령명, 규정 개정 뒤 법령 개정, 시행예정 개정을 점검 신호로 표시. `include_text=true`이면 조문 원문 대조 |
+| `get_rule_upper_laws` | 규정·조문이 인용한 국가 법령을 현행 법령 목록과 대조: 현행 여부·시행일, 인용 조문의 존재·삭제, 옛 법령명, 규정 개정 뒤 법령 개정, 시행예정 개정을 점검 신호로 표시. `include_text=true`이면 규정 조문 원문과 현행 법령 조문 원문을 2열 대조 |
 | `compare_university_rules` | 동국대와 타대학(최대 5개) 규정에서 주제어가 든 조문을 학교별로 나란히 표시. 기본 꺼짐(`DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`), 자세한 범위는 아래 "타대학 규정 비교" |
 
 제목 검색·공식 사이트 전문검색의 기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 자연어 색인 조회에서는 아래와 같이 최대 3개 규정의 미확정 미리보기를 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
@@ -103,7 +103,7 @@ dongguk-rule-mcp --print-config cursor
 - **결과 해석:** 그림 파일의 동일·변경 판정은 OCR, 그림 속 문구의 의미 해석 또는 페이지 배치 비교를 뜻하지 않습니다. 실제 추출 누락·미지원 객체·식별 모호성은 부분 상태로 남기며 “변경 없음”으로 단정하지 않습니다. 시행일과 업무 적용성은 부칙·적용범위를 별도로 확인합니다.
 - **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 HTML 본문 색인은 후보를 찾는 데 사용하며, 별표 내용은 순위에 반영되지 않습니다. `search_rule_deep`은 색인 결과를 현행 목록의 최신 개정본과 대조하고, 개정된 규정은 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색으로 대체합니다. `lookup_dongguk_rule`은 오래된 색인도 후보 탐색에 사용하되 오래됨을 표시하고, 선택한 규정의 연혁·원문을 별도로 조회합니다(기존 캐시 정책 적용). 별표·금액표는 이 통합 조회의 원문 발췌로 확인합니다.
 - **법령 원문 연계:** 운영자가 `DONGGUK_LEGAL_MCP_*`와 `DONGGUK_PUBLIC_LAW_LINK=1`을 설정한 서버에서만 동작합니다. 조문이 특정된 인용만, 한 번에 3개 조문까지 현행 원문을 가져옵니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
-- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 연계가 꺼진 서버에서는 확인할 법령명·조문만 돌려줍니다.
+- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 연계가 꺼진 서버에서도 확인할 법령명·조문을 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
 - **상위법령 본문 범위:** `get_rule_upper_laws`의 `lookup.status`는 법령·조문을 확인했는지, `textCoverage.status`는 `include_text=true`로 요청한 본문을 얼마나 받았는지를 따로 알립니다. 본문이 잘리면 `incompleteReasons`에 `LAW_TEXT_TRUNCATED`, 받지 못하면 `LAW_TEXT_UNAVAILABLE`이 들어가고 `evidenceStatus`는 `partial`입니다. 조문의 존재·삭제 여부는 `laws[].articles[].status`로 확인합니다.
 
   | `textCoverage.status` | 뜻 |
@@ -121,6 +121,29 @@ dongguk-rule-mcp --print-config cursor
 모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. v0.10.2부터 `structuredContent`를 표시하지 않는 클라이언트에서도 확인할 수 있도록 `get_service_info`의 `version`·`profile`·`toolCount`와 `lookup_dongguk_rule`의 `sourceType`·`evidenceStatus`·부분 조회 사유를 Markdown에도 표시합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
 
 v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾습니다. 색인 경로를 포함해 명시한 `terms`가 발췌 조건으로 우선합니다. `terms`가 없으면 자연어 색인의 확장 검색어를 사용하되 질문의 조문·가지조문·별표 선택자도 보존합니다. 여러 단어로 된 질문은 현행 규정 목록에서 질문에 들어 있는 가장 긴 규정 제목을 찾아 그 규정을 고릅니다(`identityStatus:"catalog_title"`). "등록금에 관한 시행세칙 제7조 반환"처럼 띄어 쓴 제목도 낫표 없이 인식합니다. 규정 이름은 발췌 검색어에서 빼므로, 남은 단어가 본문에 없으면 `NO_MATCHING_EXCERPT`로 알립니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
+
+### 상위법령 조문 원문 대조 (개발 중)
+
+`get_rule_upper_laws({"law_id": LAW_ID, "article": "제9조", "include_text": true})`로 인용이 나온 **규정 조문 원문과 인용한 현행 국가 법령 조문 원문**을 2열로 읽을 수 있습니다. `article`을 생략하면 규정 전체에서 인용을 찾고, 과거 규정은 `history_id`로 고릅니다. 과거 규정을 골라도 오른쪽 법령은 조회 시점의 현행본입니다. 과거 당시 법령의 대조나 충돌·적용 여부 판정이 아닙니다. 점검 신호·CAVEAT는 그대로 제공합니다.
+
+규정 쪽은 인용 추출에 쓴 **HTML 조문 전체**이며 짧은 `citationText`만 보여 주지 않습니다. 별표·서식·그림을 포함한 규정 전문 조회는 `get_rule_full_text`를 사용하세요. 법령 쪽은 기존 korean-law 연동으로 확보한 본문을 재사용하며 새 API나 추가 법령 조회를 만들지 않습니다. `include_text:false`(기본)에서는 양쪽 본문과 대조 쌍을 반환하지 않습니다. 도구 수는 공개 15개·finance 19개 그대로입니다.
+
+구조화 응답의 기존 `laws`, `textCoverage`, `evidenceStatus`, `incompleteReasons`에 `comparison`을 추가했습니다.
+
+| 필드 | 의미 |
+|---|---|
+| `comparison.status` | 대조 본문의 전달 상태: `not_requested`(본문 요청 안 함), `not_required`(명시적 인용 없음), `complete`(대상 양쪽 본문을 모두 전달), `partial`(일부 전달·잘림·생략), `unavailable`(양쪽 본문을 함께 받은 쌍이 없음). 법령의 효력·적용성 판단이 아닙니다. |
+| `comparison.ruleArticles[]` | 중복 없는 규정 조문. `id`, `article`, `supplementaryHeading`, `contentMarkdown`, 출처 `source`(LAW_ID·HISTORY_ID·개정일·URL·HTML 표시), `textCoverage`, 전문 재조회용 `fullTextRequest`를 포함합니다. |
+| `comparison.pairs[]` | 인용별 연결. `ruleArticleId`로 규정 조문을, 0부터 시작하는 `lawIndex`·`lawArticleIndex`로 `laws[lawIndex].articles[lawArticleIndex]`를 찾습니다. `citationText`·인용 항 `paragraph`·해석 근거 `resolutionStatus`·쌍의 `status`·`lawTextStatus`를 보존합니다. 조문 번호가 없으면 `lawArticleIndex:null`, `lawTextStatus:not_specified`이며 임의 조문을 고르지 않습니다. |
+| `comparison.omittedPairs` | 표시 한도 때문에 생략한 인용 수. `laws[].citedBy`에는 인용 목록을 유지합니다. |
+| `laws[].citedBy[].ruleBlockId` | 대조 쌍과 같은 규정 본문 블록 식별자입니다. 요청 내 식별자이며 영구 ID가 아닙니다. |
+
+규정 본문은 조문당 6,000·합계 24,000 UTF-16 코드 단위, 대조 인용은 24건까지입니다. 같은 조문은 합계 한도에서 한 번만 셉니다. 줄바꿈·표 구분자·기호는 구조화 원문에 보존하고, 표 표시에서는 줄바꿈과 기호를 이스케이프합니다. 여러 부칙의 같은 조 번호는 블록 ID와 부칙 제목으로 구분합니다. 법령은 기존대로 최대 12개(기본 8개)·인용 조문 8개·조문당 3,000자입니다.
+
+- 규정 본문 잘림·미반환은 `RULE_TEXT_TRUNCATED`·`RULE_TEXT_UNAVAILABLE`, 대조 인용 생략은 `COMPARISON_LIMIT`입니다. `article`로 범위를 좁히거나 `ruleArticles[].fullTextRequest`의 고정 개정본 전문을 이어 받으세요.
+- 법령 조문 미지정은 `LAW_ARTICLE_UNSPECIFIED`입니다. 법령 미확보·잘림은 기존 `LAW_TEXT_UNAVAILABLE`·`LAW_TEXT_TRUNCATED`이며 한국법령 MCP에서 해당 MST·조문을 확인합니다. 새 사유도 최상위 `incompleteReasons`에 전파되어 `evidenceStatus:partial`이 됩니다.
+- 기존 `textCoverage`는 **법령 본문만**의 범위를 유지합니다. 따라서 법령 본문이 `complete`여도 규정 본문이 잘리면 대조는 `partial`입니다. 현행에 없는 법령·조문은 기존 `textCoverage:not_required`일 수 있지만 양쪽 원문 대조는 `unavailable`이며 부분 상태입니다. 삭제 표지 본문을 받았다면 받은 텍스트로 표시하고 `ARTICLE_DELETED` 점검 신호를 유지합니다.
+- 주제 후보는 근거가 확인된 대조 쌍으로 만들지 않습니다. `comparison.status:complete`여도 법령명 미확정·목록 누락 등의 기존 사유가 있으면 전체 `evidenceStatus`는 `partial`일 수 있습니다.
 
 ### 규정 전문 조회 (개발 중)
 

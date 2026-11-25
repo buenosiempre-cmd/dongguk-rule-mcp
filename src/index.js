@@ -480,15 +480,17 @@ async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeC
     const extracted=extractArticleSections(c.markdown,article);
     if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections));
     if(!extracted.sections.length) return failure('NOT_FOUND',`${selector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`,{details:{lawId,historyId:rid,article:selector.canonical}});
-    blocks=extracted.sections.map(section=>({article:section.canonical,supplementary:section.supplementary,content:section.content}));
+    blocks=extracted.sections.map(section=>({article:section.canonical,supplementary:section.supplementary,supplementaryHeading:section.supplementaryHeading,content:section.content}));
   }
+  blocks=blocks.map((block,index)=>({...block,id:`rule-block-${index}`}));
+  const source={lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`};
   const resolver=createResolver(catalog,{lawId,title});
   const references=[];
   for(const block of blocks){
     const ruleArticleAnnotatedAt=latestAnnotatedDate(block.content);
     for(const item of extractReferences(block.content.replace(/^###.*$/m,''),resolver)){
       if(item.scope!=='external_law'&&!item.externalCandidate) continue;
-      references.push({...item,ruleArticleAnnotatedAt,sourceLocation:{article:block.article?(block.supplementary?`부칙 ${block.article}`:block.article):null}});
+      references.push({...item,ruleArticleAnnotatedAt,sourceLocation:{blockId:block.id,article:block.article?(block.supplementary?`부칙 ${block.article}`:block.article):null}});
     }
   }
   const result=await buildUpperLaws({
@@ -499,19 +501,22 @@ async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeC
   });
   // lookup.status covers the identity/existence check; a cut law body is tracked apart.
   const textCoverage=lawTextCoverage(result.laws,{includeText,maxTextChars:result.limits.maxTextChars,lookupCode:result.lookup.code});
-  const incompleteReasons=[
+  result.comparison=require('./upper-law-comparison').buildComparison(result,{blocks,source,includeText});
+  const incompleteReasons=[...new Set([
     ...(['retrieved','not_required'].includes(result.lookup.status)?[]:['LAW_LOOKUP_INCOMPLETE']),
     ...(result.omitted.length?['LAW_LIMIT']:[]),...(catalogAvailable?[]:['CATALOG_UNAVAILABLE']),
     ...(textCoverage.truncatedArticles.length?['LAW_TEXT_TRUNCATED']:[]),
     ...(textCoverage.missingArticles.length?['LAW_TEXT_UNAVAILABLE']:[]),
-  ];
+    ...result.comparison.incompleteReasons,
+  ])];
   const complete=!incompleteReasons.length;
   let text=formatUpperLaws(result,{title,selectorLabel:selector?.label});
+  text+=`\n\n근거 상태: ${complete?'retrieved':'partial'}${incompleteReasons.length?` (${incompleteReasons.join(', ')})`:''}`;
   if(textCoverage.missingArticles.length) text+=`\n\n본문을 가져오지 못한 법령 조문이 있습니다(${textCoverage.missingArticles.map(x=>`${x.lawName} ${x.article}: ${x.reason}`).join(', ')}). 본문을 확인한 것이 아니므로 한국법령 MCP나 국가법령정보센터에서 직접 확인하세요.`;
   if(textCoverage.truncatedArticles.length) text+=`\n\n법령 본문 일부가 ${textCoverage.maxTextChars}자에서 잘렸습니다(${textCoverage.truncatedArticles.map(x=>`${x.lawName} ${x.article}`).join(', ')}). 전문은 한국법령 MCP의 get_law_text나 국가법령정보센터에서 확인하세요.`;
   if(!catalogAvailable) text+='\n\n현행 규정 목록을 불러오지 못해 교내 규정명과 법령명을 구분하지 못한 인용이 있을 수 있습니다.';
   return success(text,{
-    source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
+    source,
     ...result,caveat:UPPER_LAW_CAVEAT,applicability:'requires_review',
     coverage:{scope:selector?'selected_article':'whole_rule',catalogAvailable,citationBasis:'explicit_names_only'},
     textCoverage,evidenceStatus:complete?'retrieved':'partial',incompleteReasons,returnedAt:new Date().toISOString(),
@@ -1430,12 +1435,12 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'get_rule_upper_laws', title:'규정의 상위법령 관계', description:'동국대 규정(또는 한 조문)이 근거로 인용한 국가 법령을 현행 법령 목록과 대조합니다. 법령별로 현행 여부·종류·시행일, 인용한 조문이 지금도 있는지(삭제·없음), 옛 법령명 인용(제명 변경), 규정 개정 뒤 법령·조문 개정, 시행예정 개정을 점검 신호로 보여 줍니다. include_text=true이면 인용 조문의 현행 원문을 규정의 인용 문장과 나란히 붙입니다. 법령을 인용하지 않은 규정에는 제목으로 고른 주제 후보 법령을 따로 표시합니다. 점검 신호는 충돌·적용 여부의 판정이 아닙니다. 법령 연계가 꺼진 서버에서는 확인할 법령명·조문 목록만 반환합니다.',
+  { name:'get_rule_upper_laws', title:'규정의 상위법령 관계', description:'동국대 규정(또는 한 조문)이 근거로 인용한 국가 법령을 현행 법령 목록과 대조합니다. 법령별로 현행 여부·종류·시행일, 인용한 조문이 지금도 있는지(삭제·없음), 옛 법령명 인용(제명 변경), 규정 개정 뒤 법령·조문 개정, 시행예정 개정을 점검 신호로 보여 줍니다. include_text=true이면 인용이 나온 규정 조문 원문(HTML)과 현행 법령 조문 원문을 나란히 붙이며 comparison에 연결 관계와 전달 범위를 제공합니다. 법령을 인용하지 않은 규정에는 제목으로 고른 주제 후보 법령을 따로 표시합니다. 점검 신호는 충돌·적용 여부의 판정이 아닙니다. 법령 연계가 꺼진 서버에서는 확인할 법령명·조문 목록을 제공하고 include_text=true이면 규정 원문과 법령 본문 미확보 상태를 함께 반환합니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 45, 제10조의2. 지정하면 그 조문의 인용만 보고 주제 후보는 생략합니다.'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신)'},
-      include_text:{type:'boolean',default:false,description:'true이면 인용 조문의 현행 법령 원문(조문당 3,000자까지)을 함께 반환'},
+      include_text:{type:'boolean',default:false,description:'true이면 인용 규정 조문(조문당 6,000자·합계 24,000자)과 현행 법령 조문(조문당 3,000자)을 대조. 인용 24건까지, 누락·잘림은 partial'},
       include_candidates:{type:'boolean',default:true,description:'규정 제목으로 고른 주제 후보 법령 포함 여부'},
       max_laws:{type:'integer',minimum:1,maximum:12,default:8,description:'확인할 법령 수. 인용 법령이 주제 후보보다 먼저입니다.'},
     }, required:['law_id']},
@@ -1469,7 +1474,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         data.fullText={tool:'get_rule_full_text',defaultMaxChars:30000,maxChars:60000,continuation:'textCoverage.nextArguments',source:'HWP first; HTML fallback is partial',images:'no OCR'};
         data.fullTextIndex=indexStatus();
         data.integrations.universityComparison={configured:process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED==='1',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
-        data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws'};
+        data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
           '동국 규정 MCP 서비스 정보',
@@ -1478,6 +1483,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- profile: '+data.profile,
           '- toolCount: '+data.toolCount,
           '- 규정 전문·별표: get_rule_full_text (긴 전문은 textCoverage.nextArguments로 이어받기)',
+          '- 상위법령 조문 대조: get_rule_upper_laws(include_text=true), comparison에 규정 원문과 현행 법령 조문 연결 제공',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
           '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (설정 여부이며 실제 연결 검증은 별도)',

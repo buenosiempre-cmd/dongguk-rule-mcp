@@ -32,7 +32,7 @@ seed('catalog', 'all', Array.from({ length: 120 }, (_, i) => ({ lawId: i + 1, hi
 for (const id of [1, 2]) seed('history', String(id), [{ historyId: 20, revisedAt: '2021.03.02' }]);
 seed('content-v3', '1_20', { title: '재무회계규정', markdown: [
   '### 제7조(자금의 관리)', '사립학교법 제32조의2 제3항에 따른 기금은 심의를 거친다.(2018.11.12. 개정)',
-  '### 제9조(회계처리)', '회계는 「사학기관 재무ㆍ회계 규칙에 대한 특례규칙」 제5조에 따른다.',
+  '### 제9조(회계처리)', '회계는 「사학기관 재무ㆍ회계 규칙에 대한 특례규칙」 제5조에 따른다.\n① 부서장은 월별 증빙을 모은다.\n② 장부 검토를 마친 뒤 결산자료를 제출한다. 앞의 인용 문구 밖에 있는 규정원문끝표지.',
   '### 제29조(평가)', '시가는 『지가공시 및 토지 등의 평가에 관한 법률』에 의한 감정평가액으로 하되 동법 제4조를 따른다.',
   '### 제30조(훈련)', '「향토예비군설치법」 제6조와 「없는가상법」 제1조, 「교원인사규정」 제3조를 따른다.',
   '### 제31조(예산)', '「사립학교법」 제29조, 제31조 및 제99조에 따른다.',
@@ -43,6 +43,19 @@ for (const id of [101, 102, 103]) seed('history', String(id), [{ historyId: 20, 
 seed('content-v3', '101_20', { title: '합성규정100', markdown: '### 제1조(합성)\n「사립학교법」 제101조를 따른다.' });
 seed('content-v3', '102_20', { title: '합성규정101', markdown: '### 제1조(합성)\n' + Array.from({ length: 9 }, (_, i) => `「사립학교법」 제${i + 1}조`).join(' 및 ') + '를 따른다.' });
 seed('content-v3', '103_20', { title: '합성규정102', markdown: '### 제1조(합성)\n「사립학교법」 제50조를 따른다.' });
+
+// Paired-text fixtures (all synthetic; no actual legal interpretation).
+for (const id of [104, 105, 106, 107, 108, 109, 110, 111]) seed('history', String(id), [{ historyId: 20, revisedAt: '2021.03.02' }, { historyId: 19, revisedAt: '2019.01.01' }]);
+const setRule = (id, markdown, historyId = 20) => seed('content-v3', `${id}_${historyId}`, { title: `합성규정${id-1}`, markdown });
+setRule(104, '### 제1조(장문)\n「사립학교법」 제29조를 따른다.\n' + '가'.repeat(6100) + '장문끝');
+setRule(105, Array.from({length:30}, (_,i) => `### 제${i+1}조(절차)\n「사립학교법」 제29조를 따른다. 본문${i+1}`).join('\n'));
+setRule(106, '### 제1조(근거)\n「사립학교법」을 따른다. 조문을 특정하지 않았다.');
+setRule(107, '### 제10조의2(절차)\n「사립학교법」 제29조제1항 및 「사립학교법」 제29조제2항에 따른다.\n규정 가지조문 고유본문');
+setRule(107, '### 제10조의2(과거)\n「사립학교법」 제29조에 따른다. 과거 규정 고유본문', 19);
+setRule(108, '### 제1조(본문)\n「사립학교법」 제29조를 따른다. 본칙고유\n## 부칙 (2020.1.1.)\n### 제1조(시행)\n「사립학교법」 제29조를 따른다. 첫부칙고유\n## 부칙 (2021.1.1.)\n### 제1조(시행)\n「사립학교법」 제29조를 따른다. 둘째부칙고유');
+setRule(109, Array.from({length:5}, (_,i) => `### 제${i+1}조(장문)\n「사립학교법」 제29조를 따른다. ` + '나'.repeat(6100)).join('\n'));
+setRule(110, '### 제1조(없는 조문)\n「사립학교법」 제99조를 따른다.');
+setRule(111, '### 제1조(기호)\n「사립학교법」 제29조를 따른다.\n항목 | 값\n<표> & 문구');
 
 // Synthetic law listing in the provider's format. Dates are fixture values, not real law data.
 const LAWS = {
@@ -219,6 +232,9 @@ async function main() {
     assert.deepEqual(data.textCoverage.missingArticles.map(x => [x.article, x.reason]), [['제5조', 'LAW_LINK_NOT_CONFIGURED']]);
     assert.deepEqual(data.incompleteReasons, ['LAW_LOOKUP_INCOMPLETE', 'LAW_TEXT_UNAVAILABLE']);
     assert.doesNotMatch(raw.content[0].text, /잘렸습니다/);
+    assert.equal(data.comparison.status, 'unavailable');
+    assert.match(data.comparison.ruleArticles[0].contentMarkdown, /규정원문끝표지/);
+    assert.equal(data.comparison.pairs[0].lawTextStatus, 'unavailable');
   });
   await check('연계가 꺼져 있으면 확인할 법령 목록만 반환', async () => {
     lawCalls.length = 0;
@@ -258,6 +274,9 @@ async function main() {
     assert.equal(data.evidenceStatus, 'retrieved');
     assert.deepEqual([data.textCoverage.status, data.incompleteReasons], ['not_requested', []]);
     assert(data.laws.every(x => x.articles.every(y => y.text === undefined)), 'include_text 없이 원문 미포함');
+    assert.equal(data.comparison.status, 'not_requested');
+    assert.deepEqual(data.comparison.ruleArticles, []);
+    assert.deepEqual(data.comparison.pairs, []);
     assert.match(raw.content[0].text, /점검 신호/);
     assert.match(raw.content[0].text, /충돌이나 적용 여부를 판정한 것이 아닙니다/);
   });
@@ -305,6 +324,104 @@ async function main() {
     const none = await call('get_rule_upper_laws', { law_id: 2, include_candidates: false });
     assert.deepEqual([none.data.laws.length, none.data.lookup.status, none.data.evidenceStatus], [0, 'not_required', 'retrieved']);
   });
+  await check('인용 문구 밖 규정 조문 전체와 법령 원문을 나란히 반환', async () => {
+    const raw = await client.callTool({name:'get_rule_upper_laws',arguments:{law_id:1,article:9,include_text:true}});
+    const d=raw.structuredContent.data, cmp=d.comparison, pair=cmp.pairs[0], rule=cmp.ruleArticles[0];
+    assert.equal(cmp.status,'complete'); assert.equal(rule.id,pair.ruleArticleId);
+    assert.match(rule.contentMarkdown,/① 부서장은 월별 증빙[\s\S]*② 장부 검토[\s\S]*규정원문끝표지/);
+    assert.equal(rule.textCoverage.totalChars,rule.contentMarkdown.length);
+    assert.equal(rule.source.sourceType,'HTML 본문'); assert.equal(rule.source.historyId,20);
+    assert.match(d.laws[pair.lawIndex].articles[pair.lawArticleIndex].text,/복식부기/);
+    assert.match(raw.content[0].text,/\| 규정 조문 원문 \(HTML\) \| 인용한 국가 법령 조문 원문 \(현행본\) \|/);
+    assert.match(raw.content[0].text,/규정원문끝표지/); assert.match(raw.content[0].text,/충돌이나 적용 여부를 판정한 것이 아닙니다/);
+  });
+  await check('같은 법령을 여러 규정 조문이 인용해도 본문 위치별 연결 유지', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:1,include_text:true,max_laws:12})).data;
+    const pairs=d.comparison.pairs.filter(p=>p.lawName==='사립학교법');
+    assert.deepEqual(pairs.map(p=>d.comparison.ruleArticles.find(r=>r.id===p.ruleArticleId).article),['제7조','제31조','제31조','제31조']);
+    assert(d.comparison.pairs.some(p=>p.lawName==='지가공시 및 토지 등의 평가에 관한 법률' && d.laws[p.lawIndex].identity.status==='renamed'));
+    assert(d.laws.some(l=>l.signals.some(s=>s.code==='ARTICLE_NUMBER_UNVERIFIED')));
+  });
+  await check('가지조문·서로 다른 항의 인용 보존과 추가 법령 요청 없음', async () => {
+    await call('get_rule_upper_laws',{law_id:107,article:'제10조의2'});
+    lawCalls.length=0;
+    const d=(await call('get_rule_upper_laws',{law_id:107,article:'제10조의2',include_text:true})).data;
+    assert.equal(d.comparison.ruleArticles.length,1); assert.equal(d.comparison.ruleArticles[0].article,'제10조의2');
+    assert.deepEqual(d.comparison.pairs.map(x=>x.paragraph),['제1항','제2항']);
+    assert(d.comparison.pairs.every(x=>x.lawArticleIndex===0)); assert.equal(lawCalls.length,0);
+  });
+  await check('과거 규정 개정본과 현행 법령 시점을 혼동하지 않음', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:107,history_id:19,article:'제10조의2',include_text:true})).data;
+    assert.equal(d.comparison.ruleArticles[0].source.historyId,19); assert.equal(d.comparison.ruleArticles[0].source.revisedAt,'2019.01.01');
+    assert.match(d.comparison.ruleArticles[0].contentMarkdown,/과거 규정 고유본문/);
+    assert.equal(d.laws[0].identity.effectiveAt,'2024-03-01'); assert.equal(d.applicability,'requires_review');
+    assert(d.comparison.ruleArticles[0].source.sourceUrl.endsWith('SEQ=107&SEQ_HISTORY=19'));
+  });
+  await check('번호가 같은 본칙·두 부칙의 본문을 서로 섞지 않음', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:108,include_text:true})).data;
+    assert.equal(new Set(d.comparison.pairs.map(x=>x.ruleArticleId)).size,3);
+    assert.deepEqual(d.comparison.ruleArticles.map(x=>x.article),['제1조','부칙 제1조','부칙 제1조']);
+    const selected=(await call('get_rule_upper_laws',{law_id:108,article:'부칙(2021.1.1.) 제1조',include_text:true})).data;
+    assert.match(selected.comparison.ruleArticles[0].supplementaryHeading,/2021/);
+    assert.match(selected.comparison.ruleArticles[0].contentMarkdown,/둘째부칙고유/);
+    assert.doesNotMatch(selected.comparison.ruleArticles[0].contentMarkdown,/첫부칙고유|본칙고유/);
+    assert.equal((await call('get_rule_upper_laws',{law_id:108,article:'부칙 제1조',include_text:true})).error.code,'AMBIGUOUS_ARTICLE');
+  });
+  await check('규정 본문 잘림은 법령 textCoverage와 별도 표시·고정 개정본 복구 안내', async () => {
+    const raw=await client.callTool({name:'get_rule_upper_laws',arguments:{law_id:104,include_text:true}}); const d=raw.structuredContent.data;
+    assert.equal(d.textCoverage.status,'complete'); assert.equal(d.comparison.status,'partial'); assert.equal(d.evidenceStatus,'partial');
+    assert(d.incompleteReasons.includes('RULE_TEXT_TRUNCATED')); const r=d.comparison.ruleArticles[0];
+    assert.equal(r.contentMarkdown.length,6000); assert.equal(r.textCoverage.truncated,true);
+    assert.deepEqual(r.fullTextRequest,{tool:'get_rule_full_text',arguments:{law_id:104,history_id:20}});
+    assert.match(raw.content[0].text,/규정 본문 잘림/);
+  });
+  await check('규정 본문 합계 한도는 중복 조문을 한 번만 세고 미반환은 partial', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:109,include_text:true})).data;
+    assert.equal(d.comparison.ruleArticles.reduce((n,r)=>n+r.contentMarkdown.length,0),24000);
+    assert.equal(d.comparison.ruleArticles[4].textCoverage.status,'unavailable');
+    assert(d.incompleteReasons.includes('RULE_TEXT_UNAVAILABLE')); assert.equal(d.comparison.status,'partial');
+  });
+  await check('대조 인용 한도와 article 선택 재조회', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:105,include_text:true})).data;
+    assert.equal(d.comparison.pairs.length,24); assert.equal(d.comparison.omittedPairs,6);
+    assert(d.incompleteReasons.includes('COMPARISON_LIMIT')); assert.equal(d.comparison.status,'partial');
+    const selected=(await call('get_rule_upper_laws',{law_id:105,article:30,include_text:true})).data;
+    assert.equal(selected.comparison.status,'complete'); assert.match(selected.comparison.ruleArticles[0].contentMarkdown,/본문30/);
+  });
+  await check('법령명만 있는 인용은 임의로 대응 조문을 채우지 않음', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:106,include_text:true})).data;
+    assert.equal(d.textCoverage.status,'not_required'); assert.equal(d.comparison.status,'unavailable');
+    assert.equal(d.comparison.pairs[0].lawArticleIndex,null); assert.equal(d.comparison.pairs[0].lawTextStatus,'not_specified');
+    assert(d.incompleteReasons.includes('LAW_ARTICLE_UNSPECIFIED')); assert.equal(d.evidenceStatus,'partial');
+  });
+  await check('삭제 표지 본문과 없는 조문의 미확보 상태를 구분', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:110,include_text:true})).data;
+    assert.equal(d.lookup.status,'retrieved'); assert.equal(d.textCoverage.status,'not_required'); assert.equal(d.laws[0].articles[0].status,'missing');
+    assert.equal(d.comparison.status,'unavailable'); assert(d.incompleteReasons.includes('LAW_TEXT_UNAVAILABLE'));
+    const whole=(await call('get_rule_upper_laws',{law_id:1,article:31,include_text:true})).data;
+    const deleted=whole.comparison.pairs.find(p=>p.lawArticle==='제31조');
+    assert.equal(deleted.lawTextStatus,'complete'); assert.match(whole.laws[deleted.lawIndex].articles[deleted.lawArticleIndex].text,/삭제/);
+  });
+  await check('긴 법령·실패·조문 상한은 대조 상태도 partial/unavailable', async () => {
+    for(const [id,status,reason] of [[103,'partial','LAW_TEXT_TRUNCATED'],[101,'unavailable','LAW_TEXT_UNAVAILABLE'],[102,'partial','LAW_TEXT_UNAVAILABLE']]) {
+      const d=(await call('get_rule_upper_laws',{law_id:id,include_text:true,include_candidates:false})).data;
+      assert.equal(d.comparison.status,status); assert(d.incompleteReasons.includes(reason)); assert.equal(d.evidenceStatus,'partial');
+    }
+  });
+  await check('주제 후보를 법령 대조 본문으로 꾸미지 않음', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:2,include_text:true})).data;
+    assert.equal(d.comparison.status,'not_required'); assert.deepEqual(d.comparison.pairs,[]); assert.deepEqual(d.comparison.ruleArticles,[]);
+  });
+  await check('표 구분자·HTML·줄바꿈을 보존하는 표시', async () => {
+    const raw=await client.callTool({name:'get_rule_upper_laws',arguments:{law_id:111,include_text:true}});
+    assert.match(raw.structuredContent.data.comparison.ruleArticles[0].contentMarkdown,/항목 \| 값\n<표> & 문구/);
+    assert.match(raw.content[0].text,/항목 &#124; 값<br>&lt;표&gt; &amp; 문구/);
+  });
+  await check('법령 수 한도로 생략된 대조도 partial', async () => {
+    const d=(await call('get_rule_upper_laws',{law_id:1,max_laws:1,include_text:true})).data;
+    assert(d.omitted.some(x=>x.relation==='cited')); assert.equal(d.comparison.status,'partial'); assert(d.comparison.incompleteReasons.includes('LAW_LIMIT'));
+  });
+
   await check('같은 날 같은 법령은 캐시에서, 실패는 캐시하지 않음', async () => {
     lawCalls.length = 0;
     await call('get_rule_upper_laws', { law_id: 2 });
@@ -323,6 +440,9 @@ async function main() {
     const info = await call('get_service_info', {});
     assert.equal(info.data.toolCount, tools.length);
     assert.equal(info.data.integrations.lawLink.upperLawTool, 'get_rule_upper_laws');
+    assert.equal(info.data.integrations.lawLink.upperLawComparison.response, 'comparison');
+    assert.equal(info.data.integrations.lawLink.upperLawComparison.maxPairs, 24);
+    assert.equal(info.data.toolCount, 15);
   });
 
   await client.close();
