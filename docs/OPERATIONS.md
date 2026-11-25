@@ -1,6 +1,6 @@
 # 동국 규정 MCP — 공동 이용 운영 가이드
 
-대상 버전: v0.15.6. 기본 배포는 공개 규정 조회용 `rules` 프로필입니다. 이 문서는 운영자가 반복할 절차이며, 기관 승인·담당자 배정·전교 사용자 실증·가용성 SLA의 완료 증빙은 아닙니다.
+대상 버전: v0.15.7. 기본 배포는 공개 규정 조회용 `rules` 프로필입니다. 이 문서는 운영자가 반복할 절차이며, 기관 승인·담당자 배정·전교 사용자 실증·가용성 SLA의 완료 증빙은 아닙니다.
 
 ## 1. 프로필과 접속 경계
 
@@ -60,7 +60,7 @@ node src/index.js --doctor --json
 태그 고정 설치 예시:
 
 ```bash
-npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.6/dongguk-rule-mcp-0.15.6.tgz --version
+npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.7/dongguk-rule-mcp-0.15.7.tgz --version
 ```
 
 `latest`나 개발 브랜치가 자동으로 운영에 반영되도록 구성하기보다 검증한 릴리스 단위를 설치합니다. 기존 프로세스는 패키지 파일을 교체해도 구버전을 계속 사용할 수 있으므로 재시작 후 버전을 다시 확인합니다.
