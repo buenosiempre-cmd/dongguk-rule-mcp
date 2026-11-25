@@ -118,6 +118,7 @@ const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','searc
 const { queryLegalReferences, inspectLaws } = require('./legal-client.js');
 const { buildUpperLaws, formatUpperLaws, latestAnnotatedDate, CAVEAT: UPPER_LAW_CAVEAT } = require('./upper-laws.js');
 const { lawLinkConfigured, fetchCitedLaws, formatCitedLaws } = require('./law-link.js');
+const { summarizeRuleCoverage, lawTextCoverage } = require('./evidence-status.js');
 const { formatLegalEvidence } = require('./legal-format.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
@@ -496,14 +497,24 @@ async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeC
     includeCandidates:includeCandidates&&!selector,
     configured:lawLinkConfigured(currentProfile()),cached,inspectLaws,
   });
-  const complete=['retrieved','not_required'].includes(result.lookup.status)&&!result.omitted.length&&catalogAvailable;
+  // lookup.status covers the identity/existence check; a cut law body is tracked apart.
+  const textCoverage=lawTextCoverage(result.laws,{includeText,maxTextChars:result.limits.maxTextChars,lookupCode:result.lookup.code});
+  const incompleteReasons=[
+    ...(['retrieved','not_required'].includes(result.lookup.status)?[]:['LAW_LOOKUP_INCOMPLETE']),
+    ...(result.omitted.length?['LAW_LIMIT']:[]),...(catalogAvailable?[]:['CATALOG_UNAVAILABLE']),
+    ...(textCoverage.truncatedArticles.length?['LAW_TEXT_TRUNCATED']:[]),
+    ...(textCoverage.missingArticles.length?['LAW_TEXT_UNAVAILABLE']:[]),
+  ];
+  const complete=!incompleteReasons.length;
   let text=formatUpperLaws(result,{title,selectorLabel:selector?.label});
+  if(textCoverage.missingArticles.length) text+=`\n\n본문을 가져오지 못한 법령 조문이 있습니다(${textCoverage.missingArticles.map(x=>`${x.lawName} ${x.article}: ${x.reason}`).join(', ')}). 본문을 확인한 것이 아니므로 한국법령 MCP나 국가법령정보센터에서 직접 확인하세요.`;
+  if(textCoverage.truncatedArticles.length) text+=`\n\n법령 본문 일부가 ${textCoverage.maxTextChars}자에서 잘렸습니다(${textCoverage.truncatedArticles.map(x=>`${x.lawName} ${x.article}`).join(', ')}). 전문은 한국법령 MCP의 get_law_text나 국가법령정보센터에서 확인하세요.`;
   if(!catalogAvailable) text+='\n\n현행 규정 목록을 불러오지 못해 교내 규정명과 법령명을 구분하지 못한 인용이 있을 수 있습니다.';
   return success(text,{
     source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
     ...result,caveat:UPPER_LAW_CAVEAT,applicability:'requires_review',
     coverage:{scope:selector?'selected_article':'whole_rule',catalogAvailable,citationBasis:'explicit_names_only'},
-    evidenceStatus:complete?'retrieved':'partial',returnedAt:new Date().toISOString(),
+    textCoverage,evidenceStatus:complete?'retrieved':'partial',incompleteReasons,returnedAt:new Date().toISOString(),
   });
 }
 
@@ -1187,8 +1198,8 @@ async function lookupFinanceRules(requests,context){
     }
     catch(error){results.push(serializeException('lookup_dongguk_rule',error));}
   }
-  const incomplete=results.filter(x=>!x.structuredContent.ok||(!x.structuredContent.data?.articles?.length&&(!(x.structuredContent.data?.rules||[]).length||(x.structuredContent.data?.rules||[]).some(r=>r.warning||r.excerpt?.truncated||!r.excerpt?.matchedTerms?.length))));
-  return {status:incomplete.length||requests.length>8?'partial':'retrieved',results,requested:requests.length,attempted:results.length,not_retrieved:incomplete.length,omitted:requests.slice(8),omitted_count:Math.max(0,requests.length-8)};
+  // A child lookup that is itself partial keeps the batch partial.
+  return summarizeRuleCoverage(results,requests,8);
 }
 
 async function hReviewFinanceCase(args){
