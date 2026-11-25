@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { SOURCES, createPublicClient, loadExternal, expandTopic, compareUniversityRules, formatComparison } = require('../src/university-rules');
-const { DOCUMENT_NOTICE, parseHongikTree, parseSkkuRows, currentSkkuRules, parseSejongList } = require('../src/university-adapters');
+const { DOCUMENT_NOTICE, htmlLines, dropUnreadArticles, isAppendixLabel, parseHongikTree, parseSkkuRows, currentSkkuRules, parseSejongList } = require('../src/university-adapters');
 const { listArticleBlocks } = require('../src/parsers');
 
 const source = key => SOURCES.find(s => s.key === key);
@@ -176,7 +176,8 @@ async function main() {
     assert.deepEqual([result.coverage.channel, result.coverage.currentRevisionConfirmedByTitle], ['content', true]);
     assert.match(fresh.calls.find(call => call.target.includes('mode=download')).target, /articleNo=11&attachNo=110$/, '본문 검색에 나온 옛 개정본을 내려받지 않음');
     const unverified = await load('skku', network(routes(true)).client);
-    assert.deepEqual([unverified.rules.length, unverified.failures], [0, [{ lawId: 10, code: 'PDF_REVISION_UNVERIFIED' }]]);
+    assert.deepEqual([unverified.rules.length, unverified.failures], [0, [{ lawId: 10, code: 'PDF_REVISION_UNVERIFIED', reason: 'TITLE_NOT_FOUND', title: '직원 복무규정' }]]);
+    assert.deepEqual([unverified.coverage.currentRevisionConfirmedByTitle, unverified.coverage.currentRevisionUnverified], [false, 1], '확인하지 못했으면 확인 완료로 올리지 않음');
   });
 
   await check('성균관: 쪽 수 상한·정렬 미확인·형식 변경', async () => {
@@ -240,6 +241,119 @@ async function main() {
     await assert.rejects(load('gachon', network([[/./, '<form><input type="password" name="pw"></form>']]).client), e => e.code === 'SESSION_REQUIRED');
   });
 
+  // ── PR #37 레드팀 1차 검수의 반례(I1·I2·I3·R1). 라벨은 검수 증거의 것과 같다. ──
+  const dongguk = async () => ({ rules: [], failures: [], coverage: { complete: true } });
+  const compare = async (keys, routes) => {
+    const net = network(routes);
+    const result = await compareUniversityRules({ topic: '여비', universities: keys, max_articles: 5 }, { client: net.client, loadDongguk: dongguk,
+      loadExternalImpl: (src, topic, terms, client, signal, spec2) => loadExternal(src, topic, terms, client, signal, spec2, { now: NOW }) });
+    return { result, text: formatComparison(result), calls: net.calls, column: result.columns.find(c => c.university === keys[0]) };
+  };
+  const foundCells = (result, key) => (result.slotMatrix?.slots || []).filter(slot => slot.cells[key]?.status === 'found').map(slot => slot.key);
+  const hongikPage = html => `<div class="b-content-box"><div class="fr-view">${html}</div></div>`;
+  const hongikRoutes = html => [['srCategoryId=145', hongikPage(html)], ['srCategoryId=', hongikPage('<p>안내</p>')], ['regulations-book.do', hongikTree()]];
+  const hySearch = JSON.stringify({ DS_SEARCH: [{ list: [{ gyujeongCd: '138', gyujeongNm: '여비 규정', gaejeongDt: '20260101' }] }] });
+  const hyView = (section, body = '<p>출장 일비는 999원을 지급한다.</p>', extra = []) => JSON.stringify({ DS_SMGHGJ02TTM01: [{ list: [hanyangRow(2, '1', '0', section, null), hanyangRow(3, '2', '1', '제99조(출장 일비)', body), ...extra] }] });
+  const hyRoutes = view => [['Search1HYU', hySearch], ['MView', view]];
+
+  await check('I1 hongik-appendix-table: 별표 표의 조문형 문자열은 비교 조문이 아님', async () => {
+    const annex = await compare(['hongik'], hongikRoutes('<p>제1조(목적) 출장 여비를 정한다.</p><p>[별표 1]</p><table><tr><td>제99조(일비)</td><td>출장 일비는 999원을 지급한다.</td></tr></table>'));
+    assert.deepEqual(annex.column.articles.map(a => a.article), ['제1조']);
+    assert.doesNotMatch(JSON.stringify(annex.result) + annex.text, /제99조|999원/);
+    assert.deepEqual(foundCells(annex.result, 'hongik').includes('per_diem'), false);
+    assert.deepEqual([annex.column.status, annex.column.coverage.appendicesCompared, annex.column.coverage.tablesCompared, annex.column.articles[0].effectiveAt], ['partial', false, false, null]);
+    // 별표 앞의 부칙이 마지막 부칙이면 그 시행일을 쓰고, 별표 뒤에 부칙이 또 있으면 미확인으로 둔다.
+    const before = await load('hongik', network(hongikRoutes('<p>제1조(목적) 출장 여비를 정한다.</p><p>부칙</p><p>이 규정은 2025년 12월 1일부터 시행한다.</p><p>[별표 1]</p><p>여비 지급 구분표</p>')).client);
+    const after = await load('hongik', network(hongikRoutes('<p>제1조(목적) 출장 여비를 정한다.</p><p>부칙</p><p>이 규정은 2025년 12월 1일부터 시행한다.</p><p>[별표 1]</p><p>부칙</p><p>이 규정은 2026년 3월 1일부터 시행한다.</p>')).client);
+    assert.deepEqual([before.rules[0].effectiveAt, after.rules[0].effectiveAt], ['2025-12-01', null]);
+    assert.doesNotMatch(before.rules[0].markdown + after.rules[0].markdown, /구분표|2026년 3월/);
+    // 괄호 종류가 달라도, 별표 표제 없이 본문에 낀 표여도 표 셀은 조문이 되지 않는다.
+    const bracket = await compare(['hongik'], hongikRoutes('<p>제1조(목적) 출장 여비를 정한다.</p><p>〔별표 1〕</p><p>제99조(일비) 출장 일비는 999원을 지급한다.</p>'));
+    assert.deepEqual(bracket.column.articles.map(a => a.article), ['제1조']);
+    const inline = await load('hongik', network(hongikRoutes('<p>제1조(일비) 출장 일비는 다음 표와 같다.</p><table><tr><td>제99조(표)</td><td>999원</td></tr></table><p>제2조(정산) 출장 여비를 정산한다.</p>')).client);
+    assert.deepEqual([listArticleBlocks(inline.rules[0].markdown).map(b => b.canonical), inline.rules[0].tablesOmitted], [['제1조', '제2조'], 1]);
+    assert.doesNotMatch(inline.rules[0].markdown, /제99조|999원/);
+  });
+
+  await check('I1 대조군: 본문의 「별표에 따른다」 참조와 그 뒤 조문은 그대로', async () => {
+    const body = await load('hongik', network(hongikRoutes('<p>제1조(지급) 출장 일비는 별표 1에 따라 지급한다.</p><p>제2조(정산)&nbsp;출장 여비는 [별표 2]에 따른 기준으로 정산한다.</p><p>제3조(준용) 출장 숙박비는 제9조(일비)에 따른다.</p><p>부칙</p><p>이 규정은 2025년 12월 1일부터 시행한다.</p>')).client);
+    assert.deepEqual(listArticleBlocks(body.rules[0].markdown).filter(b => !b.supplementary).map(b => b.canonical), ['제1조', '제2조', '제3조'], '참조한 제9조는 새 조문이 아님');
+    assert.match(body.rules[0].markdown, /별표 1에 따라 지급한다[\s\S]*\[별표 2\]에 따른 기준으로 정산한다[\s\S]*제9조\(일비\)에 따른다/);
+    assert.deepEqual([body.rules[0].effectiveAt, body.failures], ['2025-12-01', [{ lawId: 146, code: 'UPSTREAM_FORMAT_CHANGED' }]]);
+    assert.deepEqual([isAppendixLabel('별표'), isAppendixLabel('〔별표 1〕'), isAppendixLabel('[ 서 식 2 ]'), isAppendixLabel('（별지 제1호）'), isAppendixLabel('본문'), isAppendixLabel('부칙'), isAppendixLabel('제5조(별표의 적용)')], [true, true, true, true, false, false, false]);
+  });
+
+  await check('I1 hanyang-bracketed-appendix·plain-appendix-control: 괄호가 있어도 별표 묶음은 제외', async () => {
+    for (const section of ['〔별표 1〕', '별표', '[별표 1]', '( 서식 )', '【부록】']) {
+      const annex = await compare(['hanyang'], hyRoutes(hyView(section)));
+      assert.deepEqual([annex.column.articles.length, annex.column.status, annex.column.failures], [0, 'unavailable', [{ lawId: 138, code: 'ARTICLE_TEXT_UNAVAILABLE' }]], section);
+      assert.doesNotMatch(JSON.stringify(annex.result) + annex.text, /제99조|999원/, section);
+      assert.deepEqual(foundCells(annex.result, 'hanyang'), [], section);
+    }
+    // 본문 묶음의 조문은 남고, 조문 본문 안의 독립 별표 표제 뒤와 표는 빠진다.
+    const mixed = await load('hanyang', network(hyRoutes(hyView('본문', '<p>출장 일비는 별표 1에 따라 지급한다.</p><p>[별표 1]</p><p>별표고유금액 777원</p><table><tr><td>제98조(표)</td></tr></table>',
+      [hanyangRow(3, '3', '1', '(별표 2)', '<p>제97조(별표 항목) 555원</p>')]))).client);
+    assert.deepEqual(listArticleBlocks(mixed.rules[0].markdown).map(b => b.canonical), ['제99조']);
+    assert.match(mixed.rules[0].markdown, /별표 1에 따라 지급한다/);
+    assert.doesNotMatch(mixed.rules[0].markdown, /777원|555원|제98조|제97조/);
+    assert.equal(mixed.rules[0].tablesOmitted, 1);
+  });
+
+  await check('I2 hanyang-image-only-article·hongik-image-only-article: 그림뿐인 본문은 제목만으로 찾음 처리하지 않음', async () => {
+    const hanyang = await compare(['hanyang'], hyRoutes(hyView('본문', '<img src="/synthetic-rule-image.png">')));
+    const hongik = await compare(['hongik'], hongikRoutes('<p>제1조(출장 일비)</p><img src="/synthetic-rule-image.png">'));
+    for (const [key, article, run] of [['hanyang', '제99조(출장 일비)', hanyang], ['hongik', '제1조(출장 일비)', hongik]]) {
+      assert.deepEqual([run.column.articles, run.column.status, foundCells(run.result, key)], [[], 'unavailable', []], key);
+      assert.deepEqual(run.column.failures.filter(f => f.code === 'ARTICLE_TEXT_UNAVAILABLE').map(f => [f.article, f.reason]), [[article, 'image_only']], key);
+      assert.match(run.text, new RegExp(`본문을 읽지 못해 비교에서 뺀 조문 1건 — ${article.replace(/[()]/g, '\\$&')}\\(본문이 그림뿐\\)[^\\n]*원문에서 확인하세요`), key);
+    }
+    // 읽은 조문과 그림뿐인 조문이 섞이면 읽은 조문만 비교하고 나머지는 조문별로 남긴다.
+    const mixed = await load('hongik', network(hongikRoutes('<p>제1조(목적) 출장 여비를 정한다.</p><p>제2조(일비)</p><p><img src="/a.png"></p><p>제3조(숙박) 출장 숙박비 <img src="/b.png"> 를 지급한다.</p><p>제4조 삭제 &lt;2020.1.1.&gt;</p><p>제5조(빈 조문)</p>')).client);
+    assert.deepEqual(listArticleBlocks(mixed.rules[0].markdown).map(b => b.canonical), ['제1조', '제3조', '제4조']);
+    assert.deepEqual([mixed.rules[0].unreadArticles, mixed.rules[0].imagesOmitted], [[{ article: '제2조(일비)', reason: 'image_only' }, { article: '제5조(빈 조문)', reason: 'empty' }], 1]);
+    assert.deepEqual(mixed.failures.filter(f => f.lawId === 145), [{ lawId: 145, code: 'ARTICLE_TEXT_UNAVAILABLE', article: '제2조(일비)', reason: 'image_only' }, { lawId: 145, code: 'ARTICLE_TEXT_UNAVAILABLE', article: '제5조(빈 조문)', reason: 'empty' }]);
+    assert.doesNotMatch(mixed.rules[0].markdown, /그림/);
+    assert.deepEqual(htmlLines('<p>가<br>나</p><table><tr><td>제9조(표)</td></tr></table><div>다 <img src="x"> 라</div>'), { lines: ['가', '나', '다', '[[그림]]', '라'], tables: 1 });
+    assert.deepEqual(dropUnreadArticles('머리말\n### 제1조(목적) 본문\n### 제2조(그림)\n[[그림]]\n## 부칙\n시행한다.'), { markdown: '머리말\n### 제1조(목적) 본문\n## 부칙\n시행한다.', unread: [{ article: '제2조(그림)', reason: 'image_only' }], imagesOmitted: 0 });
+  });
+
+  await check('I3 skku-unordered-confirmation-with-unread-page: 재확인도 쪽·정렬을 검증', async () => {
+    const exact = encodeURIComponent('직원 복무규정');
+    const routes = (lastOffset, secondPage) => [
+      ['mode=download', PDF],
+      [`srSearchKey=article_title&srSearchVal=${exact}`, target => skkuPage(/offset=10$/.test(target) ? secondPage : [['직원 복무규정', '2023.01.01', 8, 80], ['직원 복무규정', '2024.01.01', 9, 90]], lastOffset)],
+      ['srSearchKey=article_text', skkuPage([['직원 복무규정', '2024.01.01', 9, 90]])],
+      ['srSearchKey=article_title', skkuPage([], 0, true)],
+    ];
+    const titleCalls = run => run.calls.filter(call => call.target.includes(`srSearchVal=${exact}`)).map(call => /offset=(\d+)$/.exec(call.target)[1]);
+    const downloads = run => run.calls.filter(call => call.target.includes('mode=download')).map(call => /articleNo=(\d+)/.exec(call.target)[1]);
+    // 레드팀 반례 그대로: 첫 쪽이 최신순이 아니고 다음 쪽(offset 10)에 최신본이 있다 → 다음 쪽까지 읽어 최신본을 고른다.
+    const found = await compare(['skku'], routes(10, [['직원 복무규정', '2026.11.01', 11, 110]]));
+    assert.deepEqual([titleCalls(found), downloads(found)], [['0', '10'], ['11']], '옛 개정본(9)을 내려받지 않음');
+    assert.deepEqual([found.column.articles[0].revisedAt, found.column.coverage.currentRevisionConfirmedByTitle, found.column.coverage.searchPagesTruncated, found.column.failures], ['2026.11.01', true, false, []]);
+    // 읽지 못한 쪽이 남으면 확인 완료로 올리지 않고, 미확인 사유와 잘림을 남긴 채 아무것도 내려받지 않는다.
+    const unread = await compare(['skku'], routes(30, [['직원 복무규정', '2025.01.01', 10, 100]]));
+    assert.deepEqual([titleCalls(unread), downloads(unread)], [['0', '10'], []]);
+    assert.deepEqual(unread.column.failures, [{ lawId: 9, code: 'PDF_REVISION_UNVERIFIED', reason: 'CONFIRMATION_PAGES_UNREAD', title: '직원 복무규정' }]);
+    assert.deepEqual([unread.column.status, unread.column.articles.length, unread.column.coverage.currentRevisionConfirmedByTitle, unread.column.coverage.currentRevisionUnverified, unread.column.coverage.searchPagesTruncated, unread.column.coverage.confirmationPagesTruncated, unread.column.coverage.truncated],
+      ['unavailable', 0, false, 1, true, true, true]);
+    assert.match(unread.text, /현행 개정본을 확인하지 못해 조회하지 않은 규정 1건 — 직원 복무규정\(검색 결과가 조회 상한을 넘음\)/);
+    // 최신순이 확인되는 첫 쪽에서는 한 쪽만 읽고 끝낸다(뒤 쪽은 더 오래된 개정본).
+    const ordered = await compare(['skku'], [['mode=download', PDF], [`srSearchKey=article_title&srSearchVal=${exact}`, skkuPage([['직원 복무규정', '2026.11.01', 11, 110], ['직원 복무규정', '2024.01.01', 9, 90]], 30)], ['srSearchKey=article_text', skkuPage([['직원 복무규정', '2024.01.01', 9, 90]])], ['srSearchKey=article_title', skkuPage([], 0, true)]]);
+    assert.deepEqual([titleCalls(ordered), downloads(ordered), ordered.column.coverage.currentRevisionConfirmedByTitle], [['0'], ['11'], true]);
+  });
+
+  await check('R1: 캐시 한도는 글자 수가 아니라 바이트 기준', async () => {
+    const korean = '한'.repeat(800000);
+    assert(korean.length < 2 * MIB && Buffer.byteLength(korean) > 2 * MIB);
+    const multibyte = network([[/./, korean]]);
+    for (let i = 0; i < 2; i++) await multibyte.client.request(source('sejong'), '/kor/intro/regulation-overview.do');
+    assert.equal(multibyte.calls.length, 2, '2 MiB를 넘는 한글 응답은 캐시에 두지 않음');
+    const small = network([[/./, '한'.repeat(600000)]]);
+    for (let i = 0; i < 2; i++) await small.client.request(source('sejong'), '/kor/intro/regulation-overview.do');
+    assert.equal(small.calls.length, 1, '2 MiB 이하 응답은 캐시에서 재사용');
+  });
+
   await check('비교 결과: 열 상태·문서 안내·원문 링크·시행 예정 표시', async () => {
     const routes = [
       ['srCategoryId=145', hongikRule], ['srCategoryId=146', hongikRule], ['/kr/introduction/regulations-book.do', hongikTree()],
@@ -247,7 +361,6 @@ async function main() {
       ['mode=download', PDF], ['mode=list', skkuPage([['여비 규정', '2027.03.01', 3, 30], ['여비 규정', '2026.03.01', 2, 20]])],
       [/\/191\/download$/, PDF], [/download$/, PDF], ['listOperation', gachonList],
     ];
-    const dongguk = async () => ({ rules: [], failures: [], coverage: { complete: true } });
     const data = await compareUniversityRules({ topic: '여비', universities: ['hongik', 'hanyang', 'skku', 'gachon', 'kaist'], max_articles: 2 }, { client: network(routes).client, loadDongguk: dongguk });
     const column = key => data.columns.find(c => c.university === key);
     assert.deepEqual(['hongik', 'hanyang', 'skku', 'gachon', 'kaist'].map(key => column(key).status), ['partial', 'partial', 'partial', 'partial', 'unsupported']);

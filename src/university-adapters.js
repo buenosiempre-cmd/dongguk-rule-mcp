@@ -28,6 +28,54 @@ async function pdfArticles(buffer, signal, extractPdf) {
   return { markdown, tailExcluded: extracted.text.split(/\r?\n/).some(line => isAppendixHeading(line.replace(/[\t ]+/g, ' ').trim())) };
 }
 
+// HTML 조각 → 줄 단위 텍스트. 표는 조문 비교 범위 밖이라 통째로 버린다(표 셀의 "제99조(…)" 같은
+// 문자열이 조문으로 읽히지 않게). 그림은 표식 줄로 남겨, 글자 없이 그림뿐인 조문을 가려낸다.
+const IMAGE_MARK = '[[그림]]';
+function htmlLines(html) {
+  const $ = cheerio.load(`<div id="rule-fragment">${html || ''}</div>`), root = $('#rule-fragment');
+  const tables = root.find('table').length;
+  root.find('table, script, style').remove();
+  root.find('img').replaceWith(`<p>${IMAGE_MARK}</p>`);
+  root.find('br').replaceWith('\n');
+  root.find('p, div, li, tr, h1, h2, h3, h4, h5, h6').each((_, node) => { $(node).append('\n'); $(node).prepend('\n'); });
+  const lines = root.text().replace(/ /g, ' ').split('\n').map(line => line.replace(/[\t ]+/g, ' ').trim()).filter(Boolean);
+  return { lines, tables };
+}
+// "제N조(제목)" 뒤에 같은 줄 본문이 있는가. "제5조 삭제 <2020.1.1.>"처럼 제목 괄호가 없는 줄도 본문이다.
+function headingHasBody(heading) {
+  const start = /^제\s*\d+\s*조(?:\s*의\s*\d+)?\s*/.exec(heading);
+  if (!start) return true;
+  const rest = heading.slice(start[0].length);
+  if (!'(（'.includes(rest[0] || ' ')) return rest.trim().length > 0;
+  let depth = 0;
+  for (let i = 0; i < rest.length; i++) {
+    if ('(（'.includes(rest[i])) depth++;
+    if (')）'.includes(rest[i]) && --depth === 0) return rest.slice(i + 1).trim().length > 0;
+  }
+  return false;
+}
+// 제목만 있고 읽은 본문이 없는 조문(그림뿐이거나 비어 있음)은 비교 조문에서 빼고 따로 알린다.
+// 제목만으로는 그 조문이 무엇을 정하는지 확인한 것이 아니다.
+function dropUnreadArticles(markdown) {
+  const lines = String(markdown).split('\n'), out = [], unread = [];
+  let imagesOmitted = 0;
+  for (let i = 0; i < lines.length;) {
+    if (!lines[i].startsWith('### ')) { if (lines[i] === IMAGE_MARK) imagesOmitted++; else out.push(lines[i]); i++; continue; }
+    let end = i + 1;
+    while (end < lines.length && !/^#{2,3} /.test(lines[end])) end++;
+    const body = lines.slice(i + 1, end), text = body.filter(line => line !== IMAGE_MARK), marks = body.length - text.length;
+    const heading = lines[i].slice(4);
+    if (!text.length && !headingHasBody(heading)) unread.push({ article: heading, reason: marks ? 'image_only' : 'empty' });
+    else { out.push(lines[i], ...text); imagesOmitted += marks; }
+    i = end;
+  }
+  return { markdown: out.join('\n'), unread, imagesOmitted };
+}
+const unreadFailures = (lawId, unread) => unread.map(item => ({ lawId, code: 'ARTICLE_TEXT_UNAVAILABLE', article: item.article, reason: item.reason }));
+// 괄호·공백이 달라도 같은 부속 묶음 이름이다: "별표", "〔별표 1〕", "[ 서 식 2 ]".
+const isAppendixLabel = text => /^(?:별표|별지|별첨|부록|붙임|서식)/.test(compact(text).replace(/^[\[(〔【<〈《（［]+/, ''));
+const HTML_COVERAGE = { comparisonScope: 'articles_only', appendicesCompared: false, tablesCompared: false, complete: false };
+
 // ── 홍익대: 규정집 페이지의 규정 트리(전체 제목) + 규정별 페이지의 .fr-view 조문 HTML ──
 const HONGIK_PATH = '/kr/introduction/regulations-book.do';
 function parseHongikTree(html) {
@@ -42,23 +90,33 @@ function parseHongikTree(html) {
   });
   return items;
 }
-async function loadHongik(source, topic, terms, client, signal, spec, { rankByTitle, maxRules, htmlToArticleMarkdown, latestAddendaEffective, ruleRevisedAt, safeCode }) {
+async function loadHongik(source, topic, terms, client, signal, spec, { rankByTitle, maxRules, latestAddendaEffective, ruleRevisedAt, safeCode }) {
   const items = parseHongikTree(await client.request(source, HONGIK_PATH, undefined, 15000, signal));
   if (items.length < 20) throw error('UPSTREAM_FORMAT_CHANGED');
   const ranked = rankByTitle(items, topic, terms, spec.titleHints || terms), rules = [], failures = [];
   for (const hit of ranked.slice(0, maxRules)) {
-    const path = `${HONGIK_PATH}?mode=list&srCategoryId=${hit.id}&srSearchKey=&srSearchVal=`;
+    const path = `${HONGIK_PATH}?mode=list&srCategoryId=${hit.id}&srSearchKey=&srSearchVal=`, lawId = Number(hit.id);
     try {
       if (signal?.aborted) throw error('TOTAL_TIMEOUT');
-      const body = cheerio.load(await client.request(source, path, undefined, 15000, signal))('.b-content-box .fr-view').html() || '';
-      const markdown = htmlToArticleMarkdown(body);
-      if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
-      const effectiveAt = latestAddendaEffective(markdown);
-      rules.push({ title: hit.title, lawId: Number(hit.id), historyId: 0, markdown, url: source.origin + path,
-        revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
-    } catch (e) { const code = safeCode(e); failures.push({ lawId: Number(hit.id), code }); if (STOP.includes(code)) break; }
+      const { lines, tables } = htmlLines(cheerio.load(await client.request(source, path, undefined, 15000, signal))('.b-content-box .fr-view').html() || '');
+      // 독립 별표 표제 뒤는 조문 비교에서 빠진다(본문 속 "별표1에 따라" 같은 참조는 표제가 아니다).
+      // HTML은 전체 줄을 알고 있으므로, 잘라낸 뒤쪽에 부칙이 있을 때만 시행일을 미확인으로 둔다.
+      const cut = lines.findIndex(line => isAppendixHeading(line));
+      const tailExcluded = cut >= 0 && lines.slice(cut + 1).some(line => /^부\s*칙(?=[\s(（<\[]|$)/.test(line));
+      const { markdown, unread, imagesOmitted } = dropUnreadArticles(articleMarkdown(lines.join('\n')));
+      failures.push(...unreadFailures(lawId, unread));
+      if (!listArticleBlocks(markdown).length) {
+        // 읽은 조문이 없다: 그림뿐인 조문은 위에 조문별로 남겼고, 별표뿐이면 비교 범위에 조문이 없는 것이다.
+        if (unread.length) continue;
+        throw error(cut >= 0 || tables ? 'ARTICLE_TEXT_UNAVAILABLE' : 'UPSTREAM_FORMAT_CHANGED');
+      }
+      const effectiveAt = tailExcluded ? null : latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId, historyId: 0, markdown, url: source.origin + path,
+        revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null,
+        ...(unread.length ? { unreadArticles: unread } : {}), ...(tables ? { tablesOmitted: tables } : {}), ...(imagesOmitted ? { imagesOmitted } : {}) });
+    } catch (e) { const code = safeCode(e); failures.push({ lawId, code }); if (STOP.includes(code)) break; }
   }
-  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
+  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, ...HTML_COVERAGE } };
 }
 
 // ── 한양대: 규정집 화면이 쓰는 공개 JSON(규정명 검색 → 조문 목록). 본문은 조문별 HTML 조각 ──
@@ -71,25 +129,28 @@ function hanyangRows(raw, key) {
   if (!Array.isArray(rows)) throw error('UPSTREAM_FORMAT_CHANGED');
   return rows;
 }
-function hanyangMarkdown(rows, htmlToArticleMarkdown) {
+function hanyangMarkdown(rows) {
   const shown = rows.filter(r => r && r.pyosiYn === '1' && !r.pyejiDt);
   const sections = new Map(shown.filter(r => r.itemLevel === 2).map(r => [r.itemCd, stripTags(r.itemNm)]));
   const out = [];
-  let current = null;
+  let current = null, tables = 0, tailExcluded = false;
   for (const row of shown.filter(r => r.itemLevel === 3)) {
-    const section = sections.get(row.parentItemCd) || '';
-    // 별표·서식 묶음은 조문 비교 범위 밖이다.
-    if (/^(?:별\s*표|별\s*지|서\s*식|부\s*록)/.test(section)) continue;
+    const section = sections.get(row.parentItemCd) || '', name = stripTags(row.itemNm);
+    // 별표·서식 묶음과 그 항목은 조문 비교 범위 밖이다. 묶음 이름이 "〔별표 1〕"처럼 괄호로 싸여 있어도 같다.
+    if (isAppendixLabel(section) || isAppendixLabel(name)) { tailExcluded = true; continue; }
     if (section !== current) { current = section; if (/^부\s*칙/.test(section)) out.push('## 부칙'); }
-    const name = stripTags(row.itemNm), body = htmlToArticleMarkdown(row.itemNaeyong || '').replace(/^#{2,3} /gm, '');
-    if (/^제\s*\d+\s*조/.test(name)) out.push(`### ${name}`, body);
-    else if (/^부\s*칙/.test(name)) out.push(`## ${name.replace(/^부\s*칙\s*/, '부칙 ')}`, body);
-    else if (/^제\s*\d+\s*(?:장|절)/.test(name)) out.push(`## ${name}`, body);
-    else out.push(name, body);
+    const body = htmlLines(row.itemNaeyong), cut = body.lines.findIndex(line => isAppendixHeading(line));
+    tables += body.tables;
+    if (cut >= 0) tailExcluded = true;
+    const text = cut >= 0 ? body.lines.slice(0, cut) : body.lines;
+    if (/^제\s*\d+\s*조/.test(name)) out.push(`### ${name}`, ...text);
+    else if (/^부\s*칙/.test(name)) out.push(`## ${name.replace(/^부\s*칙\s*/, '부칙 ')}`, ...text);
+    else if (/^제\s*\d+\s*(?:장|절)/.test(name)) out.push(`## ${name}`, ...text);
+    else out.push(name, ...text);
   }
-  return out.filter(Boolean).join('\n');
+  return { ...dropUnreadArticles(out.filter(Boolean).join('\n')), tables, tailExcluded };
 }
-async function loadHanyang(source, topic, terms, client, signal, spec, { rankByTitle, maxRules, htmlToArticleMarkdown, latestAddendaEffective, safeCode }) {
+async function loadHanyang(source, topic, terms, client, signal, spec, { rankByTitle, maxRules, latestAddendaEffective, safeCode }) {
   const hints = spec.titleHints || terms;
   const queries = uniq([...(spec.searchTerms || []), ...hints, ...terms]).slice(0, 4), byCode = new Map();
   let anyOk = false, firstError = null;
@@ -110,15 +171,20 @@ async function loadHanyang(source, topic, terms, client, signal, spec, { rankByT
     try {
       if (signal?.aborted) throw error('TOTAL_TIMEOUT');
       const rows = hanyangRows(await client.request(source, `${HANYANG_VIEW}${hit.code}&searchStr=`, '{}', 15000, signal), 'DS_SMGHGJ02TTM01');
-      const markdown = hanyangMarkdown(rows, htmlToArticleMarkdown);
-      if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
+      const { markdown, unread, imagesOmitted, tables, tailExcluded } = hanyangMarkdown(rows);
+      failures.push(...unreadFailures(Number(hit.code), unread));
+      if (!listArticleBlocks(markdown).length) {
+        if (unread.length) continue;
+        throw error(tailExcluded || tables ? 'ARTICLE_TEXT_UNAVAILABLE' : 'UPSTREAM_FORMAT_CHANGED');
+      }
       const effectiveAt = latestAddendaEffective(markdown);
       rules.push({ title: hit.title, lawId: Number(hit.code), historyId: hit.revised ? Number(hit.revised) : 0, markdown,
+        ...(unread.length ? { unreadArticles: unread } : {}), ...(tables ? { tablesOmitted: tables } : {}), ...(imagesOmitted ? { imagesOmitted } : {}),
         url: `${source.origin}/huas/iycy/ruleBook.do`, revisedAt: hit.revised ? dotDate(hit.revised.slice(0, 4), hit.revised.slice(4, 6), hit.revised.slice(6, 8)) : null,
         effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
     } catch (e) { const code = safeCode(e); failures.push({ lawId: Number(hit.code), code }); if (STOP.includes(code)) break; }
   }
-  return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byCode.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
+  return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byCode.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, ...HTML_COVERAGE } };
 }
 
 // ── 성균관대: 규정집 게시판(개정본마다 한 줄) 제목 검색 → 규정 PDF. 검색 결과는 10건씩이다 ──
@@ -156,11 +222,15 @@ async function loadSkku(source, topic, terms, client, signal, spec, { rankByTitl
   const queries = uniq([...(spec.searchTerms || []), ...hints, ...terms]).slice(0, 3), rows = [];
   let anyOk = false, firstError = null, pagesTruncated = false, newestFirst = true;
   const search = async (key, query) => {
+    const pageRows = [];
     for (let page = 0; page < SKKU_PAGES; page++) {
       const parsed = parseSkkuRows(await client.request(source, `${SKKU_PATH}?mode=list&srSearchKey=${key}&srSearchVal=${encodeURIComponent(query)}&articleLimit=10&article.offset=${page * 10}`, undefined, 15000, signal));
       if (!parsed.rows.length && !parsed.empty) throw error('UPSTREAM_FORMAT_CHANGED');
+      // 쪽 안에서도, 앞쪽의 마지막 줄과 이 쪽의 첫 줄 사이에서도 최신순이어야 한다.
+      const previous = page ? pageRows[pageRows.length - 1] : null;
+      if (!parsed.newestFirst || (previous && parsed.rows[0] && previous.date < parsed.rows[0].date)) newestFirst = false;
+      pageRows.push(...parsed.rows);
       rows.push(...parsed.rows.map(row => ({ ...row, channel: key })));
-      if (!parsed.newestFirst) newestFirst = false;
       if (parsed.lastOffset <= page * 10) return;
       if (page === SKKU_PAGES - 1) pagesTruncated = true;
     }
@@ -181,25 +251,46 @@ async function loadSkku(source, topic, terms, client, signal, spec, { rankByTitl
   // 본문 검색 후보와, 정렬 순서를 확인하지 못한 제목 검색 후보는 규정명으로 다시 찾아 현행본을 정한다.
   const confirmCurrent = channel === 'content' || !newestFirst;
   const today = todayKst(now), rules = [], failures = [];
+  let confirmed = 0, unverified = 0, confirmationTruncated = false;
+  // 규정명 재검색도 같은 쪽 수 상한과 정렬 검증을 받는다. 최신순이면 처음 만난 오늘 이전 줄이 현행본이고,
+  // 최신순이 아니면 모든 쪽을 읽었을 때만 가장 늦은 줄을 현행본으로 본다. 읽지 못한 쪽이 남으면 확인 불가다.
+  const confirm = async title => {
+    const seen = [];
+    for (let page = 0; page < SKKU_PAGES; page++) {
+      const parsed = parseSkkuRows(await client.request(source, `${SKKU_PATH}?mode=list&srSearchKey=article_title&srSearchVal=${encodeURIComponent(title)}&articleLimit=10&article.offset=${page * 10}`, undefined, 15000, signal));
+      if (!parsed.rows.length && !parsed.empty) throw error('UPSTREAM_FORMAT_CHANGED');
+      seen.push(...parsed.rows);
+      const ordered = seen.every((row, i) => i === 0 || seen[i - 1].date >= row.date);
+      const same = currentSkkuRules(seen.filter(row => compact(row.title) === compact(title)), today)[0];
+      const more = parsed.lastOffset > page * 10;
+      if (same && (ordered || !more)) return same;
+      if (!more) throw Object.assign(error('PDF_REVISION_UNVERIFIED'), { reason: 'TITLE_NOT_FOUND' });
+    }
+    confirmationTruncated = true;
+    throw Object.assign(error('PDF_REVISION_UNVERIFIED'), { reason: 'CONFIRMATION_PAGES_UNREAD' });
+  };
   for (let hit of candidates.slice(0, maxRules)) {
     try {
       if (signal?.aborted) throw error('TOTAL_TIMEOUT');
-      if (confirmCurrent) {
-        const parsed = parseSkkuRows(await client.request(source, `${SKKU_PATH}?mode=list&srSearchKey=article_title&srSearchVal=${encodeURIComponent(hit.title)}&articleLimit=10&article.offset=0`, undefined, 15000, signal));
-        const same = currentSkkuRules(parsed.rows.filter(row => compact(row.title) === compact(hit.title)), today)[0];
-        if (!same) throw error('PDF_REVISION_UNVERIFIED');
-        hit = same;
-      }
+      if (confirmCurrent) { hit = await confirm(hit.title); confirmed++; }
       const path = `${SKKU_PATH}?mode=download&articleNo=${hit.articleNo}&attachNo=${hit.attachNo}`;
       const { markdown, tailExcluded } = await pdfArticles(await client.request(source, path, undefined, 20000, signal, { binary: true }), signal, extractPdf);
       const effectiveAt = tailExcluded ? null : latestAddendaEffective(markdown);
       rules.push({ title: hit.title, lawId: Number(hit.articleNo), historyId: Number(hit.date.replace(/-/g, '')), markdown,
         url: `${source.origin}${SKKU_PATH}?mode=view&articleNo=${hit.articleNo}`, originalPdfUrl: source.origin + path, sourceType: 'PDF 텍스트 레이어',
         revisedAt: hit.date.replace(/-/g, '.'), effectiveAt, effectiveSource: effectiveAt ? 'addenda' : null, ...(hit.upcomingAt ? { upcomingRevisionAt: hit.upcomingAt } : {}) });
-    } catch (e) { const code = safeCode(e); failures.push({ lawId: Number(hit.articleNo), code }); if (STOP.includes(code)) break; }
+    } catch (e) {
+      const code = safeCode(e);
+      if (code === 'PDF_REVISION_UNVERIFIED') unverified++;
+      failures.push({ lawId: Number(hit.articleNo), code, ...(e?.reason ? { reason: e.reason, title: hit.title } : {}) });
+      if (STOP.includes(code)) break;
+    }
   }
-  return { rules, failures, coverage: { mode: 'board_pdf', currentRevisionConfirmedByTitle: confirmCurrent, channel, queries, totalCandidates: candidates.length, titleMatches: candidates.length,
-    truncated: candidates.length > maxRules || pagesTruncated, searchPagesTruncated: pagesTruncated, textLayerOnly: true, ...DOCUMENT_COVERAGE } };
+  // 확인 완료는 재확인이 필요했던 후보를 모두 확인했을 때만이다.
+  return { rules, failures, coverage: { mode: 'board_pdf', currentRevisionConfirmedByTitle: confirmCurrent && confirmed > 0 && unverified === 0,
+    ...(unverified ? { currentRevisionUnverified: unverified } : {}), channel, queries, totalCandidates: candidates.length, titleMatches: candidates.length,
+    truncated: candidates.length > maxRules || pagesTruncated || confirmationTruncated, searchPagesTruncated: pagesTruncated || confirmationTruncated,
+    ...(confirmationTruncated ? { confirmationPagesTruncated: true } : {}), textLayerOnly: true, ...DOCUMENT_COVERAGE } };
 }
 
 // ── 세종대: 규정집 한 페이지에 현행 규정 전체(제목과 시행일) + 규정별 PDF ──
@@ -283,4 +374,4 @@ async function loadGachon(source, topic, terms, client, signal, spec, { rankByTi
 
 const ADAPTERS = { hongik_html: loadHongik, hanyang_json: loadHanyang, skku_pdf: loadSkku, sejong_pdf: loadSejong, gachon_files: loadGachon };
 const DOCUMENT_KEYS = Object.freeze(['skku', 'sejong', 'gachon']);
-module.exports = { ADAPTERS, DOCUMENT_KEYS, DOCUMENT_NOTICE, parseHongikTree, hanyangMarkdown, parseSkkuRows, currentSkkuRules, parseSejongList, isPdf, isHwp };
+module.exports = { ADAPTERS, DOCUMENT_KEYS, DOCUMENT_NOTICE, htmlLines, dropUnreadArticles, isAppendixLabel, parseHongikTree, hanyangMarkdown, parseSkkuRows, currentSkkuRules, parseSejongList, isPdf, isHwp };

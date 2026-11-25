@@ -510,7 +510,7 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
         }
         if (cache.size >= maxEntries) cache.delete(cache.keys().next().value);
         // 한도를 넓힌 큰 목록(세종)은 원문을 캐시에 두지 않는다. 어댑터가 파싱한 목록만 보관한다.
-        if (!disabled() && html.length <= 2 * 1024 * 1024) cache.set(key, { at: now(), text: html });
+        if (!disabled() && Buffer.byteLength(html, 'utf8') <= 2 * 1024 * 1024) cache.set(key, { at: now(), text: html });
         return html;
       } finally { clearTimeout(timer); }
     })();
@@ -646,7 +646,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
 
 function safeCode(e) {
   if (/^HTTP (401|403):/.test(e?.message || '')) return 'ACCESS_DENIED';
-  return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE', 'TOTAL_TIMEOUT', 'LAWGO_OC_NOT_CONFIGURED','PDF_INVALID','PDF_TOO_LARGE','PDF_TOO_MANY_PAGES','PDF_NO_TEXT','PDF_TEXT_TOO_LARGE','PDF_PARSE_BUSY','PDF_PARSE_FAILED','PDF_PARSE_TIMEOUT','PDF_NO_ARTICLES','PDF_REVISION_UNVERIFIED','DOCUMENT_FORMAT_UNSUPPORTED','HWP_PARSE_FAILED','HWP_NO_ARTICLES'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
+  return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE', 'TOTAL_TIMEOUT', 'LAWGO_OC_NOT_CONFIGURED','PDF_INVALID','PDF_TOO_LARGE','PDF_TOO_MANY_PAGES','PDF_NO_TEXT','PDF_TEXT_TOO_LARGE','PDF_PARSE_BUSY','PDF_PARSE_FAILED','PDF_PARSE_TIMEOUT','PDF_NO_ARTICLES','PDF_REVISION_UNVERIFIED','DOCUMENT_FORMAT_UNSUPPORTED','HWP_PARSE_FAILED','HWP_NO_ARTICLES','ARTICLE_TEXT_UNAVAILABLE'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
 }
 
 // frame이 있으면 사안 프레임으로 조문을 거른다: 다른 사안의 규정·조문과 언급만 있는 조문은 dropped에
@@ -783,6 +783,13 @@ function formatComparison(data) {
     if (!c.articles.length) continue;
     lines.push('', `## ${c.name || c.university} 조문 본문`);
     for (const a of c.articles) lines.push('', `### ${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`, a.originalPdfUrl ? `[${a.sourceType === '한글 파일 본문' ? '원문 파일' : 'PDF 원문'}](${a.originalPdfUrl})` : '', a.upcomingRevisionAt ? `시행 예정 개정본이 있습니다(${a.upcomingRevisionAt}). 여기 보인 것은 그 이전 개정본입니다.` : '');
+  }
+  // 본문을 읽지 못한 조문과 현행본을 확인하지 못한 규정은 건수만이 아니라 무엇인지 적는다.
+  for (const c of data.columns) {
+    const unread = (c.failures || []).filter(f => f.code === 'ARTICLE_TEXT_UNAVAILABLE' && f.article);
+    if (unread.length) lines.push('', `- ${c.name || c.university}: 본문을 읽지 못해 비교에서 뺀 조문 ${unread.length}건 — ${unread.map(f => `${f.article}(${f.reason === 'image_only' ? '본문이 그림뿐' : '본문 없음'})`).join(', ')}. 제목만으로 내용을 확인한 것이 아니므로 원문에서 확인하세요.`);
+    const stale = (c.failures || []).filter(f => f.code === 'PDF_REVISION_UNVERIFIED' && f.reason);
+    if (stale.length) lines.push('', `- ${c.name || c.university}: 현행 개정본을 확인하지 못해 조회하지 않은 규정 ${stale.length}건 — ${stale.map(f => `${f.title}(${f.reason === 'CONFIRMATION_PAGES_UNREAD' ? '검색 결과가 조회 상한을 넘음' : '규정명 검색에서 찾지 못함'})`).join(', ')}.`);
   }
   lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
   return lines.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');
