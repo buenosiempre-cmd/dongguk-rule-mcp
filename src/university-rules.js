@@ -42,6 +42,7 @@ const SOURCES = Object.freeze([
   { key: 'ewha', name: '이화여자대학교', origin: 'https://www.ewha.ac.kr', mode: 'adapter', adapter: 'ewha_html', pathPrefixes: ['/ewha/intro/rules.do'] },
   // 서울대(국립): 국가법령정보센터 DRF 학칙 채널. 운영자 OC 키(DONGGUK_LAWGO_OC) 필요.
   { key: 'snu', name: '서울대학교', origin: 'https://www.law.go.kr', mode: 'adapter', adapter: 'lawgo_school', institution: '서울대학교', pathPrefixes: ['/DRF/'] },
+  { key: 'yonsei', name: '연세대학교', origin: 'https://rules.yonsei.ac.kr', mode: 'adapter', adapter: 'nextjs_rsc', pathPrefixes: ['/regulations'] },
 ].map(Object.freeze));
 const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, frameSummary, DROP_LABELS } = require('./issue-frames');
 // 등록 주제는 사안 프레임(issue-frames.js)에서 온다. terms: 조문 일치어(첫 항목이 대표어·검색어).
@@ -295,7 +296,61 @@ async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) 
   return { rules, failures, coverage: { mode: 'lawgo_school', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
 }
 
-const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool };
+// 연세대: Next.js(App Router) 규정집. 공개 API가 없어 페이지에 내장된 RSC flight
+// 데이터(self.__next_f.push([1,"…"]))를 재조립해 규정 목록·본문을 읽는다. 로그인 불필요.
+function flightBlob(html) {
+  let b = '';
+  for (const m of String(html || '').matchAll(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g)) {
+    try { b += JSON.parse('"' + m[1] + '"'); } catch { /* skip malformed chunk */ }
+  }
+  return b;
+}
+async function loadYonsei(source, topic, terms, client, signal, spec = {}) {
+  const hints = spec.titleHints || terms;
+  const listHtml = await client.request(source, '/regulations', undefined, 15000, signal);
+  const blob = flightBlob(listHtml);
+  if (!blob.includes('revisionHistories')) throw error('UPSTREAM_FORMAT_CHANGED');
+  const items = [];
+  const seen = new Set();
+  for (const m of blob.matchAll(/"id":"([0-9a-f-]{36})","name":"((?:[^"\\]|\\.)*?)","order":\d+,"organization":/g)) {
+    const id = m[1];
+    if (seen.has(id)) continue; seen.add(id);
+    let name; try { name = JSON.parse('"' + m[2] + '"'); } catch { continue; }
+    const tail = blob.slice(m.index + m[0].length, m.index + m[0].length + 4000);
+    const dates = [...tail.matchAll(/"revision_date":"(\d{4}-\d{2}-\d{2})/g)].map(x => x[1]);
+    const status = /"status":"([^"]*)"/.exec(tail)?.[1];
+    if (status && status !== 'current') continue; // 현행만
+    items.push({ id, title: name, revisedAt: dates.length ? dates.sort().pop().replace(/-/g, '.') : null });
+  }
+  if (!items.length) throw error('UPSTREAM_FORMAT_CHANGED');
+  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const rules = [], failures = [];
+  for (const hit of ranked) {
+    try {
+      const page = await client.request(source, `/regulations/${hit.id}`, undefined, 15000, signal);
+      const b = flightBlob(page);
+      const ref = /"html":"\$([0-9a-f]+)"/.exec(b);
+      if (!ref) throw error('UPSTREAM_FORMAT_CHANGED');
+      const row = new RegExp('(?:^|\\n)' + ref[1] + ':T([0-9a-f]+),').exec(b);
+      if (!row) throw error('UPSTREAM_FORMAT_CHANGED');
+      const ln = parseInt(row[1], 16), start = row.index + row[0].length;
+      // T 길이는 바이트 수(UTF-8)라 문자열 인덱스가 아닌 버퍼로 정확히 자른다.
+      const html = Buffer.from(b.slice(start), 'utf8').subarray(0, ln).toString('utf8');
+      const markdown = htmlToArticleMarkdown(html);
+      if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
+      const effectiveAt = latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId: hit.id, historyId: 0, markdown,
+        url: `${source.origin}/regulations/${hit.id}`,
+        revisedAt: hit.revisedAt, effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
+    } catch (e) {
+      failures.push({ lawId: hit.id, code: safeCode(e) });
+      if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
+    }
+  }
+  return { rules, failures, coverage: { mode: 'nextjs_rsc', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+}
+
+const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool, nextjs_rsc: loadYonsei };
 
 function validateArguments(a) {
   if (!a || typeof a.topic !== 'string' || !a.topic.trim() || a.topic.length > 100) return 'topic은 1~100자 주제어여야 합니다.';

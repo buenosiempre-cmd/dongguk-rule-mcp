@@ -43,7 +43,7 @@ async function main() {
   });
   await check('입력 상한·형식 및 미지원 키 구분', () => {
     for (const a of [{}, { topic:' ',universities:['uos'] }, {topic:'여비',universities:['dongguk']}, {topic:'여비',universities:['https://localhost']}, {topic:'여비',universities:['uos'],max_articles:6}, {topic:'여비',universities:Array(6).fill('uos')}]) assert(validateArguments(a));
-    assert.equal(validateArguments({ topic:'여비',universities:['yonsei'] }), null);
+    assert.equal(validateArguments({ topic:'여비',universities:['kaist'] }), null);
   });
   await check('같은 원문 요청 합치기, 캐시 만료, 쿠키·리다이렉트 차단 설정', async () => {
     let count = 0, now = 0;
@@ -71,7 +71,7 @@ async function main() {
   });
   await check('비교: 다른 조 번호 유지, 본문·출처·시행일 미확인, 최근 목록 부분 결과', async () => {
     const c={request:async(s,path)=>path.includes('lawNewList')?'<a onclick="fullPopupPost(3,4)">여비규정</a>':body('여비규정')};
-    const data=await compareUniversityRules({topic:'여비',universities:['korea','korea','yonsei']},{loadDongguk:dongguk,client:c});
+    const data=await compareUniversityRules({topic:'여비',universities:['korea','korea','kaist']},{loadDongguk:dongguk,client:c});
     assert.equal(data.columns.length,3); assert.equal(data.columns[0].articles[0].article,'제9조');
     assert.equal(data.columns[1].articles[0].article,'제3조'); assert.equal(data.columns[1].articles.length,1);
     assert.equal(data.columns[1].status,'partial'); assert.equal(data.columns[1].articles[0].effectiveAt,null);
@@ -189,6 +189,33 @@ async function main() {
     assert.deepEqual(queries,['근로장학','근로보조금']);assert.deepEqual(titles,['근로장학','장학']);assert.equal(d.columns[1].coverage.titleMatches,2);
     assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
+  });
+  await check('연세대(국립 아님): Next.js RSC flight 파싱 — 목록 재조립·본문 바이트 슬라이스', async () => {
+    const yon=SOURCES.find(x=>x.key==='yonsei');
+    assert.equal(yon.adapter,'nextjs_rsc');assert.equal(yon.origin,'https://rules.yonsei.ac.kr');assert.deepEqual(yon.pathPrefixes,['/regulations']);
+    const spec=expandTopic('여비');
+    const UUID='20f223f6-8600-4e4c-b535-cb94d9670b09';
+    // 목록: 규정 레코드(id,name,order,organization,status,revisionHistories)가 flight에 내장
+    const listBlob='X:'+JSON.stringify({})+'\n'+
+      '{"id":"'+UUID+'","name":"여비규정","order":1,"organization":{"id":"o1","name":"총무처"},"status":"current","initialEnactmentDate":"2000-01-01T00:00:00.000Z","content_excerpt":null,"revisionHistories":[{"id":"r1","revision_type":"revision","revision_date":"2026-09-01T00:00:00.000Z"},{"id":"r0","revision_type":"enactment","revision_date":"2000-01-01T00:00:00.000Z"}]},'+
+      '{"id":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee","name":"폐지된 여비 내규","order":2,"organization":{"id":"o1","name":"총무처"},"status":"repealed","revisionHistories":[{"revision_date":"1999-01-01T00:00:00.000Z"}]}';
+    const listHtml='<script>self.__next_f.push([1,'+JSON.stringify(listBlob)+'])</script>';
+    // 본문: "html":"$23" 참조 + 23:T<byteLen>,<html> row
+    const body='<h1>여비규정</h1><h5>담당: 02-0000</h5><p><strong>제1조 (목적)</strong></p><p>이 규정은 여비를 정한다.</p><p><strong>제2조 (여비의 종류)</strong></p><p>운임·숙박비·일비로 구분한다.</p>';
+    const ln=Buffer.byteLength(body,'utf8').toString(16);
+    const detailBlob='22:I["x"]\n{"html":"$23","className":"regulation-html-body"}\n23:T'+ln+','+body+'\n24:["trailing-row-should-not-leak"]';
+    const detailHtml='<script>self.__next_f.push([1,'+JSON.stringify(detailBlob)+'])</script>';
+    const mock={request:async(src,path)=>path==='/regulations'?listHtml:detailHtml};
+    const r=await loadExternal(yon,'여비',spec.terms,mock,undefined,spec);
+    assert.equal(r.coverage.mode,'nextjs_rsc');
+    // 폐지본(status!=current) 제외 → 현행 1건만
+    assert.equal(r.coverage.totalCandidates,1);assert.equal(r.rules.length,1);
+    const rule=r.rules[0];
+    assert.equal(rule.title,'여비규정');assert.equal(rule.revisedAt,'2026.09.01');  // 최신 revision_date
+    assert.equal(rule.lawId,UUID);assert.equal(rule.url,'https://rules.yonsei.ac.kr/regulations/'+UUID);
+    assert.match(rule.markdown,/### 제1조 \(목적\)/);assert.match(rule.markdown,/### 제2조 \(여비의 종류\)/);
+    // 바이트 길이로 정확히 잘라 다음 row(trailing)가 본문에 새지 않음
+    assert(!rule.markdown.includes('trailing-row-should-not-leak'));
   });
   await check('서울대(국립): DRF 학칙 어댑터 — OC 미설정 처리·XML 파싱·소관부처/현행 필터·키 비노출', async () => {
     const snu=SOURCES.find(x=>x.key==='snu');
@@ -341,11 +368,11 @@ async function main() {
       process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='1';
       seed('history','1',[{historyId:3,revisedAt:'2026.11.01'}]);
       seed('content-v3','1_3',{title:'여 비 규 정',markdown:'### 제2조(여비)\n여비 출장 숙박 지급'});
-      const live=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['yonsei']}})).structuredContent;
+      const live=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['kaist']}})).structuredContent;
       assert.equal(live.data.columns[0].status,'retrieved');assert.equal(live.data.columns[0].articles[0].historyId,3);assert.equal(live.data.columns[0].articles[0].universityRule,'여비규정');
       assert.equal(live.data.columns[0].articles[0].revisedAt,'2026.11.01');
       assert.equal(live.data.columns[1].status,'unsupported');
-      const fallback=(await client.callTool({name:'compare_university_rules',arguments:{topic:'빈제목',universities:['yonsei']}})).structuredContent;
+      const fallback=(await client.callTool({name:'compare_university_rules',arguments:{topic:'빈제목',universities:['kaist']}})).structuredContent;
       assert.equal(fallback.data.columns[0].coverage.mode,'full_text_search');assert.deepEqual(searchModes.slice(-2),['LAWNAME','CONTENTS']);
       const invalid=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:[]}})).structuredContent;assert.equal(invalid.error.code,'INVALID_ARGUMENT');
       const sensitive=(await client.callTool({name:'compare_university_rules',arguments:{topic:'password=example-secret',universities:['uos']}})).structuredContent;assert.equal(sensitive.error.code,'SENSITIVE_INPUT');

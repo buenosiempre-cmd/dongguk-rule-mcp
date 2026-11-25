@@ -4,6 +4,12 @@ v0.14.0까지의 변경은 `docs/review-*.md`와 `docs/RELEASE-v0.12.0.md`에 �
 
 ## 미배포
 
+### 타대학 비교: 연세대(Next.js RSC) 어댑터
+
+#### 추가
+- **연세대(`yonsei`)**: 규정집(rules.yonsei.ac.kr)이 공개 REST API 없는 Next.js App Router 앱이라, 페이지 내장 RSC flight 데이터(`self.__next_f.push([1,"…"])`)를 재조립하는 `nextjs_rsc` 어댑터를 추가했다. 목록은 현행(status=current) 규정의 이름·UUID·최신 revision_date를, 본문은 `"html":"$<id>"`가 가리키는 `<id>:T<byteLen>,<html>` row를 **바이트 길이로 정확히 잘라** 조문 HTML을 얻는다. 로그인 불필요.
+- 라이브 검증(실제 사이트): 여비규정(개정 2026.09.01)·교원 외부 겸직 시행세칙·장학금지급규정 등 682개 현행 규정에서 조문 추출 확인.
+
 ### 타대학 비교: 서울대(국립) DRF 학칙 채널 어댑터
 
 #### 추가
