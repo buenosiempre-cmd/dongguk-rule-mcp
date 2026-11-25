@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const { normalizeName } = require('./references.js');
 const { parseDateLoose } = require('./timeline.js');
+const { formatComparison } = require('./upper-law-comparison.js');
 
 // National laws a rule rests on: the laws it cites by name, checked against the
 // current-law listing, plus topic candidates for rules that cite none. Every
@@ -64,6 +65,7 @@ function planLaws(references, { title, includeCandidates = true, maxLaws = MAX_L
     if (!item.nameExtended) law.nameGuessed = false;
     if (item.article && !law.articles.includes(item.article)) law.articles.push(item.article);
     law.citedBy.push({
+      ...(item.sourceLocation?.blockId ? { ruleBlockId: item.sourceLocation.blockId } : {}),
       ruleArticle: item.sourceLocation?.article || null, lawArticle: item.article || null, ...(item.paragraph ? { paragraph: item.paragraph } : {}),
       citationText: item.citationText, resolutionStatus: item.resolutionStatus, ruleArticleAnnotatedAt: item.ruleArticleAnnotatedAt || null,
     });
@@ -192,19 +194,11 @@ function formatUpperLaws(result, { title, selectorLabel }) {
       lines.push('', '### 점검 신호');
       for (const law of flagged) for (const signal of law.signals) lines.push(`- [${LEVEL[signal.level]}] ${law.lawName}: ${signal.message}`);
     }
-    const texts = result.laws.flatMap(law => law.articles.filter(a => a.text).map(a => ({ law, a })));
-    if (texts.length) {
-      lines.push('', '### 조문 대조');
-      for (const { law, a } of texts) {
-        lines.push('', `#### ${law.identity.name} ${a.article}${a.title ? `(${a.title})` : ''}`, `- MST ${law.identity.mst} · 현행본 시행일 ${law.identity.effectiveAt || '미상'} · ${law.identity.url}`);
-        for (const cite of law.citedBy.filter(x => x.lawArticle === a.article).slice(0, 3)) lines.push(`- 규정 ${cite.ruleArticle || '본문'}: ${cite.citationText}`);
-        lines.push('', a.text.trim());
-        if (a.truncated) lines.push('', `(본문이 길어 ${result.limits.maxTextChars}자까지만 표시했습니다.)`);
-      }
-    }
+
   }
   if (result.omitted.length) lines.push('', `한 번에 ${result.limits.maxLaws}개 법령까지 확인합니다. 생략: ${result.omitted.map(x => x.lawName).join(', ')}`);
   if (result.laws.some(law => law.articles.some(a => a.code === 'ARTICLE_LIMIT'))) lines.push('', `조문 확인은 한 번에 ${result.limits.maxArticles}개까지입니다. article을 지정해 나누어 조회하세요.`);
+  if (result.comparison) lines.push('', formatComparison(result.comparison, result.laws));
   lines.push('', CAVEAT);
   return lines.join('\n');
 }
