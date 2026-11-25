@@ -66,6 +66,8 @@ const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, fram
 const TOPICS = Object.freeze(Object.fromEntries(FRAMES.map(f => [f.topic, { terms: f.terms, titleHints: f.titleHints }])));
 const TOPIC_PREFIX = /^(교내|교외|학부|대학원|학사)/;
 const MAX_RULES = 5, MIN_TREE_RULES = 20, TOTAL_TIMEOUT_MS = 60000;
+// Internal monitoring can request one representative; public comparison keeps five.
+const ruleLimit = spec => Number.isInteger(spec.maxRules) && spec.maxRules >= 1 && spec.maxRules <= MAX_RULES ? spec.maxRules : MAX_RULES;
 const TREE_QUERY = 'LAWGROUP=1&SEQ_TARGET=0&MODE=srvlist&TREE_SEARCH_BOOL=y';
 const FOLDER_PAGE_SIZE = 10, MAX_FOLDER_PAGES = 10;
 const PUBLIC_ONLY_NOTICE = '로그인 없이 공개된 규정만 목록에 나옵니다. 목록에 없는 규정은 비공개로 추정되며 조회할 수 없습니다.';
@@ -184,6 +186,7 @@ function rankByTitle(items, topic, terms, hints) {
 // 서강대: 자체 REST JSON. searchRuleData가 매칭 규정의 content(조문 HTML)까지 돌려준다.
 // 전체(pageSize=1000)는 3MB라 한도를 넘으므로 주제어를 title로 질의해 매칭분만 받는다.
 async function loadSogang(source, topic, terms, client, signal, spec = {}) {
+  const maxRules = ruleLimit(spec);
   const hints = spec.titleHints || terms;
   const queries = uniq([...(spec.searchTerms || []), ...hints, ...terms]).slice(0, 4);
   const byId = new Map();
@@ -198,7 +201,7 @@ async function loadSogang(source, topic, terms, client, signal, spec = {}) {
     } catch (e) { firstErr = firstErr || e; if (['TOTAL_TIMEOUT'].includes(safeCode(e))) throw e; }
   }
   if (!anyOk) throw firstErr || error('UPSTREAM_FORMAT_CHANGED');
-  const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, MAX_RULES);
+  const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, maxRules);
   const rules = [], failures = [];
   for (const hit of ranked) {
     const markdown = htmlToArticleMarkdown(hit.content || '');
@@ -207,11 +210,12 @@ async function loadSogang(source, topic, terms, client, signal, spec = {}) {
     rules.push({ title: String(hit.title).trim(), lawId: hit.pkid, historyId: 0, markdown,
       url: `${source.origin}/ko/regulation/home`, revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
   }
-  return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+  return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
 }
 
 // 이화여대: 규정집 목록 HTML(view-rule 링크) + 규정별 view 페이지(.fr-view에 조문 전문).
 async function loadEwha(source, topic, terms, client, signal, spec = {}) {
+  const maxRules = ruleLimit(spec);
   const hints = spec.titleHints || terms;
   const listHtml = await client.request(source, '/ewha/intro/rules.do', undefined, 15000, signal);
   const $ = cheerio.load(listHtml);
@@ -226,7 +230,7 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
     items.push({ cd1: m[1], cd2: m[2], title });
   });
   if (!items.length) throw error('UPSTREAM_FORMAT_CHANGED');
-  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const ranked = rankByTitle(items, topic, terms, hints).slice(0, maxRules);
   const rules = [], failures = [];
   for (const hit of ranked) {
     try {
@@ -243,7 +247,7 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
       if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
-  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
 }
 
 // 서울대(국립): 국가법령정보센터 DRF 공개 API의 학칙 채널. 운영자가 law.go.kr에서
@@ -262,6 +266,7 @@ const ymdDot = v => /^\d{8}$/.test(v) ? `${v.slice(0, 4)}.${v.slice(4, 6)}.${v.s
 const ymdIso = v => /^\d{8}$/.test(v) ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` : null;
 
 async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) {
+  const maxRules = ruleLimit(spec);
   const oc = String(process.env.DONGGUK_LAWGO_OC || source.oc || '').trim();
   if (!oc) throw error('LAWGO_OC_NOT_CONFIGURED');
   const hints = spec.titleHints || terms;
@@ -270,7 +275,7 @@ async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) 
   const byId = new Map();
   let anyOk = false, firstErr = null;
   for (const q of queries) {
-    if (byId.size >= MAX_RULES && anyOk) break;
+    if (byId.size >= maxRules && anyOk) break;
     try {
       const xml = await client.request(source, `/DRF/lawSearch.do?OC=${encodeURIComponent(oc)}&target=school&type=XML&display=30&query=${encodeURIComponent(inst + ' ' + q)}`, undefined, 15000, signal);
       if (!/<AdmRulSearch/.test(xml)) throw error('UPSTREAM_FORMAT_CHANGED');
@@ -287,7 +292,7 @@ async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) 
     } catch (e) { firstErr = firstErr || e; if (safeCode(e) === 'TOTAL_TIMEOUT') throw e; }
   }
   if (!anyOk) throw firstErr || error('UPSTREAM_FORMAT_CHANGED');
-  const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, MAX_RULES);
+  const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, maxRules);
   const rules = [], failures = [];
   for (const hit of ranked) {
     try {
@@ -309,7 +314,7 @@ async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) 
       if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
-  return { rules, failures, coverage: { mode: 'lawgo_school', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+  return { rules, failures, coverage: { mode: 'lawgo_school', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
 }
 
 // 연세대: Next.js(App Router) 규정집. 공개 API가 없어 페이지에 내장된 RSC flight
@@ -322,6 +327,7 @@ function flightBlob(html) {
   return b;
 }
 async function loadYonsei(source, topic, terms, client, signal, spec = {}) {
+  const maxRules = ruleLimit(spec);
   const hints = spec.titleHints || terms;
   const listHtml = await client.request(source, '/regulations', undefined, 15000, signal);
   const blob = flightBlob(listHtml);
@@ -339,7 +345,7 @@ async function loadYonsei(source, topic, terms, client, signal, spec = {}) {
     items.push({ id, title: name, revisedAt: dates.length ? dates.sort().pop().replace(/-/g, '.') : null });
   }
   if (!items.length) throw error('UPSTREAM_FORMAT_CHANGED');
-  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const ranked = rankByTitle(items, topic, terms, hints).slice(0, maxRules);
   const rules = [], failures = [];
   for (const hit of ranked) {
     try {
@@ -363,7 +369,7 @@ async function loadYonsei(source, topic, terms, client, signal, spec = {}) {
       if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
-  return { rules, failures, coverage: { mode: 'nextjs_rsc', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+  return { rules, failures, coverage: { mode: 'nextjs_rsc', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
 }
 
 const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool, nextjs_rsc: loadYonsei };
@@ -527,13 +533,14 @@ function sourceUrl(s, hit) {
 }
 
 async function loadExternal(source, topic, terms, client, signal, spec = {}, pdfOptions = {}) {
+  const maxRules = ruleLimit(spec);
   // 자체 시스템 대학은 전용 어댑터로 위임(LawMaster 경로 로직을 타지 않는다).
   if (source.adapter === 'cau_pdf') {
-    const result = await loadCau(source, topic, terms, client, signal, spec, {rankByTitle,maxRules:MAX_RULES,latestAddendaEffective,safeCode,...pdfOptions});
+    const result = await loadCau(source, topic, terms, client, signal, spec, {rankByTitle,maxRules:maxRules,latestAddendaEffective,safeCode,...pdfOptions});
     return {...result,coverage:{...result.coverage,scannedRules:result.rules.length,attemptedRules:result.rules.length+result.failures.length}};
   }
   if (source.adapter && MORE_ADAPTERS[source.adapter]) {
-    const result = await MORE_ADAPTERS[source.adapter](source, topic, terms, client, signal, spec, {rankByTitle,maxRules:MAX_RULES,htmlToArticleMarkdown,latestAddendaEffective,ruleRevisedAt,safeCode,...pdfOptions});
+    const result = await MORE_ADAPTERS[source.adapter](source, topic, terms, client, signal, spec, {rankByTitle,maxRules:maxRules,htmlToArticleMarkdown,latestAddendaEffective,ruleRevisedAt,safeCode,...pdfOptions});
     return {...result,coverage:{...result.coverage,scannedRules:result.rules.length,attemptedRules:result.rules.length+result.failures.length}};
   }
   if (source.adapter && ADAPTERS[source.adapter]) {
@@ -562,21 +569,21 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
       } catch (e) { if (['TOTAL_TIMEOUT', 'ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED'].includes(safeCode(e))) throw e; }
     }
     for (const q of searchTerms) {
-      if (queries.length && merged.length >= MAX_RULES) break;
+      if (queries.length && merged.length >= maxRules) break;
       const result = await run(q);
       queries.push(q); total += result.total; if (result.total > result.hits.length) pageCut = true;
       for (const h of result.hits) if (!seen.has(h.lawId)) { seen.add(h.lawId); merged.push(h); }
     }
     hits = merged;
     // totalCandidates는 검색어별 결과 수의 합(중복 포함). 잘림은 결과 페이지 미수신 또는 상한 초과로 판단.
-    coverage = { mode, queries, ...(runTitle ? { titleQueries, titleMatches } : {}), totalCandidates: total + titleMatches, truncated: pageCut || merged.length > MAX_RULES };
+    coverage = { mode, queries, ...(runTitle ? { titleQueries, titleMatches } : {}), totalCandidates: total + titleMatches, truncated: pageCut || merged.length > maxRules };
   };
   const loadRecent = async () => {
     const pairs = parsePairs(await request(`/lmxsrv/law/lawNewList.${source.ext}`));
     if (!pairs.length) throw error('UPSTREAM_FORMAT_CHANGED');
     const named = pairs.filter(x => ruleTitleScore(x.title, terms, hints) > 0);
     // 최근 목록은 주제와 무관한 규정이 대부분이라, 제목 일치 규정 외에는 3개까지만 채워 읽는다.
-    hits = [...named, ...pairs.filter(x => !named.includes(x))].slice(0, Math.max(3, Math.min(named.length, MAX_RULES)));
+    hits = [...named, ...pairs.filter(x => !named.includes(x))].slice(0, Math.max(3, Math.min(named.length, maxRules)));
     coverage = { mode: 'recent_list_only', totalCandidates: pairs.length, truncated: pairs.length > hits.length, complete: false };
   };
   if (source.mode === 'search') {
@@ -594,7 +601,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
     if (nodes.length >= MIN_TREE_RULES) {
       // 제목만 대조하므로 제목에 주제어가 없는 규정 속 조문은 놓칠 수 있다(complete:false).
       hits = nodes.filter(x => ruleTitleScore(x.title, terms, hints) > 0);
-      coverage = { mode: 'title_tree', totalCandidates: nodes.length, titleMatches: hits.length, truncated: hits.length > MAX_RULES, complete: false };
+      coverage = { mode: 'title_tree', totalCandidates: nodes.length, titleMatches: hits.length, truncated: hits.length > maxRules, complete: false };
     } else await loadRecent();
   } else if (source.mode === 'public_folders') {
     // 공개 분류 목록을 모두 읽어 제목을 대조한다. 목록 형식이 바뀌면 최근 목록으로 대체한다.
@@ -619,7 +626,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
     }
     if (!formatChanged && listed.length) {
       hits = listed.filter(x => ruleTitleScore(x.title, terms, hints) > 0);
-      coverage = { mode: 'public_folder_list', totalCandidates: listed.length, folders, titleMatches: hits.length, truncated: hits.length > MAX_RULES, complete: false, publicOnly: true, notice: PUBLIC_ONLY_NOTICE };
+      coverage = { mode: 'public_folder_list', totalCandidates: listed.length, folders, titleMatches: hits.length, truncated: hits.length > maxRules, complete: false, publicOnly: true, notice: PUBLIC_ONLY_NOTICE };
     } else await loadRecent();
   } else await loadRecent();
   const rules = [], failures = [];
@@ -629,7 +636,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
     return (hit.matchedBy === 'title' ? 50 : 0) + (title === query || title === query + '규정' ? 100 : title.includes(query) ? 30 : 0) + ruleTitleScore(hit.title, terms, hints) * 10;
   };
   hits.sort((a,b)=>rank(b)-rank(a));
-  for (const hit of hits.slice(0, MAX_RULES)) {
+  for (const hit of hits.slice(0, maxRules)) {
     try {
       const parsed = parseExternalContent(await request(`/lmxsrv/law/lawFullContent.${source.ext}?SEQ=${hit.lawId}&SEQ_HISTORY=${hit.historyId}`));
       if (!parsed.title || !listArticleBlocks(parsed.markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
