@@ -4,6 +4,8 @@ const {
   rankRuleHits,
   termTokens,
   extractRelevantBlocks,
+  requestedRuleScope,
+  selectRuleEditions,
 } = require('../src/lookup.js');
 
 let pass = 0, fail = 0;
@@ -115,6 +117,31 @@ const limitedAppendices = extractRelevantBlocks(ORIGINAL_MARKDOWN, '별표를 �
 check('별표 수 한도 초과 표시', limitedAppendices.blocksTruncated && limitedAppendices.omittedBlockCount > 0);
 const longAppendix = extractRelevantBlocks('<별표 1>\n\n| 항목 | 기준 |\n|---|---|\n| 합성 | 1 |\n\n' + '주석 내용 '.repeat(400), '별표1', { maxChars:1000 });
 check('긴 별표 주석 글자 수 초과 표시', longAppendix.charactersTruncated && longAppendix.truncated);
+
+console.log('\n[7] 발췌 순서');
+const orderedSource = '제1조(일반)\n육아휴직을 정한다.\n\n제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.\n\n① 신청서를 제출한다.';
+const documentOrder = extractRelevantBlocks(orderedSource, '육아휴직 기간', { maxBlocks: 3 });
+const relevanceOrder = extractRelevantBlocks(orderedSource, '육아휴직 기간', { maxBlocks: 3, order: 'relevance' });
+check('기본 발췌는 문서 순서 유지', documentOrder.text.indexOf('제1조') < documentOrder.text.indexOf('제9조'));
+check('관련도 발췌는 뒤쪽 핵심 조문을 먼저 표시', relevanceOrder.text.startsWith('제9조') && relevanceOrder.text.includes('제1조'));
+check('관련도 재정렬에도 조문과 소속 항의 순서 유지', relevanceOrder.text.indexOf('제9조') < relevanceOrder.text.indexOf('① 신청서') && relevanceOrder.text.indexOf('① 신청서') < relevanceOrder.text.indexOf('제1조'));
+const limitedOrder = extractRelevantBlocks('제1조(일반)\n육아휴직 ' + '일반 설명 '.repeat(300) + '\n\n제9조(육아휴직 기간)\n육아휴직 기간 핵심내용', '육아휴직 기간', { maxBlocks: 3, maxChars: 1000, order: 'relevance' });
+check('길이 제한 시 앞쪽의 낮은 관련도 조문보다 핵심 조문 보존', limitedOrder.charactersTruncated && limitedOrder.text.startsWith('제9조') && limitedOrder.text.includes('기간 핵심내용'));
+
+console.log('\n[8] 기관·캠퍼스 판 선택');
+const editions = [
+  { lawId: 1, title: '구매규정', edition: null, score: 30 },
+  { lawId: 2, title: '산학협력단 구매규정', edition: '산학협력단', score: 10 },
+  { lawId: 3, title: 'WISE캠퍼스 산학협력단 구매규정', edition: 'WISE캠퍼스 산학협력단', score: 20 },
+  { lawId: 4, title: '의학계열 구매규정', edition: '의학계열', score: 40 },
+];
+const affiliate = selectRuleEditions(editions, requestedRuleScope('산학협력단 장비 구매', 'seoul'));
+check('범위에 맞는 판을 고르고 더 높은 다른 판 점수를 상속하지 않음', affiliate.length === 1 && affiliate[0].lawId === 2 && affiliate[0].score === 10);
+const ambiguousEditions = selectRuleEditions(editions, requestedRuleScope('장비 구매'));
+check('범위 미지정은 일반·기관·캠퍼스 판을 각각 유지', ambiguousEditions.length === 4 && ambiguousEditions.every(e => e.score === editions.find(x => x.lawId === e.lawId).score && e.scopeAmbiguous));
+const conflictingScope = selectRuleEditions(editions, requestedRuleScope('WISE캠퍼스 산학협력단 장비 구매', 'seoul'));
+check('서로 다른 campus 입력을 임의로 하나로 덮어쓰지 않음', conflictingScope.length === 2 && conflictingScope.every(e => e.scopeAmbiguous));
+check('일반 목적지는 캠퍼스 지정으로 오인하지 않음', !requestedRuleScope('서울 출장 숙박비').specified);
 
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log(`📊 통합 조회 검증: ${pass}개 통과 / ${fail}개 실패`);
