@@ -362,7 +362,7 @@ async function main() {
     const server=createServer({profile:'rules'}),client=new Client({name:'comparison-test',version:'1'});
     const [a,b]=InMemoryTransport.createLinkedPair();await server.connect(a);await client.connect(b);
     try {
-      const tools=(await client.listTools()).tools;assert(tools.some(t=>t.name==='compare_university_rules'));
+      const tools=(await client.listTools()).tools;assert(tools.some(t=>t.name==='compare_university_rules'));assert.match(tools.find(t=>t.name==='compare_university_rules').inputSchema.properties.universities.description,/cau/);
       const info=(await client.callTool({name:'get_service_info',arguments:{}})).structuredContent;assert.equal(info.data.toolCount,tools.length);
       const disabled=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['uos']}})).structuredContent;assert.equal(disabled.error.code,'NOT_CONFIGURED');
       process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='1';
