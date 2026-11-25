@@ -32,6 +32,22 @@ function client({ list=catalog(), detail, bytes=pdf(), fail }={}) {
   } };
 }
 const load=(c=client(),opts={})=>loadExternal(cau,'여비',spec.terms,c,undefined,spec,{extractPdf:async()=>({text,pages:1}),...opts});
+// Exact redteam PDFs: only network responses are synthetic. The comparison uses
+// the production download validation, PDF worker, adapter and frame selection.
+async function compareFixture(name) {
+  const bytes = require('node:fs').readFileSync(require('node:path').join(__dirname,'fixtures/cau-pdf',name+'.pdf'));
+  const extracted = await extractPdfText(bytes);
+  const publicClient = createPublicClient({minIntervalMs:0,fetchImpl:async url=>{
+    if(url.includes('CampusRuleList')) return {ok:true,status:200,text:async()=>catalog()};
+    if(url.includes('RulesDetailView')) return {ok:true,status:200,text:async()=>link()};
+    if(url.includes('CampusRulePDFDownload2')) return {ok:true,status:200,buffer:async()=>bytes};
+    throw new Error('Unexpected fixture request');
+  }});
+  const result=await compareUniversityRules({topic:'여비',universities:['cau'],max_articles:5},{client:publicClient,loadDongguk:async()=>({rules:[],failures:[],coverage:{complete:true}})});
+  const column=result.columns.find(c=>c.university==='cau');
+  assert.equal(column.status,'partial');
+  return {extracted,result,column};
+}
 let passed=0;
 async function check(name,fn) { await fn();passed++;console.log('  ✅ '+name); }
 async function main() {
@@ -92,6 +108,56 @@ async function main() {
   await check('스캔 PDF는 no_match가 아닌 unavailable',async()=>{
     const data=await compareUniversityRules({topic:'여비',universities:['cau']},{loadDongguk:async()=>({rules:[],failures:[],coverage:{complete:true}}),loadExternalImpl:()=>load(client(),{extractPdf:async()=>{throw Object.assign(new Error(),{code:'PDF_NO_TEXT'});}})});
     assert.equal(data.columns[1].status,'unavailable');assert.equal(data.columns[1].failures[0].code,'PDF_NO_TEXT');
+  });
+  await check('I1 실제 한국어 PDF: 부속 제99조와 금액을 조문·비교 근거에서 제외', async()=>{
+    for (const name of ['recognized-appendix','unrecognized-brackets','unrecognized-appendix','unrecognized-form']) {
+      const { extracted, result, column } = await compareFixture(name);
+      assert.match(extracted.text, /제99조/); // the parser really saw the counterexample
+      assert.deepEqual(listArticleBlocks(articleMarkdown(extracted.text)).map(b=>b.canonical), ['제1조']);
+      assert(!column.articles.some(a=>a.article==='제99조'));
+      assert.doesNotMatch(JSON.stringify({ articles:column.articles, slots:result.slotMatrix }), /999원|제99조/);
+      assert.doesNotMatch(formatComparison(result), /999원|제99조/);
+      assert.equal(column.coverage.appendicesCompared, false);
+    }
+  });
+  await check('I2 실제 한국어 PDF: 별표 참조 문장과 후속 조문 보존', async()=>{
+    const { extracted, column } = await compareFixture('appendix-mention-in-body');
+    assert.deepEqual(listArticleBlocks(articleMarkdown(extracted.text)).map(b=>b.canonical), ['제1조','제2조']);
+    assert.match(column.articles.find(a=>a.article==='제1조').text, /별표 1에 따른 여비를 지급한다/);
+    assert(column.articles.some(a=>a.article==='제2조'));
+  });
+  await check('I3 실제 한국어 PDF: 줄바꿈된 인용도 앞 조문 문장에 남음', async()=>{
+    const wrapped = await compareFixture('wrapped-article-citation');
+    const inline = await compareFixture('inline-article-citation');
+    assert.match(wrapped.extracted.text, /일비는\s*\n제9조/);
+    for (const r of [wrapped, inline]) {
+      assert.deepEqual(listArticleBlocks(articleMarkdown(r.extracted.text)).map(b=>b.canonical), ['제1조','제2조']);
+      assert.match(r.column.articles.find(a=>a.article==='제1조').text, /제9조\(일비\)에 따른다/);
+      assert(!r.column.articles.some(a=>a.article==='제9조'));
+    }
+    const body = r=>r.column.articles.find(a=>a.article==='제1조').text.replace(/\s+/g,' ');
+    assert.equal(body(wrapped),body(inline));
+  });
+  await check('부속 표제 구분 기호·서식과 본문 조사 구분, 시행일 보존', async()=>{
+    for (const marker of ['〔별표〕','〔부록〕','[서식]','［별표 1］','《부록 1》','별표 1 지급 기준','[별표 1] 의료비 지급 기준','별지 제1호 서식']) {
+      assert.doesNotMatch(articleMarkdown(`제1조(여비) 출장 여비를 지급한다.\n${marker}\n제99조(여비) 999원`), /제99조|999원/);
+    }
+    for (const reference of ['별표 1에 따른 여비를 지급한다.','별지 제1호 서식으로 신청한다.','[별표 1]에 따른다.','〔부록 1〕을 참조한다.','서식 1을 사용한다.','별표 1 에 따른 여비를 지급한다.']) {
+      const input=`제1조(여비) 출장 여비를 지급한다.\n${reference}\n제2조(정산) 출장 여비를 정산한다.\n부칙\n2025년 10월 27일부터 시행한다.`;
+      const r=await load(client(),{extractPdf:async()=>({text:input})});
+      assert(r.rules[0].markdown.includes(reference));
+      assert.deepEqual(listArticleBlocks(r.rules[0].markdown).map(b=>b.canonical),['제1조','제2조']);
+      assert.equal(r.rules[0].effectiveAt,'2025-10-27');
+    }
+  });
+  await check('줄바꿈 인용 조사·가지조문과 정상 제목/본문 구분',()=>{
+    for (const reference of ['제9조(일비)에 따른다.','제9조(일비)를 준용한다.','제9조의2(국내(서울) 일비)에 따른다.','제9조（일비）에 따른다.','제9조(일비) 에 따른다.']) {
+      const blocks=listArticleBlocks(articleMarkdown(`제1조(지급) 국내출장 일비는\n${reference}\n제2조(정산) 이 규정은 정산에 적용한다.`));
+      assert.deepEqual(blocks.map(b=>b.canonical),['제1조','제2조']);
+      assert(JSON.stringify(blocks[0]).includes(reference));
+    }
+    const normal=articleMarkdown('제1조(목적) 이 규정은 여비에 적용한다.\n제2조(범위)\n여비를 정한다.\n제3조 삭제\n제4조(지급)① 여비를 지급한다.');
+    assert.deepEqual(listArticleBlocks(normal).map(b=>b.canonical),['제1조','제2조','제3조','제4조']);
   });
   console.log(`📊 중앙대 PDF 검증: ${passed}개 통과`);
 }

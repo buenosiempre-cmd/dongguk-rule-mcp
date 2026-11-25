@@ -3,7 +3,50 @@ const cheerio = require('cheerio');
 const { listArticleBlocks } = require('./parsers');
 const { extractPdfText } = require('./pdf-text');
 const error = code => Object.assign(new Error(code), { code });
-const APPENDIX_HEADING = /^(?:[\[<〈【(（]\s*)?(?:별\s*표|별\s*지|별\s*첨|부\s*록|붙\s*임)(?=\s*\d|\s*[\]>〉】)）]|\s|$)/;
+// Normalize paired label delimiters before classifying an entire heading.
+const LABEL_BRACKETS = { '[': ']', '<': '>', '〈': '〉', '《': '》', '【': '】', '〔': '〕', '(': ')', '（': '）', '［': '］' };
+const APPENDIX_LABEL = /^(?:별\s*표|별\s*지|별\s*첨|부\s*록|붙\s*임|서\s*식)(?:\s*(?:제\s*)?\d+(?:\s*[-의]\s*\d+)?(?:\s*호)?(?:\s*서식)?)?/;
+const REFERENCE_SUFFIX = /^(?:(?:에|의|을|를|은|는|이|가|과|와|으로|로|에서|부터|까지|처럼|대로|중|및|또는|참조|참고|따라|따른|규정에|에도)(?=\s|$)|에따|에의|을준용|를준용)/;
+function isAppendixHeading(line) {
+  line = line.replace(/[\t ]+/g, ' ').trim();
+  const close = LABEL_BRACKETS[line[0]];
+  let label = line, suffix = '';
+  if (close) {
+    const end = line.indexOf(close, 1);
+    if (end < 0) return false;
+    label = line.slice(1, end).trim();
+    suffix = line.slice(end + 1);
+  }
+  const match = APPENDIX_LABEL.exec(label);
+  if (!match) return false;
+  const rest = label.slice(match[0].length);
+  // A particle belongs to a prose reference, even when the PDF inserts spaces.
+  if (REFERENCE_SUFFIX.test(rest.trim()) || REFERENCE_SUFFIX.test(suffix.trim())) return false;
+  // Do not mistake a longer word (e.g. 서식작성) for an independent label.
+  if (rest && !/^\s/.test(rest)) return false;
+  // Captions may follow a label, but a complete prose sentence is not a caption.
+  return !/다[.!?]?$/.test((rest + suffix).trim());
+}
+function isArticleHeading(line) {
+  const start = /^제\s*\d+\s*조(?:\s*의\s*\d+)?/.exec(line);
+  if (!start) return false;
+  const rest = line.slice(start[0].length);
+  if (!rest || /^\s+삭제(?:\s|$)/.test(rest)) return true;
+  const title = rest.trimStart();
+  if (!['(', '（'].includes(title[0])) return false;
+  let depth = 0;
+  for (let i = 0; i < title.length; i++) {
+    if ('(（'.includes(title[i])) depth++;
+    if (')）'.includes(title[i]) && --depth === 0) {
+      const suffix = title.slice(i + 1);
+      if (REFERENCE_SUFFIX.test(suffix) || /^\s+(?:에\s*따|에\s*의|을\s*준용|를\s*준용)/.test(suffix)) return false;
+      // Only a standalone title or a separated body starts a new article.
+      // Unclear attached text is retained in the preceding article, not promoted.
+      return !suffix || /^[\s①-⑳]/.test(suffix);
+    }
+  }
+  return false;
+}
 const NOTICE = '중앙대 PDF의 텍스트 레이어에서 조문만 비교합니다(A안). 별표 이후 후반을 제외한 경우 시행일도 미확인입니다. 표의 셀·병합·금액 대응과 별표·별지·부록·서식·그림은 비교하지 않습니다. 관련 금액·조건은 연결된 PDF 원문에서 확인하세요. PDF의 줄바꿈·읽기 순서가 원본 배치와 다를 수 있으며 OCR은 수행하지 않습니다.';
 function selectPdf(detail, ruleNo, maxDt) {
   const $ = cheerio.load(detail), files = [];
@@ -21,14 +64,14 @@ function selectPdf(detail, ruleNo, maxDt) {
   if (matches.length !== 1) throw error('PDF_REVISION_UNVERIFIED');
   return matches[0];
 }
-// PDF text is not HTML: retain literal angle-bracket amendment notes. Only line
-// starts define headings, so an in-sentence reference cannot create a new article.
+// PDF text is not HTML: retain literal angle-bracket amendment notes. Line
+// starts are only candidates: grammatical references remain in the preceding article.
 function articleMarkdown(text) {
   const out = [];
   for (const raw of String(text).split(/\r?\n/)) {
     const line = raw.replace(/[\t ]+/g, ' ').trim();
-    if (APPENDIX_HEADING.test(line)) break;
-    if (/^제\s*\d+\s*조(?:\s*의\s*\d+)?(?=\s*[(（]|\s+삭제(?:\s|$)|$)/.test(line)) out.push('### ' + line);
+    if (isAppendixHeading(line)) break;
+    if (isArticleHeading(line)) out.push('### ' + line);
     else if (/^부\s*칙(?=[\s(（<\[]|$)/.test(line)) out.push('## ' + line.replace(/^부\s*칙/, '부칙'));
     else if (/^제\s*\d+\s*(?:장|절)(?=[\s(（]|$)/.test(line)) out.push('## ' + line);
     else if (line) out.push(line);
@@ -55,7 +98,7 @@ async function loadCau(source, topic, terms, client, signal, spec, { rankByTitle
       if (!listArticleBlocks(markdown).length) throw error('PDF_NO_ARTICLES');
       // An appendix boundary removes the tail from article comparison; a later
       // addendum could be there. Never label an earlier date as the latest one.
-      const tailExcluded = extracted.text.split(/\r?\n/).some(line => APPENDIX_HEADING.test(line.trim()));
+      const tailExcluded = extracted.text.split(/\r?\n/).some(line => isAppendixHeading(line));
       const effectiveAt = tailExcluded ? null : latestAddendaEffective(markdown);
       rules.push({ title: hit.title, lawId: hit.no, historyId: file.date, markdown,
         url: source.origin + detailPath, originalPdfUrl: source.origin + pdfPath, sourceType: 'PDF 텍스트 레이어',
