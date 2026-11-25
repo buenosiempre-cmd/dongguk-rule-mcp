@@ -190,6 +190,43 @@ async function main() {
     assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
   });
+  await check('서울대(국립): DRF 학칙 어댑터 — OC 미설정 처리·XML 파싱·소관부처/현행 필터·키 비노출', async () => {
+    const snu=SOURCES.find(x=>x.key==='snu');
+    assert.equal(snu.adapter,'lawgo_school');assert.equal(snu.origin,'https://www.law.go.kr');assert.deepEqual(snu.pathPrefixes,['/DRF/']);
+    const spec=expandTopic('여비');
+    // OC 미설정 → LAWGO_OC_NOT_CONFIGURED(열 상태 unavailable로 노출)
+    delete process.env.DONGGUK_LAWGO_OC;
+    await assert.rejects(loadExternal(snu,'여비',spec.terms,{request:async()=>''},undefined,spec), e=>e.code==='LAWGO_OC_NOT_CONFIGURED');
+    const off=await compareUniversityRules({topic:'여비',universities:['snu']},{loadDongguk:dongguk,client:{request:async()=>''}});
+    assert.equal(off.columns[1].status,'unavailable');assert.equal(off.columns[1].code,'LAWGO_OC_NOT_CONFIGURED');
+    // OC 설정 + 실제 DRF XML 형식 모의: admrul 목록(소관부처·현행·발령일·시행일) → 조문내용 본문
+    process.env.DONGGUK_LAWGO_OC='TESTKEY';
+    const listXml='<?xml version="1.0"?><AdmRulSearch><target>school</target><totalCnt>2</totalCnt>'+
+      '<admrul id="1"><행정규칙일련번호>2200000139237</행정규칙일련번호><행정규칙명><![CDATA[<strong>서울대학교</strong> 여비 규정]]></행정규칙명><소관부처명>서울대학교</소관부처명><현행연혁구분>현행</현행연혁구분><발령일자>20250109</발령일자><발령번호>2559</발령번호><시행일자>20250301</시행일자></admrul>'+
+      '<admrul id="2"><행정규칙일련번호>9900000000001</행정규칙일련번호><행정규칙명><![CDATA[인천대학교 여비 규정]]></행정규칙명><소관부처명>인천대학교</소관부처명><현행연혁구분>현행</현행연혁구분><발령일자>20240101</발령일자><시행일자>20240101</시행일자></admrul>'+
+      '</AdmRulSearch>';
+    const svcXml='<?xml version="1.0"?><AdmRulService><행정규칙기본정보><행정규칙명><![CDATA[서울대학교 여비 규정]]></행정규칙명><발령일자>20250109</발령일자><발령번호>2559</발령번호></행정규칙기본정보>'+
+      '<조문내용><![CDATA[제1장 총칙]]></조문내용>'+
+      '<조문내용><![CDATA[제1조(목적) 이 규정은 여비를 정한다.]]></조문내용>'+
+      '<조문내용><![CDATA[제2조(여비의 종류) 운임·숙박비·일비로 구분한다.]]></조문내용></AdmRulService>';
+    let listCall=0,svcId=null,ocSeen=false;
+    const mock={request:async(src,path)=>{ if(/OC=TESTKEY/.test(path)) ocSeen=true; if(path.includes('lawSearch')){listCall++;return listXml;} svcId=(/ID=(\d+)/.exec(path)||[])[1]; return svcXml; }};
+    const r=await loadExternal(snu,'여비',spec.terms,mock,undefined,spec);
+    assert.equal(r.coverage.mode,'lawgo_school');
+    // 인천대(타 소관부처)는 제외 → 서울대 1건만
+    assert.equal(r.coverage.totalCandidates,1);assert.equal(r.rules.length,1);assert(ocSeen);
+    assert.equal(svcId,'2200000139237');
+    const rule=r.rules[0];
+    assert.equal(rule.title,'서울대학교 여비 규정');
+    assert.equal(rule.revisedAt,'2025.01.09');       // 발령일자
+    assert.equal(rule.effectiveAt,'2025-03-01');      // 시행일자(공식 필드)
+    assert.equal(rule.effectiveSource,'lawgo_list');
+    assert.match(rule.markdown,/### 제1조\(목적\)/);assert.match(rule.markdown,/### 제2조\(여비의 종류\)/);
+    assert.match(rule.markdown,/## 제1장 총칙/);
+    // 인용 URL: 공개 permalink, OC 키 비노출
+    assert(!/OC=/.test(rule.url));assert.match(rule.url,/\/행정규칙\//);assert.match(rule.url,/\(2559,20250109\)/);
+    delete process.env.DONGGUK_LAWGO_OC;
+  });
   await check('자체 시스템 대학(서강 JSON·이화 HTML): 어댑터 등록·경로 제한·조문 추출', async () => {
     const byKey=Object.fromEntries(SOURCES.map(x=>[x.key,x]));
     assert.equal(byKey.sogang?.adapter,'sogang_json');assert.deepEqual(byKey.sogang.pathPrefixes,['/api/api/v1/mainEn/rule/']);
