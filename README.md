@@ -2,13 +2,15 @@
 
 동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
 
-[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.12.0)
+[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.3)
 
 **v0.12.0**은 HWP 원문을 우선해 조문을 비교하고, 표의 셀 좌표·병합 범위·값과 포함된 그림의 파일 내용을 함께 비교합니다. 문서마다 실제 추출 범위와 미지원 항목을 표시하며, HWP를 읽지 못해 HTML로 대체한 결과는 부분 비교로 남깁니다. [v0.12.0 변경 기록](docs/RELEASE-v0.12.0.md)에서 범위를 확인하세요. 출장비·외부 강사료의 교내 규정·한국법령 공동 조회 기능은 유지합니다. [자동 법령 연계 안내](docs/AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
 
 개발판 **v0.14.0**은 규정이 인용한 국가 법령 조문의 원문을 함께 가져오는 `get_rule_references(include_law_text=true)`와, 최근 개정된 규정과 변경 조문을 정리해 Slack에 올리는 `npm run weekly-updates`를 추가했습니다.
 
-개발판 **v0.15.2**는 근거 조회 상태가 실제보다 좋게 표시되던 문제를 고쳤습니다. 재무 근거 조회(`get_finance_evidence`, `review_finance_case`)는 하위 규정 조회가 일부 조회면 그대로 일부 조회로 표시하고, `get_rule_upper_laws`는 법령 본문이 잘리거나 오지 않은 경우를 `textCoverage`로 따로 알립니다. 새 기능은 없습니다. [변경 기록](CHANGELOG.md)
+**v0.15.3**은 자연어 질문의 어미·의문사를 정리하고 규정 용어로 검색을 넓힙니다. 모호한 후보는 최대 3개 규정의 미확정 발췌로 보여 주며, 명시한 발췌 조건·조문 선택자와 기관·캠퍼스 범위를 보존합니다. 반환 개수에 맞는 선택 상태와 별도 실조회 평가 스크립트도 포함합니다. [변경 기록](CHANGELOG.md)
+
+이전 v0.15.2는 근거 조회 상태가 실제보다 좋게 표시되던 문제를 고쳤습니다. 재무 근거 조회(`get_finance_evidence`, `review_finance_case`)는 하위 규정 조회가 일부 조회면 그대로 일부 조회로 표시하고, `get_rule_upper_laws`는 법령 본문이 잘리거나 오지 않은 경우를 `textCoverage`로 따로 알립니다. 새 기능은 없습니다. [변경 기록](CHANGELOG.md)
 
 이전 개발판 v0.15.1은 타대학 규정 비교를 크게 넓혔습니다. 같은 사안을 규정명이 아니라 주체·행위·규율 요소로 정의한 **사안 프레임**(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)으로 조문을 고르고 규율 요소 × 대학 대조표를 보여 주며, 규정 제목 검색을 먼저 돌려 전담 규정을 찾습니다. 비교 대상은 경희·숙명여대·광운·명지·서강·이화·서울대(OC 키 필요)·연세가 더해져 13곳이고, 고려대는 공개 규정 범위만 조회합니다. 규정명이 없는 자연어 질문이 30초 뒤 실패하던 `lookup_dongguk_rule`도 색인 우선 조회로 고쳤습니다. [변경 기록](CHANGELOG.md)
 
@@ -18,7 +20,7 @@
 
 이전 개발판 v0.12.3은 부칙이 본칙과 섞여 `제1조`·`제2조` 조회와 인용 검증이 막히던 문제를 고치고, `부칙(2024.8.27.) 제1조`처럼 부칙 개정일로 조문을 고를 수 있게 했습니다. 규정명이 없는 질문과 원문에 없는 단어가 섞인 전문검색은 핵심어로 다시 찾습니다. [점검 기록](docs/review-2026-11-09.md)
 
-이전 개발판 v0.12.2는 “여비규정 별표를 보여줘” 같은 자연어 질문에서 별표를 놓치는 문제를 고치고, 표 아래 여러 문단의 주석을 함께 반환합니다. 별표 번호·가지번호를 구분하며, 원문에서 별표 본체를 찾지 못하면 미확인 상태를 표시합니다. [별표 조회 수정](docs/appendix-query-2026-11-05.md)과 이전 [유지보수 및 새 기능 검토](docs/review-2026-11-05.md)에 범위·검증을 정리했습니다. 아래 설치 링크는 게시된 v0.12.0을 가리킵니다.
+이전 개발판 v0.12.2는 “여비규정 별표를 보여줘” 같은 자연어 질문에서 별표를 놓치는 문제를 고치고, 표 아래 여러 문단의 주석을 함께 반환합니다. 별표 번호·가지번호를 구분하며, 원문에서 별표 본체를 찾지 못하면 미확인 상태를 표시합니다. [별표 조회 수정](docs/appendix-query-2026-11-05.md)과 이전 [유지보수 및 새 기능 검토](docs/review-2026-11-05.md)에 범위·검증을 정리했습니다. 아래 개인 설치 링크는 v0.15.3 패키지를 가리킵니다. 공용 서버 반영은 별도 배포 후 확인합니다.
 
 ## 시작하기
 
@@ -34,12 +36,12 @@
 **npm 레지스트리는 현재 미발행**입니다. GitHub의 고정 버전 패키지로 설치합니다.
 
 ```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.12.0/dongguk-rule-mcp-0.12.0.tgz
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.3/dongguk-rule-mcp-0.15.3.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json
 ```
 
-[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.12.0/dongguk-rule-mcp-0.12.0.tgz) `npm install -g ./dongguk-rule-mcp-0.12.0.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](docs/COP_GUIDE.md) 또는 공용 연결을 확인하세요.
+[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.3/dongguk-rule-mcp-0.15.3.tgz) `npm install -g ./dongguk-rule-mcp-0.15.3.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](docs/COP_GUIDE.md) 또는 공용 연결을 확인하세요.
 
 사용할 앱의 설정 예시를 출력합니다. 아래 중 하나를 선택해 기존 MCP 설정에 추가한 뒤 앱을 완전히 종료하고 다시 실행합니다.
 
@@ -117,7 +119,7 @@ dongguk-rule-mcp --print-config cursor
 
 v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾습니다. 색인 경로를 포함해 명시한 `terms`가 발췌 조건으로 우선합니다. `terms`가 없으면 자연어 색인의 확장 검색어를 사용하되 질문의 조문·가지조문·별표 선택자도 보존합니다. 여러 단어로 된 질문은 현행 규정 목록에서 질문에 들어 있는 가장 긴 규정 제목을 찾아 그 규정을 고릅니다(`identityStatus:"catalog_title"`). "등록금에 관한 시행세칙 제7조 반환"처럼 띄어 쓴 제목도 낫표 없이 인식합니다. 규정 이름은 발췌 검색어에서 빼므로, 남은 단어가 본문에 없으면 `NO_MATCHING_EXCERPT`로 알립니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
 
-### 자연어 질문 조회 (PR #29, 미릴리스)
+### 자연어 질문 조회 (v0.15.3)
 
 규정명을 몰라도 `lookup_dongguk_rule({"query":"해외출장 갈 때 일비는 얼마 받아?"})`처럼 질문할 수 있습니다. 질문에 정확한 규정명이나 `law_id`가 있으면 그 선택을 우선하며, 이름이 없는 질문은 공개 전문 색인에서 후보를 찾습니다.
 
