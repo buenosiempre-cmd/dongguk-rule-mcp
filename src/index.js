@@ -1334,7 +1334,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['keyword']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'get_rule_content', title:'규정 조문 조회', description:'LAW_ID를 이미 알고 특정 조·장만 볼 때 사용하는 보조 도구. 별표·금액표가 필요하면 lookup_dongguk_rule을 사용하세요.',
+  { name:'get_rule_content', title:'규정 조문 조회', description:'LAW_ID를 이미 알고 특정 조·장만 볼 때 사용하는 보조 도구. 관련 발췌는 lookup_dongguk_rule, 별표·서식을 포함한 전문은 get_rule_full_text를 사용하세요.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신)'},
@@ -1343,6 +1343,15 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       grep:{type:'string',description:'키워드 포함 조문'},
       head:{type:'number',description:'상위 N줄'},
     }, required:['law_id']},
+    outputSchema:TOOL_OUTPUT_SCHEMA,
+    annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
+  { name:'get_rule_full_text', title:'규정 전문 조회', description:'LAW_ID(선택 HISTORY_ID)로 규정 하나의 조문·부칙·별표·서식 텍스트 전문을 원문 순서로 조회합니다. HWP 우선, 실패 시 HTML 대체와 partial 사유를 표시합니다. 긴 전문은 textCoverage.nextArguments로 이어 받고 contentMarkdown만 순서대로 합치세요. 그림 OCR·원본 화면 배치·법적 적용성은 보증하지 않습니다.',
+    inputSchema:{type:'object',properties:{
+      law_id:{type:'integer',minimum:1,description:'LAW_ID'},
+      history_id:{type:'integer',minimum:1,description:'HISTORY_ID (첫 요청 생략=최신, 이어받기는 cursor에 고정된 개정본)'},
+      max_chars:{type:'integer',minimum:1000,maximum:60000,default:30000,description:'페이지당 최대 UTF-16 코드 단위 수. 메타데이터 제외'},
+      cursor:{type:'string',description:'직전 응답 textCoverage.nextCursor. 직접 만들거나 수정하지 마세요.'},
+    },required:['law_id'],additionalProperties:false},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'get_rule_toc', title:'규정 목차 조회', description:'규정 목차(장·절·조) 빠른 조회.',
@@ -1455,8 +1464,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?14:18,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?15:19,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
+        data.fullText={tool:'get_rule_full_text',defaultMaxChars:30000,maxChars:60000,continuation:'textCoverage.nextArguments',source:'HWP first; HTML fallback is partial',images:'no OCR'};
         data.fullTextIndex=indexStatus();
         data.integrations.universityComparison={configured:process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED==='1',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
         data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws'};
@@ -1467,6 +1477,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- version: '+data.version,
           '- profile: '+data.profile,
           '- toolCount: '+data.toolCount,
+          '- 규정 전문·별표: get_rule_full_text (긴 전문은 textCoverage.nextArguments로 이어받기)',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
           '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (설정 여부이며 실제 연결 검증은 별도)',
@@ -1504,6 +1515,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
       }
       case 'search_rule': r=await hSearch(a.keyword,{fullText:a.full_text,limit:a.limit,offset:a.offset,campus:a.campus}); break;
       case 'get_rule_content': r=await hContent(a.law_id,a.history_id,{article:a.article,chapter:a.chapter,grep:a.grep,head:a.head}); break;
+      case 'get_rule_full_text': r=await require('./full-text').getRuleFullText(a,{
+        resolve,
+        loadOriginal:(lawId,historyId)=>cached('original-structure-v2',`${lawId}_${historyId}`,TTL.content,()=>getOriginalContent(historyId)),
+        loadHtml:(lawId,historyId)=>cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId)),
+      }); break;
       case 'get_rule_toc': r=await hToc(a.law_id,a.history_id); break;
       case 'list_rule_history': r=await hHistory(a.law_id); break;
       case 'compare_rule_versions': r=await hCompareVersions(a.law_id,a.from_history_id,a.to_history_id,{article:a.article,maxChanges:a.max_changes,includeAppendices:a.include_appendices}); break;

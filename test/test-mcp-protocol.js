@@ -35,9 +35,9 @@ function handleResponse(msg) {
 
   if (msg.id === 2) {
     const tools = msg.result?.tools || [];
-    check('도구 14개 등록', tools.length === 14, `(got ${tools.length})`);
+    check('도구 15개 등록', tools.length === 15, `(got ${tools.length})`);
     const names = tools.map(t => t.name);
-    ['lookup_dongguk_rule','search_rule','get_rule_content','get_rule_toc','list_rule_history','compare_rule_versions','search_rule_deep']
+    ['lookup_dongguk_rule','search_rule','get_rule_content','get_rule_full_text','get_rule_toc','list_rule_history','compare_rule_versions','search_rule_deep']
       .forEach(n => check(`${n} 존재`, names.includes(n)));
     ['verify_rule_citations','applicable_rule'].forEach(n => check(`${n} 존재 (v0.7)`, names.includes(n)));
     const vt = tools.find(t => t.name === 'verify_rule_citations');

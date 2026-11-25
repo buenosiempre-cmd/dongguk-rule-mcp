@@ -69,7 +69,7 @@ dongguk-rule-mcp --print-config cursor
 
 급여·출장비·위임전결·과거 감사·기안문 인용에 바로 적용할 질문과 도구 입력 예시는 [업무 활용 가이드](docs/WORKFLOWS.md)를 참고하세요.
 
-## 공개 규정 도구 — 기본 14개
+## 공개 규정 도구 — 기본 15개
 
 | 도구 | 용도 |
 |---|---|
@@ -77,6 +77,7 @@ dongguk-rule-mcp --print-config cursor
 | `lookup_dongguk_rule` | 기본 조회: 자연어/규정명 검색 → 개정본 → HWP 조문·별표 발췌; `law_id` 직접 선택 지원 |
 | `search_rule` | 제목·전문으로 규정 후보 목록 검색 |
 | `get_rule_content` | 선택한 규정의 본문·조문·장·키워드 조회 |
+| `get_rule_full_text` | LAW_ID(선택 HISTORY_ID)의 조문·부칙·별표·서식 텍스트 전문. HWP 우선, 긴 문서는 cursor로 이어받기 |
 | `get_rule_toc` | 목차 조회 |
 | `list_rule_history` | 개정 이력 조회 |
 | `applicable_rule` | 기준일 이전 개정본 후보와 부칙의 명시 시행일 대조 |
@@ -119,6 +120,27 @@ dongguk-rule-mcp --print-config cursor
 
 v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾습니다. 색인 경로를 포함해 명시한 `terms`가 발췌 조건으로 우선합니다. `terms`가 없으면 자연어 색인의 확장 검색어를 사용하되 질문의 조문·가지조문·별표 선택자도 보존합니다. 여러 단어로 된 질문은 현행 규정 목록에서 질문에 들어 있는 가장 긴 규정 제목을 찾아 그 규정을 고릅니다(`identityStatus:"catalog_title"`). "등록금에 관한 시행세칙 제7조 반환"처럼 띄어 쓴 제목도 낫표 없이 인식합니다. 규정 이름은 발췌 검색어에서 빼므로, 남은 단어가 본문에 없으면 `NO_MATCHING_EXCERPT`로 알립니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
 
+### 규정 전문 조회 (개발 중)
+
+규정 하나의 전문이 필요하면 `get_rule_full_text({"law_id": LAW_ID})`를 호출합니다. 과거 개정본은 `history_id`도 지정합니다. 생략하면 해당 규정의 최신 개정본을 고르고, 지정한 HISTORY_ID가 그 LAW_ID의 연혁에 있는지 확인합니다. 관련 부분만 고르는 `lookup_dongguk_rule`, HTML의 조·장을 고르는 `get_rule_content`와 달리, 이 도구는 검색어 필터 없이 HWP에서 추출한 조문·부칙·별표·서식을 원문 순서로 반환합니다. 표의 셀 좌표·행/열 병합 범위와 표 아래 주석도 보존합니다.
+
+- 응답의 `contentMarkdown`이 전문 텍스트입니다. 기본 페이지 한도는 30,000, `max_chars`로 1,000~60,000 UTF-16 코드 단위까지 지정할 수 있습니다(설명·메타데이터 제외). 이모지 등의 서로게이트 쌍은 나누지 않지만 표·줄 중간에서 페이지가 끊길 수 있습니다.
+- `textCoverage.hasMore: true`이면 `textCoverage.nextArguments`를 그대로 다음 `get_rule_full_text` 호출에 전달합니다. 첫 응답의 LAW_ID·HISTORY_ID·추출 출처·텍스트 SHA-256을 cursor가 고정하므로, 최신 개정본이 바뀌어도 이어받는 개정본은 바뀌지 않습니다. HTML로 시작했다면 이어받기도 HTML입니다. 원문 텍스트나 출처가 바뀌면 `FULL_TEXT_CHANGED` 오류를 반환하므로 첫 페이지부터 다시 받습니다. 다른 규정·개정본과 cursor를 섞으면 `INVALID_ARGUMENT`입니다.
+- 마지막 페이지의 `nextArguments`와 `nextCursor`는 `null`입니다. 모든 페이지의 **`contentMarkdown`만 순서대로 구분자 없이** 합치세요. `offset`(포함)·`endOffset`(제외)·`totalChars`로 전달 범위를, `sha256`으로 결합한 UTF-8 텍스트의 해시를 확인할 수 있습니다. 이 해시는 다운로드한 HWP 파일의 해시가 아닙니다.
+- 한 응답이 전문의 일부이면 첫·중간·마지막 페이지 모두 `evidenceStatus: partial`, `FULL_TEXT_PAGINATED`, `textCoverage.status: partial`입니다. `truncated`는 그 페이지 뒤에 남은 본문이 있는지 뜻하므로 마지막 페이지에서는 `false`입니다. 페이지 단위 전달 상태와 별도로 `sourceEvidenceStatus`가 추출 원문의 상태를 표시합니다.
+
+| `incompleteReasons` | 의미와 후속 확인 |
+|---|---|
+| `FULL_TEXT_PAGINATED` | 전문의 일부 페이지입니다. 이전 페이지와 합치고, 다음 페이지가 있으면 이어받습니다. |
+| `HWP_FALLBACK` | HWP 실패·빈 본문으로 HTML 대체. 별표·서식 누락 가능성이 있어 공식 원문을 확인합니다. |
+| `HWP_COVERAGE_UNVERIFIED` | 구조 정보가 없거나 원시 HWP 대조가 확인되지 않은 캐시입니다. |
+| `HWP_STRUCTURE_PARTIAL` | 추출 진단이 있습니다. `originalCoverage.diagnostics`에서 누락·미지원 객체 등 구체적 사유를 확인합니다. |
+| `IMAGE_TEXT_UNAVAILABLE` | 그림은 해시·표지만 있고 OCR 문구는 없습니다. 그림 속 문구는 원문에서 확인합니다. |
+
+이어받기를 마쳐도 `sourceEvidenceStatus: partial`인 원문의 누락 한계는 해소되지 않습니다. `retrieved`도 추출 텍스트 확보만 뜻하며, 원본 화면 배치나 시행일·업무 적용성 판단을 보증하지 않습니다. HWP·HTML 모두 본문을 확보하지 못하면 성공 대신 오류를 반환합니다. 출처 URL·개정일·조회 시점은 `sourceUrl`, `revisedAt`, `returnedAt`에 있습니다.
+
+이 도구는 기존 HTML 전문 색인의 검색 순위를 바꾸지 않습니다. 자연어 검색에서 빠진 별표도 LAW_ID를 지정하면 직접 조회할 수 있습니다. 공용 서버 색인 갱신·법령 API·런처 설정은 이 기능 추가로 켜지거나 바뀌지 않습니다.
+
 ### 자연어 질문 조회 (v0.15.3)
 
 규정명을 몰라도 `lookup_dongguk_rule({"query":"해외출장 갈 때 일비는 얼마 받아?"})`처럼 질문할 수 있습니다. 질문에 정확한 규정명이나 `law_id`가 있으면 그 선택을 우선하며, 이름이 없는 질문은 공개 전문 색인에서 후보를 찾습니다.
@@ -151,7 +173,7 @@ HTTP는 stateless Streamable HTTP이며 MCP 경로는 POST 요청을 사용합�
 | 경로 | 범위 |
 |---|---|
 | `/`, `/guide` | 인증정보를 포함하지 않는 구성원 안내 페이지 |
-| `/mcp/rules` | 서버 프로필과 무관하게 공개 규정 14개 도구. 공용 서버에서는 인증 없이 열고 IP별 호출 제한 적용 |
+| `/mcp/rules` | 서버 프로필과 무관하게 공개 규정 15개 도구. 공용 서버에서는 인증 없이 열고 IP별 호출 제한 적용 |
 | `/mcp` | 운영자가 지정한 프로필의 도구, 기존 연결 경로. 공용 서버에서는 토큰 필요 |
 | `/health`, `/ready` | 프로세스·요청 수용 상태; 원문 조회 성공을 의미하지 않음 |
 | `/status` | 관리용 인증이 필요한 집계 운영 상태 |
@@ -165,7 +187,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **18개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **19개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
 
 ## 소스 실행과 검증
 
