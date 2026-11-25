@@ -38,6 +38,11 @@ seed('content-v3', '1_20', { title: '재무회계규정', markdown: [
   '### 제31조(예산)', '「사립학교법」 제29조, 제31조 및 제99조에 따른다.',
 ].join('\n') });
 seed('content-v3', '2_20', { title: '여비규정', markdown: '### 제1조(목적)\n이 규정은 여비를 정한다.' });
+// 본문 완전성(textCoverage) 반례용 합성 규정: 본문 응답 오류, 조문 수 상한 초과, 긴 본문.
+for (const id of [101, 102, 103]) seed('history', String(id), [{ historyId: 20, revisedAt: '2021.03.02' }]);
+seed('content-v3', '101_20', { title: '합성규정100', markdown: '### 제1조(합성)\n「사립학교법」 제101조를 따른다.' });
+seed('content-v3', '102_20', { title: '합성규정101', markdown: '### 제1조(합성)\n' + Array.from({ length: 9 }, (_, i) => `「사립학교법」 제${i + 1}조`).join(' 및 ') + '를 따른다.' });
+seed('content-v3', '103_20', { title: '합성규정102', markdown: '### 제1조(합성)\n「사립학교법」 제50조를 따른다.' });
 
 // Synthetic law listing in the provider's format. Dates are fixture values, not real law data.
 const LAWS = {
@@ -53,6 +58,8 @@ const LAWS = {
   '공무원 여비 규정': { id: '009402', mst: '9007', promulgated: '20200101', effective: '20200201', kind: '대통령령', articles: {} },
   '근로자퇴직급여 보장법': { id: '009883', mst: '9008', promulgated: '20200101', effective: '20200201', kind: '법률', articles: { 제8조: '제8조(퇴직금제도의 설정 등)\n①퇴직금을 지급한다.' } },
 };
+for (let i = 1; i <= 9; i++) LAWS.사립학교법.articles[`제${i}조`] = `제${i}조(합성)\n합성 조문 ${i}.`;
+LAWS.사립학교법.articles.제50조 = '제50조(합성 장문)\n' + '합성 본문 '.repeat(1000);
 const RENAMED = { '지가공시및토지등의평가에관한법률': ['지가공시및토지등의평가에관한법률', '부동산 가격공시에 관한 법률'], 향토예비군설치법: ['향토예비군 설치법', '예비군법'] };
 const flat = value => String(value).replace(/[\sㆍ·]/g, '');
 const listing = names => names.map((name, i) => { const law = LAWS[name]; return `${i + 1}. ${name} [현행]\n   - 법령ID: ${law.id}\n   - MST: ${law.mst}\n   - 공포일: ${law.promulgated} / 시행일: ${law.effective}\n   - 구분: ${law.kind}\n`; }).join('\n');
@@ -72,6 +79,7 @@ function lawTool(name, a) {
     if (partial.length) return text(`검색 결과 (총 ${partial.length}건):\n\n${listing(partial)}\n⚠️ 정확매칭 없음`);
     return text(`[NOT_FOUND] 법령 '${a.query}' 검색 결과가 없습니다.`, true);
   }
+  if (name === 'get_law_text' && a.jo === '제101조') return text('<html>시스템 점검 중입니다</html>');
   if (name === 'get_law_text') {
     const entry = Object.entries(LAWS).find(([, law]) => law.mst === String(a.mst));
     const head = `법령명: ${entry[0]}\n공포일: ${entry[1].promulgated}\n시행일: ${entry[1].effective}\n\n`;
@@ -204,6 +212,14 @@ async function main() {
   await client.connect(b);
   const call = async (name, args) => (await client.callTool({ name, arguments: args })).structuredContent;
 
+  await check('연계가 꺼진 채 본문을 요청하면 본문 완전성은 unavailable', async () => {
+    const raw = await client.callTool({ name: 'get_rule_upper_laws', arguments: { law_id: 1, article: 9, include_text: true } });
+    const data = raw.structuredContent.data;
+    assert.deepEqual([data.lookup.status, data.textCoverage.status, data.evidenceStatus], ['not_configured', 'unavailable', 'partial']);
+    assert.deepEqual(data.textCoverage.missingArticles.map(x => [x.article, x.reason]), [['제5조', 'LAW_LINK_NOT_CONFIGURED']]);
+    assert.deepEqual(data.incompleteReasons, ['LAW_LOOKUP_INCOMPLETE', 'LAW_TEXT_UNAVAILABLE']);
+    assert.doesNotMatch(raw.content[0].text, /잘렸습니다/);
+  });
   await check('연계가 꺼져 있으면 확인할 법령 목록만 반환', async () => {
     lawCalls.length = 0;
     const result = await call('get_rule_upper_laws', { law_id: 1 });
@@ -240,6 +256,7 @@ async function main() {
     assert(!data.laws.some(x => x.lawName === '교원인사규정'), '교내 규정은 상위법령이 아님');
     assert.equal(data.counts.cited, 5);
     assert.equal(data.evidenceStatus, 'retrieved');
+    assert.deepEqual([data.textCoverage.status, data.incompleteReasons], ['not_requested', []]);
     assert(data.laws.every(x => x.articles.every(y => y.text === undefined)), 'include_text 없이 원문 미포함');
     assert.match(raw.content[0].text, /점검 신호/);
     assert.match(raw.content[0].text, /충돌이나 적용 여부를 판정한 것이 아닙니다/);
@@ -251,6 +268,35 @@ async function main() {
     assert.match(data.laws[0].articles[0].text, /복식부기/);
     assert.match(raw.content[0].text, /조문 대조[\s\S]*규정 제9조: [\s\S]*복식부기/);
     assert.equal(data.coverage.scope, 'selected_article');
+    assert.deepEqual([data.textCoverage.status, data.textCoverage.truncatedArticles, data.textCoverage.missingArticles, data.evidenceStatus], ['complete', [], [], 'retrieved']);
+  });
+  await check('본문 완전성: 미조회·조문 상한·잘림을 구분하고 complete로 올리지 않는다', async () => {
+    const probe = async args => { const raw = await client.callTool({ name: 'get_rule_upper_laws', arguments: { include_candidates: false, include_text: true, ...args } }); return { data: raw.structuredContent.data, text: raw.content[0].text }; };
+    const failed = await probe({ law_id: 101 });
+    assert.deepEqual([failed.data.lookup.status, failed.data.textCoverage.status, failed.data.evidenceStatus], ['partial', 'unavailable', 'partial']);
+    assert.deepEqual(failed.data.textCoverage.missingArticles.map(x => [x.article, x.articleStatus, x.reason]), [['제101조', 'unavailable', 'LEGAL_BODY_ERROR']]);
+    assert.deepEqual(failed.data.incompleteReasons, ['LAW_LOOKUP_INCOMPLETE', 'LAW_TEXT_UNAVAILABLE']);
+    assert.match(failed.text, /본문을 가져오지 못한 법령 조문이 있습니다\(사립학교법 제101조: LEGAL_BODY_ERROR\)/);
+    assert.doesNotMatch(failed.text, /잘렸습니다/, '미조회를 잘림으로 설명하지 않는다');
+
+    const limited = await probe({ law_id: 102 });
+    assert.deepEqual([limited.data.lookup.status, limited.data.textCoverage.status, limited.data.evidenceStatus], ['partial', 'partial', 'partial']);
+    assert.equal(limited.data.laws[0].articles.filter(x => x.text).length, 8);
+    assert.deepEqual(limited.data.textCoverage.missingArticles.map(x => [x.article, x.reason]), [['제9조', 'ARTICLE_LIMIT']]);
+    assert.deepEqual([limited.data.textCoverage.truncatedArticles, limited.data.incompleteReasons], [[], ['LAW_LOOKUP_INCOMPLETE', 'LAW_TEXT_UNAVAILABLE']]);
+    assert.doesNotMatch(limited.text, /잘렸습니다/);
+
+    const cut = await probe({ law_id: 103 });
+    assert.deepEqual([cut.data.lookup.status, cut.data.textCoverage.status, cut.data.evidenceStatus, cut.data.incompleteReasons], ['retrieved', 'partial', 'partial', ['LAW_TEXT_TRUNCATED']]);
+    assert.deepEqual([cut.data.laws[0].articles[0].text.length, cut.data.textCoverage.truncatedArticles, cut.data.textCoverage.missingArticles], [3000, [{ lawName: '사립학교법', article: '제50조', mst: '9001' }], []]);
+    assert.match(cut.text, /3000자에서 잘렸습니다\(사립학교법 제50조\)[\s\S]*get_law_text/);
+    assert.doesNotMatch(cut.text, /본문을 가져오지 못한/);
+
+    const off = (await client.callTool({ name: 'get_rule_upper_laws', arguments: { law_id: 103, include_candidates: false } })).structuredContent.data;
+    assert.deepEqual([off.textCoverage.status, off.evidenceStatus, off.incompleteReasons], ['not_requested', 'retrieved', []]);
+    // 삭제·없음이 확인된 조문은 가져올 본문이 없으므로 미조회로 세지 않는다.
+    const mixed = await probe({ law_id: 1, article: 31 });
+    assert.deepEqual([mixed.data.laws[0].articles.map(x => x.status), mixed.data.textCoverage.status, mixed.data.textCoverage.missingArticles], [['found', 'deleted', 'missing'], 'complete', []]);
   });
   await check('인용이 없는 규정은 주제 후보만, 끄면 빈 결과', async () => {
     const result = await call('get_rule_upper_laws', { law_id: 2 });
