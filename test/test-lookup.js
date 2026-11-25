@@ -116,6 +116,16 @@ check('별표 수 한도 초과 표시', limitedAppendices.blocksTruncated && li
 const longAppendix = extractRelevantBlocks('<별표 1>\n\n| 항목 | 기준 |\n|---|---|\n| 합성 | 1 |\n\n' + '주석 내용 '.repeat(400), '별표1', { maxChars:1000 });
 check('긴 별표 주석 글자 수 초과 표시', longAppendix.charactersTruncated && longAppendix.truncated);
 
+console.log('\n[7] 발췌 순서');
+const orderedSource = '제1조(일반)\n육아휴직을 정한다.\n\n제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.\n\n① 신청서를 제출한다.';
+const documentOrder = extractRelevantBlocks(orderedSource, '육아휴직 기간', { maxBlocks: 3 });
+const relevanceOrder = extractRelevantBlocks(orderedSource, '육아휴직 기간', { maxBlocks: 3, order: 'relevance' });
+check('기본 발췌는 문서 순서 유지', documentOrder.text.indexOf('제1조') < documentOrder.text.indexOf('제9조'));
+check('관련도 발췌는 뒤쪽 핵심 조문을 먼저 표시', relevanceOrder.text.startsWith('제9조') && relevanceOrder.text.includes('제1조'));
+check('관련도 재정렬에도 조문과 소속 항의 순서 유지', relevanceOrder.text.indexOf('제9조') < relevanceOrder.text.indexOf('① 신청서') && relevanceOrder.text.indexOf('① 신청서') < relevanceOrder.text.indexOf('제1조'));
+const limitedOrder = extractRelevantBlocks('제1조(일반)\n육아휴직 ' + '일반 설명 '.repeat(300) + '\n\n제9조(육아휴직 기간)\n육아휴직 기간 핵심내용', '육아휴직 기간', { maxBlocks: 3, maxChars: 1000, order: 'relevance' });
+check('길이 제한 시 앞쪽의 낮은 관련도 조문보다 핵심 조문 보존', limitedOrder.charactersTruncated && limitedOrder.text.startsWith('제9조') && limitedOrder.text.includes('기간 핵심내용'));
+
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log(`📊 통합 조회 검증: ${pass}개 통과 / ${fail}개 실패`);
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

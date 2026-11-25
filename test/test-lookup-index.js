@@ -48,6 +48,24 @@ const CONTENT = {
   '7_70': { title: '강의료 지급규정', markdown: '### 제3조(지급 기준)\n특강 강사의 강의료 지급 기준은 별표와 같다.' },
   '8_80': { title: '등록금에 관한 시행세칙', markdown: '### 제7조(반환)\n수강료와 등록금의 반환 기준을 정한다.' },
 };
+// Synthetic rules: three strong body matches compete with a title-only rule;
+// campus editions must share one preview slot without losing their identities.
+const extraRules = [
+  [11, '처리규정 가', '제1조(절차)\n물품 전결 처리'],
+  [12, '처리규정 나', '제1조(절차)\n물품 전결 처리'],
+  [13, '처리규정 다', '제1조(절차)\n물품 전결 처리'],
+  [14, '위임전결규정', '제1조(목적)\n권한의 배분은 별표에 따른다.'],
+  [21, '직원인사규정', '제1조(목적)\n육아휴직을 정한다.\n\n제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
+  [22, 'WISE캠퍼스 직원인사규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
+  [23, '의학계열 직원인사규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
+  [24, '산학협력단 직원인사규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
+  [25, '복무규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
+];
+for (const [lawId, title, markdown] of extraRules) {
+  const historyId = lawId * 10;
+  CATALOG.push({ lawId, historyId, title, code: `test-${lawId}`, revisedAt: '2026.01.01' });
+  CONTENT[`${lawId}_${historyId}`] = { title, markdown };
+}
 seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
   seed('content-v3', key, value);
@@ -102,6 +120,23 @@ async function main() {
 
     const titled = await call('lookup_dongguk_rule', { query: '등록금에 관한 시행세칙 제7조 반환' });
     check('규정명이 든 질문은 색인보다 현행 목록 제목으로 확정', titled.sc.ok === true && titled.sc.data.search.identityStatus === 'catalog_title' && titled.sc.data.rules[0].lawId === 8);
+
+    const unanchored = searchCorpus(corpus, '물품 전결', { top: 5 }).hits;
+    check('제목 후보 회귀 조건: 위임전결규정은 본문 점수로는 4위', unanchored[3].lawId === 14 && unanchored[3].articles.length === 0);
+    const anchored = await call('lookup_dongguk_rule', { query: '물품 전결은 누가 해?' });
+    const anchoredRules = anchored.sc.data.rules;
+    check('질문 단어가 규정명에 있는 후보를 상위 3개 미리보기에 보존', anchoredRules.length === 3 && anchoredRules[0].lawId === 11 && anchoredRules[2].lawId === 14);
+    check('제목만 일치한 후보는 발췌 없음과 규정 미확정을 함께 표시', anchoredRules[2].incompleteReasons.includes('NO_MATCHING_EXCERPT') && anchoredRules[2].incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED'));
+
+    const family = await call('lookup_dongguk_rule', { query: '육아휴직 기간' });
+    const general = family.sc.data.rules.find(r => r.lawId === 21);
+    check('캠퍼스·기관 판은 하나로 묶고 다른 규정에도 미리보기 슬롯을 배정', family.sc.data.rules.length === 2 && !!general && family.sc.data.rules.some(r => r.lawId === 25));
+    check('기본 대표는 접두어 없는 판, 다른 판의 LAW_ID와 제목 보존', general.editions.length === 3 && [22, 23, 24].every(id => general.editions.some(e => e.lawId === id && e.title === CATALOG.find(r => r.lawId === id).title)));
+    check('자연어 발췌는 문서 순서보다 관련 조문 우선', general.excerpt.text.indexOf('제9조') < general.excerpt.text.indexOf('제1조') && general.excerpt.text.includes('제1조'));
+    const wise = await call('lookup_dongguk_rule', { query: '육아휴직 기간', campus: 'wise' });
+    const wiseRule = wise.sc.data.rules.find(r => r.lawId === 22);
+    check('WISE 요청은 WISE 판을 대표로 선택하고 일반 판도 안내', !!wiseRule && wiseRule.editions.some(e => e.lawId === 21) && !wise.sc.data.rules.some(r => r.lawId === 21));
+    check('캠퍼스 대표 선택도 적용 규정 확정으로 취급하지 않음', wise.sc.data.rules.every(r => r.evidenceStatus === 'partial' && r.incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED')));
 
     fs.unlinkSync(corpusPath(dir));
     searches.length = 0;

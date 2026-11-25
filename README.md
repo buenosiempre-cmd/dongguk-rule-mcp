@@ -86,7 +86,7 @@ dongguk-rule-mcp --print-config cursor
 | `get_rule_upper_laws` | 규정·조문이 인용한 국가 법령을 현행 법령 목록과 대조: 현행 여부·시행일, 인용 조문의 존재·삭제, 옛 법령명, 규정 개정 뒤 법령 개정, 시행예정 개정을 점검 신호로 표시. `include_text=true`이면 조문 원문 대조 |
 | `compare_university_rules` | 동국대와 타대학(최대 5개) 규정에서 주제어가 든 조문을 학교별로 나란히 표시. 기본 꺼짐(`DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`), 자세한 범위는 아래 "타대학 규정 비교" |
 
-기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
+제목 검색·공식 사이트 전문검색의 기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 자연어 색인 조회에서는 아래와 같이 최대 3개 규정의 미확정 미리보기를 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
 
 **캠퍼스 자동필터는 없습니다.** 공식 화면의 `LAWGROUP`은 캠퍼스 구분이 아닌 문서 종류입니다. 잘못된 `seoul=1 / wise=2` 매핑을 제거했습니다. `campus`는 업무 맥락으로 보존하고 전체 통합목록을 검색하며 `filterApplied:false`를 표시합니다. 서울·WISE·법인 등 소속과 교원·직원·학생 등 대상의 적용범위는 원문에서 확인해야 합니다. [공식 검색 화면](https://rule.dongguk.edu/lmxsrv/main/main.srv), [통합 규정목록](https://rule.dongguk.edu/lmxsrv/law/lawTree.srv) — 2026-09-08 확인.
 
@@ -96,7 +96,7 @@ dongguk-rule-mcp --print-config cursor
 - **원문 품질:** HWP 추출 실패·HTML 대체·빈 본문·발췌 잘림·검색어 미일치를 구분합니다. 비교 결과에는 문서별 추출 범위와 실제 미지원 객체·누락 진단을 남깁니다. 공식 API가 아닌 웹 원문 파싱이므로 사이트 변경의 영향을 받습니다.
 - **개정 비교:** 양쪽 개정본의 HWP 조문을 우선 비교합니다. HWP를 읽을 수 없으면 HTML 조문으로 대체하고 부분 상태와 대체 사유를 표시합니다. 기본값인 `include_appendices:true`에서는 별표·서식 텍스트와 표의 셀 좌표·행/열 병합 범위·값, 포함된 그림 파일의 SHA-256 해시도 비교합니다. `include_appendices:false`는 별표·서식 비교를 생략하며 HWP 조문 우선 원칙은 유지합니다.
 - **결과 해석:** 그림 파일의 동일·변경 판정은 OCR, 그림 속 문구의 의미 해석 또는 페이지 배치 비교를 뜻하지 않습니다. 실제 추출 누락·미지원 객체·식별 모호성은 부분 상태로 남기며 “변경 없음”으로 단정하지 않습니다. 시행일과 업무 적용성은 부칙·적용범위를 별도로 확인합니다.
-- **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 색인은 후보를 찾는 데만 씁니다. 규정명이 없는 질문("국내출장 일비와 숙박비 한도")은 색인에서 핵심어가 가장 많이 나오는 규정을 고르고(`search.mode:"핵심어 색인"`), 1위가 뚜렷하면 `candidate_preview`로 발췌를 바로 보여 주되 `RULE_IDENTITY_UNCONFIRMED`로 표시합니다. 후보가 비슷하면 `AMBIGUOUS_RULE`에 후보별 일치어와 대표 조문을 붙여 돌려줍니다. 어느 규정에도 없는 단어는 규정이 쓰는 짧은 형태로 바꿔 찾고(교내근로장학금→근로장학금, 국내출장→출장) 바꾼 단어를 표시합니다. 색인이 없으면 공식 사이트 전문검색(요청당 약 10초, 최대 4회)으로 대체합니다. 결과마다 현행 목록의 최신 개정본과 대조하고, 색인 이후 개정된 규정은 현행 본문을 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색을 사용합니다. 색인은 HTML 본문 기준이라 별표·금액표는 `lookup_dongguk_rule`로 확인합니다.
+- **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 HTML 본문 색인은 후보를 찾는 데 사용하며, 별표 내용은 순위에 반영되지 않습니다. `search_rule_deep`은 색인 결과를 현행 목록의 최신 개정본과 대조하고, 개정된 규정은 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색으로 대체합니다. `lookup_dongguk_rule`은 오래된 색인도 후보 탐색에 사용하되 오래됨을 표시하고, 선택한 규정의 연혁·원문을 별도로 조회합니다(기존 캐시 정책 적용). 별표·금액표는 이 통합 조회의 원문 발췌로 확인합니다.
 - **법령 원문 연계:** 운영자가 `DONGGUK_LEGAL_MCP_*`와 `DONGGUK_PUBLIC_LAW_LINK=1`을 설정한 서버에서만 동작합니다. 조문이 특정된 인용만, 한 번에 3개 조문까지 현행 원문을 가져옵니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
 - **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 연계가 꺼진 서버에서는 확인할 법령명·조문만 돌려줍니다.
 - **상위법령 본문 범위:** `get_rule_upper_laws`의 `lookup.status`는 법령·조문을 확인했는지, `textCoverage.status`는 `include_text=true`로 요청한 본문을 얼마나 받았는지를 따로 알립니다. 본문이 잘리면 `incompleteReasons`에 `LAW_TEXT_TRUNCATED`, 받지 못하면 `LAW_TEXT_UNAVAILABLE`이 들어가고 `evidenceStatus`는 `partial`입니다. 조문의 존재·삭제 여부는 `laws[].articles[].status`로 확인합니다.
@@ -115,7 +115,32 @@ dongguk-rule-mcp --print-config cursor
 
 모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. v0.10.2부터 `structuredContent`를 표시하지 않는 클라이언트에서도 확인할 수 있도록 `get_service_info`의 `version`·`profile`·`toolCount`와 `lookup_dongguk_rule`의 `sourceType`·`evidenceStatus`·부분 조회 사유를 Markdown에도 표시합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
 
-v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾으며 명시한 `terms`가 우선합니다. 여러 단어로 된 질문은 현행 규정 목록에서 질문에 들어 있는 가장 긴 규정 제목을 찾아 그 규정을 고릅니다(`identityStatus:"catalog_title"`). "등록금에 관한 시행세칙 제7조 반환"처럼 띄어 쓴 제목도 낫표 없이 인식합니다. 규정 이름은 발췌 검색어에서 빼므로, 남은 단어가 본문에 없으면 `NO_MATCHING_EXCERPT`로 알립니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
+v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾습니다. 제목·`law_id`로 선택한 조회에서는 명시한 `terms`가 우선합니다. 현재 자연어 색인 경로는 색인이 확장한 검색어로 발췌하며, 명시한 `terms`에서는 별표 선택자만 추가로 반영합니다. 여러 단어로 된 질문은 현행 규정 목록에서 질문에 들어 있는 가장 긴 규정 제목을 찾아 그 규정을 고릅니다(`identityStatus:"catalog_title"`). "등록금에 관한 시행세칙 제7조 반환"처럼 띄어 쓴 제목도 낫표 없이 인식합니다. 규정 이름은 발췌 검색어에서 빼므로, 남은 단어가 본문에 없으면 `NO_MATCHING_EXCERPT`로 알립니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
+
+### 자연어 질문 조회 (PR #29, 미릴리스)
+
+규정명을 몰라도 `lookup_dongguk_rule({"query":"해외출장 갈 때 일비는 얼마 받아?"})`처럼 질문할 수 있습니다. 질문에 정확한 규정명이나 `law_id`가 있으면 그 선택을 우선하며, 이름이 없는 질문은 공개 전문 색인에서 후보를 찾습니다.
+
+- **어미·의문사 제거:** `겸직하려면→겸직`, `전결해→전결`처럼 명사를 남기고 `어떻게`, `누가`, `받아` 등은 검색 핵심어에서 제외합니다. `피해`, `손해`처럼 `해`로 끝나는 명사는 보존합니다.
+- **규정 용어 확장:** `해외출장→국외출장·국외`, `강사료→강의료`, `환불→반환` 등 등록된 표현 중 색인에 실제로 있는 말도 검색합니다. `이중 수혜`는 `이중수혜`도 찾고, 없는 복합어는 짧은 형태로 다시 찾습니다. 검색에 쓴 표현은 `search.searchTerms`, `query.effectiveTerms`로 확인할 수 있습니다.
+- **후보와 캠퍼스 판:** 조문 제목의 일치에 가점을 줍니다. 질문의 단어가 규정명에 있는 후보도 일정 점수 이상이면 상위 미리보기에 보존합니다(예: 전결 질문의 위임전결규정). 같은 규정의 WISE캠퍼스·의학계열·산학협력단 판은 한 묶음으로 다루며, 일치하는 핵심어 수가 비슷하면 기본적으로 접두어 없는 판, `campus:"wise"`에서는 WISE 판을 대표로 고릅니다. 다른 판의 제목·LAW_ID는 `rules[].editions`와 본문에 표시합니다. 묶음이나 대표 선택은 적용범위 확정이 아닙니다.
+- **여러 후보 미리보기:** 1위가 뚜렷하면 단일 후보를, 비슷한 후보가 있으면 기본 `max_rules:1` 요청에도 최대 3개 규정의 발췌를 반환합니다. `search.selection`은 각각 `single_candidate` / `multiple_candidates`이며, 후자는 규정당 최대 3개 관련 블록·6,000자로 제한됩니다. `identityStatus:"candidate_preview"`, `evidenceStatus:"partial"`, `RULE_IDENTITY_UNCONFIRMED`를 확인하고 적용범위를 검토한 뒤 `law_id`로 다시 조회하세요. 후보가 여러 개여도 조회 성공(`ok:true`)이 곧 적용 규정 확정을 뜻하지 않습니다.
+- **발췌 순서:** 색인으로 찾은 자연어 질문은 관련도가 높은 조문부터 보여 줍니다. 글자 수 제한에서도 핵심 조문을 우선 보존하며, 일반 조회는 문서 순서를 유지합니다. 색인이 없거나 일치 후보가 없으면 공식 사이트 전문검색으로 대체하며, 이 경로의 모호한 후보는 `AMBIGUOUS_RULE`로 반환합니다.
+
+### 자연어 조회 평가
+
+```bash
+npm ci
+npm test                        # 오프라인 회귀 테스트만 실행
+node src/index.js --build-index  # 별도 실행: 네트워크를 사용해 공개 색인 준비
+npm run evaluate:natural-language -- --output /tmp/natural-language-evaluation.json
+```
+
+실조회 평가 스크립트는 [scripts/evaluate-natural-language.js](scripts/evaluate-natural-language.js)이며 기본 `npm test`와 CI에 포함되지 않습니다. 실제 MCP 프로세스의 `lookup_dongguk_rule`을 순차 호출합니다. 공개 색인이 있어야 시작하고 정상 공개 캐시를 사용하므로, 매번 원문을 새로 받는 성능 실험은 아닙니다. 보고서에는 색인 시점·범위·오래됨 여부, 서버 버전, 문항별 소요 시간·규정 식별자·발췌·부분 조회 상태를 기록합니다.
+
+[문항 파일](test/fixtures/natural-language-questions.json)은 `[질문, 허용 규정명 배열 또는 null, 발췌 키워드 또는 null]` 형식으로 총 30문항입니다. 정답 규정이 있는 28문항을 채점하고, 정답 미지정 2문항도 조회하되 `unscored`로 분리합니다. 공백을 제거한 규정명의 부분 일치로 반환된 규정 상위 3개만 평가하며, 단순 후보 목록은 순위에 넣지 않습니다. `top1`·`top3`·`excerptMatched`를 따로 집계하고, 문항 통과는 **상위 3개 정답 규정 포함 + 해당 정답 규정 발췌의 키워드 일치**(키워드 지정 시)입니다. 이는 검색 회귀 평가이며 금액·절차의 법적 정답이나 적용성 판정은 아닙니다.
+
+`--questions FILE`, `--timeout MS`(문항당 기본 60,000ms), `--output NEW_FILE`을 지원합니다. 결과 JSON은 표준 출력과 지정 파일에 저장하며 기존 파일을 덮어쓰지 않습니다. 채점 실패 또는 호출 오류(미채점 문항 포함)가 있으면 종료 코드 1, 모두 통과하면 0입니다. 개별 호출 실패 후에도 나머지 문항을 평가합니다. 평가 집계 자체는 합성 응답으로 오프라인 테스트합니다.
 
 ## 공용 서버와 선택 기능
 
