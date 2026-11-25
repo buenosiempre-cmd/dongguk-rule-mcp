@@ -49,7 +49,8 @@
     "@ssabrojs/hwpxjs": "0.4.0",
     "cfb": "1.2.2",
     "cheerio": "^1.0.0",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "pdf-parse": "^1.1.1"
   },
   "author": "오승훈 (Dongguk University Finance Team)",
   "repository": {

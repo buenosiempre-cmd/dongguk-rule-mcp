@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { SOURCES, parsePairs, parseTree, parseFolderListing, PUBLIC_ONLY_NOTICE, htmlToArticleMarkdown, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
+const { SOURCES, parsePairs, parseTree, parseFolderListing, PUBLIC_ONLY_NOTICE, htmlToArticleMarkdown, setPdfExtractor, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -189,6 +189,29 @@ async function main() {
     assert.deepEqual(queries,['근로장학','근로보조금']);assert.deepEqual(titles,['근로장학','장학']);assert.equal(d.columns[1].coverage.titleMatches,2);
     assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
+  });
+  await check('중앙대: JSON 목록 + PDF 본문(pdf-parse) — fileDown 파싱·바이너리 요청·조문 추출', async () => {
+    const cau=SOURCES.find(x=>x.key==='cau');
+    assert.equal(cau.adapter,'cau_pdf');assert.equal(cau.origin,'https://www.cau.ac.kr');
+    assert(cau.pathPrefixes.includes('/ajaxFile/FR_SVC/'));
+    // PDF 추출기를 스텁으로 주입(실제 PDF 불필요). 바이너리 버퍼가 넘어오는지도 확인.
+    setPdfExtractor(async buf => { assert(Buffer.isBuffer(buf),'PDF는 Buffer로 전달'); return '여비 규정 1960.7.10. 제정 2025.10.27. 개정 제1조(목적) 공무 출장 여비를 정한다. <개정 2025.10.27.> 제2조(여비의 종류) 운임·숙박비·일비로 구분한다. 부칙 이 규정은 2025년 10월 27일부터 시행한다.'; });
+    try {
+      const listJson=JSON.stringify({data:[{RULES_NO:'0026',RULES:'여비 규정',MAX_DT:'2025-10-27'},{RULES_NO:'0999',RULES:'무관한 규정',MAX_DT:'2020-01-01'}]});
+      const detail='<a onclick="fileDown(\'/CAU/911/0026/20251027/\',\'3-19 여비 규정(20251027).pdf\')">다운</a><a onclick="fileDown(\'/CAU/911/0026/20190523/\',\'old.pdf\')">구버전</a>';
+      let bin=null;
+      const mock={request:async(src,path,body,bud,sig,opts)=>{ if(path.includes('CampusRuleList'))return listJson; if(path.includes('RulesDetailView'))return detail; bin={path,binary:opts&&opts.binary}; return Buffer.from('%PDF-1.6'); }};
+      const spec=expandTopic('여비');
+      const r=await loadExternal(cau,'여비',spec.terms,mock,undefined,spec);
+      assert.equal(r.coverage.mode,'cau_pdf');assert.equal(r.coverage.totalCandidates,2);assert.equal(r.rules.length,1);
+      // PDF는 바이너리로 요청, 최신(첫) fileDown 사용
+      assert.equal(bin.binary,true);assert.match(bin.path,/CampusRulePDFDownload2\.do/);assert.match(bin.path,/20251027/);assert(!/20190523/.test(bin.path));
+      const rule=r.rules[0];
+      assert.equal(rule.title,'여비 규정');assert.equal(rule.revisedAt,'2025.10.27');  // MAX_DT
+      assert.equal(rule.effectiveAt,'2025-10-27');                                      // 부칙
+      assert.match(rule.markdown,/### 제1조\(목적\)/);assert.match(rule.markdown,/### 제2조\(여비의 종류\)/);
+      assert.match(rule.url,/RULES_NO=0026/);
+    } finally { setPdfExtractor(async b => ((await require('../src/university-rules'), require('pdf-parse'))(b)).then(d=>d.text||'')); }
   });
   await check('연세대(국립 아님): Next.js RSC flight 파싱 — 목록 재조립·본문 바이트 슬라이스', async () => {
     const yon=SOURCES.find(x=>x.key==='yonsei');
