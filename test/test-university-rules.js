@@ -190,6 +190,29 @@ async function main() {
     assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
   });
+  await check('서울대(국립): DRF 학칙 어댑터 — OC 미설정 처리·목록/본문 파싱·키 비노출', async () => {
+    const snu=SOURCES.find(x=>x.key==='snu');
+    assert.equal(snu.adapter,'lawgo_school');assert.equal(snu.origin,'https://www.law.go.kr');assert.deepEqual(snu.pathPrefixes,['/DRF/']);
+    const spec=expandTopic('여비');
+    // OC 미설정 → LAWGO_OC_NOT_CONFIGURED(열 상태 unavailable로 노출)
+    delete process.env.DONGGUK_LAWGO_OC;
+    await assert.rejects(loadExternal(snu,'여비',spec.terms,{request:async()=>''},undefined,spec), e=>e.code==='LAWGO_OC_NOT_CONFIGURED');
+    const off=await compareUniversityRules({topic:'여비',universities:['snu']},{loadDongguk:dongguk,client:{request:async()=>''}});
+    assert.equal(off.columns[1].status,'unavailable');assert.equal(off.columns[1].code,'LAWGO_OC_NOT_CONFIGURED');
+    // OC 설정 + 모의 DRF 응답: 목록(target=school&ID 링크)→본문(type=HTML, 내비 무해)
+    process.env.DONGGUK_LAWGO_OC='TESTKEY';
+    const listHtml='<a href="/DRF/lawService.do?OC=x&amp;target=school&amp;ID=2200000139237&amp;type=HTML">서울대학교 여비 규정</a><a href="/DRF/lawService.do?OC=x&amp;target=school&amp;ID=2200000111111&amp;type=HTML">서울대학교 복무 규정</a>';
+    const bodyHtml='<html><body><div class="nav">메뉴 홈 로그인</div><h2>제1장 총칙</h2><p>제1조(목적) 이 규정은 여비를 정한다.</p><p>제2조(여비의 종류) 운임·숙박비·일비로 구분한다.</p><p>부칙 이 규정은 2025년 3월 1일부터 시행한다.</p></body></html>';
+    let oc_in_list=false;
+    const mock={request:async(src,path)=>{ if(path.includes('lawSearch')){ if(/OC=TESTKEY/.test(path)) oc_in_list=true; return listHtml; } return bodyHtml; }};
+    const r=await loadExternal(snu,'여비',spec.terms,mock,undefined,spec);
+    assert.equal(r.coverage.mode,'lawgo_school');assert.equal(r.coverage.totalCandidates,2);assert.equal(r.rules.length,1);
+    assert(oc_in_list);assert.equal(r.rules[0].title,'서울대학교 여비 규정');assert.equal(r.rules[0].effectiveAt,'2025-03-01');
+    assert.match(r.rules[0].markdown,/### 제1조\(목적\)/);assert.match(r.rules[0].markdown,/### 제2조\(여비의 종류\)/);
+    // 인용 URL에 OC 키를 넣지 않는다
+    assert(!/OC=/.test(r.rules[0].url));assert.match(r.rules[0].url,/target=school&type=HTML&ID=2200000139237/);
+    delete process.env.DONGGUK_LAWGO_OC;
+  });
   await check('자체 시스템 대학(서강 JSON·이화 HTML): 어댑터 등록·경로 제한·조문 추출', async () => {
     const byKey=Object.fromEntries(SOURCES.map(x=>[x.key,x]));
     assert.equal(byKey.sogang?.adapter,'sogang_json');assert.deepEqual(byKey.sogang.pathPrefixes,['/api/api/v1/mainEn/rule/']);

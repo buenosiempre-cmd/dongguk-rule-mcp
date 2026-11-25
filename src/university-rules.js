@@ -40,6 +40,8 @@ const SOURCES = Object.freeze([
   // LawMaster가 아닌 자체 시스템(2026-11-24 확인). 전용 어댑터로 조문을 읽는다.
   { key: 'sogang', name: '서강대학교', origin: 'https://www.sogang.ac.kr', mode: 'adapter', adapter: 'sogang_json', pathPrefixes: ['/api/api/v1/mainEn/rule/'] },
   { key: 'ewha', name: '이화여자대학교', origin: 'https://www.ewha.ac.kr', mode: 'adapter', adapter: 'ewha_html', pathPrefixes: ['/ewha/intro/rules.do'] },
+  // 서울대(국립): 국가법령정보센터 DRF 학칙 채널. 운영자 OC 키(DONGGUK_LAWGO_OC) 필요.
+  { key: 'snu', name: '서울대학교', origin: 'https://www.law.go.kr', mode: 'adapter', adapter: 'lawgo_school', institution: '서울대학교', pathPrefixes: ['/DRF/'] },
 ].map(Object.freeze));
 const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, frameSummary, DROP_LABELS } = require('./issue-frames');
 // 등록 주제는 사안 프레임(issue-frames.js)에서 온다. terms: 조문 일치어(첫 항목이 대표어·검색어).
@@ -227,7 +229,53 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
   return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
 }
 
-const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha };
+// 서울대(국립): 국가법령정보센터 DRF 공개 API의 학칙 채널. 운영자가 law.go.kr에서
+// 발급한 무료 OC 키(DONGGUK_LAWGO_OC)로 직접 조회한다(중간 서버 없음). 키가 없으면
+// LAWGO_OC_NOT_CONFIGURED로 '미설정'을 알린다. 목록·본문 모두 type=HTML로 받아,
+// 목록은 target=school&ID= 링크(규정명=링크 텍스트)로, 본문은 공통 변환기로 처리한다.
+async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) {
+  const oc = String(process.env.DONGGUK_LAWGO_OC || source.oc || '').trim();
+  if (!oc) throw error('LAWGO_OC_NOT_CONFIGURED');
+  const hints = spec.titleHints || terms;
+  const inst = source.institution || '서울대학교';
+  const queries = uniq([...(spec.searchTerms || []), ...hints]).slice(0, 3);
+  const seen = new Set(), items = [];
+  let anyOk = false, firstErr = null;
+  for (const q of queries) {
+    try {
+      const html = await client.request(source, `/DRF/lawSearch.do?OC=${encodeURIComponent(oc)}&target=school&type=HTML&display=30&query=${encodeURIComponent(inst + ' ' + q)}`, undefined, 15000, signal);
+      anyOk = true;
+      const $ = cheerio.load(html);
+      $('a[href*="target=school"]').each(function () {
+        const href = ($(this).attr('href') || '').replace(/&amp;/g, '&');
+        const m = /[?&]ID=(\d+)/.exec(href);
+        const title = $(this).text().replace(/\s+/g, ' ').trim();
+        if (!m || !title || seen.has(m[1])) return; seen.add(m[1]);
+        items.push({ id: m[1], title });
+      });
+    } catch (e) { firstErr = firstErr || e; if (safeCode(e) === 'TOTAL_TIMEOUT') throw e; }
+  }
+  if (!anyOk) throw firstErr || error('UPSTREAM_FORMAT_CHANGED');
+  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const rules = [], failures = [];
+  for (const hit of ranked) {
+    try {
+      const html = await client.request(source, `/DRF/lawService.do?OC=${encodeURIComponent(oc)}&target=school&type=HTML&ID=${hit.id}`, undefined, 15000, signal);
+      const markdown = htmlToArticleMarkdown(html);
+      if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
+      const effectiveAt = latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId: Number(hit.id) || hit.id, historyId: 0, markdown,
+        url: `${source.origin}/DRF/lawService.do?target=school&type=HTML&ID=${hit.id}`,
+        revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
+    } catch (e) {
+      failures.push({ lawId: Number(hit.id) || 0, code: safeCode(e) });
+      if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
+    }
+  }
+  return { rules, failures, coverage: { mode: 'lawgo_school', queries, totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+}
+
+const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool };
 
 function validateArguments(a) {
   if (!a || typeof a.topic !== 'string' || !a.topic.trim() || a.topic.length > 100) return 'topic은 1~100자 주제어여야 합니다.';
@@ -481,7 +529,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}) {
 
 function safeCode(e) {
   if (/^HTTP (401|403):/.test(e?.message || '')) return 'ACCESS_DENIED';
-  return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE', 'TOTAL_TIMEOUT'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
+  return ['ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED', 'UPSTREAM_FORMAT_CHANGED', 'UPSTREAM_UNAVAILABLE', 'TOTAL_TIMEOUT', 'LAWGO_OC_NOT_CONFIGURED'].includes(e?.code) ? e.code : 'UPSTREAM_UNAVAILABLE';
 }
 
 // frame이 있으면 사안 프레임으로 조문을 거른다: 다른 사안의 규정·조문과 언급만 있는 조문은 dropped에
