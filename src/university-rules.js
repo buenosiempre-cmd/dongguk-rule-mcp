@@ -788,8 +788,10 @@ function formatComparison(data) {
   for (const c of data.columns) {
     const unread = (c.failures || []).filter(f => f.code === 'ARTICLE_TEXT_UNAVAILABLE' && f.article);
     if (unread.length) lines.push('', `- ${c.name || c.university}: 본문을 읽지 못해 비교에서 뺀 조문 ${unread.length}건 — ${unread.map(f => `${f.article}(${f.reason === 'image_only' ? '본문이 그림뿐' : '본문 없음'})`).join(', ')}. 제목만으로 내용을 확인한 것이 아니므로 원문에서 확인하세요.`);
-    const stale = (c.failures || []).filter(f => f.code === 'PDF_REVISION_UNVERIFIED' && f.reason);
-    if (stale.length) lines.push('', `- ${c.name || c.university}: 현행 개정본을 확인하지 못해 조회하지 않은 규정 ${stale.length}건 — ${stale.map(f => `${f.title}(${f.reason === 'CONFIRMATION_PAGES_UNREAD' ? '검색 결과가 조회 상한을 넘음' : '규정명 검색에서 찾지 못함'})`).join(', ')}.`);
+    const stale = (c.failures || []).filter(f => f.stage === 'revision_confirmation');
+    const why = f => f.reason === 'CONFIRMATION_PAGES_UNREAD' ? '검색 결과가 조회 상한을 넘음' : f.reason === 'TITLE_NOT_FOUND' ? '규정명 검색에서 찾지 못함' : `재확인 요청 실패: ${f.code}`;
+    if (stale.length) lines.push('', `- ${c.name || c.university}: 현행 개정본을 확인하지 못해 조회하지 않은 규정 ${stale.length}건 — ${stale.map(f => `${f.title}(${why(f)})`).join(', ')}.`);
+    if (c.coverage?.currentRevisionUnverified > stale.length) lines.push('', `- ${c.name || c.university}: 조회가 중단되어 현행 개정본 확인을 시도하지 못한 규정 ${c.coverage.currentRevisionUnverified - stale.length}건.`);
   }
   lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
   return lines.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');

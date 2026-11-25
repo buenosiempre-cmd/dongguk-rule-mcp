@@ -251,7 +251,7 @@ async function loadSkku(source, topic, terms, client, signal, spec, { rankByTitl
   // 본문 검색 후보와, 정렬 순서를 확인하지 못한 제목 검색 후보는 규정명으로 다시 찾아 현행본을 정한다.
   const confirmCurrent = channel === 'content' || !newestFirst;
   const today = todayKst(now), rules = [], failures = [];
-  let confirmed = 0, unverified = 0, confirmationTruncated = false;
+  let confirmed = 0, confirmationTruncated = false;
   // 규정명 재검색도 같은 쪽 수 상한과 정렬 검증을 받는다. 최신순이면 처음 만난 오늘 이전 줄이 현행본이고,
   // 최신순이 아니면 모든 쪽을 읽었을 때만 가장 늦은 줄을 현행본으로 본다. 읽지 못한 쪽이 남으면 확인 불가다.
   const confirm = async title => {
@@ -269,10 +269,16 @@ async function loadSkku(source, topic, terms, client, signal, spec, { rankByTitl
     confirmationTruncated = true;
     throw Object.assign(error('PDF_REVISION_UNVERIFIED'), { reason: 'CONFIRMATION_PAGES_UNREAD' });
   };
-  for (let hit of candidates.slice(0, maxRules)) {
+  // 재확인이 필요한 후보는 조회 대상 전부다. 어떤 이유로든(확인 불가·형식 오류·전송 실패·취소·중단으로
+  // 시도하지 못함) 재확인이 끝나지 않은 후보가 하나라도 있으면 확인 완료가 아니다.
+  const selected = candidates.slice(0, maxRules), required = confirmCurrent ? selected.length : 0;
+  for (let hit of selected) {
+    // 재확인 단계의 실패와, 현행본을 확인한 뒤 문서를 읽다가 난 실패를 구분한다.
+    let stage = confirmCurrent ? 'revision_confirmation' : 'document';
+    const candidate = hit;
     try {
       if (signal?.aborted) throw error('TOTAL_TIMEOUT');
-      if (confirmCurrent) { hit = await confirm(hit.title); confirmed++; }
+      if (confirmCurrent) { hit = await confirm(hit.title); confirmed++; stage = 'document'; }
       const path = `${SKKU_PATH}?mode=download&articleNo=${hit.articleNo}&attachNo=${hit.attachNo}`;
       const { markdown, tailExcluded } = await pdfArticles(await client.request(source, path, undefined, 20000, signal, { binary: true }), signal, extractPdf);
       const effectiveAt = tailExcluded ? null : latestAddendaEffective(markdown);
@@ -281,13 +287,15 @@ async function loadSkku(source, topic, terms, client, signal, spec, { rankByTitl
         revisedAt: hit.date.replace(/-/g, '.'), effectiveAt, effectiveSource: effectiveAt ? 'addenda' : null, ...(hit.upcomingAt ? { upcomingRevisionAt: hit.upcomingAt } : {}) });
     } catch (e) {
       const code = safeCode(e);
-      if (code === 'PDF_REVISION_UNVERIFIED') unverified++;
-      failures.push({ lawId: Number(hit.articleNo), code, ...(e?.reason ? { reason: e.reason, title: hit.title } : {}) });
+      // 원래 실패 코드는 그대로 두고, 재확인 단계였다면 미완료 사유를 함께 남긴다.
+      failures.push({ lawId: Number(hit.articleNo), code, ...(confirmCurrent ? { stage, title: candidate.title } : {}),
+        ...(stage === 'revision_confirmation' ? { reason: e?.reason || 'CONFIRMATION_REQUEST_FAILED' } : {}) });
       if (STOP.includes(code)) break;
     }
   }
-  // 확인 완료는 재확인이 필요했던 후보를 모두 확인했을 때만이다.
-  return { rules, failures, coverage: { mode: 'board_pdf', currentRevisionConfirmedByTitle: confirmCurrent && confirmed > 0 && unverified === 0,
+  // 확인 완료는 재확인이 필요했던 후보를 모두 확인했을 때만이다. 실패 종류는 묻지 않는다.
+  const unverified = required - confirmed;
+  return { rules, failures, coverage: { mode: 'board_pdf', currentRevisionConfirmedByTitle: required > 0 && unverified === 0,
     ...(unverified ? { currentRevisionUnverified: unverified } : {}), channel, queries, totalCandidates: candidates.length, titleMatches: candidates.length,
     truncated: candidates.length > maxRules || pagesTruncated || confirmationTruncated, searchPagesTruncated: pagesTruncated || confirmationTruncated,
     ...(confirmationTruncated ? { confirmationPagesTruncated: true } : {}), textLayerOnly: true, ...DOCUMENT_COVERAGE } };

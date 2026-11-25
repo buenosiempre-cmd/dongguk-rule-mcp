@@ -176,7 +176,7 @@ async function main() {
     assert.deepEqual([result.coverage.channel, result.coverage.currentRevisionConfirmedByTitle], ['content', true]);
     assert.match(fresh.calls.find(call => call.target.includes('mode=download')).target, /articleNo=11&attachNo=110$/, '본문 검색에 나온 옛 개정본을 내려받지 않음');
     const unverified = await load('skku', network(routes(true)).client);
-    assert.deepEqual([unverified.rules.length, unverified.failures], [0, [{ lawId: 10, code: 'PDF_REVISION_UNVERIFIED', reason: 'TITLE_NOT_FOUND', title: '직원 복무규정' }]]);
+    assert.deepEqual([unverified.rules.length, unverified.failures], [0, [{ lawId: 10, code: 'PDF_REVISION_UNVERIFIED', stage: 'revision_confirmation', title: '직원 복무규정', reason: 'TITLE_NOT_FOUND' }]]);
     assert.deepEqual([unverified.coverage.currentRevisionConfirmedByTitle, unverified.coverage.currentRevisionUnverified], [false, 1], '확인하지 못했으면 확인 완료로 올리지 않음');
   });
 
@@ -334,13 +334,55 @@ async function main() {
     // 읽지 못한 쪽이 남으면 확인 완료로 올리지 않고, 미확인 사유와 잘림을 남긴 채 아무것도 내려받지 않는다.
     const unread = await compare(['skku'], routes(30, [['직원 복무규정', '2025.01.01', 10, 100]]));
     assert.deepEqual([titleCalls(unread), downloads(unread)], [['0', '10'], []]);
-    assert.deepEqual(unread.column.failures, [{ lawId: 9, code: 'PDF_REVISION_UNVERIFIED', reason: 'CONFIRMATION_PAGES_UNREAD', title: '직원 복무규정' }]);
+    assert.deepEqual(unread.column.failures, [{ lawId: 9, code: 'PDF_REVISION_UNVERIFIED', stage: 'revision_confirmation', title: '직원 복무규정', reason: 'CONFIRMATION_PAGES_UNREAD' }]);
     assert.deepEqual([unread.column.status, unread.column.articles.length, unread.column.coverage.currentRevisionConfirmedByTitle, unread.column.coverage.currentRevisionUnverified, unread.column.coverage.searchPagesTruncated, unread.column.coverage.confirmationPagesTruncated, unread.column.coverage.truncated],
       ['unavailable', 0, false, 1, true, true, true]);
     assert.match(unread.text, /현행 개정본을 확인하지 못해 조회하지 않은 규정 1건 — 직원 복무규정\(검색 결과가 조회 상한을 넘음\)/);
     // 최신순이 확인되는 첫 쪽에서는 한 쪽만 읽고 끝낸다(뒤 쪽은 더 오래된 개정본).
     const ordered = await compare(['skku'], [['mode=download', PDF], [`srSearchKey=article_title&srSearchVal=${exact}`, skkuPage([['직원 복무규정', '2026.11.01', 11, 110], ['직원 복무규정', '2024.01.01', 9, 90]], 30)], ['srSearchKey=article_text', skkuPage([['직원 복무규정', '2024.01.01', 9, 90]])], ['srSearchKey=article_title', skkuPage([], 0, true)]]);
     assert.deepEqual([titleCalls(ordered), downloads(ordered), ordered.column.coverage.currentRevisionConfirmedByTitle], [['0'], ['11'], true]);
+  });
+
+  await check('I3 잔여 skku-second-confirmation-page-malformed: 한 후보라도 재확인이 끝나지 않으면 확인 완료가 아님', async () => {
+    const first = encodeURIComponent('직원 복무규정'), second = encodeURIComponent('교직원 복무규정'), third = encodeURIComponent('연구원 복무규정');
+    const content = rows => [['srSearchKey=article_text', skkuPage(rows)], ['srSearchKey=article_title', skkuPage([], 0, true)]];
+    const two = [['직원 복무규정', '2024.01.01', 9, 90], ['교직원 복무규정', '2024.01.01', 19, 190]];
+    const firstOk = [`srSearchKey=article_title&srSearchVal=${first}`, skkuPage([['직원 복무규정', '2026.11.01', 11, 110]])];
+    const downloads = run => run.calls.filter(call => call.target.includes('mode=download')).map(call => /articleNo=(\d+)/.exec(call.target)[1]);
+    // 레드팀 반례 그대로: 첫 후보는 확인·추출 성공, 둘째 후보의 재확인 2쪽이 목록이 아니다.
+    const malformed = await compare(['skku'], [['mode=download', PDF], firstOk,
+      [`srSearchKey=article_title&srSearchVal=${second}`, target => /offset=10$/.test(target) ? '<html>changed format</html>' : skkuPage([['교직원 복무규정', '2023.01.01', 18, 180], ['교직원 복무규정', '2024.01.01', 19, 190]], 10)],
+      ...content(two)]);
+    assert.deepEqual([malformed.column.status, downloads(malformed), [...new Set(malformed.column.articles.map(a => a.universityRule))]], ['partial', ['11'], ['직원 복무규정']], '확인하지 못한 규정은 내려받지 않음');
+    assert.deepEqual(malformed.column.failures, [{ lawId: 19, code: 'UPSTREAM_FORMAT_CHANGED', stage: 'revision_confirmation', title: '교직원 복무규정', reason: 'CONFIRMATION_REQUEST_FAILED' }], '원래 실패 코드와 재확인 미완료 사유를 함께 남김');
+    assert.deepEqual([malformed.column.coverage.currentRevisionConfirmedByTitle, malformed.column.coverage.currentRevisionUnverified, malformed.column.coverage.attemptedRules, malformed.column.coverage.scannedRules], [false, 1, 2, 1]);
+    assert.match(malformed.text, /현행 개정본을 확인하지 못해 조회하지 않은 규정 1건 — 교직원 복무규정\(재확인 요청 실패: UPSTREAM_FORMAT_CHANGED\)/);
+    // 두 후보 모두 확인되면 완료다(대조군).
+    const both = await compare(['skku'], [['mode=download', PDF], firstOk, [`srSearchKey=article_title&srSearchVal=${second}`, skkuPage([['교직원 복무규정', '2025.03.01', 20, 200]])], ...content(two)]);
+    assert.deepEqual([both.column.coverage.currentRevisionConfirmedByTitle, both.column.coverage.currentRevisionUnverified, downloads(both), both.column.failures], [true, undefined, ['11', '20'], []]);
+    // 확인은 됐지만 문서 추출이 실패한 것은 재확인 실패가 아니다: 확인 완료는 유지하고 단계를 구분해 남긴다.
+    const extraction = await compare(['skku'], [[/mode=download&articleNo=20&/, Buffer.from('%PDF-1.4 damaged')], ['mode=download', PDF], firstOk,
+      [`srSearchKey=article_title&srSearchVal=${second}`, skkuPage([['교직원 복무규정', '2025.03.01', 20, 200]])], ...content(two)]);
+    assert.deepEqual(extraction.column.failures, [{ lawId: 20, code: 'PDF_PARSE_FAILED', stage: 'document', title: '교직원 복무규정' }]);
+    assert.deepEqual([extraction.column.coverage.currentRevisionConfirmedByTitle, extraction.column.coverage.currentRevisionUnverified], [true, undefined]);
+    assert.doesNotMatch(extraction.text, /현행 개정본을 확인하지 못해/);
+    // 전송 실패로 조회가 중단되면, 실패한 후보와 시도하지 못한 후보 모두 미확인으로 센다.
+    const three = [...two, ['연구원 복무규정', '2024.01.01', 29, 290]];
+    const stopped = await compare(['skku'], [['mode=download', PDF], firstOk, [`srSearchKey=article_title&srSearchVal=${second}`, { status: 503 }],
+      [`srSearchKey=article_title&srSearchVal=${third}`, skkuPage([['연구원 복무규정', '2026.01.01', 30, 300]])], ...content(three)]);
+    assert.deepEqual(stopped.column.failures, [{ lawId: 19, code: 'UPSTREAM_UNAVAILABLE', stage: 'revision_confirmation', title: '교직원 복무규정', reason: 'CONFIRMATION_REQUEST_FAILED' }]);
+    assert.deepEqual([stopped.column.coverage.currentRevisionConfirmedByTitle, stopped.column.coverage.currentRevisionUnverified, downloads(stopped)], [false, 2, ['11']]);
+    assert(!stopped.calls.some(call => call.target.includes(`srSearchVal=${third}`)), '중단 뒤 후보는 요청하지 않음');
+    assert.match(stopped.text, /조회가 중단되어 현행 개정본 확인을 시도하지 못한 규정 1건/);
+    // 취소된 조회도 확인 완료가 아니다.
+    const aborted = new AbortController();
+    const cancelNet = network([['mode=download', PDF], firstOk, [`srSearchKey=article_title&srSearchVal=${second}`, () => { aborted.abort(); return skkuPage([['교직원 복무규정', '2025.03.01', 20, 200]]); }], ...content(three)]);
+    const cancelled = await loadExternal(source('skku'), '여비', spec.terms, cancelNet.client, aborted.signal, spec, { now: NOW }).catch(e => ({ thrown: e.code }));
+    if (!cancelled.thrown) assert.deepEqual([cancelled.coverage.currentRevisionConfirmedByTitle, cancelled.coverage.currentRevisionUnverified > 0], [false, true]);
+    else assert.equal(cancelled.thrown, 'TOTAL_TIMEOUT');
+    // 제목 검색으로 정해진 후보는 재확인 대상이 아니므로 단계 표시를 붙이지 않는다.
+    const titleOnly = await load('skku', network([['mode=download', Buffer.from('%PDF-1.4 damaged')], ['mode=list', skkuPage([['여비 규정', '2026.03.01', 2, 20]])]]).client);
+    assert.deepEqual([titleOnly.failures, titleOnly.coverage.currentRevisionConfirmedByTitle, titleOnly.coverage.currentRevisionUnverified], [[{ lawId: 2, code: 'PDF_PARSE_FAILED' }], false, undefined]);
   });
 
   await check('R1: 캐시 한도는 글자 수가 아니라 바이트 기준', async () => {
