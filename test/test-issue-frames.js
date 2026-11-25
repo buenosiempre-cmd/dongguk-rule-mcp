@@ -94,20 +94,20 @@ async function main() {
   await check('비교 결과: 사안 프레임·요소 대조표·열별 주규정, 미등록 주제는 기존 정렬 기준', async () => {
     const byUniversity = { uos: [conduct, gradSchool], konkuk: [dedicated] };
     const client = { request: async () => { throw new Error('unused'); } };
-    const data = await compareUniversityRules({ topic: '겸직', universities: ['uos', 'konkuk', 'yonsei'], max_articles: 2 },
+    const data = await compareUniversityRules({ topic: '겸직', universities: ['uos', 'konkuk', 'kaist'], max_articles: 2 },
       { loadDongguk: async () => ({ rules: [ja, startup], failures: [], coverage: { mode: 'fixture', truncated: false } }), client, totalTimeoutMs: 5000,
         loadExternalImpl: async source => ({ rules: byUniversity[source.key] || [], failures: [], coverage: { mode: 'fixture', truncated: false } }) });
     assert.equal(data.alignment, 'issue_frame_slots_not_legal_equivalence'); assert.equal(data.issueFrame.id, 'external_concurrent_office');
     assert(data.supportedTopics.includes('겸직')); assert.match(data.notice, /사안 프레임/);
-    const [dg, uos, kk, yonsei] = data.columns;
+    const [dg, uos, kk, kaist] = data.columns;
     assert.equal(dg.dropped.count, 1); assert.deepEqual(dg.articles.map(a => a.universityRule), ['교원창업규정']);
     assert.equal(uos.dropped.count, 1); assert.deepEqual(uos.articles.map(a => [a.universityRule, a.role]), [['서울시립대학교 교직원 행동강령', 'secondary']]);
     assert.equal(kk.rules[0].role, 'primary'); assert.equal(kk.articles.length, 2); assert(kk.articlesTruncated);
-    assert.equal(yonsei.status, 'unsupported');
+    assert.equal(kaist.status, 'unsupported');
     assert.equal(dg.slotCells, undefined);
     const period = data.slotMatrix.slots.find(s => s.key === 'period');
     assert.equal(period.cells.dongguk.article, '제9조'); assert.equal(period.cells.konkuk.universityRule, dedicated.title); assert.equal(period.cells.konkuk.role, 'primary');
-    assert.equal(period.cells.uos.status, 'not_found_in_scope'); assert.equal(period.cells.yonsei.status, 'unsupported');
+    assert.equal(period.cells.uos.status, 'not_found_in_scope'); assert.equal(period.cells.kaist.status, 'unsupported');
     // 요소 표는 상위 max_articles 밖의 조문(제12조 보수)도 쓴다.
     assert.equal(data.slotMatrix.slots.find(s => s.key === 'compensation').cells.konkuk.article, '제12조');
     assert.deepEqual(data.slotMatrix.anchorLaws.konkuk.map(l => [l.lawName, l.inFrame, l.citedBy]), [['벤처기업육성에 관한 특별 조치법', true, [`${dedicated.title} 제4조`]]]);
