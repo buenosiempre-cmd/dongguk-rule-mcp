@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { SOURCES, parsePairs, parseTree, parseFolderListing, PUBLIC_ONLY_NOTICE, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
+const { SOURCES, parsePairs, parseTree, parseFolderListing, PUBLIC_ONLY_NOTICE, htmlToArticleMarkdown, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -167,6 +167,39 @@ async function main() {
     const d=await compareUniversityRules({topic:'교내근로장학금',universities:['uos']},{loadDongguk:dongguk,client:c});
     assert.deepEqual(queries,['근로장학','근로보조금']);assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
+  });
+  await check('자체 시스템 대학(서강 JSON·이화 HTML): 어댑터 등록·경로 제한·조문 추출', async () => {
+    const byKey=Object.fromEntries(SOURCES.map(x=>[x.key,x]));
+    assert.equal(byKey.sogang?.adapter,'sogang_json');assert.deepEqual(byKey.sogang.pathPrefixes,['/api/api/v1/mainEn/rule/']);
+    assert.equal(byKey.ewha?.adapter,'ewha_html');assert.equal(byKey.ewha.origin,'https://www.ewha.ac.kr');
+    // &nbsp;로 조문이 이어지는 서강류 content도 ### 제N조로 분리
+    const md=htmlToArticleMarkdown('출장비 지급 규정&nbsp;제정 1984.3.1개정 2024.4.15.&nbsp;&nbsp;제1조(목적) 이 규정은 …&lt;개정 2012.12.13&gt;&nbsp;제2조(출장의 승인) 사전 승인.&nbsp;부칙 이 규정은 2024년 4월 15일부터 시행한다.');
+    assert.match(md,/### 제1조\(목적\)/);assert.match(md,/### 제2조\(출장의 승인\)/);assert.match(md,/## 부칙/);
+    // 서강 어댑터: 제목 질의 → content에서 조문/개정일 추출. 프레임 선별과 무관하게
+    // loadExternal 원본 rules로 추출 자체를 검증한다(사안 프레임은 별도 테스트).
+    const sgList=JSON.stringify({data:{list:[{pkid:279,title:'출장비 지급 규정',content:'출장비 지급 규정&nbsp;제정 1984.3.1개정 2024.4.15.&nbsp;&nbsp;제1조(목적) 공무 출장 여비.&nbsp;제2조(여비의 종류) 운임, 숙박비, 일비로 구분한다.&nbsp;부칙 이 규정은 2024년 4월 15일부터 시행한다.'},{pkid:999,title:'무관한 규정',content:'제1조(기타) 내용'}]}});
+    const sgClient={request:async(s,path)=>{assert(path.startsWith('/api/api/v1/mainEn/rule/searchRuleData'),path);return sgList;}};
+    const sgSpec=expandTopic('여비');
+    const sgRes=await loadExternal(byKey.sogang,'여비',sgSpec.terms,sgClient,undefined,sgSpec);
+    assert.equal(sgRes.coverage.mode,'rest_json');assert.equal(sgRes.rules.length,1);
+    assert.equal(sgRes.rules[0].title,'출장비 지급 규정');assert.equal(sgRes.rules[0].revisedAt,'2024.04.15');assert.equal(sgRes.rules[0].effectiveAt,'2024-04-15');
+    assert.match(sgRes.rules[0].markdown,/### 제1조\(목적\)/);assert.match(sgRes.rules[0].markdown,/### 제2조\(여비의 종류\)/);
+    assert.match(sgRes.rules[0].url,/\/ko\/regulation\/home$/);
+    // 이화 어댑터: 목록 HTML(view-rule 링크) → 규정별 view의 .fr-view 조문. 개정일은
+    // 부칙 헤딩(…개정)에서, 시행일은 마지막 부칙 '…부터 시행'에서.
+    const ewhaList='<a href="?mode=view-rule&amp;srRuleCd1=996&amp;srRuleCd2=1871">여비 규정</a><a href="?mode=view-rule&amp;srRuleCd1=993&amp;srRuleCd2=1000">정관</a>';
+    const ewhaView='<div class="fr-view"><p>제 1 조 (목적) 국내외 여행 여비.</p><p>제 2 조 (여비의 종류) 운임, 숙박비, 일비로 구분한다.</p><p>부칙 (2020. 1. 14. 개정)</p><p>이 규정은 2019년 11월 26일부터 시행한다.</p></div>';
+    const ewhaClient={request:async(s,path)=>path.includes('view-rule')?ewhaView:ewhaList};
+    const ewSpec=expandTopic('여비');
+    const ewRes=await loadExternal(byKey.ewha,'여비',ewSpec.terms,ewhaClient,undefined,ewSpec);
+    assert.equal(ewRes.coverage.mode,'html_catalog');assert.equal(ewRes.rules.length,1);
+    assert.equal(ewRes.rules[0].title,'여비 규정');assert.equal(ewRes.rules[0].revisedAt,'2020.01.14');assert.equal(ewRes.rules[0].effectiveAt,'2019-11-26');
+    assert.match(ewRes.rules[0].markdown,/### 제 1 조 \(목적\)/);assert.match(ewRes.rules[0].markdown,/### 제 2 조 \(여비의 종류\)/);
+    assert.match(ewRes.rules[0].url,/srRuleCd1=996&srRuleCd2=1871/);
+    // 어댑터 소스는 선언한 경로 밖은 차단
+    const c=createPublicClient({minIntervalMs:0,fetchImpl:async()=>response('x')});
+    await assert.rejects(c.request(byKey.sogang,'/lmxsrv/law/x'), e=>e.code==='SOURCE_NOT_ALLOWED');
+    await assert.rejects(c.request(byKey.ewha,'/other/path'), e=>e.code==='SOURCE_NOT_ALLOWED');
   });
   await check('신규 4개 대학 등록(경희·숙명·광운·명지)과 명지 본문 파싱(lawname2/addenda2)', () => {
     const byKey=Object.fromEntries(SOURCES.map(x=>[x.key,x]));

@@ -2,8 +2,21 @@
 
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
+const tls = require('node:tls');
+const https = require('node:https');
+const fs = require('node:fs');
+const path = require('node:path');
 const { listArticleBlocks } = require('./parsers');
 const { extractEnforcementDates } = require('./timeline');
+
+// 일부 대학 서버(예: 서강대)는 중간 인증서를 빠뜨려 체인 검증에 실패한다. src/ca의
+// 공개 중간 인증서를 기본 루트에 '추가'해 검증을 끄지 않고 해결한다(루트 교체 아님).
+function extraCAs() {
+  try { return fs.readdirSync(path.join(__dirname, 'ca')).filter(f => f.endsWith('.pem')).map(f => fs.readFileSync(path.join(__dirname, 'ca', f), 'utf8')); }
+  catch { return []; }
+}
+const httpsAgent = new https.Agent({ ca: [...tls.rootCertificates, ...extraCAs()] });
+const agentFor = parsedUrl => parsedUrl.protocol === 'https:' ? httpsAgent : undefined;
 
 // Endpoint settings and LawMaster pair parsing ported from kr-univ-rule-mcp,
 // tools/probe/probe.js (e56044f), MIT; attribution in docs/THIRD_PARTY.md.
@@ -24,6 +37,9 @@ const SOURCES = Object.freeze([
   { key: 'sookmyung', name: '숙명여자대학교', origin: 'https://rule.sookmyung.ac.kr', ext: 'do', mode: 'search_do' },
   { key: 'kw', name: '광운대학교', origin: 'https://rule.kw.ac.kr', ext: 'do', mode: 'tree' },
   { key: 'mju', name: '명지대학교', origin: 'https://law.mju.ac.kr', ext: 'do', mode: 'tree' },
+  // LawMaster가 아닌 자체 시스템(2026-11-24 확인). 전용 어댑터로 조문을 읽는다.
+  { key: 'sogang', name: '서강대학교', origin: 'https://www.sogang.ac.kr', mode: 'adapter', adapter: 'sogang_json', pathPrefixes: ['/api/api/v1/mainEn/rule/'] },
+  { key: 'ewha', name: '이화여자대학교', origin: 'https://www.ewha.ac.kr', mode: 'adapter', adapter: 'ewha_html', pathPrefixes: ['/ewha/intro/rules.do'] },
 ].map(Object.freeze));
 const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, frameSummary, DROP_LABELS } = require('./issue-frames');
 // 등록 주제는 사안 프레임(issue-frames.js)에서 온다. terms: 조문 일치어(첫 항목이 대표어·검색어).
@@ -73,9 +89,12 @@ function cleanListTitle(text) {
 
 // 마지막 부칙 블록의 명시 시행일(본문 순서상 첫 날짜). '공포한 날부터' 등 날짜가 없으면 null.
 function latestAddendaEffective(markdown) {
-  const parts = String(markdown || '').split(/^##\s*부\s*칙.*$/m);
-  if (parts.length < 2) return null;
-  const last = parts[parts.length - 1];
+  const source = String(markdown || '');
+  // 마지막 부칙 지점부터(헤딩 줄 포함) 검색한다. 어댑터 변환본은 "부칙 … 시행한다"가
+  // 한 줄에 오기도 하므로 헤딩을 버리지 않는다.
+  const heads = [...source.matchAll(/^#{0,3}\s*부\s*칙.*$/gm)];
+  if (!heads.length) return null;
+  const last = source.slice(heads[heads.length - 1].index);
   const re = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*시행/;
   const m = re.exec(last);
   if (!m) return null;
@@ -88,6 +107,127 @@ function ruleTitleScore(title, terms, hints) {
   if (terms.some(x => t.includes(compact(x)))) return 2;
   return hints.some(x => t.includes(compact(x))) ? 1 : 0;
 }
+
+// LawMaster 밖 대학(서강 JSON content, 이화 view HTML 등)의 조문 HTML/텍스트를
+// listArticleBlocks가 읽는 '### 제N조 … / ## 부칙 …' markdown으로 바꾼다.
+// 블록 태그가 없고 조문이 &nbsp;로 이어지는 서강류도 조·부칙·장·절 경계에서 분리한다.
+function htmlToArticleMarkdown(html) {
+  let text = String(html || '')
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|tr|h[1-6]|td|th)\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
+    .replace(/&ldquo;|&rdquo;/gi, '"').replace(/&lsquo;|&rsquo;/gi, "'")
+    .replace(/&middot;/gi, '·').replace(/&amp;/gi, '&')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+  text = text
+    .replace(/\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（])/g, '\n$1')
+    .replace(/\s*(제\s*\d+\s*(?:장|절)(?=[\s(（]))/g, '\n$1')
+    .replace(/\s*(부\s*칙(?=[\s(（<\[]|$))/g, '\n$1');
+  const out = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\s+/g, ' ').trim();
+    if (!line) continue;
+    if (/^제\s*\d+\s*조(?:\s*의\s*\d+)?(?=[(（\s]|$)/.test(line)) out.push('### ' + line);
+    else if (/^부\s*칙(?=[\s(（<\[]|$)/.test(line)) out.push('## ' + line.replace(/^부\s*칙\s*/, '부칙 '));
+    else if (/^제\s*\d+\s*(?:장|절)(?=[\s(（]|$)/.test(line)) out.push('## ' + line);
+    else out.push(line);
+  }
+  return out.join('\n');
+}
+
+// 본문 머리말(제정·개정 날짜 나열)에서 가장 늦은 날짜(=최근 개정일)를 YYYY.MM.DD로.
+function latestRevisionDate(text) {
+  const dates = [...String(text || '').matchAll(/(\d{4})\s*[.\-]\s*(\d{1,2})\s*[.\-]\s*(\d{1,2})/g)]
+    .map(m => `${m[1]}.${String(+m[2]).padStart(2, '0')}.${String(+m[3]).padStart(2, '0')}`)
+    .filter(d => d >= '1945.01.01' && d <= '2100.12.31');
+  return dates.length ? dates.sort().pop() : null;
+}
+
+// 규정 개정일: 조문 앞 머리말과 부칙 헤딩에 적힌 날짜 중 가장 늦은 날짜.
+function ruleRevisedAt(markdown) {
+  const s = String(markdown || '');
+  const header = s.split(/\n### 제\s*\d+\s*조/)[0];
+  const addenda = (s.match(/^##\s*부\s*칙[^\n]*/gm) || []).join('\n');
+  return latestRevisionDate(header + '\n' + addenda);
+}
+
+function rankByTitle(items, topic, terms, hints) {
+  const query = compact(topic);
+  const scored = items
+    .map((it, i) => ({ it, i, s: (compact(it.title) === query || compact(it.title) === query + '규정' ? 100 : compact(it.title).includes(query) ? 30 : 0) + ruleTitleScore(it.title, terms, hints) * 10 }))
+    .filter(x => ruleTitleScore(x.it.title, terms, hints) > 0 || x.s >= 30);
+  scored.sort((a, b) => b.s - a.s || a.i - b.i);
+  return scored.map(x => x.it);
+}
+
+// 서강대: 자체 REST JSON. searchRuleData가 매칭 규정의 content(조문 HTML)까지 돌려준다.
+// 전체(pageSize=1000)는 3MB라 한도를 넘으므로 주제어를 title로 질의해 매칭분만 받는다.
+async function loadSogang(source, topic, terms, client, signal, spec = {}) {
+  const hints = spec.titleHints || terms;
+  const queries = uniq([...(spec.searchTerms || []), ...hints, ...terms]).slice(0, 4);
+  const byId = new Map();
+  let anyOk = false, firstErr = null;
+  for (const q of queries) {
+    try {
+      const raw = await client.request(source, `/api/api/v1/mainEn/rule/searchRuleData?pageNum=1&pageSize=50&title=${encodeURIComponent(q)}&content=&tab=1`, undefined, 15000, signal);
+      const list = JSON.parse(raw)?.data?.list;
+      if (!Array.isArray(list)) throw error('UPSTREAM_FORMAT_CHANGED');
+      anyOk = true;
+      for (const r of list) if (r && r.title && !byId.has(r.pkid)) byId.set(r.pkid, r);
+    } catch (e) { firstErr = firstErr || e; if (['TOTAL_TIMEOUT'].includes(safeCode(e))) throw e; }
+  }
+  if (!anyOk) throw firstErr || error('UPSTREAM_FORMAT_CHANGED');
+  const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, MAX_RULES);
+  const rules = [], failures = [];
+  for (const hit of ranked) {
+    const markdown = htmlToArticleMarkdown(hit.content || '');
+    if (!listArticleBlocks(markdown).length) { failures.push({ lawId: hit.pkid, code: 'UPSTREAM_FORMAT_CHANGED' }); continue; }
+    const effectiveAt = latestAddendaEffective(markdown);
+    rules.push({ title: String(hit.title).trim(), lawId: hit.pkid, historyId: 0, markdown,
+      url: `${source.origin}/ko/regulation/home`, revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
+  }
+  return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+}
+
+// 이화여대: 규정집 목록 HTML(view-rule 링크) + 규정별 view 페이지(.fr-view에 조문 전문).
+async function loadEwha(source, topic, terms, client, signal, spec = {}) {
+  const hints = spec.titleHints || terms;
+  const listHtml = await client.request(source, '/ewha/intro/rules.do', undefined, 15000, signal);
+  const $ = cheerio.load(listHtml);
+  const seen = new Set(), items = [];
+  $('a[href*="mode=view-rule"]').each(function () {
+    const href = ($(this).attr('href') || '').replace(/&amp;/g, '&');
+    const m = /srRuleCd1=(\d+)&srRuleCd2=(\d+)/.exec(href);
+    const title = $(this).text().replace(/\s+/g, ' ').trim();
+    if (!m || !title) return;
+    const key = m[1] + '_' + m[2];
+    if (seen.has(key)) return; seen.add(key);
+    items.push({ cd1: m[1], cd2: m[2], title });
+  });
+  if (!items.length) throw error('UPSTREAM_FORMAT_CHANGED');
+  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const rules = [], failures = [];
+  for (const hit of ranked) {
+    try {
+      const html = await client.request(source, `/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`, undefined, 15000, signal);
+      const body = cheerio.load(html)('.fr-view').html() || '';
+      const markdown = htmlToArticleMarkdown(body);
+      if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
+      const effectiveAt = latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
+        url: `${source.origin}/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`,
+        revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
+    } catch (e) {
+      failures.push({ lawId: Number(hit.cd2), code: safeCode(e) });
+      if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
+    }
+  }
+  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+}
+
+const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha };
 
 function validateArguments(a) {
   if (!a || typeof a.topic !== 'string' || !a.topic.trim() || a.topic.length > 100) return 'topic은 1~100자 주제어여야 합니다.';
@@ -180,7 +320,9 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
   const cache = new Map(), inflight = new Map(), nextRequest = new Map();
   async function request(source, path, body, budgetMs = timeoutMs, signal) {
     if (signal?.aborted) throw error('TOTAL_TIMEOUT');
-    if (!SOURCES.includes(source) || source.key === 'dongguk' || !/^\/lmxsrv\/(law|search)\//.test(path)) throw error('SOURCE_NOT_ALLOWED');
+    // 소스별 허용 경로. LawMaster는 /lmxsrv/, 자체 시스템 대학은 pathPrefixes로 선언.
+    const okPath = source.pathPrefixes ? source.pathPrefixes.some(p => path.startsWith(p)) : /^\/lmxsrv\/(law|search)\//.test(path);
+    if (!SOURCES.includes(source) || source.key === 'dongguk' || !okPath) throw error('SOURCE_NOT_ALLOWED');
     const key = source.key + ':' + path + ':' + (body || '');
     const hit = cache.get(key);
     if (!disabled() && hit && now() - hit.at < ttlMs) return hit.text;
@@ -194,7 +336,7 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
         await abortable(new Promise(resolve => setTimeout(resolve, Math.max(0, slot - Date.now()))), controller.signal, 'UPSTREAM_UNAVAILABLE');
         const res = await fetchImpl(source.origin + path, {
           method: body ? 'POST' : 'GET', body, redirect: 'manual',
-          signal: controller.signal, size: 2 * 1024 * 1024,
+          signal: controller.signal, size: 2 * 1024 * 1024, agent: agentFor,
           headers: { 'User-Agent': 'dongguk-rule-mcp university comparison', ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
         });
         if (res.status >= 300 && res.status < 400) throw error('REDIRECT_NOT_FOLLOWED');
@@ -228,6 +370,11 @@ function sourceUrl(s, hit) {
 }
 
 async function loadExternal(source, topic, terms, client, signal, spec = {}) {
+  // 자체 시스템 대학은 전용 어댑터로 위임(LawMaster 경로 로직을 타지 않는다).
+  if (source.adapter && ADAPTERS[source.adapter]) {
+    const result = await ADAPTERS[source.adapter](source, topic, terms, client, signal, spec);
+    return { ...result, coverage: { ...result.coverage, scannedRules: result.rules.length, attemptedRules: result.rules.length + result.failures.length } };
+  }
   let hits, coverage;
   const searchTerms = uniq(spec.searchTerms || [topic]).slice(0, 2), hints = spec.titleHints || terms;
   const deadline = Date.now() + 15000;
@@ -468,4 +615,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore };
+module.exports = { SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, htmlToArticleMarkdown, latestRevisionDate };
