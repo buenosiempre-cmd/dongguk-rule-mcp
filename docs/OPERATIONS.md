@@ -258,3 +258,30 @@ DONGGUK_SLACK_WEBHOOK_URL=... node scripts/weekly-updates.js --post
 | `DONGGUK_MCP_TRUST_PROXY` | 1 | 0이면 `CF-Connecting-IP`를 무시 |
 
 초과 시 HTTP 429와 `Retry-After`(초)를 반환합니다. `/health`, `/ready`, 안내 페이지는 제한하지 않습니다. 이 서비스는 동국대학교의 공식 서비스가 아니며, `get_service_info`와 MCP `instructions`에 같은 안내가 포함됩니다.
+
+## 타대학 주간 스모크와 사용 로그
+
+`npm run university-watch`는 동국대를 제외한 19개 대학 로더를 직접 호출합니다. 각 대학에 「여비」 단일 검색어와 대표 규정 최대 1개를 요청하며, 동국대 재조회·상시 적재·백그라운드 크롤링은 하지 않습니다. 목록 구조에 따라 검색·규정명 재확인·상세·본문 요청이 더 필요할 수 있습니다. 전체 60초, 대학당 15초, 요청당 최대 8초, 대학별 500ms 간격을 유지합니다. 서로 다른 대학은 최대 5곳을 동시에 처리하고 PDF worker는 최대 2개입니다. 시간 초과는 `TOTAL_TIMEOUT`으로 남기고 자동 재시도하지 않습니다. 일반 비교의 최대 규정 수 5개와 공통/세종 목록 캐시 TTL 10분은 그대로입니다.
+
+```sh
+# 첫 실행은 기준 스냅샷 생성. 다음 실행은 같은 파일의 직전 결과와 비교 후 원자적으로 교체.
+npm run university-watch -- --snapshot /local/private/university-watch.json
+# 명시한 이전 파일과 비교, 새 스냅샷은 별도 저장
+npm run university-watch -- --previous /local/private/previous.json --snapshot /local/private/current.json --format json
+# 무게시 Slack 포맷 미리보기
+npm run university-watch -- --format slack
+# 외부 요청 없이 최근 7일의 비교 실패 집계만
+npm run university-watch -- --usage-only --usage-dir /local/private/usage --days 7
+```
+
+기본 출력은 Markdown이며 `--format markdown|slack|json`을 지원합니다. 성공은 대표 조문 조회 성공입니다. `partial`도 실패 코드 없이 대표 조문을 읽었다면 성공으로 집계하지만 전문·별표·전체 개정 여부를 확인했다는 뜻은 아닙니다. 무결과·현행본 미확인·차단·타임아웃·서울대 OC 미설정은 실패 코드로 구분합니다. 서울대는 기존 `DONGGUK_LAWGO_OC`가 있을 때만 조회하며 키를 기록하거나 설정하지 않습니다.
+
+스냅샷에는 KST 시각·대학·규정명·개정일·시행일·시행 예정일·상태·실패 코드·소요 시간과 조문 앞부분 8,192 UTF-16 코드 단위(공백 정규화 후)의 SHA-256만 저장합니다. 본문은 저장하지 않습니다. 개정일은 어댑터가 확인한 값만 기록하고 없으면 미확인으로 둡니다(본문의 임의 날짜로 대신하지 않음). 제목에 주제어가 없는 대표 규정은 `TOPIC_TITLE_NOT_MATCHED`로 별도 표시하므로 전담 규정인지 확인해야 합니다. `REVISION_DATE_CHANGED`·`BODY_HASH_CHANGED`는 개정 추정 신호이며 법적 확정이 아닙니다. `UPCOMING_REVISION`, 대표 규정 교체, `UPSTREAM_FORMAT_CHANGED`, `PDF_REVISION_UNVERIFIED`, 연속 실패 및 회복을 따로 표시합니다. 실패 중에도 마지막 성공의 메타데이터·해시만 유지하므로 회복 후 변경을 비교할 수 있습니다. 대상 규정 외 개정은 탐지하지 못합니다.
+
+Slack은 `scripts/weekly-updates.js`와 같은 `postToSlack` 함수와 `DONGGUK_SLACK_WEBHOOK_URL`을 사용합니다. HTTPS `hooks.slack.com`만 허용하고 리다이렉트·URL 출력은 금지합니다. **`--post`를 명시해야만 실제 게시**합니다. 이 기능의 설치·검증 단계에서는 `--post` 없이 출력만 확인합니다. 새 채널·웹훅은 필요하지 않습니다.
+
+HTTP 서버에 `DONGGUK_MCP_USAGE_LOG_DIR`가 설정되어 있을 때만 파싱된 `tools/call` 응답 종료 후 `usage-YYYY-MM.jsonl`을 비동기로 기록합니다(디렉터리 0700·신규 파일 0600). 시각·소요 시간·HTTP/처리 상태·대학 키·대학별 실패 코드만 남깁니다. 비교 도구 외 이름은 `other`로 묶고 입력 인자·IP·토큰·쿠키·웹훅·규정 제목·본문은 남기지 않습니다. 인증/요청 파싱 전에 거절된 호출은 대상에서 제외됩니다. 8MiB 초과 응답은 캡처하지 않고 `unobserved`로 표시합니다. 로그 쓰기 실패·큐 포화는 응답에 영향을 주지 않으며 감시 목적상 기록 누락이 있을 수 있습니다.
+
+집계는 기본 7일(`--days 1..366`)이며 환경변수 디렉터리를 쓰거나 `--usage-dir`로 지정합니다. 한 대학의 같은 실패 코드는 호출당 한 번만 셉니다. 파일/기간 내 비교 로그가 없으면 “로그 없음”, 손상 줄과 대학 결과가 없는 구버전 로그는 별도 건수로 표시합니다. 권한 오류는 빈 로그로 숨기지 않습니다. 로그는 운영자가 로컬 보관·삭제 정책을 정하며 본 CLI는 기존 로그를 수정하지 않습니다.
+
+예약 실행은 예를 들어 **월요일 06:00 KST**로 계획할 수 있습니다. 실행 호스트 시간대가 Asia/Seoul인지, 기존 동국대 색인 작업과 겹치지 않는지 확인한 뒤 별도 승인으로 등록합니다. launchd `StartCalendarInterval` 예시는 `{ Weekday: 1, Hour: 6, Minute: 0 }`이며 `ProgramArguments`는 절대 경로의 `node`, `scripts/university-watch.js`, `--snapshot`, 로컬 스냅샷 경로입니다. 이 PR은 launchd 등록·공용 서버 런처 변경·실제 게시를 수행하지 않습니다.

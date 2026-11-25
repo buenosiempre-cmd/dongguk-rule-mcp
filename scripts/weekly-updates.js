@@ -32,17 +32,7 @@ function parse(argv) {
   return options;
 }
 
-async function postToSlack(text) {
-  const raw = (process.env.DONGGUK_SLACK_WEBHOOK_URL || '').trim();
-  let url;
-  try { url = new URL(raw); } catch { throw new Error('DONGGUK_SLACK_WEBHOOK_URL이 설정되지 않았습니다.'); }
-  if (url.protocol !== 'https:' || url.hostname !== 'hooks.slack.com') throw new Error('DONGGUK_SLACK_WEBHOOK_URL은 https://hooks.slack.com/ 주소여야 합니다.');
-  const response = await fetch(url, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text }), signal: AbortSignal.timeout(15000), redirect: 'error',
-  });
-  if (!response.ok) throw new Error(`Slack 게시 실패 (HTTP ${response.status})`);
-}
+const { postToSlack } = require('../src/slack-webhook');
 
 async function main() {
   const options = parse(process.argv.slice(2));
