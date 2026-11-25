@@ -171,10 +171,11 @@ MIT. 원본 Python 구현: 서준호. Node.js MCP 포팅·운영 개선: 오승�
 {"topic":"여비","universities":["korea","uos"],"max_articles":3}
 ```
 
-- 동국대 자동 포함. 타대학 키: `korea`(고려), `uos`(서울시립), `konkuk`(건국), `kookmin`(국민), `ssu`(숭실), `khu`(경희), `sookmyung`(숙명여대), `kw`(광운), `mju`(명지). 한 번에 최대 5개. 다른 영문 키는 `unsupported`.
+- 동국대 자동 포함. 타대학 키: `korea`(고려), `uos`(서울시립), `konkuk`(건국), `kookmin`(국민), `ssu`(숭실), `khu`(경희), `sookmyung`(숙명여대), `kw`(광운), `mju`(명지), `sogang`(서강), `ewha`(이화). 한 번에 최대 5개. 다른 영문 키는 `unsupported`.
 - `columns`마다 조문 번호·본문·규정명·URL·개정일(동국만 확인, 타대학 미확인)·시행일(`effectiveAt`과 출처 `effectiveSource`: 규정 목록의 시행일자 `list` 또는 마지막 부칙의 명시 시행일 `addenda`, `null`은 미확인), `status`, `coverage`, 실패 내역 제공. 학교당 최대 5개 조문, 조문당 2,000자이며 잘림 표시.
 - 주제어는 접두어(교내·교외·학부·대학원·학사)와 끝의 '금'을 떼고 등록된 동의어로 넓힙니다(교내근로장학금 → 근로장학·근로보조금·교내근로·근로학생). 동의어 검색은 후보가 부족할 때만 추가로 합니다(`coverage.queries`).
 - 서울시립은 `.srv`, 국민·숭실·경희·숙명여대는 `.do` 전문검색 첫 페이지에서 최대 5개 규정을 조회합니다. 건국·광운·명지는 공개 규정 트리 전체(각 430·255·267개)에서 제목을 대조합니다(`coverage.mode:"title_tree"`, 제목에 주제 단서가 없는 규정 속 조문은 놓칠 수 있어 `complete:false`). 명지는 본문 제목·부칙이 `lawname2`·`addenda2` 클래스라 함께 처리합니다. 고려는 로그인 없이 **약 55개 규정만 공개**하며(다른 규정은 로그인 화면으로 이동, 2026-11-24 확인) 검색·전체 트리·부서별 목록도 세션이 필요합니다. 공개 분류 목록(`lawListManager`, 8개 분류, 10건씩 페이지 넘김)을 모두 읽어 제목을 대조하고(`coverage.mode:"public_folder_list"`, `publicOnly:true`), 결과 표의 상태에 "공개 규정만"을 붙입니다. 목록에 없는 규정(예: 여비규정)은 비공개로 추정되며 조회할 수 없습니다. 목록 형식이 바뀌면 최근 개정 목록(`recent_list_only`)으로 대체합니다. 동국은 제목 검색 우선·미발견 시 전문검색 20행을 규정 단위로 합쳐 후보 최대 5개를 조회합니다.
+- LawMaster가 아닌 대학은 전용 어댑터로 조문을 읽습니다. **서강**(`sogang`)은 자체 REST JSON(`coverage.mode:"rest_json"`)에서 주제어를 제목으로 질의해 매칭 규정의 `content`(조문 HTML)를 받고, **이화**(`ewha`)는 규정집 목록 HTML의 `view-rule` 링크를 따라 각 규정 `.fr-view`의 조문 전문을 읽습니다(`coverage.mode:"html_catalog"`). 두 대학의 조문·부칙 HTML은 공통 변환기(`htmlToArticleMarkdown`)로 `### 제N조`·`## 부칙` 형식으로 바꿔 동일 비교 파이프라인에 올립니다. 개정일은 머리말·부칙 헤딩의 날짜 중 가장 늦은 날, 시행일은 마지막 부칙의 명시일로 채웁니다. 서강대 서버가 중간 인증서를 빠뜨려 TLS 체인이 끊기므로, 공개 중간 인증서(`src/ca/`)를 기본 루트에 **추가**해 검증을 끄지 않고 해결합니다.
 - `retrieved`, `partial`, `no_match_in_scope`, `unsupported`, `unavailable` 구분. 조문 미발견은 규정 부존재를 뜻하지 않음. HWP 별표·시행일·법적 적용성은 미확인.
 - 참고 저장소 2026년 7월 탐지 설정 포팅으로 현재 가용성을 보장하지 않음. 차단 우회·로그인·리다이렉트 없음. 서울시립·숭실은 참고 자료의 HTTP 공개 주소.
 - 기본 비활성입니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`로 켜야 요청이 나갑니다(공개·재무 프로필 모두). `get_service_info`에 설정 여부를 표시합니다.

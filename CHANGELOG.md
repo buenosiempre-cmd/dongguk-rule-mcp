@@ -4,6 +4,18 @@ v0.14.0까지의 변경은 `docs/review-*.md`와 `docs/RELEASE-v0.12.0.md`에 �
 
 ## 미배포
 
+### 타대학 비교: LawMaster 밖 대학 어댑터(서강·이화)
+
+#### 추가
+- 소스별 전용 어댑터 구조를 넣었다. 소스에 `adapter`와 `pathPrefixes`를 선언하면 `loadExternal`이 LawMaster 경로 로직 대신 해당 어댑터로 위임하고, 공개 클라이언트의 경로 허용목록도 소스별 `pathPrefixes`로 일반화했다(선언 밖 경로는 `SOURCE_NOT_ALLOWED`).
+- **서강대(`sogang`)**: 자체 REST JSON(`searchRuleData`)에 주제어를 title로 질의해 매칭 규정의 `content`(조문 HTML)를 받는다. 전체 목록(pageSize=1000)은 3MB라 한도를 넘으므로 주제어 질의로 매칭분만 받는다.
+- **이화여대(`ewha`)**: 규정집 목록 HTML의 `view-rule` 링크를 따라 각 규정 `.fr-view`의 조문 전문을 읽는다.
+- 공통 변환기 `htmlToArticleMarkdown`: 블록 태그가 없고 `&nbsp;`로 조문이 이어지는 content(서강류)도 조·부칙·장·절 경계에서 분리해 `### 제N조`·`## 부칙` markdown으로 만든다. `ruleRevisedAt`·`latestRevisionDate`로 머리말·부칙 헤딩에서 개정일을 뽑는다.
+- 서강대 서버가 중간 인증서를 누락해 TLS 체인 검증이 실패하는 문제를, 공개 중간 인증서(`src/ca/sectigo-ov-r36.pem`)를 기본 루트에 추가하는 HTTPS 에이전트로 해결(검증 유지).
+
+#### 수정
+- `latestAddendaEffective`가 마지막 부칙 지점부터(헤딩 줄 포함) 검색해, "부칙 … 시행한다"가 한 줄에 오는 어댑터 변환본에서도 시행일을 찾는다.
+
 ### 타대학 비교: 서울 주요대학 4곳 추가(경희·숙명여대·광운·명지)
 
 #### 추가
