@@ -138,6 +138,36 @@ async function main() {
     const body = r=>r.column.articles.find(a=>a.article==='제1조').text.replace(/\s+/g,' ');
     assert.equal(body(wrapped),body(inline));
   });
+  await check('I3 r2 실제 PDF: 괄호 뒤 공백 유무와 관계없이 참조 조건 보존', async()=>{
+    for (const [name, reference] of [
+      ['spaced-article-reference', '제9조(일비) 에서 정한 기준을 적용한다.'],
+      ['spaced-possessive-reference', '제9조(일비) 의 지급 기준을 적용한다.'],
+      ['unspaced-reference-control', '제9조(일비)에서 정한 기준을 적용한다.'],
+    ]) {
+      const {extracted, result, column}=await compareFixture(name);
+      assert(extracted.text.includes(reference));
+      assert.deepEqual(listArticleBlocks(articleMarkdown(extracted.text)).map(b=>b.canonical), ['제1조','제2조']);
+      assert(column.articles.find(a=>a.article==='제1조').text.includes(reference));
+      assert(!column.articles.some(a=>a.article==='제9조'));
+      assert(JSON.stringify(result.slotMatrix).includes(reference));
+      assert(formatComparison(result).includes(reference));
+    }
+  });
+  await check('I3 r2: 참조 조사 공백 변형과 정상 이 규정 본문을 구분',()=>{
+    for (const gap of ['', ' ', '\t', '  ']) {
+      for (const clause of ['에서 정한 기준을 적용한다.', '의 지급 기준을 적용한다.', '에 따른다.', '를 준용한다.', '으로 정한다.', '까지 적용한다.']) {
+        const reference=`제9조(일비)${gap}${clause}`;
+        const blocks=listArticleBlocks(articleMarkdown(`제1조(지급) 국내출장 일비는\n${reference}\n제2조(정산) 이 규정은 정산에 적용한다.`));
+        assert.deepEqual(blocks.map(b=>b.canonical), ['제1조','제2조']);
+        assert(JSON.stringify(blocks[0]).includes(clause));
+      }
+    }
+    for (const gap of [' ', '\t', '  ']) {
+      const blocks=listArticleBlocks(articleMarkdown(`제1조(목적)${gap}이 규정은 여비에 적용한다.\n제2조의2(기준)${gap}이 기준은 정산에 적용한다.\n제3조 삭제`));
+      assert.deepEqual(blocks.map(b=>b.canonical), ['제1조','제2조의2','제3조']);
+      assert(JSON.stringify(blocks[0]).includes('이 규정은 여비에 적용한다.'));
+    }
+  });
   await check('부속 표제 구분 기호·서식과 본문 조사 구분, 시행일 보존', async()=>{
     for (const marker of ['〔별표〕','〔부록〕','[서식]','［별표 1］','《부록 1》','별표 1 지급 기준','[별표 1] 의료비 지급 기준','별지 제1호 서식']) {
       assert.doesNotMatch(articleMarkdown(`제1조(여비) 출장 여비를 지급한다.\n${marker}\n제99조(여비) 999원`), /제99조|999원/);

@@ -39,7 +39,10 @@ function isArticleHeading(line) {
     if ('(（'.includes(title[i])) depth++;
     if (')）'.includes(title[i]) && --depth === 0) {
       const suffix = title.slice(i + 1);
-      if (REFERENCE_SUFFIX.test(suffix) || /^\s+(?:에\s*따|에\s*의|을\s*준용|를\s*준용)/.test(suffix)) return false;
+      // PDF spacing does not change a reference particle. A separated '이'
+      // can instead begin the body ('이 규정은 ...'), so keep that heading.
+      const demonstrativeBody = /^\s+이(?=\s)/.test(suffix);
+      if (!demonstrativeBody && REFERENCE_SUFFIX.test(suffix.trimStart())) return false;
       // Only a standalone title or a separated body starts a new article.
       // Unclear attached text is retained in the preceding article, not promoted.
       return !suffix || /^[\s①-⑳]/.test(suffix);
