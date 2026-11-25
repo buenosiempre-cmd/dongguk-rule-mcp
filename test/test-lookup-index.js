@@ -49,7 +49,7 @@ const CONTENT = {
   '8_80': { title: '등록금에 관한 시행세칙', markdown: '### 제7조(반환)\n수강료와 등록금의 반환 기준을 정한다.' },
 };
 // Synthetic rules: three strong body matches compete with a title-only rule;
-// campus editions must share one preview slot without losing their identities.
+// scope-ambiguous editions must retain separate bodies and their own scores.
 const extraRules = [
   [11, '처리규정 가', '제1조(절차)\n물품 전결 처리'],
   [12, '처리규정 나', '제1조(절차)\n물품 전결 처리'],
@@ -60,16 +60,23 @@ const extraRules = [
   [23, '의학계열 직원인사규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
   [24, '산학협력단 직원인사규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
   [25, '복무규정', '제9조(육아휴직 기간)\n육아휴직 기간 기준을 정한다.'],
+  [31, '구매규정', '제3조(장비 구매)\n장비 구매 절차는 총장이 승인한다.'],
+  [32, '산학협력단 구매규정', '제3조(장비 구매)\n장비 구매 절차는 산학협력단장이 승인한다.'],
+  [33, 'WISE캠퍼스 구매규정', '제3조(장비 구매)\n장비 구매 절차는 WISE담당자가 승인한다.'],
+  [34, 'WISE캠퍼스 산학협력단 구매규정', '제3조(장비 구매)\n장비 구매 절차는 WISE산학담당자가 승인한다.'],
+  [35, '의학계열 구매규정', '제3조(장비 구매)\n장비 구매 절차는 의학담당자가 승인한다.'],
 ];
 for (const [lawId, title, markdown] of extraRules) {
   const historyId = lawId * 10;
   CATALOG.push({ lawId, historyId, title, code: `test-${lawId}`, revisedAt: '2026.01.01' });
-  CONTENT[`${lawId}_${historyId}`] = { title, markdown };
+  CONTENT[`${lawId}_${historyId}`] = { title, markdown: markdown.replace(/(^|\n)(제\d+조)/g, '$1### $2') };
 }
 seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
+  value.markdown = value.markdown.replace(/\n(?=###)/g, '\n\n');
   seed('content-v3', key, value);
-  seed('original-structure-v2', key, { markdown: value.markdown, structure: { coverage: { articles: 'complete' } } });
+  const appendix = key === '1_20' ? '\n\n제10조의2(특례)\n가지조문고유내용\n\n<별표 1> 지급표\n\n| 항목 | 금액 |\n|---|---|\n| 합성 | 100원 |\n\n① 별표주석\n\n<별표 10> 다른 표\n\n다른표고유내용\n\n<별표 1의2> 가지 표\n\n가지표고유내용' : '';
+  seed('original-structure-v2', key, { markdown: value.markdown + appendix, structure: { coverage: { articles: 'complete' } } });
 }
 for (const rule of CATALOG) seed('history', String(rule.lawId), [{ historyId: rule.historyId, revisedAt: rule.revisedAt }]);
 
@@ -105,6 +112,33 @@ async function main() {
     check('색인 기준·대체 단어를 본문에 표시', /색인 기준: /.test(travelLookup.text) && /짧게 바꿔 찾은 단어: 국내출장→출장/.test(travelLookup.text) && /어느 규정에도 없는 단어: 한도/.test(travelLookup.text));
     check('색인 경로에서는 전문검색을 요청하지 않음', !searches.some(s => s.type === 'CONTENTS'));
 
+    const query = '국내출장 일비와 숙박비 한도';
+    for (const [label, args, expectedTerms] of [
+      ['명시 조문', { query, terms: '제10조' }, '제10조'],
+      ['명시 주제', { query, terms: '감액' }, '감액'],
+      ['질문 조문', { query: '국내출장 일비와 숙박비 제10조' }, null],
+    ]) {
+      const lookup = await call('lookup_dongguk_rule', { ...args, max_sections: 1 });
+      const data = lookup.sc.data, excerpt = data.rules[0].excerpt.text;
+      check(`I1 ${label}: 색인 후보와 별개로 제10조 감액을 발췌`, data.search.mode === '핵심어 색인' && excerpt.includes('제10조(') && !excerpt.includes('제9조(') && !excerpt.includes('제10조의2'));
+      check(`I1 ${label}: effectiveTerms에 요청 조건 보존`, expectedTerms ? data.query.effectiveTerms === expectedTerms : data.query.effectiveTerms.includes('제10조'));
+    }
+    for (const args of [{ query, terms: '제 10 조 의 2' }, { query: query + ' 제 10 조 의 2' }]) {
+      const lookup = await call('lookup_dongguk_rule', { ...args, max_sections: 1 });
+      check('가지조문 선택자는 명시 terms와 질문 모두에서 보존', lookup.sc.data.rules[0].excerpt.text.includes('가지조문고유내용') && !lookup.sc.data.rules[0].excerpt.text.includes('제9조('));
+    }
+    for (const args of [{ query, terms: '별 표 제1호' }, { query: query + ' 별 표 제1호' }]) {
+      const lookup = await call('lookup_dongguk_rule', { ...args, max_sections: 1 });
+      const excerpt = lookup.sc.data.rules[0].excerpt.text;
+      check('별표 선택자 기존 동작: 번호·주석 보존, 다른 번호와 가지표 제외', excerpt.includes('100원') && excerpt.includes('별표주석') && !excerpt.includes('다른표고유내용') && !excerpt.includes('가지표고유내용'));
+    }
+    const branchAppendix = await call('lookup_dongguk_rule', { query, terms: '별표 1의2', max_sections: 1 });
+    check('명시 가지별표도 검색어 확장 없이 선택', branchAppendix.sc.data.rules[0].excerpt.text.includes('가지표고유내용') && !branchAppendix.sc.data.rules[0].excerpt.text.includes('100원'));
+    const missingExcerpt = await call('lookup_dongguk_rule', { query, terms: '존재하지않는발췌어' });
+    check('없는 명시 terms를 색인 검색어로 대체하지 않음', missingExcerpt.sc.data.rules[0].excerpt.text === '' && missingExcerpt.sc.data.rules[0].incompleteReasons.includes('NO_MATCHING_EXCERPT'));
+    const override = await call('lookup_dongguk_rule', { query: query + ' 제9조', terms: '감액', max_sections: 1 });
+    check('명시 terms는 질문의 조문보다 우선', override.sc.data.query.effectiveTerms === '감액' && override.sc.data.rules[0].excerpt.text.includes('제10조('));
+
     const scholarshipLookup = await call('lookup_dongguk_rule', { query: '교내근로장학금 성적 기준' });
     const previews = scholarshipLookup.sc.data?.rules || [];
     check('비슷한 후보가 여럿이면 선택 요청 대신 후보별 해당 조문을 미확정 미리보기로 반환', scholarshipLookup.sc.ok === true && scholarshipLookup.sc.data.search.selection === 'multiple_candidates' && scholarshipLookup.sc.data.search.identityStatus === 'candidate_preview' && previews.some(r => r.lawId === 6) && previews.some(r => r.lawId === 5));
@@ -130,13 +164,45 @@ async function main() {
 
     const family = await call('lookup_dongguk_rule', { query: '육아휴직 기간' });
     const general = family.sc.data.rules.find(r => r.lawId === 21);
-    check('캠퍼스·기관 판은 하나로 묶고 다른 규정에도 미리보기 슬롯을 배정', family.sc.data.rules.length === 2 && !!general && family.sc.data.rules.some(r => r.lawId === 25));
-    check('기본 대표는 접두어 없는 판, 다른 판의 LAW_ID와 제목 보존', general.editions.length === 3 && [22, 23, 24].every(id => general.editions.some(e => e.lawId === id && e.title === CATALOG.find(r => r.lawId === id).title)));
+    check('범위 미지정은 일반·WISE·의학 판을 별도 미확정 후보로 보존', family.sc.data.rules.length === 3 && [21, 22, 23].every(id => family.sc.data.rules.some(r => r.lawId === id)) && family.sc.data.search.selection === 'multiple_candidates');
+    check('미리보기 한도 밖의 다른 판도 LAW_ID와 제목 보존', general.editions.length === 3 && [22, 23, 24].every(id => general.editions.some(e => e.lawId === id && e.title === CATALOG.find(r => r.lawId === id).title)));
     check('자연어 발췌는 문서 순서보다 관련 조문 우선', general.excerpt.text.indexOf('제9조') < general.excerpt.text.indexOf('제1조') && general.excerpt.text.includes('제1조'));
     const wise = await call('lookup_dongguk_rule', { query: '육아휴직 기간', campus: 'wise' });
     const wiseRule = wise.sc.data.rules.find(r => r.lawId === 22);
     check('WISE 요청은 WISE 판을 대표로 선택하고 일반 판도 안내', !!wiseRule && wiseRule.editions.some(e => e.lawId === 21) && !wise.sc.data.rules.some(r => r.lawId === 21));
     check('캠퍼스 대표 선택도 적용 규정 확정으로 취급하지 않음', wise.sc.data.rules.every(r => r.evidenceStatus === 'partial' && r.incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED')));
+
+    for (const [scopeQuery, campus, allowed, text] of [
+      ['산학협력단 장비 구매 절차', undefined, [32, 34], '산학협력단장이'],
+      ['의학계열 장비 구매 절차', undefined, [35], '의학담당자가'],
+      ['WISE캠퍼스 산학협력단 장비 구매 절차', undefined, [34], 'WISE산학담당자가'],
+      ['산학협력단 장비 구매 절차', 'wise', [34], 'WISE산학담당자가'],
+      ['서울캠퍼스 산학협력단 장비 구매 절차', undefined, [32], '산학협력단장이'],
+    ]) {
+      const lookup = await call('lookup_dongguk_rule', { query: scopeQuery, ...(campus ? { campus } : {}) });
+      const rules = lookup.sc.data.rules;
+      check(`I2 명시 범위 우선: ${scopeQuery} / ${campus || 'all'}`, allowed.includes(rules[0].lawId) && rules[0].excerpt.text.includes(text) && !rules.some(r => r.lawId === 31) && rules.every(r => r.scopeMatch));
+      check('범위 선택 후에도 미확정 상태 유지', rules.every(r => r.evidenceStatus === 'partial' && r.incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED')));
+    }
+    const scopeUnknown = await call('lookup_dongguk_rule', { query: '장비 구매 절차' });
+    const scores = new Map(searchCorpus(corpus, '장비 구매 절차', { top: CATALOG.length }).hits.map(hit => [hit.lawId, hit.score]));
+    check('일반판은 다른 판의 최고 점수를 상속하지 않음', scopeUnknown.sc.data.rules.some(r => r.lawId === 31) && scopeUnknown.sc.data.rules.every(r => r.score === scores.get(r.lawId)));
+    check('기관 미지정은 여러 판의 실제 본문을 반환', scopeUnknown.sc.data.rules.length === 3 && scopeUnknown.sc.data.rules.some(r => r.excerpt.text.includes('산학협력단장이')));
+    const campusConflict = await call('lookup_dongguk_rule', { query: 'WISE캠퍼스 산학협력단 장비 구매 절차', campus: 'seoul' });
+    check('질문과 campus가 충돌하면 한 판으로 확정하지 않음', [32, 34].every(id => campusConflict.sc.data.rules.some(r => r.lawId === id)) && campusConflict.sc.data.search.selection === 'multiple_candidates');
+    const explicitScope = await call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차', law_id: 31 });
+    check('명시 law_id는 범위 추정보다 우선', explicitScope.sc.data.search.identityStatus === 'explicit_id' && explicitScope.sc.data.rules.length === 1 && explicitScope.sc.data.rules[0].lawId === 31);
+    const keywordScope = await call('lookup_dongguk_rule', { rule_keyword: '장비 구매', query: '산학협력단 장비 구매 절차' });
+    check('짧은 rule_keyword와 함께 보낸 질문의 기관 범위도 보존', keywordScope.sc.data.rules[0].lawId === 32 && keywordScope.sc.data.rules.every(r => r.edition.includes('산학협력단')));
+    const exactScope = await call('lookup_dongguk_rule', { query: '산학협력단 구매규정 장비 구매 절차' });
+    check('정확한 기관 규정명은 색인 판 선택보다 우선', exactScope.sc.data.search.identityStatus === 'catalog_title' && exactScope.sc.data.rules.length === 1 && exactScope.sc.data.rules[0].lawId === 32);
+    for (const max_rules of [1, 2, 3]) {
+      const lookup = await call('lookup_dongguk_rule', { query: '교내근로장학금 성적 기준', max_rules });
+      const data = lookup.sc.data;
+      check(`R1 max_rules=${max_rules}: selection은 실제 반환 개수와 일치`, data.rules.length === (max_rules === 2 ? 2 : 3) && data.search.selection === 'multiple_candidates');
+      check('다중 미리보기 제한과 본문 안내도 일치', data.query.maxSections === 3 && data.query.maxChars === 6000 && lookup.text.includes(`규정 ${data.rules.length}개`));
+    }
+    check('한 판만 반환하면 single_candidate', wise.sc.data.rules.length === 1 && wise.sc.data.search.selection === 'single_candidate');
 
     fs.unlinkSync(corpusPath(dir));
     searches.length = 0;

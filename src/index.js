@@ -128,7 +128,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, appendixSelectors } = require('./lookup.js');
+const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, appendixSelectors, articleSelectors, requestedRuleScope, selectRuleEditions } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -694,40 +694,33 @@ async function hHistory(rawLawId){
 // hit is "dominant" when it matches at least two words and clearly outscores
 // the runner-up; callers may preview it instead of asking for a law_id.
 const INDEX_PREVIEW_RULES=3;
-function candidatesFromIndex(keyword,{top=5,campus='all'}={}){
+function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
-  // Editions of one rule (WISE캠퍼스·의학계열·산학협력단) fill the top ranks together, so read deeper than `top`.
-  const found=searchCorpus(corpus,keyword,{top:Math.max(top*4,20),perDoc:1});
+  // Scope selection must see editions beyond the unscoped score cutoff.
+  const found=searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1});
   if(!found.hits.length) return null;
   const families=new Map();
   for(const hit of found.hits){
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
-      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!hit.articles[0]&&!hit.articles[0].supplementary,score:hit.score,edition:hit.edition};
+      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!hit.articles[0]&&!hit.articles[0].supplementary,score:hit.score,edition:hit.edition,family:hit.family};
     if(!families.has(hit.family)) families.set(hit.family,[]);
     families.get(hit.family).push(entry);
   }
-  const wanted=campus==='wise'?'WISE캠퍼스':null;
-  const ranked=[...families.values()].map(members=>{
-    const best=members[0];
-    // The edition for the caller's campus (the unprefixed rule unless WISE is asked for)
-    // represents the family when it answers about as much of the question as the best-scoring edition.
-    const preferred=members.find(x=>x.edition===wanted&&x.matchedConcepts.length>=Math.max(1,best.matchedConcepts.length-1))||best;
-    // A WISE-only rule ranks below an equally matching general rule unless WISE is asked for.
-    const score=best.score*(campus!=='wise'&&preferred.edition&&/^WISE캠퍼스/.test(preferred.edition)?0.8:1);
-    return {...preferred,score,editions:members.filter(x=>x!==preferred).map(x=>({lawId:x.lawId,title:x.title,edition:x.edition,topArticle:x.topArticle}))};
-  }).sort((a,b)=>b.score-a.score||a.lawId-b.lawId);
+  const scope=requestedRuleScope(scopeQuery,campus);
+  const ranked=[...families.values()].flatMap(members=>selectRuleEditions(members,scope))
+    .sort((a,b)=>Number(b.scopeMatch)-Number(a.scopeMatch)||b.score-a.score||a.lawId-b.lawId);
   // A rule named after a question word (위임전결규정 for "누가 전결해") is previewed even when another
   // rule's articles match more words: its answer may sit in an appendix the index does not cover.
-  const titleFamilies=term=>ranked.filter(x=>x.title.includes(term)).length;
-  const anchored=ranked.slice(1).filter(x=>x.score>=ranked[0].score*0.4&&found.tokens.some(term=>term.length>=2&&x.title.includes(term)&&titleFamilies(term)<=2&&!ranked[0].title.includes(term)));
+  const titleFamilies=term=>new Set(ranked.filter(x=>x.title.includes(term)).map(x=>x.family)).size;
+  const anchored=ranked.slice(1).filter(x=>x.scopeMatch===ranked[0].scopeMatch&&x.score>=ranked[0].score*0.4&&found.tokens.some(term=>term.length>=2&&x.title.includes(term)&&titleFamilies(term)<=2&&!ranked[0].title.includes(term)));
   const leading=ranked.slice(0,INDEX_PREVIEW_RULES);
   for(const extra of anchored.slice(0,1)) if(!leading.includes(extra)) leading.splice(INDEX_PREVIEW_RULES-1,1,extra);
   const hits=[...leading,...ranked.filter(x=>!leading.includes(x))].slice(0,top);
   const [first,second]=hits;
   const searchable=found.tokens.length-found.missingTerms.length;
-  const dominant=!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.score>=second.score*1.3);
+  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.score>=second.score*1.3);
   return {total:hits.length,hits,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
     indexedAt:corpus.builtAt,stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
 }
@@ -830,6 +823,8 @@ async function hDeep(rawQuery,{top=3,perDoc,mode='auto'}={}){
 
 async function hLookup(rawKeyword, {
   terms='',
+  autoTerms=!validStr(terms),
+  scopeQuery=rawKeyword,
   campus='all',
   maxRules=1,
   maxSections=4,
@@ -886,7 +881,7 @@ async function hLookup(rawKeyword, {
   // when the index is missing or has no match.
   const exactTitle=candidateHits.size>0&&selectRuleCandidate([...candidateHits.values()],keyword).matchType==='exact';
   if(!explicitLawId&&!exactTitle&&questionTerms.length>1){
-    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus});
+    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery});
     if(indexed){result=indexed;queryUsed=indexed.tokens.join(' ');searchMode='핵심어 색인';}
   }
   if(!result){
@@ -910,12 +905,12 @@ async function hLookup(rawKeyword, {
   const candidates=selection.candidates;
   // An index hit that clearly outscores the others is previewed as an
   // unconfirmed candidate (evidenceStatus partial) instead of a second round
-  // trip; several close hits still ask the caller to choose a law_id.
+  // trip; close or scope-ambiguous hits remain separate previews.
   const indexMode=searchMode==='핵심어 색인';
   const indexPreview=indexMode&&result.dominant===true;
   // Several rules answer the question about equally: show the matching
   // articles of the closest few as unconfirmed previews instead of a bare list.
-  const indexMulti=indexMode&&!indexPreview&&maxRules===1&&!explicitLawId;
+  const expandPreview=indexMode&&!indexPreview&&maxRules===1&&!explicitLawId;
   if(!explicitLawId && maxRules===1 && selection.status!=='unique' && !indexMode) {
     const titleUnmatched=selection.matchType==='none';
     const message=titleUnmatched
@@ -930,14 +925,17 @@ async function hLookup(rawKeyword, {
       campus:campusScope(campus),
     }});
   }
-  const hits=(selection.status==='unique'?[selection.hit]:indexMode?result.hits:rankRuleHits(result.hits,keyword)).slice(0,indexMulti?INDEX_PREVIEW_RULES:maxRules);
+  const hits=(selection.status==='unique'?[selection.hit]:indexMode?result.hits:rankRuleHits(result.hits,keyword)).slice(0,expandPreview?INDEX_PREVIEW_RULES:maxRules);
+  const indexMulti=indexMode&&hits.length>1;
   if(indexMulti){maxSections=Math.min(maxSections,3);maxChars=Math.min(maxChars,6000);}
   const identityStatus=catalogRule?'catalog_title':explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
   const metrics=searchResultMetrics(result);
   const rawTerms=Array.isArray(terms)?terms.join(', '):String(terms || '');
-  // Campus names are not travel destinations. A question found through the index is excerpted
-  // by the forms the index searched (국외 for 해외출장), not by its verbs and particles.
-  const effectiveTerms=indexMode?[...result.searchTerms,...appendixSelectors(rawTerms)].join(', '):rawTerms;
+  // Explicit excerpt conditions take precedence over candidate-search words.
+  // Only derived conditions expand vocabulary, retaining structural selectors.
+  const effectiveTerms=indexMode&&autoTerms
+    ? [...new Set([...result.searchTerms,...articleSelectors(rawTerms||keyword),...appendixSelectors(rawTerms||keyword)])].join(', ')
+    : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
     `- 검색 방식: ${searchMode}\n` +
@@ -950,7 +948,7 @@ async function hLookup(rawKeyword, {
     ?`\n> 질문에 맞는 규정이 하나로 정해지지 않아, 질문의 핵심어가 많이 나오는 규정 ${hits.length}개의 해당 조문을 함께 보여 줍니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.${result.hits.slice(hits.length,hits.length+3).length?` 그 밖의 후보: ${result.hits.slice(hits.length,hits.length+3).map(x=>`${x.title}(LAW_ID ${x.lawId})`).join(', ')}.`:''}\n`
     :indexPreview
     ?`\n> 질문의 핵심어(${result.hits[0].matchedTerms.join(', ')})가 가장 많이 나오는 규정의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 다른 후보: ${result.hits.slice(1,4).map(x=>`${x.title}(LAW_ID ${x.lawId})`).join(', ')||'없음'}.${editionNote(result.hits[0])} 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n`
-    :'\n> 여러 후보의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n';
+    :'\n> 규정 후보의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n';
 
   const rules=[];
 
@@ -1297,6 +1295,7 @@ function normalizeLookupArguments(args={},catalog=null) {
   return {
     keyword:name || query,
     terms:validStr(args.terms) || derivedTerms,
+    autoTerms:!validStr(args.terms),
     catalogRule:useListed&&listed.rules.length===1?listed.rules[0]:null,
   };
 }
@@ -1317,11 +1316,11 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       law_id:{type:'number',description:'선택 LAW_ID. 모호한 후보를 선택한 후 직접 원문·별표 조회'},
       query:{type:'string',description:'전체 자연어 질문. 예: 대전 출장 여비규정의 최신 개정일, 철도운임, 일비, 숙박비를 알려줘'},
       rule_keyword:{type:'string',description:'선택 입력. 규정명 또는 짧은 검색어. query가 있으면 생략 가능. 예: 여비규정, 보수, 위임전결'},
-      terms:{type:'string',description:'찾을 핵심 명사. 쉼표로 구분. query에 핵심 명사가 있으면 생략 가능. 예: 국내, 철도운임, 숙박비, 일비'},
+      terms:{type:'string',description:'명시하면 후보 검색어보다 우선하는 발췌 조건. 핵심 명사·조문·가지조문·별표를 쉼표로 구분. 예: 감액, 제10조, 제10조의2, 별표1. 생략하면 질문에서 조건을 만듭니다.'},
       campus:{type:'string',description:'업무 캠퍼스 맥락 all/seoul/wise. 공식 목록에는 캠퍼스 필터가 없어 전체 검색 후 적용범위를 확인합니다.',default:'all'},
-      max_rules:{type:'number',description:'조회할 규정 수. 기본 1, 최대 3',default:1},
-      max_sections:{type:'number',description:'규정별 관련 블록 수. 기본 4, 최대 12',default:4},
-      max_chars:{type:'number',description:'규정별 최대 반환 글자 수. 기본 12000, 최대 30000',default:12000},
+      max_rules:{type:'number',description:'조회할 규정 수. 기본 1, 최대 3. 자연어 색인의 모호한 후보는 기본 1 요청에도 최대 3개 미확정 미리보기로 반환하며 selection은 실제 반환 개수를 따릅니다.',default:1},
+      max_sections:{type:'number',description:'규정별 관련 블록 수. 기본 4, 최대 12. 자연어 색인의 다중 미리보기는 최대 3.',default:4},
+      max_chars:{type:'number',description:'규정별 최대 반환 글자 수. 기본 12000, 최대 30000. 자연어 색인의 다중 미리보기는 최대 6000.',default:12000},
       include_history:{type:'boolean',description:'최근 개정 연혁 5건 포함 여부',default:false},
     }},
     outputSchema:TOOL_OUTPUT_SCHEMA,
@@ -1491,7 +1490,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         if(!validStr(a.rule_keyword)&&!a.law_id&&/\s/.test(validStr(a.query)||'')){try{catalog=await loadCatalog();}catch{}}
         const normalized=normalizeLookupArguments(a,catalog);
         r=await hLookup(normalized.keyword,{
-          terms:normalized.terms,campus:a.campus,maxRules:a.max_rules,maxSections:a.max_sections,
+          terms:normalized.terms,autoTerms:normalized.autoTerms,scopeQuery:validStr(a.query)||normalized.keyword,campus:a.campus,maxRules:a.max_rules,maxSections:a.max_sections,
           maxChars:a.max_chars,includeHistory:a.include_history,explicitLawId:a.law_id||normalized.catalogRule?.lawId,catalogRule:normalized.catalogRule,
         });
         break;

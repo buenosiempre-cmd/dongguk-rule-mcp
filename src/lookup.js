@@ -129,6 +129,11 @@ function appendixSelectors(value) {
   return [...normalizeAppendixLabels(value).matchAll(/별표(?:\d+(?:(?:의|-)\d+)?)?/g)].map(match => match[0]);
 }
 
+function articleSelectors(value) {
+  return [...String(value || '').matchAll(/제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?/g)]
+    .map(match => match[0].replace(/[ \t]/g, ''));
+}
+
 function termTokens(rawTerms) {
   const source = normalizeAppendixLabels(Array.isArray(rawTerms) ? rawTerms.join(' ') : rawTerms);
   const base = source
@@ -139,7 +144,7 @@ function termTokens(rawTerms) {
   // appendix selector. Numbered selectors remain distinct: 1 != 10 != 1의2.
   const expanded = [
     ...appendixSelectors(source),
-    ...[...source.matchAll(/제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?/g)].map(match => match[0].replace(/[ \t]/g, '')),
+    ...articleSelectors(source),
   ];
   for (const token of base) {
     expanded.push(token);
@@ -425,6 +430,39 @@ function ruleFamily(title) {
   return { family: text.replace(EDITION_PREFIX, '').replace(/\s+/g, ''), edition: prefix || null };
 }
 
+// Scope words select editions, not applicability. Conflicting campus inputs
+// or multiple institutions remain ambiguous; an absent scope is not "general".
+function requestedRuleScope(query, campus = 'all') {
+  const text = String(query || '').replace(/\s+/g, '');
+  const campuses = new Set(campus === 'all' ? [] : [campus]);
+  if (/WISE|경주캠퍼스/i.test(text)) campuses.add('wise');
+  if (/서울캠퍼스/.test(text)) campuses.add('seoul');
+  const institutions = ['산학협력단', '의학계열'].filter(name => text.includes(name));
+  return { campuses: [...campuses], institutions, specified: campuses.size > 0 || institutions.length > 0,
+    ambiguous: campuses.size > 1 || institutions.length > 1 };
+}
+
+function selectRuleEditions(members, scope) {
+  const matches = member => {
+    const edition = member.edition || '';
+    const campus = edition.startsWith('WISE캠퍼스') ? 'wise' : 'seoul';
+    return (!scope.campuses.length || scope.campuses.includes(campus))
+      && (!scope.institutions.length || scope.institutions.some(name => edition.includes(name)));
+  };
+  const matching = scope.specified ? members.filter(matches) : [];
+  // Collapse only when a specified scope identifies one edition. Otherwise
+  // keep each plausible edition's own score and body in the candidate list.
+  const selected = matching.length ? matching : members;
+  return selected.map(member => ({
+    ...member,
+    scopeMatch: scope.specified ? matches(member) : null,
+    scopeAmbiguous: scope.ambiguous || selected.length > 1,
+    editions: members.filter(other => other !== member).map(other => ({
+      lawId: other.lawId, title: other.title, edition: other.edition, topArticle: other.topArticle,
+    })),
+  }));
+}
+
 module.exports = {
   clampNumber,
   normalizeText,
@@ -440,4 +478,7 @@ module.exports = {
   queryConcepts,
   ruleFamily,
   appendixSelectors,
+  articleSelectors,
+  requestedRuleScope,
+  selectRuleEditions,
 };
