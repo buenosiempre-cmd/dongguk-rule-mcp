@@ -47,6 +47,8 @@ async function main() {
     assert.equal(analyzeArticle({ content: ja.markdown }, ja, frame).excluded, 'other_issue_rule');
     // 경희대 「교원 교내겸직 규정」(2026-11-24 실측): 제목에 겸직이 있어도 교내 겸직은 다른 사안이다.
     assert.equal(analyzeArticle({ content: '### 제3조(겸직 신청)\n교원은 교내 다른 학과에 겸직을 신청할 수 있으며 보수는 지급하지 아니한다.' }, { title: '교원 교내겸직 규정' }, frame).excluded, 'other_issue_rule');
+    // 숭실대 「교원 내부 겸직에 관한 내규」(2026-11-25 실측): 내부 겸직도 같은 사안이 아니다.
+    assert.equal(analyzeArticle({ content: '### 제8조(보수)\n내부 겸직 교원에게는 겸직 수당을 지급하지 아니한다.' }, { title: '교원 내부 겸직에 관한 내규' }, frame).excluded, 'other_issue_rule');
     assert.equal(analyzeArticle({ content: ja.markdown }, { ...ja, title: '전임교원 인사규정' }, frame).excluded, 'other_issue_article');
     assert.equal(analyzeArticle({ content: gradSchool.markdown }, { ...gradSchool, title: '교무규정' }, frame).excluded, 'other_issue_article');
     assert.equal(analyzeArticle({ content: mention.markdown }, mention, frame).excluded, 'mention_only');

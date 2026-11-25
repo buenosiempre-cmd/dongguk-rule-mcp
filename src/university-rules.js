@@ -383,10 +383,19 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}) {
     if (Date.now() >= deadline) throw error('UPSTREAM_UNAVAILABLE');
     return client.request(source, path, body, deadline - Date.now(), signal);
   };
-  // 대표어로 먼저 찾고, 후보가 상한보다 적을 때만 다음 검색어(동의어)를 추가로 조회한다.
-  const searchAll = async (run, mode) => {
+  // 제목 채널: 「전임교원 겸직허가에 관한 규정」처럼 사안을 전담하는 규정이 본문 검색에서는 다른 규정의
+  // 조문에 밀려 상위 5개 밖으로 빠질 수 있다(서울시립 2026-11-25 확인). 제목 검색(대표어·첫 제목 단서)을
+  // 먼저 돌려 후보에 넣고 가장 먼저 읽는다. 제목 검색 실패는 본문 검색으로 이어간다.
+  const titleQueries = uniq([terms[0], hints[0]]).filter(q => q && q.length >= 2).slice(0, 2);
+  const searchAll = async (run, mode, runTitle) => {
     const merged = [], seen = new Set(), queries = [];
-    let total = 0, pageCut = false;
+    let total = 0, pageCut = false, titleMatches = 0;
+    if (runTitle) for (const q of titleQueries) {
+      try {
+        const result = await runTitle(q);
+        for (const h of result.hits) if (!seen.has(h.lawId)) { seen.add(h.lawId); merged.push({ ...h, matchedBy: 'title' }); titleMatches++; }
+      } catch (e) { if (['TOTAL_TIMEOUT', 'ACCESS_DENIED', 'SESSION_REQUIRED', 'REDIRECT_NOT_FOLLOWED'].includes(safeCode(e))) throw e; }
+    }
     for (const q of searchTerms) {
       if (queries.length && merged.length >= MAX_RULES) break;
       const result = await run(q);
@@ -395,7 +404,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}) {
     }
     hits = merged;
     // totalCandidates는 검색어별 결과 수의 합(중복 포함). 잘림은 결과 페이지 미수신 또는 상한 초과로 판단.
-    coverage = { mode, queries, totalCandidates: total, truncated: pageCut || merged.length > MAX_RULES };
+    coverage = { mode, queries, ...(runTitle ? { titleQueries, titleMatches } : {}), totalCandidates: total + titleMatches, truncated: pageCut || merged.length > MAX_RULES };
   };
   const loadRecent = async () => {
     const pairs = parsePairs(await request(`/lmxsrv/law/lawNewList.${source.ext}`));
@@ -406,11 +415,13 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}) {
     coverage = { mode: 'recent_list_only', totalCandidates: pairs.length, truncated: pairs.length > hits.length, complete: false };
   };
   if (source.mode === 'search') {
-    await searchAll(async q => parseUniversitySearch(await request(`/lmxsrv/search/lawSerach.${source.ext}`,
-      new URLSearchParams({ PAGE: '1', PAGE_SHOW: '10', LAWGROUP: '0', SEARCH_TYPE: 'CONTENTS', SEARCH_TEXT: q }).toString())), 'full_text_search');
+    const srv = type => async q => parseUniversitySearch(await request(`/lmxsrv/search/lawSerach.${source.ext}`,
+      new URLSearchParams({ PAGE: '1', PAGE_SHOW: '10', LAWGROUP: '0', SEARCH_TYPE: type, SEARCH_TEXT: q }).toString()));
+    await searchAll(srv('CONTENTS'), 'full_text_search', srv('LAWNAME'));
   } else if (source.mode === 'search_do') {
-    await searchAll(async q => parseUniversitySearch(await request('/lmxsrv/search/searchEngineTotal.do',
-      new URLSearchParams({ currentYN: '1', search_keyword: q, search_type: 'lawContents', search_page: '1' }).toString()), true), 'full_text_search_first_page');
+    const dot = type => async q => parseUniversitySearch(await request('/lmxsrv/search/searchEngineTotal.do',
+      new URLSearchParams({ currentYN: '1', search_keyword: q, search_type: type, search_page: '1' }).toString()), true);
+    await searchAll(dot('lawContents'), 'full_text_search_first_page', dot('lawName'));
   } else if (source.mode === 'tree') {
     let nodes = [];
     try { nodes = parseTree(await request(`/lmxsrv/law/lawTree.${source.ext}?${TREE_QUERY}`)); }
@@ -450,7 +461,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}) {
   const query = compact(topic);
   const rank = hit => {
     const title = compact(hit.title.split(/제\s*\d+\s*조/)[0]).replace(/^[\d-]+/, '');
-    return (title === query || title === query + '규정' ? 100 : title.includes(query) ? 30 : 0) + ruleTitleScore(hit.title, terms, hints) * 10;
+    return (hit.matchedBy === 'title' ? 50 : 0) + (title === query || title === query + '규정' ? 100 : title.includes(query) ? 30 : 0) + ruleTitleScore(hit.title, terms, hints) * 10;
   };
   hits.sort((a,b)=>rank(b)-rank(a));
   for (const hit of hits.slice(0, MAX_RULES)) {

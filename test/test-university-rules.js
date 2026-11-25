@@ -98,14 +98,15 @@ async function main() {
   await check('.do 전문검색: 최근 목록 밖 조문과 thisReadLaw 링크', async () => {
     const c={request:async(s,path,data)=>{
       if(path.includes('searchEngineTotal')) {
-        assert.equal(new URLSearchParams(data).get('search_type'),'lawContents');
+        const type=new URLSearchParams(data).get('search_type');assert(['lawName','lawContents'].includes(type),type);
+        if(type==='lawName') return '<p>전체:0건</p>';
         return '<p>전체:1건</p><a href="javascript:thisReadLaw(\'7\',\'8\',\'r\');">여비규정</a>';
       }
       assert(path.includes('SEQ=7&SEQ_HISTORY=8'));return body('여비규정');
     }};
     const d=await compareUniversityRules({topic:'여비',universities:['kookmin','ssu']},{loadDongguk:dongguk,client:c});
     assert.deepEqual(d.columns.map(x=>x.status),['retrieved','retrieved','retrieved']);
-    assert.equal(d.columns[1].coverage.mode,'full_text_search_first_page');
+    assert.equal(d.columns[1].coverage.mode,'full_text_search_first_page');assert.deepEqual(d.columns[1].coverage.titleQueries,['여비']);assert.equal(d.columns[1].coverage.titleMatches,0);
     assert.equal(parseUniversitySearch('<p>전체:0건</p>',true).hits.length,0);
   });
   await check('전문검색 후보는 주제 규정 제목을 먼저 조회', async () => {
@@ -156,16 +157,37 @@ async function main() {
     const k=await loadExternal(SOURCES.find(x=>x.key==='korea'),'근로장학',spec.terms,stub,undefined,spec);
     assert.equal(k.coverage.mode,'recent_list_only');assert.equal(k.rules[0].effectiveAt,'2026-09-01');assert.equal(k.rules[0].effectiveSource,'list');
   });
+  await check('제목 검색 채널: 전담 규정을 먼저 읽고, 제목 검색 실패는 본문 검색으로 이어감', async () => {
+    // 서울시립 2026-11-25 실측: 「전임교원 겸직허가에 관한 규정」은 제목 검색 1건, 본문 검색에서는 28건 중 상위 밖.
+    const contents='<p class="infoLeft">28건</p>'+[['68','대학원 시행세칙'],['34','강의책임시간 규정'],['403','교직원 행동강령'],['77','인문학연구소 규정'],['88','발전기금재단정관'],['99','산학협력지원본부 운영 세칙']].map(([id,t])=>`<a onclick="fullPopupPost(${id},1)">${t}</a>`).join('');
+    const dedicated='<div class="lawname">서울시립대학교 전임교원 겸직허가에 관한 규정</div><div class="article">제4조(겸직 허가)</div><div class="hang">교원은 외부 기관에 겸직하려면 총장의 허가를 받아야 한다.</div>';
+    const make=(titleHtml)=>({request:async(s,path,data)=>{
+      if(path.includes('lawSerach')){const p=new URLSearchParams(data);
+        if(p.get('SEARCH_TYPE')==='LAWNAME'){if(titleHtml instanceof Error) throw titleHtml;return titleHtml;}
+        return contents;}
+      return path.includes('SEQ=9&')?dedicated:'<div class="lawname">기타규정</div><div class="article">제1조(겸직)</div><div class="hang">위원회 위원을 겸직할 수 있다.</div>';
+    }});
+    const uos=SOURCES.find(x=>x.key==='uos'), spec=expandTopic('겸직');
+    const ok=await loadExternal(uos,'겸직',spec.terms,make('<p class="infoLeft">1건</p><a onclick="fullPopupPost(9,2)">서울시립대학교 전임교원 겸직허가에 관한 규정</a>'),undefined,spec);
+    assert.equal(ok.rules[0].lawId,9);assert.equal(ok.rules[0].matchedBy,'title');assert.equal(ok.rules.length,5);
+    assert.deepEqual(ok.coverage.titleQueries,['겸직']);assert.equal(ok.coverage.titleMatches,1);assert.equal(ok.coverage.totalCandidates,29);assert(ok.coverage.truncated);
+    const d=await compareUniversityRules({topic:'겸직',universities:['uos']},{loadDongguk:dongguk,client:make('<p class="infoLeft">1건</p><a onclick="fullPopupPost(9,2)">서울시립대학교 전임교원 겸직허가에 관한 규정</a>')});
+    assert.equal(d.columns[1].rules[0].role,'primary');assert.equal(d.columns[1].articles[0].universityRule,'서울시립대학교 전임교원 겸직허가에 관한 규정');
+    const broken=await loadExternal(uos,'겸직',spec.terms,make('<html>maintenance</html>'),undefined,spec);
+    assert.equal(broken.coverage.titleMatches,0);assert.equal(broken.rules.length,5);assert(!broken.rules.some(r=>r.lawId===9));
+    await assert.rejects(loadExternal(uos,'겸직',spec.terms,make(Object.assign(new Error('x'),{code:'ACCESS_DENIED'})),undefined,spec),e=>e.code==='ACCESS_DENIED');
+  });
   await check('동의어 검색은 후보가 부족할 때만 추가 조회, 조문 제목 일치 우선', async () => {
-    const queries=[];
+    const queries=[], titles=[];
     const c={request:async(s,path,data)=>{
-      if(path.includes('lawSerach')){const q=new URLSearchParams(data).get('SEARCH_TEXT');queries.push(q);
+      if(path.includes('lawSerach')){const p=new URLSearchParams(data), q=p.get('SEARCH_TEXT');(p.get('SEARCH_TYPE')==='LAWNAME'?titles:queries).push(q);
         return q==='근로장학'?'<p class="infoLeft">1건</p><a onclick="fullPopupPost(1,2)">사무분장규정</a>':'<p class="infoLeft">1건</p><a onclick="fullPopupPost(3,4)">장학규정</a>';}
       return path.includes('SEQ=3&')?'<div class="lawname">장학규정</div><div class="article">제3조(종류)</div><div class="hang">근로보조금은 근로 대가로 지급한다.</div>'
         :'<div class="lawname">사무분장규정</div><div class="article">제5조(학생팀)</div><div class="hang">근로장학생 관리</div>';
     }};
     const d=await compareUniversityRules({topic:'교내근로장학금',universities:['uos']},{loadDongguk:dongguk,client:c});
-    assert.deepEqual(queries,['근로장학','근로보조금']);assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
+    assert.deepEqual(queries,['근로장학','근로보조금']);assert.deepEqual(titles,['근로장학','장학']);assert.equal(d.columns[1].coverage.titleMatches,2);
+    assert.equal(d.columns[1].articles.length,2);assert.equal(d.columns[1].articles[0].universityRule,'장학규정');
     assert.equal(d.columns[1].coverage.truncated,false);assert.deepEqual(d.searchTerms,['근로장학','근로보조금']);
   });
   await check('자체 시스템 대학(서강 JSON·이화 HTML): 어댑터 등록·경로 제한·조문 추출', async () => {
