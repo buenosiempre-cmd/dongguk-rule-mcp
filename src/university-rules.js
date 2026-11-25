@@ -233,46 +233,66 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
 // 발급한 무료 OC 키(DONGGUK_LAWGO_OC)로 직접 조회한다(중간 서버 없음). 키가 없으면
 // LAWGO_OC_NOT_CONFIGURED로 '미설정'을 알린다. 목록·본문 모두 type=HTML로 받아,
 // 목록은 target=school&ID= 링크(규정명=링크 텍스트)로, 본문은 공통 변환기로 처리한다.
+// DRF XML의 한 요소 값(CDATA·태그·엔티티 제거).
+function xmlField(block, tag) {
+  const m = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(block || '');
+  if (!m) return '';
+  return m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ').trim();
+}
+const ymdDot = v => /^\d{8}$/.test(v) ? `${v.slice(0, 4)}.${v.slice(4, 6)}.${v.slice(6, 8)}` : (v || null);
+const ymdIso = v => /^\d{8}$/.test(v) ? `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` : null;
+
 async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) {
   const oc = String(process.env.DONGGUK_LAWGO_OC || source.oc || '').trim();
   if (!oc) throw error('LAWGO_OC_NOT_CONFIGURED');
   const hints = spec.titleHints || terms;
   const inst = source.institution || '서울대학교';
   const queries = uniq([...(spec.searchTerms || []), ...hints]).slice(0, 3);
-  const seen = new Set(), items = [];
+  const byId = new Map();
   let anyOk = false, firstErr = null;
   for (const q of queries) {
+    if (byId.size >= MAX_RULES && anyOk) break;
     try {
-      const html = await client.request(source, `/DRF/lawSearch.do?OC=${encodeURIComponent(oc)}&target=school&type=HTML&display=30&query=${encodeURIComponent(inst + ' ' + q)}`, undefined, 15000, signal);
+      const xml = await client.request(source, `/DRF/lawSearch.do?OC=${encodeURIComponent(oc)}&target=school&type=XML&display=30&query=${encodeURIComponent(inst + ' ' + q)}`, undefined, 15000, signal);
+      if (!/<AdmRulSearch/.test(xml)) throw error('UPSTREAM_FORMAT_CHANGED');
       anyOk = true;
-      const $ = cheerio.load(html);
-      $('a[href*="target=school"]').each(function () {
-        const href = ($(this).attr('href') || '').replace(/&amp;/g, '&');
-        const m = /[?&]ID=(\d+)/.exec(href);
-        const title = $(this).text().replace(/\s+/g, ' ').trim();
-        if (!m || !title || seen.has(m[1])) return; seen.add(m[1]);
-        items.push({ id: m[1], title });
-      });
+      for (const m of xml.matchAll(/<admrul\b[\s\S]*?<\/admrul>/g)) {
+        const block = m[0];
+        const id = xmlField(block, '행정규칙일련번호');
+        const title = xmlField(block, '행정규칙명');
+        // 소관부처가 대상 대학이고 현행인 규정만. 타교 규정·연혁본 제외.
+        if (!id || !title || !xmlField(block, '소관부처명').includes(inst) || xmlField(block, '현행연혁구분') !== '현행') continue;
+        if (byId.has(id)) continue;
+        byId.set(id, { id, title, promulgated: xmlField(block, '발령일자'), enforced: xmlField(block, '시행일자') });
+      }
     } catch (e) { firstErr = firstErr || e; if (safeCode(e) === 'TOTAL_TIMEOUT') throw e; }
   }
   if (!anyOk) throw firstErr || error('UPSTREAM_FORMAT_CHANGED');
-  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, MAX_RULES);
   const rules = [], failures = [];
   for (const hit of ranked) {
     try {
-      const html = await client.request(source, `/DRF/lawService.do?OC=${encodeURIComponent(oc)}&target=school&type=HTML&ID=${hit.id}`, undefined, 15000, signal);
-      const markdown = htmlToArticleMarkdown(html);
+      const xml = await client.request(source, `/DRF/lawService.do?OC=${encodeURIComponent(oc)}&target=school&type=XML&ID=${hit.id}`, undefined, 15000, signal);
+      if (!/<AdmRulService/.test(xml)) throw error('UPSTREAM_FORMAT_CHANGED');
+      // 조문은 조문내용 요소별로 온다("제1장 총칙", "제1조(목적) …"). 공통 변환기로 ### 제N조화.
+      const body = [...xml.matchAll(/<조문내용>([\s\S]*?)<\/조문내용>/g)]
+        .map(a => a[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim())
+        .filter(Boolean).join('\n');
+      const markdown = htmlToArticleMarkdown(body);
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
-      const effectiveAt = latestAddendaEffective(markdown);
+      const nm = hit.title.replace(/\s+/g, '');
+      const promul = xmlField(xml, '발령일자') || hit.promulgated, num = xmlField(xml, '발령번호');
       rules.push({ title: hit.title, lawId: Number(hit.id) || hit.id, historyId: 0, markdown,
-        url: `${source.origin}/DRF/lawService.do?target=school&type=HTML&ID=${hit.id}`,
-        revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
+        url: num && promul ? `${source.origin}/행정규칙/${encodeURIComponent(nm)}/(${num},${promul})` : `${source.origin}/행정규칙/${encodeURIComponent(nm)}`,
+        revisedAt: ymdDot(hit.promulgated), effectiveAt: ymdIso(hit.enforced), effectiveSource: hit.enforced ? 'lawgo_list' : null });
     } catch (e) {
       failures.push({ lawId: Number(hit.id) || 0, code: safeCode(e) });
       if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
-  return { rules, failures, coverage: { mode: 'lawgo_school', queries, totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+  return { rules, failures, coverage: { mode: 'lawgo_school', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
 }
 
 const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool };
