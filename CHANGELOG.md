@@ -2,6 +2,14 @@
 
 v0.14.0까지의 변경은 `docs/review-*.md`와 `docs/RELEASE-v0.12.0.md`에 있습니다.
 
+## 미배포
+
+### 타대학 비교: 중앙대(PDF 본문) 어댑터, PDF 텍스트 추출 도입
+
+#### 추가
+- **중앙대(`cau`)**: 목록은 자체 JSON API(`CampusRuleList`, 279개), 본문은 PDF인 `cau_pdf` 어댑터. 상세 페이지의 `fileDown('경로','파일명')`에서 최신본 PDF를 받아 `pdf-parse`로 텍스트를 추출해 조문화한다. 개정일은 목록 `MAX_DT`에서, 시행일은 부칙에서 채운다. 스캔본 등 텍스트 레이어가 없는 PDF는 조문 미검출로 건너뛴다.
+- 의존성 `pdf-parse` 추가. 공개 클라이언트에 바이너리(PDF) 응답 지원(`request(..., {binary:true})` → Buffer, 차단 페이지 거름)을 더했다. PDF 추출기는 테스트를 위해 주입 가능(`setPdfExtractor`).
+
 ## v0.15.1 (2026-11-25)
 
 ### 타대학 비교: 연세대(Next.js RSC) 어댑터

@@ -43,6 +43,7 @@ const SOURCES = Object.freeze([
   // 서울대(국립): 국가법령정보센터 DRF 학칙 채널. 운영자 OC 키(DONGGUK_LAWGO_OC) 필요.
   { key: 'snu', name: '서울대학교', origin: 'https://www.law.go.kr', mode: 'adapter', adapter: 'lawgo_school', institution: '서울대학교', pathPrefixes: ['/DRF/'] },
   { key: 'yonsei', name: '연세대학교', origin: 'https://rules.yonsei.ac.kr', mode: 'adapter', adapter: 'nextjs_rsc', pathPrefixes: ['/regulations'] },
+  { key: 'cau', name: '중앙대학교', origin: 'https://www.cau.ac.kr', mode: 'adapter', adapter: 'cau_pdf', pathPrefixes: ['/ajax/FR_SVC/', '/cms/FR_CON/', '/ajaxFile/FR_SVC/'] },
 ].map(Object.freeze));
 const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, frameSummary, DROP_LABELS } = require('./issue-frames');
 // 등록 주제는 사안 프레임(issue-frames.js)에서 온다. terms: 조문 일치어(첫 항목이 대표어·검색어).
@@ -350,7 +351,43 @@ async function loadYonsei(source, topic, terms, client, signal, spec = {}) {
   return { rules, failures, coverage: { mode: 'nextjs_rsc', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
 }
 
-const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool, nextjs_rsc: loadYonsei };
+// 중앙대: 자체 CMS. 목록은 JSON API(CampusRuleList), 본문은 상세페이지의 fileDown 인자로
+// 최신 PDF를 받아 텍스트 레이어를 추출(pdf-parse)해 조문화한다. 스캔본은 조문 미검출로 건너뛴다.
+// PDF 텍스트 추출기(테스트에서 주입 가능). 기본은 pdf-parse.
+let pdfExtractor = async buf => ((await require('pdf-parse')(buf)).text || '');
+function setPdfExtractor(fn) { pdfExtractor = fn; }
+
+async function loadCau(source, topic, terms, client, signal, spec = {}) {
+  const hints = spec.titleHints || terms;
+  let list;
+  try { list = JSON.parse(await client.request(source, '/ajax/FR_SVC/CampusRuleList.do', undefined, 15000, signal)).data; }
+  catch { throw error('UPSTREAM_FORMAT_CHANGED'); }
+  if (!Array.isArray(list)) throw error('UPSTREAM_FORMAT_CHANGED');
+  const items = list.filter(x => x && x.RULES).map(x => ({ no: String(x.RULES_NO), title: String(x.RULES), maxDt: x.MAX_DT || null }));
+  const ranked = rankByTitle(items, topic, terms, hints).slice(0, MAX_RULES);
+  const rules = [], failures = [];
+  for (const hit of ranked) {
+    try {
+      const detail = await client.request(source, `/cms/FR_CON/RulesDetailView.do?MENU_ID=30&SITE_NO=2&RULES_NO=${encodeURIComponent(hit.no)}`, undefined, 15000, signal);
+      const fd = /fileDown\('([^']+)','([^']+)'\)/.exec(detail); // 상세는 최신본이 먼저
+      if (!fd) throw error('UPSTREAM_FORMAT_CHANGED');
+      const buf = await client.request(source, `/ajaxFile/FR_SVC/CampusRulePDFDownload2.do?FILE_PATH=${encodeURIComponent(fd[1])}&FILE_NM=${encodeURIComponent(fd[2])}`, undefined, 20000, signal, { binary: true });
+      const text = await pdfExtractor(buf);
+      const markdown = htmlToArticleMarkdown(text);
+      if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED'); // 스캔본 등 텍스트 없음
+      const effectiveAt = latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId: hit.no, historyId: 0, markdown,
+        url: `${source.origin}/cms/FR_CON/RulesDetailView.do?MENU_ID=30&SITE_NO=2&RULES_NO=${hit.no}`,
+        revisedAt: hit.maxDt ? hit.maxDt.replace(/-/g, '.') : ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
+    } catch (e) {
+      failures.push({ lawId: hit.no, code: safeCode(e) });
+      if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
+    }
+  }
+  return { rules, failures, coverage: { mode: 'cau_pdf', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > MAX_RULES, complete: false } };
+}
+
+const ADAPTERS = { sogang_json: loadSogang, ewha_html: loadEwha, lawgo_school: loadLawgoSchool, nextjs_rsc: loadYonsei, cau_pdf: loadCau };
 
 function validateArguments(a) {
   if (!a || typeof a.topic !== 'string' || !a.topic.trim() || a.topic.length > 100) return 'topic은 1~100자 주제어여야 합니다.';
@@ -441,12 +478,13 @@ function abortable(promise, signal, code = 'TOTAL_TIMEOUT') {
 
 function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000, maxEntries = 64, timeoutMs = 8000, minIntervalMs = 500, disabled = () => ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE || '').trim().toLowerCase()) } = {}) {
   const cache = new Map(), inflight = new Map(), nextRequest = new Map();
-  async function request(source, path, body, budgetMs = timeoutMs, signal) {
+  async function request(source, path, body, budgetMs = timeoutMs, signal, opts = {}) {
     if (signal?.aborted) throw error('TOTAL_TIMEOUT');
+    const binary = opts.binary === true; // PDF 등 바이너리는 Buffer로 반환
     // 소스별 허용 경로. LawMaster는 /lmxsrv/, 자체 시스템 대학은 pathPrefixes로 선언.
     const okPath = source.pathPrefixes ? source.pathPrefixes.some(p => path.startsWith(p)) : /^\/lmxsrv\/(law|search)\//.test(path);
     if (!SOURCES.includes(source) || source.key === 'dongguk' || !okPath) throw error('SOURCE_NOT_ALLOWED');
-    const key = source.key + ':' + path + ':' + (body || '');
+    const key = (binary ? 'bin:' : '') + source.key + ':' + path + ':' + (body || '');
     const hit = cache.get(key);
     if (!disabled() && hit && now() - hit.at < ttlMs) return hit.text;
     if (inflight.has(key)) return abortable(inflight.get(key), signal);
@@ -465,6 +503,14 @@ function createPublicClient({ fetchImpl = fetch, now = Date.now, ttlMs = 600000,
         if (res.status >= 300 && res.status < 400) throw error('REDIRECT_NOT_FOLLOWED');
         if ([401, 403].includes(res.status)) throw error('ACCESS_DENIED');
         if (!res.ok) throw error('UPSTREAM_UNAVAILABLE');
+        if (binary) {
+          const buf = await res.buffer();
+          // 차단/오류 페이지(HTML)가 PDF 대신 올 때를 거른다.
+          if (/차단페이지|접근이 차단|Access Denied|<html/i.test(buf.toString('latin1', 0, 400))) throw error('ACCESS_DENIED');
+          if (cache.size >= maxEntries) cache.delete(cache.keys().next().value);
+          if (!disabled()) cache.set(key, { at: now(), text: buf });
+          return buf;
+        }
         const html = await res.text();
         if (/차단페이지|접근이 차단|비정상적인 접근|Access Denied|Web Application Firewall/i.test(html.slice(0, 4000))) throw error('ACCESS_DENIED');
         if (/type\s*=\s*["']password/i.test(html)) throw error('SESSION_REQUIRED');
@@ -749,4 +795,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, htmlToArticleMarkdown, latestRevisionDate };
+module.exports = { SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, htmlToArticleMarkdown, latestRevisionDate, setPdfExtractor };
