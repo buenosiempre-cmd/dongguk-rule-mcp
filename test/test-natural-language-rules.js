@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { buildCorpus, searchCorpus } = require('../src/corpus.js');
 const { queryConcepts } = require('../src/lookup.js');
 const {
-  businessTerms, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength,
+  businessTerms, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength,
   ruleScopeClass, ruleSubject, generalRuleWeight,
 } = require('../src/aliases.js');
 
@@ -54,6 +54,23 @@ const RULES = [
   [21, '다라규정', '3-1-2', [article(5, '위탁교육', '직원의 위탁교육 경비는 본교가 부담한다.')]],
   [22, '마바규정', '3-1-3', [article(2, '준용', '이 규정에서 정하지 않은 사항은 「가나규정」을 준용한다.')]],
   [23, '사아규정', '3-1-4', [article(2, '준용', '이 규정에서 정하지 않은 사항은 「가나규정」에 따른다.')]],
+  [24, '물품관리규정', '3-7-2', [
+    article(7, '사용관리', '부서의 장은 물품을 사용·관리한다.'),
+    article(16, '손·망실 처리', '사용자가 비품을 망실하였을 때에는 같은 비품으로 변상하게 해야 한다.'),
+  ]],
+  [25, '구매규정', '3-7-15', [
+    article(5, '구매 방법', '구매계약은 결재권자의 승인을 받은 후에 발주해야 한다.'),
+    article(29, '계약의 해제 및 해지', '계약상대자가 정당한 이유 없이 계약 이행을 착수하지 아니할 경우에는 계약을 해제 또는 해지할 수 있다.'),
+  ]],
+  [26, '한시계약직 임용에 관한 내규', '3-3-30', [article(15, '계약의 해지', '계약직 직원이 근무성적이 불량한 경우 계약을 해지할 수 있다.')]],
+  [27, '예산운용규정', '3-7-3', [
+    article(18, '예산의 목적외 사용금지', '예산이 정한 목적 외에 사용할 수 없다.'),
+    article(19, '예산의 전용', '항간에 예산의 과부족이 있을 때에는 상호 전용할 수 있다.'),
+  ]],
+  [28, '학사시행세칙', '2-1-2', [
+    article(66, '일반휴학', '일반휴학은 1회에 2학기까지 할 수 있다.'),
+    article(68, '임신·출산 및 육아휴학', '임신·출산 또는 만 8세 이하 자녀의 양육을 위한 휴학은 4학기까지 할 수 있다.'),
+  ]],
 ];
 
 async function main() {
@@ -68,6 +85,17 @@ async function main() {
   check('끝말 바꿔 쓰기: 심사비·심사료·심사수당, 시정요구·시정요청', businessTerms('심사비').includes('심사수당') && businessTerms('심사비').includes('심사료') && businessTerms('시정요구').includes('시정요청'));
   check('두 가지를 묻는 합성어는 나눠서 검색', compoundParts('월급날').join() === '월급,지급일' && compoundParts('여비').join() === '여비');
   check('여러 낱말로 된 표현', phraseConcepts('팀장이 없을 때 전결은 누가 해').includes('부재') && phraseConcepts('강의 시간 못 채운 교수').includes('미달') && !phraseConcepts('전결은 누가 해').length);
+  check('손상·분실 유형: 여러 말투가 같은 규정 용어로', ['망가뜨리면', '부숴먹으면', '깨뜨려서', '파손'].every(word => businessTerms(word).includes('훼손'))
+    && ['잃어버리면', '분실'].every(word => businessTerms(word).includes('망실')) && ['노트북', '모니터', '장비'].every(word => businessTerms(word).includes('비품')));
+  check('계약 유형: 해약·파기·끊다 → 해제·해지, 업체 → 계약상대자', ['해약', '파기', '끊을', '끊어도'].every(word => businessTerms(word).includes('해지'))
+    && businessTerms('납품업체').includes('계약상대자') && phraseConcepts('업체가 일을 안 하면 계약 취소해도 돼?').includes('해약'));
+  check('예산 유형: 다른 데 쓰다·돌려쓰다·유용 → 목적 외', ['예산을 다른 데 써도 돼', '사업비를 딴 용도로', '원래 목적 말고', '남는 돈 돌려써도 되나'].every(question => phraseConcepts(question).includes('목적외'))
+    && businessTerms('목적외').includes('목적 외') && businessTerms('유용').includes('전용') && !phraseConcepts('예산 편성 절차').length);
+  check('출산·육아 유형: 아이·자녀·키우다·양육', ['아이', '자녀', '키우느라', '키워야', '양육'].every(word => businessTerms(word).includes('육아')) && !businessTerms('키').includes('육아'));
+  check('청탁 유형: 부탁·압력·외압·로비', ['부탁', '압력', '외압', '로비'].every(word => businessTerms(word).includes('청탁')));
+  check('끝말 바꿔 쓰기: 겸임교수·겸임교원, 근로장학생·근로장학금', businessTerms('겸임교수').includes('겸임교원') && businessTerms('근로장학생').includes('근로장학금'));
+  check('다른 낱말 속에 든 검색어는 일치로 보지 않음', !containsTerm('한시계약직 임용에 관한 내규', '계약') && containsTerm('구매계약은 계약직 담당자가', '계약')
+    && !containsTerm('하자 보수 보증금', '보수') && containsTerm('보수의 지급일', '보수') && containsTerm('물품관리규정', '물품'));
   check('사전에 없는 낱말·객체 원형 키는 그대로', ['constructor', 'toString', '__proto__', '가나다'].every(word => businessTerms(word).length === 1));
   check('타대학 비교에는 규정 이름 동의어만', comparisonTerms('강사료').includes('강의료') && comparisonTerms('월급').length === 1 && comparisonTerms('식사').length === 1);
   check('사전은 규정 번호나 조문 번호를 담지 않음', [...require('../src/aliases.js').RULE_VOCABULARY.values()].flat().every(term => !/\d+조|^\d+$|LAW_ID/.test(term)));
@@ -99,6 +127,8 @@ async function main() {
   check('언제 → 기일·지급일', headingCueStrength('강의료는 언제 들어와요', '지급기일') === 1 && headingCueStrength('월급날이 며칠이야', '지급일') === 1);
   check('얼마 → 지급액이 지급으로 끝나는 제목보다 직접적', headingCueStrength('수당 얼마 받아', '지급액') > headingCueStrength('수당 얼마 받아', '수당지급') && headingCueStrength('수당 얼마 받아', '지급대상') === 0);
   check('~하면 어떻게 돼 → 조치', headingCueStrength('책임시간 못 채우면 어떻게 돼', '책임시간 미달교원 조치') > 0);
+  check('어떤 것들이 있어 → 종류, 주제어 징계만으로는 제재 의도가 아님', headingCueStrength('직원 징계는 어떤 것들이 있어', '징계의 종류') === 1 && headingCueStrength('직원 징계는 어떤 것들이 있어', '징계절차') === 0);
+  check('무슨 일을 해 → 임무·직무, 몇 명 → 정원', headingCueStrength('조교는 무슨 일을 해', '임무') === 1 && headingCueStrength('조교는 몇 명까지 둘 수 있어', '정원') === 1);
   check('의도를 묻지 않으면 0', headingCueStrength('출장 숙박비', '지급기일') === 0 && headingCueStrength('언제 들어와요', '목적') === 0);
 
   // ── 색인 검색 ──
@@ -126,6 +156,16 @@ async function main() {
   check('동사로 물어도 분실·변상 조문', book?.lawId === 19 && book.articles[0].article === '제29조');
   check('한 낱말 질문도 색인에서 찾음', first('연체하면 어떻게 돼')?.lawId === 19);
   check('다른 규정이 인용하고 조문이 많은 규정이 같은 내용이면 앞', order('직원 위탁교육 경비').indexOf(20) < order('직원 위탁교육 경비').indexOf(21));
+  const damage = first('사무실 노트북 망가뜨리면 물어내야 하나요');
+  check('손상·변상을 구어로 물어도 물품 본규정의 조문', damage?.lawId === 24 && damage.articles[0].article === '제16조');
+  for (const question of ['업체가 계약 안 지키면 계약 끊을 수 있어?', '납품업체가 약속을 어기면 해약할 수 있나요']) {
+    const hit = first(question);
+    check(`계약 해제·해지는 계약직 규정이 아니라 구매 규정: ${question}`, hit?.lawId === 25 && hit.articles[0].article === '제29조');
+  }
+  const budget = first('예산을 원래 목적 말고 다른 데 써도 돼?');
+  check('다른 데 쓰다 → 목적 외 사용 조문', budget?.lawId === 27 && budget.articles[0].article === '제18조');
+  const leave = first('아이 키우느라 휴학할 수 있어?');
+  check('아이 키우느라 → 육아휴학 조문', leave?.lawId === 28 && leave.articles[0].article === '제68조');
   check('영어 낱말·기호가 든 질문도 예외 없이 처리', ['constructor 규정', 'toString 여비', '??? !!!'].every(question => Array.isArray(searchCorpus(corpus, question).hits)));
 
   console.log(`📊 자연어 일반 규칙 검증: ${passed}개 통과`);

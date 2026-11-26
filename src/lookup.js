@@ -369,15 +369,18 @@ const QUESTION_STOPWORDS = new Set([
   '있나', '없나', '있을', '없을', '받아', '받나', '받는', '받을', '하려면', '하면', '해야', '하는', '하나', '되는', '됩니까',
   '싶어', '싶은', '궁금', '궁금해', '어느', '무엇인가요', '뭐가', '뭘', '이런', '그런', '어떠한',
   // Everyday verbs and adverbs around the topic words ("출장 가서", "먼저 발주", "다른 걸로").
-  '가는', '가서', '가면', '가도', '타고', '쓰고', '쓰면', '나면', '나와', '나오나', '걸리면',
+  '가는', '가서', '가면', '가도', '타고', '나면', '나와', '나오나', '걸리면',
   '누구한테', '누구한테서', '어디에', '어디로', '뭐해', '해도',
   '있어야', '없으면', '들어', '받기', '받으면', '받아도', '되나', '되면', '돼요', '싶은데',
   '전에', '후에', '먼저', '나중에', '대신', '다른', '걸로', '자기', '사람', '하루', '관련된', '때도', '그냥', '혹시', '아니면',
+  '원래', '말고', '받은', '남는', '거야', '건가요', '때문에', '다시', '것들', '무슨', '일을',
 ]);
 const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
 // "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
-const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
+const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|할|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
 // Nouns that end in 해; not "noun + 해".
+// Nouns that end in 할; not "noun + 할" (역할, 분할).
+const NOUN_ENDING_HAL = /(?:역할|분할|관할)$/;
 const NOUN_ENDING_HAE = /(?:피해|손해|재해|이해|방해|침해|상해|견해|화해|양해|오해|저해|유해|무해)$/;
 // Nouns that end in 도; not "noun + 도" (회계연도, 한도, 제도).
 const NOUN_ENDING_DO = /(?:연도|년도|제도|한도|용도|양도|빈도|정도|지도|태도|속도|온도|강도|난이도)$/;
@@ -398,7 +401,7 @@ function contentToken(raw) {
   // "며칠이야", "몇 년이에요": the copula is not part of the word.
   token = token.replace(/(?:이에요|이예요|예요|이야|인가요|인가|이죠|인지|입니까|이니)$/, '');
   if (knownTerm(token)) return token;
-  const verbStem = NOUN_ENDING_HAE.test(token) ? token : token.replace(VERB_ENDING, '');
+  const verbStem = NOUN_ENDING_HAE.test(token) || NOUN_ENDING_HAL.test(token) ? token : token.replace(VERB_ENDING, '');
   if (verbStem !== token) {
     // A bare verb ("받아", "해야") leaves nothing to search for.
     if (verbStem.length < 2) return null;

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks } = require('./parsers.js');
-const { businessTerms, generalRuleWeight, headingCueStrength, asksIntent } = require('./aliases.js');
+const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent } = require('./aliases.js');
 const { queryConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
@@ -234,7 +234,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
   const scoreText = text => {
     let score = 0; const matched = [], matchedConcepts = [], contributions = new Map();
     for (const concept of concepts) {
-      const found = concept.forms.filter(form => text.includes(form));
+      const found = concept.forms.filter(form => containsTerm(text, form));
       if (!found.length) continue;
       // A joined pair repeats its two words, so it adds half of its own weight.
       const gained = formWeight(concept, found) * (concept.joined ? 0.5 : 1);
