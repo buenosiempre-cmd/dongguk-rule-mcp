@@ -139,7 +139,8 @@ async function main() {
   check('출력 요청과 열람 대상, 학생과 직장 근속 문맥 구분',
     !phraseConcepts('휴학 기준 보여줘').includes('열람') && phraseConcepts('내 인사기록 볼 수 있어?').includes('열람')
     && !phraseConcepts('회사 몇 년 다녀야 장기근속수당 받아?').includes('수업연한') && !phraseConcepts('직원으로 몇 년 다니면 승진해?').includes('수업연한')
-    && phraseConcepts('학교 몇 년 다녀야 졸업해?').includes('수업연한'));
+    && phraseConcepts('학교 몇 년 다녀야 졸업해?').includes('수업연한') && !phraseConcepts('학교 직원으로 몇 년 다니면 승진해?').includes('수업연한')
+    && phraseConcepts('학생은 최대 몇 년까지 다닐 수 있어?').includes('수업연한'));
   check('질문 주체 우선, 질문에 주체가 없을 때 핵심어 사용', questionSubject('직원 연수 의무', '교원 연수') === '직원' && questionSubject('연수 의무', '교원 연수') === '교원' && questionSubject('직원 교원 연수', '학생') === null);
   const conflictingSubject = searchCorpus(corpus, '직원 연수 의무', {top: 11, keywords: parseKeywords('교원, 연수')});
   check('상충 핵심어에도 직원 주체 가중치 유지', conflictingSubject.hits.find(hit => hit.lawId === 7).score < searchCorpus(corpus, '연수 의무', {top: 11, keywords: parseKeywords('교원, 연수')}).hits.find(hit => hit.lawId === 7).score);
@@ -228,6 +229,8 @@ async function main() {
     check('law_id로 고른 규정에서도 핵심어로 조문을 고름', byId.sc.ok === true && ids(byId).join() === '6' && headings(byId.sc.data.rules[0].excerpt.text)[0] === '제73조' && byId.sc.data.search.identityStatus === 'explicit_id');
     const byIdQuestion = await call({law_id: 9, query: '식사 시간은 누가 정해?', keywords: '제재', max_sections: 2});
     check('law_id와 질문 및 핵심어: 핵심어와 질문 조문을 순서대로 보존', headings(byIdQuestion.sc.data.rules[0].excerpt.text).slice(0, 2).join() === '제17조,제6조');
+    const byNameQuestion = await call({rule_keyword: '기숙사규정', query: '식사 시간은 누가 정해?', keywords: '제재', max_sections: 2});
+    check('rule_keyword와 질문 및 핵심어: 핵심어와 질문 조문을 순서대로 보존', ids(byNameQuestion).join() === '9' && headings(byNameQuestion.sc.data.rules[0].excerpt.text).slice(0, 2).join() === '제17조,제6조');
     const named = await call({ query: '취업규칙에서 몇 살까지 일할 수 있는지', keywords: '정년, 연령' });
     check('질문에 규정명이 있으면 그 규정 안에서 핵심어로 조문을 고름', ids(named).join() === '6' && named.sc.data.search.identityStatus === 'exact_title' && headings(named.sc.data.rules[0].excerpt.text)[0] === '제73조');
     const namedOff = await call({ query: '취업규칙에서 몇 살까지 일할 수 있는지', keywords: '가나다라' });
@@ -245,8 +248,12 @@ async function main() {
       ids(topicTerms)[0] === 3 && topicTerms.sc.data.query.terms === '해지, 계약상대자' && headings(topicTerms.sc.data.rules[0].excerpt.text).includes('제29조'));
     const exact = await call({ query: '계약을 끊을 수 있는 경우', rule_keyword: '구매규정' });
     check('rule_keyword가 규정명과 같으면 지금처럼 그 규정을 조회', ids(exact).join() === '3' && exact.sc.data.search.identityStatus === 'exact_title' && exact.sc.data.query.ruleKeywordUsedAsKeyword === undefined);
-    const partial = await call({query: vague, rule_keyword: '취업'});
-    check('유일한 부분 규정명은 규정명 경로로 조회', ids(partial).join() === '6' && partial.sc.data.query.ruleKeywordUsedAsKeyword === undefined && partial.sc.data.search.mode !== '핵심어 색인');
+    const partial = await call({query: vague, rule_keyword: '인사규정 시행세칙'});
+    check('유일한 부분 규정명(규정 이름 꼴)은 규정명 경로로 조회', ids(partial).join() === '7' && partial.sc.data.query.ruleKeywordUsedAsKeyword === undefined && partial.sc.data.search.mode !== '핵심어 색인');
+    for (const word of ['취업', '기숙사']) {
+      const topicPartial = await call({query: vague, rule_keyword: word});
+      check(`한 제목에만 들어 있는 주제어(${word})는 규정으로 확정하지 않고 색인 경로`, topicPartial.sc.data.query.ruleKeywordUsedAsKeyword === word && topicPartial.sc.data.search.mode === '핵심어 색인' && topicPartial.sc.data.search.identityStatus !== 'exact_title');
+    }
     const multiple = await call({query: vague, rule_keyword: '구매'});
     check('여러 제목의 부분명은 기존 색인 경로 유지', multiple.sc.data.query.ruleKeywordUsedAsKeyword === '구매' && multiple.sc.data.search.mode === '핵심어 색인');
     const alone = await call({ rule_keyword: '해지' });

@@ -736,6 +736,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.score>=second.score*1.3);
   return {hits,dominant};
 }
+const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
 function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
@@ -1605,7 +1606,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         if(validStr(a.rule_keyword)&&validStr(a.query)&&!a.law_id&&indexStatus().available&&!requestCookie()){
           try{catalog=await loadCatalog();}catch{}
           const identity=catalog&&selectRuleCandidate(catalog,validStr(a.rule_keyword));
-          if(identity?.matchType==='partial'&&identity.candidates.length===1){
+          // A shortened rule name ("인사규정 시행세칙") that fits one title keeps the rule-name path. A bare topic
+          // word that happens to sit in one title ("기숙사", "취업") is still a topic word and goes to the index.
+          if(identity?.matchType==='partial'&&identity.candidates.length===1&&RULE_NAME_SUFFIX.test(String(a.rule_keyword).replace(/\s+/g,''))){
             input={...a,rule_keyword:identity.candidates[0].title};
           } else if(identity&&identity.matchType!=='exact'){
             topicAsRuleKeyword=validStr(a.rule_keyword);
