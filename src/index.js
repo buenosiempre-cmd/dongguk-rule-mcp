@@ -714,8 +714,10 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword}={})
     families.get(hit.family).push(entry);
   }
   const scope=requestedRuleScope(scopeQuery,campus);
-  const ranked=[...families.values()].flatMap(members=>selectRuleEditions(members,scope))
+  let ranked=[...families.values()].flatMap(members=>selectRuleEditions(members,scope))
     .sort((a,b)=>Number(b.scopeMatch)-Number(a.scopeMatch)||b.score-a.score||a.lawId-b.lawId);
+  // A specified, available scope must not be padded with unrelated editions.
+  if(scope.specified&&!scope.ambiguous&&ranked.some(hit=>hit.scopeMatch)) ranked=ranked.filter(hit=>hit.scopeMatch);
   // A rule named after a question word (위임전결규정 for "누가 전결해") is previewed even when another
   // rule's articles match more words: its answer may sit in an appendix the index does not cover.
   const titleFamilies=term=>new Set(ranked.filter(x=>x.title.includes(term)).map(x=>x.family)).size;
@@ -988,7 +990,7 @@ async function hLookup(rawKeyword, {
       details:{lawId,historyId,sourceType,warning:warningData},
     });
     const preferredArticle=indexMode&&autoTerms&&hit.topArticleInBody&&!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length?hit.topArticle:null;
-    const excerpt=extractRelevantBlocks(markdown,preferredArticle?`${effectiveTerms}, ${preferredArticle}`:effectiveTerms,{
+    const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
       maxBlocks:maxSections,maxChars,...(indexMode?{order:'relevance'}:{}),
       ...(preferredArticle?{priorityArticles:[preferredArticle]}:{}),
     });

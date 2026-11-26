@@ -14,6 +14,11 @@ async function main(){
  check('본문 포함은 반환 전체, top3는 상위 3개만; 후보 목록은 제외',()=>{const r=response([rule(1,''),rule(2,''),rule(3,''),rule(7,'### 제3조(목적) 본문')]);r.structuredContent.data.search={otherCandidates:[{lawId:8}]};const s=scoreResponse(q,r);assert(s.bodyIncluded);assert(!s.top3);assert(!s.top1);});
  check('오류 응답의 텍스트 불인정·본문 없는 규정 선택 수',()=>{const r={structuredContent:{ok:false,error:{code:'AMBIGUOUS_RULE'},data:{rules:[]}}};const s=scoreResponse(q,r);assert(s.choiceOnly);assert(!s.bodyIncluded);assert(!s.top1);});
  check('중간값·nearest-rank p95·오류 분모 명시',()=>{const rows=[10,20,30,40].map((elapsedMs,i)=>({...scoreResponse(q,response([rule(i===0?7:9,'### 제3조(목적) 본문')])),elapsedMs}));const s=statistics(rows);assert.equal(s.medianMs,25);assert.equal(s.p95Ms,40);assert.deepEqual(s.bodyIncluded,{hits:1,total:4,rate:0.25});});
+ check('시행일 표제·짧은 정답 규정은 적중률과 별도 집계',()=>{
+   const row={...scoreResponse(q,response([rule(7,'### 제3조(목적) 본문\n\n### 제1조(시행일) 시행한다.'),rule(9,'본문 속 제1조(시행일) 언급')])),elapsedMs:1};
+   const quality=statistics([row]).excerptQuality;
+   assert.equal(quality.enforcementHeadingRules,1);assert.equal(quality.enforcementHeadingQuestions,1);assert.equal(quality.shortExpectedRules,1);assert.equal(quality.meanRules,2);
+ });
  check('기존 배열은 기존 제목/키워드 기준 유지',()=>{const r=scoreResponse(['여비',['여비규정'],'숙박'],response([{title:'여비규정',excerpt:{text:'숙박비'}}]));assert(r.bodyIncluded);assert(r.top1);assert.equal(scoreResponse(['미채점',null,null],response([])).bodyIncluded,null);});
  check('CLI 출력 경로 필수·잘못된 옵션/시간 제한 거절',()=>{assert.throws(()=>parseArgs([]));assert.throws(()=>parseArgs(['--output','x','--timeout','0']));assert.equal(parseArgs(['--output','x.json']).output,'x.json');});
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');const dir=fs.mkdtempSync(path.join(os.tmpdir(),'nl-bench-'));

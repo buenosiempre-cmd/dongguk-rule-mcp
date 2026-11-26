@@ -60,7 +60,16 @@ function statistics(results) {
   const errors = {};
   for (const r of results) if (r.error) errors[r.error]=(errors[r.error]||0)+1;
   const metric = (rows,key) => ({ hits:rows.filter(r=>r[key]).length,total:rows.length,rate:rows.length?rows.filter(r=>r[key]).length/rows.length:null });
-  return { total:results.length, scored:scored.length, bodyIncluded:metric(body,'bodyIncluded'),top3:metric(scored,'top3'),top1:metric(scored,'top1'),
+  const hasEnforcementHeading = rule => /^\s*(?:#{1,6}[ \t]*)?(?:\*\*)?제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?[ \t]*[(（]시행일[)）]/m.test(rule.text || '');
+  const rules = results.flatMap(row => row.rules || []);
+  const excerptQuality = {
+    enforcementHeadingRules: rules.filter(hasEnforcementHeading).length,
+    enforcementHeadingQuestions: results.filter(row => (row.rules || []).some(hasEnforcementHeading)).length,
+    shortExpectedRules: results.reduce((n,row) => n + (row.rules || []).filter(rule => row.gt?.some(g => String(g.lawId) === String(rule.lawId)) && (rule.text || '').length < 500).length, 0),
+    meanRules: results.length ? rules.length / results.length : null,
+    meanCharacters: results.length ? rules.reduce((n,rule) => n + (rule.text || '').length, 0) / results.length : null,
+  };
+  return { excerptQuality, total:results.length, scored:scored.length, bodyIncluded:metric(body,'bodyIncluded'),top3:metric(scored,'top3'),top1:metric(scored,'top1'),
     medianMs:n?(elapsed[Math.floor((n-1)/2)]+elapsed[Math.ceil((n-1)/2)])/2:null,p95Ms:n?elapsed[Math.ceil(n*0.95)-1]:null,
     errors,choiceOnly:results.filter(r=>r.choiceOnly).length };
 }
@@ -77,7 +86,7 @@ function formatMarkdown(report) {
   const s=report.summary, metric=m=>`${m.hits}/${m.total} (${m.rate===null?'—':(m.rate*100).toFixed(1)+'%'})`;
   const cell=v=>String(v??'—').replace(/[|\n\r]/g,' ');
   return ['# 자연어 조회 벤치마크','',`측정: ${report.startedAt || 'offline'}`,`기준 커밋: ${report.gitHead || '—'}`,`문항 SHA-256: ${report.questionsSha256 || '—'}`,`색인 SHA-256: ${report.indexSha256 || '—'}`,'',
-    '| 지표 | 결과 |','|---|---|',`| 정답 조문 본문 포함 | ${metric(s.bodyIncluded)} |`,`| top3 | ${metric(s.top3)} |`,`| 1순위 | ${metric(s.top1)} |`,`| 중간값 / p95 | ${s.medianMs?.toFixed(1)} / ${s.p95Ms?.toFixed(1)} ms |`,`| 오류 코드 | ${JSON.stringify(s.errors)} |`,`| 본문 없이 규정 선택 요청 | ${s.choiceOnly} |`,'',
+    '| 지표 | 결과 |','|---|---|',`| 정답 조문 본문 포함 | ${metric(s.bodyIncluded)} |`,`| top3 | ${metric(s.top3)} |`,`| 1순위 | ${metric(s.top1)} |`,`| 중간값 / p95 | ${s.medianMs?.toFixed(1)} / ${s.p95Ms?.toFixed(1)} ms |`,`| 오류 코드 | ${JSON.stringify(s.errors)} |`,`| 본문 없이 규정 선택 요청 | ${s.choiceOnly} |`,`| 시행일 조문 표제가 든 반환 규정 / 문항 | ${s.excerptQuality?.enforcementHeadingRules} / ${s.excerptQuality?.enforcementHeadingQuestions} |`,`| 정답 규정 중 발췌 500자 미만 | ${s.excerptQuality?.shortExpectedRules} |`,`| 평균 반환 규정 수 / 본문 글자 수 | ${s.excerptQuality?.meanRules?.toFixed(2)} / ${s.excerptQuality?.meanCharacters?.toFixed(2)} |`,'',
     '법적 정확성·적용 여부를 판정하지 않습니다. 동일 lawId의 실제 본문에 조문/별표 표제가 있는지 확인합니다. top3는 반환 규정만 세고 후보 목록은 제외합니다. 기존 배열 문항은 기존 제목·키워드 방식으로 별도 채점합니다. p95는 nearest-rank입니다.','',
     '| ID | 본문 | top3 | 1순위 | ms | 오류 | 반환 규정 |','|---|---|---|---|---:|---|---|',
     ...report.results.map(r=>`| ${[r.id,r.bodyIncluded,r.top3,r.top1,r.elapsedMs.toFixed(1),r.error,r.rules.map(x=>`${x.lawId}:${x.title}`).join('; ')].map(cell).join(' | ')} |`),''].join('\n');

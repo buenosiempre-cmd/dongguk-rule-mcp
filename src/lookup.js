@@ -258,16 +258,24 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     };
   }
 
+  let outsideBody = false;
+  let priorityAssigned = false;
   const scored = blocks
     .map((block, index) => {
+      // Supplementary provisions restart article numbering. Once their boundary
+      // (or an attachment) is reached, the same number is not a main article.
+      if (block.split('\n').some(line => isBodyBoundary(line) === 'supplementary' || appendixHeading(line))) outsideBody = true;
       const context = index > 0 ? blocks[index - 1] : '';
-      const result = scoreBlock(block, tokens, context);
-      const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)(?=[ \t(（.:*]|$)/.exec(block)?.[1].replace(/[ \t]/g, '');
-      if (result && options.priorityArticles?.includes(heading)) result.score += 10000;
-      return result ? { block, index, ...result } : null;
+      const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)[ \t]*[(（]([^)）]+)[)）]/.exec(block);
+      const article = heading?.[1].replace(/[ \t]/g, '');
+      const genericHeading = heading && /^(?:목적|정의|용어의정의)$/.test(heading[2].replace(/\s/g, ''));
+      const priority = !outsideBody && !priorityAssigned && !genericHeading && options.priorityArticles?.includes(article);
+      const result = scoreBlock(block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
+      if (priority) priorityAssigned = true;
+      return result ? { block, index, ...result, priority: !!priority } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => b.score - a.score || a.index - b.index);
+    .sort((a, b) => Number(b.priority) - Number(a.priority) || b.score - a.score || a.index - b.index);
 
   if (!scored.length) {
     return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false, missingAppendices };
@@ -286,8 +294,24 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     if (articleContext) articleContext.push(index);
     return articleContext;
   });
-  const selectedIndexes = new Set(scored.slice(0, maxBlocks).map(x => x.index));
-  for (const item of scored.slice(0, maxBlocks)) {
+  // The priority article and its paragraphs consume one slot, never one slot
+  // per paragraph. Fill remaining slots using the original keyword ranking.
+  const priorityContext = scored[0]?.priority ? articleContexts[scored[0].index] : null;
+  const selectedMatches = scored.filter((item, rank) => !rank || !priorityContext?.includes(item.index)).slice(0, maxBlocks);
+  // Preserve previously selected annex evidence when a new priority article
+  // would displace it. Replace a lower-ranked ordinary match, within the limit.
+  if (scored[0]?.priority) {
+    const originalMatches = scored.filter(item => item.matched.length)
+      .sort((a, b) => b.score - a.score || a.index - b.index).slice(0, maxBlocks);
+    for (const annex of originalMatches.filter(item => appendixHeading(item.block.split('\n', 1)[0]))) {
+      if (selectedMatches.includes(annex)) continue;
+      const replaceAt = selectedMatches.findLastIndex(item => !item.priority && !appendixHeading(item.block.split('\n', 1)[0]));
+      if (replaceAt >= 0) selectedMatches[replaceAt] = annex;
+    }
+    selectedMatches.sort((a, b) => Number(b.priority) - Number(a.priority) || b.score - a.score || a.index - b.index);
+  }
+  const selectedIndexes = new Set(selectedMatches.map(x => x.index));
+  for (const item of selectedMatches) {
     for (const index of articleContexts[item.index] || []) selectedIndexes.add(index);
     if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0])) {
       if (item.index > 0) selectedIndexes.add(item.index - 1);
@@ -305,7 +329,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   // best-matching article first, so the length limit cuts the weaker ones.
   const rankOf = new Map();
   if (options.order === 'relevance') {
-    scored.slice(0, maxBlocks).forEach((item, rank) => {
+    selectedMatches.forEach((item, rank) => {
       for (const index of [item.index, ...(articleContexts[item.index] || [])]) if (!rankOf.has(index)) rankOf.set(index, rank);
     });
   }
@@ -313,7 +337,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const orderedIndexes = [...selectedIndexes].sort((a, b) => rank(a) - rank(b) || a - b);
   const selected = orderedIndexes.map(index => blocks[index]).join('\n\n');
   const matchedTerms = [...new Set(
-    scored.slice(0, maxBlocks).flatMap(x => x.matched)
+    selectedMatches.flatMap(x => x.matched)
   )];
   const clipped = truncateText(selected, maxChars);
   // Table context can recover a lower-ranked matching block. Only count
