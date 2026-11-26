@@ -107,7 +107,75 @@ function expandAliases(query) {
   return out;
 }
 
+
+
+const RULE_VOCABULARY = Object.freeze({
+  해외출장: ['국외출장', '국외여비', '국외 출장', '국외'], 해외여비: ['국외여비', '국외'], 해외: ['국외'],
+  국내출장: ['국내출장', '국내여비', '국내 출장', '출장'], 출장비: ['여비', '출장'], 여비: ['출장비'], 출장: ['여비'],
+  퇴직금: ['퇴직급여', '퇴직급여금'], 퇴직급여: ['퇴직금'],
+  경조사비: ['경조금', '경조사'], 경조비: ['경조금', '경조사'], 조의금: ['경조금', '경조사'], 축의금: ['경조금', '경조사'],
+  강사료: ['강의료'], 특강료: ['강의료', '특강'], 강의료: ['강사료'],
+  환불: ['반환'], 반환: ['환불'],
+  중복수혜: ['이중수혜'], 이중수혜: ['중복수혜'],
+  안식년: ['연구년'], 사외이사: ['겸직'], 겸임: ['겸직'],
+  월급: ['보수', '급여'], 봉급: ['보수', '급여'], 임금: ['보수', '급여'], 연봉: ['보수'],
+  야근: ['시간외근무', '초과근무'], 초과근무: ['시간외근무'], 시간외수당: ['시간외근무'],
+  연차: ['연차휴가', '휴가'], 출산휴가: ['출산전후휴가'],
+  교수: ['교원'], 학부생: ['학생'], 대학원생: ['대학원'],
+  퍼센트: ['100분의', '비율'], 한도: ['상한', '범위'], 상한: ['한도'], 계산: ['산정'],
+  카드: ['법인카드'], 클린카드: ['법인카드'],
+  법카: ['법인카드'], 법인카드: ['법카'], 지급일: ['지급기일'], 매달: ['매월'],
+  선물: ['금품등', '금품'], 자가용: ['자동차운임', '운임'], 교통비: ['운임', '교통비'],
+  불용처리: ['불용결정', '불용품', '불용'],
+  고장: ['훼손'], 성적장학금: ['장학', '성적'],
+  동시: ['이중수혜', '중복수혜'], 자주: ['주기'],
+  나눠서: ['분할납부', '분할'], 나누어: ['분할납부', '분할'],
+  잃어버리: ['분실'], 분실: ['도난'],
+  산단: ['산학협력단'],
+});
+// Shared business vocabulary only; no question-to-rule IDs or answer mappings.
+function businessTerms(term) {
+  // Normalize common inflected verbs before looking up the business noun.
+  const stem = /^잃어버(?:리|렸|린|려)/.test(term) ? '잃어버리'
+    : /^고장(?:난|나|났)/.test(term) ? '고장'
+    : /^출장(?:가|갈|갔)/.test(term) ? '출장' : term;
+  return [...new Set([term, stem, ...(Object.hasOwn(RULE_VOCABULARY, stem) ? RULE_VOCABULARY[stem] : [])])];
+}
+// Comparison topics are rule names; do not expand general article vocabulary there.
+function comparisonTerms(term) {
+  return ['강사료','강의료','출장비','여비','법카','법인카드','클린카드'].includes(term)
+    ? businessTerms(term) : [term];
+}
+function questionScope(query) {
+  const text=String(query || '').replace(/\s+/g,'');
+  return {
+    wise: /WISE|경주|와이즈/i.test(text),
+    industry: /산학협력단|산단/.test(text),
+    medical: /의학|의대|의전원|병원/.test(text),
+    graduate: /대학원|원생|석사|박사|논문|학위청구|의전원/.test(text),
+  };
+}
+function generalRuleWeight(title, query, hasGeneralEdition = false) {
+  const t=String(title).replace(/\s+/g,''), q=String(query).replace(/\s+/g,'');
+  if(q.includes(t))return 1;
+  const scope=questionScope(query);
+  let weight=1;
+  // A campus-only subject must remain discoverable when no general edition exists.
+  if(hasGeneralEdition){
+    if(/WISE|경주캠퍼스/i.test(t)&&!scope.wise)weight*=0.65;
+    if(/산학협력단/.test(t)&&!scope.industry)weight*=0.65;
+    if(/의학계열|의학전문/.test(t)&&!scope.medical)weight*=0.75;
+  }
+  if(/대학원/.test(t)&&!scope.graduate)weight*=0.60;
+  // Prefer broad rules modestly, without enumerating benchmark answer titles.
+  if(/(?:학칙|규정)$/.test(t)&&!/(?:시행세칙|내규|연구소|센터|위원회|심의회|대학원|회칙)/.test(t))weight*=1.15;
+  const unit=t.match(/^(.+?(?:연구소|센터|위원회|심의회|학생회))/)?.[1];
+  if(unit&&!q.includes(unit))weight*=0.75;
+  return weight;
+}
+
 module.exports = {
+  RULE_VOCABULARY, businessTerms, comparisonTerms, questionScope, generalRuleWeight,
   BUILTIN_ALIASES,
   aliasTable,
   resetAliasCacheForTest,

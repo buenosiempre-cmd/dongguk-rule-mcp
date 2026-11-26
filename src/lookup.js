@@ -1,6 +1,6 @@
 'use strict';
 
-const { expandAliases, middotVariants, normalizeMiddots } = require('./aliases.js');
+const { expandAliases, middotVariants, normalizeMiddots, businessTerms, questionScope } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
@@ -262,6 +262,8 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     .map((block, index) => {
       const context = index > 0 ? blocks[index - 1] : '';
       const result = scoreBlock(block, tokens, context);
+      const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)(?=[ \t(（.:*]|$)/.exec(block)?.[1].replace(/[ \t]/g, '');
+      if (result && options.priorityArticles?.includes(heading)) result.score += 10000;
       return result ? { block, index, ...result } : null;
     })
     .filter(Boolean)
@@ -384,22 +386,7 @@ function queryContentTokens(value, maxTokens = 4) {
 // Everyday words for what the rules call something else. Each entry lists the
 // rule vocabulary to try alongside the question word; only forms that occur in
 // the indexed rules are used, so an entry cannot invent a match.
-const RULE_VOCABULARY = new Map(Object.entries({
-  해외출장: ['국외출장', '국외여비', '국외 출장', '국외'], 해외여비: ['국외여비', '국외'], 해외: ['국외'],
-  국내출장: ['국내출장', '국내여비', '국내 출장', '출장'], 출장비: ['여비', '출장'], 출장: ['여비'],
-  퇴직금: ['퇴직급여', '퇴직급여금'], 퇴직급여: ['퇴직금'],
-  경조사비: ['경조금', '경조사'], 경조비: ['경조금', '경조사'], 조의금: ['경조금', '경조사'], 축의금: ['경조금', '경조사'],
-  강사료: ['강의료'], 특강료: ['강의료', '특강'], 강의료: ['강사료'],
-  환불: ['반환'], 반환: ['환불'],
-  중복수혜: ['이중수혜'], 이중수혜: ['중복수혜'],
-  안식년: ['연구년'], 사외이사: ['겸직'], 겸임: ['겸직'],
-  월급: ['보수', '급여'], 봉급: ['보수', '급여'], 임금: ['보수', '급여'], 연봉: ['보수'],
-  야근: ['시간외근무', '초과근무'], 초과근무: ['시간외근무'], 시간외수당: ['시간외근무'],
-  연차: ['연차휴가', '휴가'], 출산휴가: ['출산전후휴가'],
-  교수: ['교원'], 학부생: ['학생'], 대학원생: ['대학원'],
-  퍼센트: ['100분의', '비율'], 한도: ['상한', '범위'], 상한: ['한도'], 계산: ['산정'],
-  카드: ['법인카드'], 클린카드: ['법인카드'],
-}));
+
 
 // Search concepts of a question: each content word with the rule vocabulary
 // that may stand for it, plus adjacent words joined the way rules write them
@@ -412,10 +399,10 @@ function queryConcepts(value, maxConcepts = 6) {
   }
   const kept = new Set([...ordered].sort((a, b) => b.length - a.length).slice(0, maxConcepts));
   const tokens = ordered.filter(token => kept.has(token));
-  const concepts = tokens.map(term => ({ term, alternatives: [term, ...(RULE_VOCABULARY.get(term) || [])] }));
+  const concepts = tokens.map(term => ({ term, alternatives: businessTerms(term) }));
   for (let i = 0; i + 1 < tokens.length; i++) {
     const joined = tokens[i] + tokens[i + 1];
-    const concept = { term: joined, alternatives: [joined, ...(RULE_VOCABULARY.get(joined) || [])], joinedFrom: [tokens[i], tokens[i + 1]] };
+    const concept = { term: joined, alternatives: businessTerms(joined), joinedFrom: [tokens[i], tokens[i + 1]] };
     concepts.push(concept);
   }
   return { tokens, concepts };
@@ -435,9 +422,10 @@ function ruleFamily(title) {
 function requestedRuleScope(query, campus = 'all') {
   const text = String(query || '').replace(/\s+/g, '');
   const campuses = new Set(campus === 'all' ? [] : [campus]);
-  if (/WISE|경주캠퍼스/i.test(text)) campuses.add('wise');
+  const namedScope = questionScope(text);
+  if (namedScope.wise) campuses.add('wise');
   if (/서울캠퍼스/.test(text)) campuses.add('seoul');
-  const institutions = ['산학협력단', '의학계열'].filter(name => text.includes(name));
+  const institutions = [namedScope.industry && '산학협력단', namedScope.medical && '의학계열'].filter(Boolean);
   return { campuses: [...campuses], institutions, specified: campuses.size > 0 || institutions.length > 0,
     ambiguous: campuses.size > 1 || institutions.length > 1 };
 }

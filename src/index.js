@@ -987,8 +987,10 @@ async function hLookup(rawKeyword, {
     if(!validStr(markdown)) return failure('CONTENT_UNAVAILABLE', 'HWP 원문과 HTML 대체 본문에서 규정 내용을 확인할 수 없습니다.', {
       details:{lawId,historyId,sourceType,warning:warningData},
     });
-    const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
+    const preferredArticle=indexMode&&autoTerms&&hit.topArticleInBody&&!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length?hit.topArticle:null;
+    const excerpt=extractRelevantBlocks(markdown,preferredArticle?`${effectiveTerms}, ${preferredArticle}`:effectiveTerms,{
       maxBlocks:maxSections,maxChars,...(indexMode?{order:'relevance'}:{}),
+      ...(preferredArticle?{priorityArticles:[preferredArticle]}:{}),
     });
     let historyText='';
     let history=[];

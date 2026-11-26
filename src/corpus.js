@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks } = require('./parsers.js');
+const { generalRuleWeight } = require('./aliases.js');
 const { queryConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
@@ -188,6 +189,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
     }
     return { score, matched, matchedConcepts };
   };
+  const generalFamilies = new Set(corpus.rules.filter(r => !ruleFamily(r.title).edition).map(r => ruleFamily(r.title).family));
   const hits = [];
   for (const rule of corpus.rules) {
     const scored = [];
@@ -208,7 +210,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
     const mostMatched = Math.max(0, ...scored.map(item => item.matched.length));
     hits.push({
       lawId: rule.lawId, historyId: rule.historyId, title: rule.title, code: rule.code, revisedAt: rule.revisedAt,
-      score: (scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01,
+      score: ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01) * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family)),
       matchedTerms, matchedConcepts, ...ruleFamily(rule.title),
       // Articles containing as many of the query words as the best article does.
       matchCount: scored.filter(item => item.matched.length === mostMatched).length,
