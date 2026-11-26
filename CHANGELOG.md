@@ -1,10 +1,10 @@
 # 변경 기록
 
-## 미배포 (v0.15.8 이후 변경, 2026-11-26)
+## v0.15.9 (2026-11-26)
 
 ### 모든 도구 기본 켜짐
 
-아래 동작은 다음 릴리스부터 적용됩니다. 배포본 v0.15.8은 그대로이며 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소 또는 `LAW_OC`가 필요합니다. 공용 서버는 이 값들이 이미 들어 있어 지금도 모든 도구가 켜져 있습니다. 다음 릴리스에서 설치 링크와 내 PC 설치 안내를 함께 고칩니다.
+아래 동작은 v0.15.9부터 적용됩니다. v0.15.8 이하 설치본은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소 또는 `LAW_OC`가 필요합니다.
 
 - 타대학 비교(`compare_university_rules`)는 환경변수가 없어도 켜져 있습니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0`을 넣었을 때만 꺼집니다.
 - 법령 연결(`get_rule_references`의 `include_law_text`, `get_rule_upper_laws`)은 법령 MCP 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있으면 `DONGGUK_LEGAL_MCP_ENABLED`·`DONGGUK_PUBLIC_LAW_LINK` 없이도 켜집니다. 각각 `0`이면 꺼집니다. 주소만 있으면 `streamable-http`로 연결합니다.
