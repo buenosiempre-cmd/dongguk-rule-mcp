@@ -187,6 +187,29 @@ dongguk-rule-mcp --build-index
 - 색인이 8일을 넘기면 `search_rule_deep`은 공식 사이트 검색으로 돌아갑니다. `get_service_info`의 `fullTextIndex.stale`로 확인합니다. `lookup_dongguk_rule`은 오래된 색인도 후보를 찾는 데 쓰되 본문은 항상 현행 개정본을 다시 읽고, 결과에 색인 기준일과 "8일 초과"를 표시합니다.
 - stdio로 쓰는 개인 설치(Claude Code·Claude Desktop 등)에는 자동 갱신이 없습니다. launchd 또는 cron으로 `dongguk-rule-mcp --build-index`를 주 1~2회 실행합니다. 예: `~/Library/LaunchAgents/com.dongguk-rule-mcp.build-index.plist`에 `ProgramArguments`로 `node <설치경로>/src/index.js --build-index`, `StartCalendarInterval`로 `Weekday 1, Hour 6`를 두고 `launchctl bootstrap gui/$(id -u) <plist>`로 등록합니다. 서버가 쓰는 계정·`XDG_CACHE_HOME`과 같아야 하며, 색인은 공개 규정만 담으므로 로그인 쿠키는 필요하지 않습니다.
 
+### 의미검색 운영 (선택 기능)
+
+`lookup_dongguk_rule`의 자연어 질문 조회에 조문 단위 의미검색을 더하는 선택 기능입니다. 전문 색인의 본문 조문마다 로컬 임베딩 모델로 벡터를 만들어 두고, 질문을 한 번 임베딩해 메모리 안에서 비교합니다. 외부 임베딩 API를 쓰지 않으며, 설치하지 않으면 기존 낱말 색인만으로 동작합니다.
+
+```bash
+# 1) 런타임 설치(패키지 의존성에 없음, 약 480MB). 서버 설치 폴더 또는 별도 폴더에 설치
+npm install @huggingface/transformers
+# 별도 폴더에 설치했다면 그 폴더(안에 node_modules가 있는 곳)를 알려 줌
+export DONGGUK_MCP_SEMANTIC_RUNTIME=/path/to/folder
+# 2) 전문 색인이 있는 상태에서 조문 벡터 생성. 모델(약 145MB)은 이때만 내려받음
+dongguk-rule-mcp --build-semantic-index
+```
+
+- 쓰는 곳: 규정 순위(뜻이 가장 가까운 조문을 가진 규정 상위 10개의 점수를 최대 2배까지 올림)와 발췌(낱말이 고른 조문 다음 자리에 뜻이 가장 가까운 조문을 추가). 낱말이 하나도 맞지 않는 규정을 새로 후보에 넣지는 않고, 한 규정만 미리보기로 보여 줄지는 낱말 점수로만 판정합니다. 규정명·`law_id`·조문 번호를 명시한 조회와 과거 기준일 조회는 바뀌지 않습니다.
+- 켜고 끄기: 벡터 파일과 런타임이 모두 있으면 켜집니다. `DONGGUK_MCP_SEMANTIC=0`이면 끕니다. 응답의 `search.semantic`과 "검색 방식" 줄(`+ 의미검색`)로 실제 사용 여부를 확인합니다.
+- 폴백: 런타임·모델·벡터 파일이 없거나 손상됐을 때, 모델이 다를 때, 질문 임베딩이 `DONGGUK_MCP_SEMANTIC_TIMEOUT_MS`(기본 1500)를 넘길 때는 낱말 색인만으로 답합니다. 불러오기에 실패하면 10분 뒤 다시 시도합니다. 질문을 답하는 동안에는 네트워크로 모델을 내려받지 않습니다.
+- 모델: 기본 `Xenova/multilingual-e5-small`(q8). `DONGGUK_MCP_SEMANTIC_MODEL`로 `Xenova/multilingual-e5-base`, `Xenova/bge-m3`를 고를 수 있으나 공개 문항 측정에서 더 낫지 않았습니다. 모델을 바꾸면 벡터를 다시 만들어야 하며, 다른 모델로 만든 벡터 파일은 쓰지 않습니다.
+- 파일 위치: 벡터는 공개 캐시의 `semantic/semantic-v1.bin`·`semantic-v1.json`(513개 규정 기준 약 17MB), 모델은 `semantic/models/`(`DONGGUK_MCP_SEMANTIC_MODEL_DIR`로 변경).
+- 자원(2026-11-26, Apple M5 Max 실측): 벡터 생성 9,790개 조문 약 130초·최대 메모리 약 1.3GB(여러 코어를 모두 사용하므로 공용 서버에서는 한가한 시간에 실행), 서버 프로세스 메모리 약 640MB 증가, 질문당 지연 약 10ms 증가(핵심어와 함께면 약 20ms), 첫 질문은 모델 불러오기로 약 0.5초. 공용 맥미니 수치는 설치 후 `/status`와 실측으로 확인합니다.
+- 갱신: `--build-semantic-index`를 다시 실행하면 본문이 바뀐 조문만 다시 임베딩합니다. `DONGGUK_MCP_INDEX_REFRESH_HOURS`로 전문 색인을 자동 갱신하는 HTTP 서버는 벡터 파일이 이미 있을 때 벡터도 함께 갱신합니다. 색인 뒤 본문이 바뀐 조문은 다시 만들기 전까지 의미 점수에서만 빠집니다.
+- HTTP 서버는 기동할 때 모델을 미리 불러오고, `/status`의 `semanticSearch`에 설정·모델·벡터 수·현재 색인과 맞는 조문 수·마지막 오류를 표시합니다.
+- 한계: 벡터는 HTML 본문 조문으로 만들므로 별표·서식은 의미검색 범위 밖입니다(조회 때 읽는 HWP 원문의 별표는 기존 방식대로 발췌).
+
 ## 7. 장애 대응
 
 | 증상 | 확인 순서 | 이용자에게 안내할 상태 |

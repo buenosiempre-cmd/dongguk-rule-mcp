@@ -258,7 +258,41 @@ const KEYWORD_PHRASE_HEADING_SHARE = 1;
 // the question's wording weighs less beside them.
 const INTENT_SHARE_WITH_KEYWORDS = 0.5;
 
-function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = {}) {
+const GENERIC_HEADING = /^(?:목적|정의|용어의정의|적용범위)$/;
+const headingOf = content => /^[^\n]*?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]{1,40})[)）]/.exec(content)?.[1] || null;
+// An article that can be the answer: in the main body, and not the purpose or definition article.
+const answerable = block => {
+  const heading = headingOf(block.content)?.replace(/\s+/g, '');
+  return !block.supplementary && !(heading && GENERIC_HEADING.test(heading));
+};
+
+// Semantic search (semantic.js) scores every article by closeness in meaning to
+// the question. It supports the word index and never replaces it: alone it
+// names the right rule less often than the words do. Two uses, both by rank
+// (cosine values of different questions are not comparable):
+// - a rule whose closest article is among the closest of all rules scores
+//   higher, up to twice for the closest rule, fading to no change at this rank;
+const SEMANTIC_RULE_REACH = 10;
+const SEMANTIC_RULE_SHARE = 1;
+// - each rule reports its closest article, which callers excerpt next to the
+//   article the words chose. The word ranking of articles itself is unchanged;
+//   reordering articles by meaning lost more answers than it found.
+function arrangeSemantic(corpus, scores) {
+  if (!scores?.size) return null;
+  const closestArticle = new Map(), closeness = [];
+  for (const rule of corpus.rules) {
+    let best = null;
+    for (const block of rule.blocks) if (scores.has(block) && answerable(block) && !(scores.get(best) >= scores.get(block))) best = block;
+    if (!best) continue;
+    closestArticle.set(rule.lawId, best);
+    closeness.push([rule.lawId, scores.get(best)]);
+  }
+  const ruleRank = new Map(closeness.sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([lawId], i) => [lawId, i + 1]));
+  return { closestArticle, ruleRank };
+}
+
+function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, semantic = null } = {}) {
+  const sem = arrangeSemantic(corpus, semantic);
   const total = corpus.rules.length || 1;
   const frequencies = new Map();
   const documentFrequency = term => {
@@ -294,8 +328,6 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
   const formWeight = (concept, forms) => Math.max(0, ...forms.map(form => concept.weights.get(form)));
   const words = concepts.filter(concept => !concept.joined);
   const intent = asksIntent(query);
-  const headingOf = content => /^[^\n]*?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]{1,40})[)）]/.exec(content)?.[1] || null;
-  const GENERIC_HEADING = /^(?:목적|정의|용어의정의|적용범위)$/;
   // Adjacent question words that also sit together in an article ("예산의 전용").
   // Keywords pair only inside one phrase ("계약 해지"), never across commas or with question words.
   const adjacent = [];
@@ -385,10 +417,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
         else if (!seen.has(block) && title.matched.length) articleOrder.push({ block, score: 0, matched: [], matchedConcepts: [], contributions: new Map(), rank: bonus * 0.9 });
       }
     }
-    const usable = item => {
-      const heading = headingOf(item.block.content)?.replace(/\s+/g, '');
-      return !item.block.supplementary && !(heading && GENERIC_HEADING.test(heading));
-    };
+    const usable = item => answerable(item.block);
     for (const item of articleOrder) {
       const heading = headingOf(item.block.content)?.replace(/\s+/g, '');
       if (heading && GENERIC_HEADING.test(heading)) item.rank -= 1000;
@@ -398,11 +427,16 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
     const matchedTerms = [...new Set([...title.matched, ...scored.flatMap(item => item.matched)])];
     const matchedConcepts = [...new Set([...title.matchedConcepts, ...scored.flatMap(item => item.matchedConcepts)])].filter(term => words.some(word => word.term === term));
     const mostMatched = Math.max(0, ...scored.map(item => item.matched.length));
+    const wordScore = ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01)
+      * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family), { code: rule.code, forms: searchForms })
+      * (standing.get(rule.lawId) || 1) * subjectWeight(rule.title, subject);
+    const semanticRuleRank = sem?.ruleRank.get(rule.lawId) || null;
+    const closeness = semanticRuleRank && semanticRuleRank <= SEMANTIC_RULE_REACH ? 1 - (semanticRuleRank - 1) / SEMANTIC_RULE_REACH : 0;
     hits.push({
       lawId: rule.lawId, historyId: rule.historyId, title: rule.title, code: rule.code, revisedAt: rule.revisedAt,
-      score: ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01)
-        * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family), { code: rule.code, forms: searchForms })
-        * (standing.get(rule.lawId) || 1) * subjectWeight(rule.title, subject),
+      score: wordScore * (1 + SEMANTIC_RULE_SHARE * closeness),
+      // The score from words alone. Callers judge how clearly one rule leads by this, not by the semantic lift.
+      wordScore, semanticRuleRank, semanticArticle: sem?.closestArticle.get(rule.lawId)?.article || null,
       matchedTerms, matchedConcepts, ...ruleFamily(rule.title),
       // Concepts that only the rule's title carries say nothing about its articles.
       articleConcepts: [...new Set(scored.flatMap(item => item.matchedConcepts))].filter(term => words.some(word => word.term === term)),
@@ -419,7 +453,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
   hits.sort((a, b) => b.score - a.score || a.lawId - b.lawId);
   const tokens = words.map(word => word.forms[0]);
   return {
-    tokens: [...tokens, ...missingTerms], missingTerms, rewrittenTerms,
+    tokens: [...tokens, ...missingTerms], missingTerms, rewrittenTerms, semantic: !!sem,
     // Every form searched, for callers that re-read or excerpt the matched rules.
     searchTerms: [...new Set(concepts.flatMap(concept => concept.forms))],
     ...keywordReport, keywordMode,
