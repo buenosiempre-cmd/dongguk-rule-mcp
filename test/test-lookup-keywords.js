@@ -138,6 +138,7 @@ async function main() {
 
   check('출력 요청과 열람 대상, 학생과 직장 근속 문맥 구분',
     !phraseConcepts('휴학 기준 보여줘').includes('열람') && phraseConcepts('내 인사기록 볼 수 있어?').includes('열람')
+    && phraseConcepts('회사가 저장한 내 개인정보를 보여 달라고 할 수 있어?').includes('열람')
     && !phraseConcepts('회사 몇 년 다녀야 장기근속수당 받아?').includes('수업연한') && !phraseConcepts('직원으로 몇 년 다니면 승진해?').includes('수업연한')
     && phraseConcepts('학교 몇 년 다녀야 졸업해?').includes('수업연한') && !phraseConcepts('학교 직원으로 몇 년 다니면 승진해?').includes('수업연한')
     && phraseConcepts('학생은 최대 몇 년까지 다닐 수 있어?').includes('수업연한')
