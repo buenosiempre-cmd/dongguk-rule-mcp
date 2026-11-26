@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks } = require('./parsers.js');
-const { generalRuleWeight } = require('./aliases.js');
+const { businessTerms, generalRuleWeight, headingCueStrength, asksIntent } = require('./aliases.js');
 const { queryConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
@@ -112,6 +112,7 @@ function matchBlocks(blocks, tokens, weights) {
 // a three-syllable word such as 특강료 or 강사료 keeps its first two syllables
 // (특강, 강사) because its last two (강료, 사료) are fragments of other words.
 // Forms shorter than two syllables or found in most rules are not used.
+const VERB_REMNANT = /(?:면|고|서|는|야|어|아|이|요|니|게|던|든|도|만|지|해|돼|네|죠|까|나|라)$/;
 function rewriteMissingToken(token, documentFrequency, total) {
   if (token.length < 3) return null;
   const candidates = [];
@@ -122,6 +123,8 @@ function rewriteMissingToken(token, documentFrequency, total) {
     candidates.sort((a, b) => b.length - a.length);
   }
   for (const form of candidates) {
+    // Two syllables left of an inflected verb ("늦어지면" → 지면, "올리고" → 리고) are not a word.
+    if (form.length === 2 && VERB_REMNANT.test(form)) continue;
     const df = documentFrequency(form);
     if (df && df <= total * 0.5) return form;
   }
@@ -143,21 +146,61 @@ function planConcepts(query, documentFrequency, total) {
       if (forms.length) concepts.push({ term: concept.term, forms, joined: true });
       continue;
     }
+    // "출산휴가", "평가": the last syllable belongs to the word when the rules almost
+    // always write the stem with it.
+    if (concept.written && documentFrequency(concept.written) >= documentFrequency(concept.term) * 0.8 && documentFrequency(concept.written)) {
+      // The dictionary may know the word either way ("동시에" → 동시 → 이중수혜).
+      const vocabulary = businessTerms(concept.term).filter(form => form !== concept.term);
+      concept.term = concept.written;
+      forms = [...new Set([...businessTerms(concept.written), ...vocabulary])].filter(form => documentFrequency(form));
+    }
     const term = concept.term;
     // "절차가": a noun plus the subject particle when the bare noun is far more common.
     if (term.length === 3 && term.endsWith('가')) {
       const stem = term.slice(0, 2), stemFrequency = documentFrequency(stem);
-      if (stemFrequency && documentFrequency(term) < stemFrequency * 0.05) { rewrittenTerms[term] = stem; forms = [stem]; }
+      if (stemFrequency && documentFrequency(term) < stemFrequency * 0.05) {
+        rewrittenTerms[term] = stem;
+        concept.term = stem;
+        forms = businessTerms(stem).filter(form => documentFrequency(form));
+      }
     }
     if (!forms.length) {
       const shorter = rewriteMissingToken(term, documentFrequency, total);
       if (shorter) { rewrittenTerms[term] = shorter; forms = [shorter]; }
     } else if (!documentFrequency(term) && !rewrittenTerms[term]) rewrittenTerms[term] = forms[0];
-    if (forms.length) concepts.push({ term, forms, joined: false });
+    if (forms.length) concepts.push({ term: concept.term, forms, joined: false });
     else missingTerms.push(term);
   }
   return { original, concepts, rewrittenTerms, missingTerms };
 }
+
+// How central a rule is in the rule book: rules that many other rules cite by
+// name (「학칙」, 「교원인사규정」) and rules with many articles are the general
+// ones people usually mean. A mild preference, computed once per index.
+// 1 for a short rule nobody cites; 학칙 (cited by 46 rules, 70 articles) gets about 1.35, the cap.
+const standings = new WeakMap();
+function ruleStanding(corpus) {
+  if (standings.has(corpus)) return standings.get(corpus);
+  const compact = text => String(text || '').replace(/\s+/g, '');
+  const citedBy = new Map();
+  for (const rule of corpus.rules) {
+    const names = new Set();
+    for (const block of rule.blocks) for (const match of block.content.matchAll(/「([^「」\n]{2,60})」/g)) names.add(compact(match[1]));
+    names.delete(compact(rule.title));
+    for (const name of names) citedBy.set(name, (citedBy.get(name) || 0) + 1);
+  }
+  const result = new Map();
+  for (const rule of corpus.rules) {
+    const cited = citedBy.get(compact(rule.title)) || 0;
+    const articles = rule.blocks.filter(block => block.article && !block.supplementary).length;
+    result.set(rule.lawId, Math.min(1.35, 1 + 0.05 * Math.log2(1 + cited) + 0.04 * Math.log2(Math.max(1, articles / 10))));
+  }
+  standings.set(corpus, result);
+  return result;
+}
+// Words in the rule's title are what every article is about, so inside the
+// rule they tell articles apart far less than the other question words do.
+const TITLE_WORD_SHARE = 0.3;
 
 function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
   const total = corpus.rules.length || 1;
@@ -169,7 +212,18 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
   const { original, concepts, rewrittenTerms, missingTerms } = planConcepts(query, documentFrequency, total);
   if (!original.length) return { tokens: original, hits: [] };
   const weight = form => Math.log(1 + total / documentFrequency(form));
+  // A rule-vocabulary form stands in for the question word, so it never counts
+  // for more than that word itself would ("식사" → 금품등 must not outweigh a
+  // rule that says 식사). A word no rule contains lends its full weight.
+  for (const concept of concepts) {
+    const own = documentFrequency(concept.term) ? weight(concept.term) : Infinity;
+    concept.weights = new Map(concept.forms.map(form => [form, form === concept.term ? weight(form) : Math.min(weight(form), own) * 0.9]));
+  }
+  const formWeight = (concept, forms) => Math.max(0, ...forms.map(form => concept.weights.get(form)));
   const words = concepts.filter(concept => !concept.joined);
+  const intent = asksIntent(query);
+  const headingOf = content => /^[^\n]*?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]{1,40})[)）]/.exec(content)?.[1] || null;
+  const GENERIC_HEADING = /^(?:목적|정의|용어의정의|적용범위)$/;
   // Adjacent question words that also sit together in an article ("예산의 전용").
   const adjacent = [];
   for (let i = 0; i + 1 < words.length; i++) {
@@ -178,17 +232,21 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
   }
   // A concept scores by the rarest of its forms that the text contains.
   const scoreText = text => {
-    let score = 0; const matched = [], matchedConcepts = [];
+    let score = 0; const matched = [], matchedConcepts = [], contributions = new Map();
     for (const concept of concepts) {
       const found = concept.forms.filter(form => text.includes(form));
       if (!found.length) continue;
       // A joined pair repeats its two words, so it adds half of its own weight.
-      score += Math.max(...found.map(weight)) * (concept.joined ? 0.5 : 1);
+      const gained = formWeight(concept, found) * (concept.joined ? 0.5 : 1);
+      score += gained;
+      contributions.set(concept, gained);
       for (const form of found) if (!matched.includes(form)) matched.push(form);
       matchedConcepts.push(concept.term);
     }
-    return { score, matched, matchedConcepts };
+    return { score, matched, matchedConcepts, contributions };
   };
+  const searchForms = [...new Set(words.flatMap(word => word.forms))];
+  const standing = ruleStanding(corpus);
   const generalFamilies = new Set(corpus.rules.filter(r => !ruleFamily(r.title).edition).map(r => ruleFamily(r.title).family));
   const hits = [];
   for (const rule of corpus.rules) {
@@ -197,24 +255,69 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
       const result = scoreText(block.content);
       if (!result.matched.length) continue;
       for (const pair of adjacent) if (pair.pattern.test(block.content)) result.score += pair.bonus;
-      // An article titled with a question word ("제31조(휴학)") is about that word, not a passing mention.
-      const heading = /^[^\n]*?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]{1,40})[)）]/.exec(block.content);
-      if (heading) result.score += words.reduce((sum, word) => sum + Math.max(0, ...word.forms.filter(form => heading[1].includes(form)).map(weight)), 0) * 0.5;
+      // An article titled with a question word ("제31조(휴학)") is about that word, not a passing
+      // mention; a heading that is exactly the word ("제4조(회계연도)") even more so.
+      const heading = headingOf(block.content);
+      if (heading) {
+        const compactHeading = heading.replace(/\s+/g, '');
+        result.score += words.reduce((sum, word) => {
+          const inHeading = word.forms.filter(form => compactHeading.includes(form));
+          if (!inHeading.length) return sum;
+          return sum + formWeight(word, inHeading) * (inHeading.includes(compactHeading) ? 1 : 0.5);
+        }, 0);
+      }
       scored.push({ block, ...result });
     }
     scored.sort((a, b) => b.score - a.score);
     const title = scoreText(rule.title);
     if (!scored.length && !title.matched.length) continue;
+    // Which article to show first. The rule is already chosen by its words; the
+    // question's intent ("언제", "얼마", "어떤 제재") then prefers the article whose
+    // heading answers it, and purpose or definition articles come last.
+    const articleOrder = scored.map(item => {
+      let words = 0, titleWords = 0;
+      for (const [concept, gained] of item.contributions) {
+        words += gained;
+        if (title.contributions.has(concept)) titleWords += gained;
+      }
+      // Heading and adjacency bonuses of an article that matched title words only are title words too.
+      const bonuses = item.score - words;
+      const titleOnly = titleWords === words;
+      return { ...item, rank: item.score - (titleWords + (titleOnly ? bonuses : 0)) * (1 - TITLE_WORD_SHARE) };
+    });
+    if (intent) {
+      const fullBonus = Math.max(...words.map(word => formWeight(word, word.forms)), 1);
+      const seen = new Set(scored.map(item => item.block));
+      for (const block of rule.blocks) {
+        if (block.supplementary) continue;
+        const strength = headingCueStrength(query, headingOf(block.content));
+        if (!strength) continue;
+        const bonus = fullBonus * strength;
+        const known = articleOrder.find(item => item.block === block);
+        if (known) known.rank += bonus;
+        // An article that answers the intent without repeating the topic word
+        // ("제10조(감사의 종류와 시기)" in 내부감사규정) is a candidate when the rule's title carries the topic.
+        else if (!seen.has(block) && title.matched.length) articleOrder.push({ block, score: 0, matched: [], matchedConcepts: [], contributions: new Map(), rank: bonus * 0.9 });
+      }
+    }
+    for (const item of articleOrder) {
+      const heading = headingOf(item.block.content)?.replace(/\s+/g, '');
+      if (heading && GENERIC_HEADING.test(heading)) item.rank -= 1000;
+      if (item.block.supplementary) item.rank -= 2000;
+    }
+    articleOrder.sort((a, b) => b.rank - a.rank);
     const matchedTerms = [...new Set([...title.matched, ...scored.flatMap(item => item.matched)])];
     const matchedConcepts = [...new Set([...title.matchedConcepts, ...scored.flatMap(item => item.matchedConcepts)])].filter(term => words.some(word => word.term === term));
     const mostMatched = Math.max(0, ...scored.map(item => item.matched.length));
     hits.push({
       lawId: rule.lawId, historyId: rule.historyId, title: rule.title, code: rule.code, revisedAt: rule.revisedAt,
-      score: ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01) * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family)),
+      score: ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01)
+        * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family), { code: rule.code, forms: searchForms })
+        * (standing.get(rule.lawId) || 1),
       matchedTerms, matchedConcepts, ...ruleFamily(rule.title),
       // Articles containing as many of the query words as the best article does.
       matchCount: scored.filter(item => item.matched.length === mostMatched).length,
-      articles: scored.slice(0, perDoc).map(item => ({
+      articles: articleOrder.slice(0, perDoc).map(item => ({
         article: item.block.article, supplementary: item.block.supplementary,
         supplementaryHeading: item.block.supplementaryHeading, content: item.block.content, matchedTerms: item.matched,
       })),

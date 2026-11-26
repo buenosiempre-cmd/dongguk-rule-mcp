@@ -218,6 +218,13 @@ async function main() {
     }
     check('한 판만 반환하면 single_candidate', wise.sc.data.rules.length === 1 && wise.sc.data.search.selection === 'single_candidate');
 
+    const named = await call('lookup_dongguk_rule', { query: '여비규정에서 밥값은 얼마 나와?' });
+    check('규정 이름을 말한 질문도 일상어를 규정 용어로 읽어 조문 선택', named.sc.data.rules.length === 1 && named.sc.data.rules[0].lawId === 1 && named.sc.data.rules[0].excerpt.text.includes('제9조('));
+    const explicitTerms = await call('lookup_dongguk_rule', { rule_keyword: '여비규정', terms: '밥값' });
+    check('terms를 직접 준 조회는 검색어를 넓히지 않음', explicitTerms.sc.data.rules[0].lawId === 1 && !explicitTerms.sc.data.rules[0].excerpt.text.includes('제9조('));
+    const oneWord = await call('lookup_dongguk_rule', { query: '숙박비' });
+    check('제목 후보가 없는 한 낱말 질문은 색인으로 조회', oneWord.sc.ok === true && oneWord.sc.data.search.mode === '핵심어 색인' && oneWord.sc.data.rules[0].lawId === 1);
+
     fs.unlinkSync(corpusPath(dir));
     searches.length = 0;
     const fallback = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도' });

@@ -1,6 +1,6 @@
 'use strict';
 
-const { expandAliases, middotVariants, normalizeMiddots, businessTerms, questionScope } = require('./aliases.js');
+const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
@@ -365,34 +365,51 @@ const QUESTION_STOPWORDS = new Set([
   '동국대', '동국대학교', '우리', '학교', '얼마', '얼마야', '얼마인가요', '가능', '가능한가요', '여부',
   // Question words and verb remnants carry no rule vocabulary; left in, their
   // rarity outweighs the nouns ("받아" once outranked "일비").
-  '누가', '누구', '누구에게', '언제', '어디', '어디서', '무슨', '몇', '얼마나', '필요', '필요한', '있어', '있는', '없는',
+  '누가', '누구', '누구에게', '언제', '언제까지', '언제부터', '어디', '어디서', '무슨', '몇', '며칠', '몇일', '얼마나', '필요', '필요한', '있어', '있는', '없는',
   '있나', '없나', '있을', '없을', '받아', '받나', '받는', '받을', '하려면', '하면', '해야', '하는', '하나', '되는', '됩니까',
   '싶어', '싶은', '궁금', '궁금해', '어느', '무엇인가요', '뭐가', '뭘', '이런', '그런', '어떠한',
+  // Everyday verbs and adverbs around the topic words ("출장 가서", "먼저 발주", "다른 걸로").
+  '가는', '가서', '가면', '가도', '타고', '쓰고', '쓰면', '나면', '나와', '나오나', '걸리면',
+  '누구한테', '누구한테서', '어디에', '어디로', '뭐해', '해도',
+  '있어야', '없으면', '들어', '받기', '받으면', '받아도', '되나', '되면', '돼요', '싶은데',
+  '전에', '후에', '먼저', '나중에', '대신', '다른', '걸로', '자기', '사람', '하루', '관련된', '때도', '그냥', '혹시', '아니면',
 ]);
 const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
 // "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
-const VERB_ENDING = /(?:하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
+const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
 // Nouns that end in 해; not "noun + 해".
 const NOUN_ENDING_HAE = /(?:피해|손해|재해|이해|방해|침해|상해|견해|화해|양해|오해|저해|유해|무해)$/;
+// Nouns that end in 도; not "noun + 도" (회계연도, 한도, 제도).
+const NOUN_ENDING_DO = /(?:연도|년도|제도|한도|용도|양도|빈도|정도|지도|태도|속도|온도|강도|난이도)$/;
 // Two-syllable nouns before the subject particle 가 (교수가 → 교수). Other
 // three-syllable words ending in 가 (전문가, 낙찰가) are nouns themselves.
 const SUBJECTS_BEFORE_GA = new Set(['교수', '강사', '조교', '부서', '학교', '이사', '감사', '회계', '근로자']);
 
+// One-syllable nouns that carry the topic of a question ("책 연체", "상 받을 때").
+const ONE_SYLLABLE_NOUNS = new Set(['책', '상', '돈']);
+// A counter with its particle ("시부터야", "년이", "명까지") is not a topic word.
+const COUNTER_REMNANT = /^(?:시|분|일|년|월|주|번|회|명|개|살|점|원|배)(?:부터|까지|동안|이나|씩|마다|이내|안에)?(?:이|야|이야|이에요|예요|인가요|이죠|인지)?$/;
 function contentToken(raw) {
   let token = String(raw || '').trim();
   if (!token || /^제?\d+조?$/.test(token)) return null;
+  const bare = token.replace(/(?:은|는|이|을|를|도)$/, '');
+  if (ONE_SYLLABLE_NOUNS.has(bare) && token.length <= 2) return bare;
+  if (knownTerm(token)) return token;
+  // "며칠이야", "몇 년이에요": the copula is not part of the word.
+  token = token.replace(/(?:이에요|이예요|예요|이야|인가요|인가|이죠|인지|입니까|이니)$/, '');
+  if (knownTerm(token)) return token;
   const verbStem = NOUN_ENDING_HAE.test(token) ? token : token.replace(VERB_ENDING, '');
   if (verbStem !== token) {
     // A bare verb ("받아", "해야") leaves nothing to search for.
     if (verbStem.length < 2) return null;
     token = verbStem;
   } else {
-    const stripped = token.replace(PARTICLE_SUFFIX, '');
+    const stripped = NOUN_ENDING_DO.test(token) ? token : token.replace(PARTICLE_SUFFIX, '');
     // "년까지", "곳에서": a counter or pronoun before a long particle is not a search word.
     if (stripped.length < 2 && token.length - stripped.length >= 2) return null;
     if (stripped.length >= 2 && (!(token.length === 3 && token.endsWith('가')) || SUBJECTS_BEFORE_GA.has(stripped))) token = stripped;
   }
-  if (token.length < 2 || QUESTION_STOPWORDS.has(token)) return null;
+  if (token.length < 2 || QUESTION_STOPWORDS.has(token) || COUNTER_REMNANT.test(token)) return null;
   return token;
 }
 
@@ -416,17 +433,23 @@ function queryContentTokens(value, maxTokens = 4) {
 // that may stand for it, plus adjacent words joined the way rules write them
 // ("이중 수혜" → 이중수혜, "예산 전용" → 예산전용).
 function queryConcepts(value, maxConcepts = 6) {
-  const ordered = [];
+  const ordered = [], written = new Map();
   for (const raw of String(value || '').split(/[\s,;|/·?!.()（）"'「」]+/)) {
     const token = contentToken(raw);
-    if (token && !ordered.includes(token)) ordered.push(token);
+    // One syllable was read as a particle ("출산휴가" → 출산휴). The index decides later
+    // whether the word as written is the real one.
+    if (token && raw.length === token.length + 1 && raw.startsWith(token)) written.set(token, raw);
+    // "월급날" asks about two things, 보수 and its 지급일; each is its own concept.
+    for (const part of token ? compoundParts(token) : []) if (!ordered.includes(part)) ordered.push(part);
   }
   const kept = new Set([...ordered].sort((a, b) => b.length - a.length).slice(0, maxConcepts));
   const tokens = ordered.filter(token => kept.has(token));
-  const concepts = tokens.map(term => ({ term, alternatives: businessTerms(term) }));
+  const concepts = tokens.map(term => ({ term, alternatives: businessTerms(term), ...(written.has(term) ? { written: written.get(term) } : {}) }));
+  // "없을 때" → 부재: a phrase adds the rule word as a concept of its own, not joined with its neighbours.
+  for (const term of phraseConcepts(value)) if (!tokens.includes(term)) concepts.push({ term, alternatives: businessTerms(term) });
   for (let i = 0; i + 1 < tokens.length; i++) {
     const joined = tokens[i] + tokens[i + 1];
-    const concept = { term: joined, alternatives: businessTerms(joined), joinedFrom: [tokens[i], tokens[i + 1]] };
+    const concept = { term: joined, alternatives: businessTerms(joined, { verbs: false }), joinedFrom: [tokens[i], tokens[i + 1]] };
     concepts.push(concept);
   }
   return { tokens, concepts };

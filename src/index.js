@@ -731,6 +731,19 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword}={})
   return {total:hits.length,hits,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
     indexedAt:corpus.builtAt,stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
 }
+// A question that names its rule ("연구비로 출장 갈 때도 여비규정 따라야 돼?"). The rest of the
+// question is everyday wording, so the excerpt is chosen with the same vocabulary and intent
+// reading as the index search, inside that one rule. Null when the index cannot help.
+function focusWithinRule(lawId,question){
+  if(requestCookie()) return null;
+  const corpus=loadCorpus(publicCacheDir());
+  if(!corpus) return null;
+  const found=searchCorpus(corpus,question,{top:corpus.rules.length,perDoc:1});
+  const hit=found.hits.find(x=>x.lawId===lawId);
+  if(!hit) return null;
+  const top=hit.articles[0];
+  return {searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null};
+}
 const describeRewrites=map=>Object.keys(map||{}).length?Object.entries(map).map(([from,to])=>`${from}→${to}`).join(', '):'';
 
 // Keyword fallback for questions whose literal wording is absent. The upstream
@@ -887,7 +900,8 @@ async function hLookup(rawKeyword, {
   // override it; only an exact title does. Falls through to the live search
   // when the index is missing or has no match.
   const exactTitle=candidateHits.size>0&&selectRuleCandidate([...candidateHits.values()],keyword).matchType==='exact';
-  if(!explicitLawId&&!exactTitle&&questionTerms.length>1){
+  // One content word with no title candidate ("책 연체하면 어떻게 돼") is still a question for the index.
+  if(!explicitLawId&&!exactTitle&&(questionTerms.length>1||(questionTerms.length===1&&!candidateHits.size))){
     const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery});
     if(indexed){result=indexed;queryUsed=indexed.tokens.join(' ');searchMode='핵심어 색인';}
   }
@@ -940,7 +954,12 @@ async function hLookup(rawKeyword, {
   const rawTerms=Array.isArray(terms)?terms.join(', '):String(terms || '');
   // Explicit excerpt conditions take precedence over candidate-search words.
   // Only derived conditions expand vocabulary, retaining structural selectors.
-  const effectiveTerms=indexMode&&autoTerms
+  // The rule was identified by its name and the rest of the question is in `terms`.
+  const namedRule=selection.status==='unique'&&autoTerms&&validStr(rawTerms)&&hits.length===1&&rawTerms!==keyword;
+  const focus=namedRule?focusWithinRule(hits[0].lawId,rawTerms):null;
+  // The question's own words stay (an appendix may hold words the index lacks); rule vocabulary is added.
+  const effectiveTerms=focus ? `${rawTerms}, ${focus.searchTerms.join(', ')}`
+    : indexMode&&autoTerms
     ? [...new Set([...result.searchTerms,...articleSelectors(rawTerms||keyword),...appendixSelectors(rawTerms||keyword)])].join(', ')
     : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
@@ -989,9 +1008,10 @@ async function hLookup(rawKeyword, {
     if(!validStr(markdown)) return failure('CONTENT_UNAVAILABLE', 'HWP 원문과 HTML 대체 본문에서 규정 내용을 확인할 수 없습니다.', {
       details:{lawId,historyId,sourceType,warning:warningData},
     });
-    const preferredArticle=indexMode&&autoTerms&&hit.topArticleInBody&&!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length?hit.topArticle:null;
+    const noSelectors=!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length;
+    const preferredArticle=!noSelectors?null:focus?focus.topArticle:indexMode&&autoTerms&&hit.topArticleInBody?hit.topArticle:null;
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
-      maxBlocks:maxSections,maxChars,...(indexMode?{order:'relevance'}:{}),
+      maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
       ...(preferredArticle?{priorityArticles:[preferredArticle]}:{}),
     });
     let historyText='';

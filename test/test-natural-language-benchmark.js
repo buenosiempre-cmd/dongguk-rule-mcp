@@ -7,6 +7,7 @@ const rule=(lawId,text)=>({lawId,title:'fixture',excerpt:{text}});
 const q={id:'test',q:'질문',gt:[{lawId:7,articles:['제3조','제10조의2','별표 1']},{lawId:8,articles:['제5조']}]};
 let passed=0;function check(name,fn){fn();passed++;console.log('  ✅ '+name);}
 async function main(){
+ check('개발용 25문항 고정 파일 검증',()=>{const dev=validateQuestions(require('./fixtures/natural-language-benchmark.dev.json'));assert.equal(dev.length,25);assert(dev.every(row=>!questions.some(known=>known.id===row.id||known.q===row.q)));});
  check('46문항·기존 배열 입력 모두 검증, 중복 ID/잘못된 정답 거절',()=>{assert.equal(validateQuestions(questions).length,46);validateQuestions(require('./fixtures/natural-language-questions.json'));assert.throws(()=>validateQuestions([q,q]));assert.throws(()=>validateQuestions([{...q,gt:[{lawId:0,articles:['제3조']}]}]));});
  check('같은 규정 본문만 적중; 다른 규정·목차·topArticle 메타데이터는 불인정',()=>{let r=scoreResponse(q,response([rule(9,'### 제3조(목적) 내용'),{...rule(7,'### 제4조(내용) 본문'),topArticle:'제3조',toc:'제3조(목적)'}]));assert.equal(r.bodyIncluded,false);assert.equal(r.top3,true);assert.equal(r.top1,false);});
  check('대체 정답 중 하나, 가지조문·띄어쓰기·전각 괄호',()=>{for(const text of ['### 제 10 조 의 2（기준） 본문','### 제3조(목적) 본문'])assert(scoreResponse(q,response([rule('7',text)])).bodyIncluded);assert(scoreResponse(q,response([rule(8,'### 제5조(적용) 본문')])).bodyIncluded);assert(!headingPattern('제3조').test('### 제3조의2(가지) 본문'));});
