@@ -1,5 +1,13 @@
 # 변경 기록
 
+## v0.15.10 (2026-11-26)
+
+### 법령 호출 한도 표시 수정
+
+- `get_service_info`의 `integrations.legalCalls.quota`가 같은 컴퓨터(loopback 주소: localhost·127.0.0.1·[::1])의 법령 서버를 쓸 때 `shared_keyless` 대신 `local_operator_key`로 나옵니다. 이 서버는 운영자 `LAW_OC`로 띄운 `korean-law-mcp`이므로 호스팅 서버의 공용 무키 한도를 타지 않습니다(PR #49).
+- 키(`DONGGUK_LEGAL_MCP_API_KEY`)·토큰·stdio는 그대로 `own_key`, 원격 서버를 키 없이 쓰면 `shared_keyless`입니다. 키·주소는 응답에 나오지 않습니다.
+- 조회 동작은 바뀌지 않았습니다.
+
 ## v0.15.9 (2026-11-26)
 
 ### 모든 도구 기본 켜짐

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.9"><img alt="버전 0.15.9" src="https://img.shields.io/badge/version-0.15.9-1e4a3a"></a>
+  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.10"><img alt="버전 0.15.10" src="https://img.shields.io/badge/version-0.15.10-1e4a3a"></a>
   <a href="LICENSE"><img alt="MIT 라이선스" src="https://img.shields.io/badge/license-MIT-b8432f"></a>
   <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml"><img alt="CI: MCP regression" src="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml/badge.svg"></a>
 </p>
@@ -95,7 +95,7 @@ ChatGPT에서 사용자 지정 MCP 서버를 등록하는 화면과 조건은 �
 공용 서버를 쓸 수 없거나 내 PC에서 직접 돌리고 싶을 때만 씁니다. Node.js가 필요합니다(20.19 이상 20계열 또는 22.3 이상, Node 21 제외). npm 레지스트리에는 발행하지 않았고 GitHub 릴리스 패키지로 설치합니다.
 
 ```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.9/dongguk-rule-mcp-0.15.9.tgz
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.10/dongguk-rule-mcp-0.15.10.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json
 dongguk-rule-mcp --print-config claude
@@ -107,11 +107,11 @@ dongguk-rule-mcp --print-config claude
 claude mcp add --transport stdio dongguk-rule -- dongguk-rule-mcp --profile rules
 ```
 
-[tgz 직접 받기](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.9/dongguk-rule-mcp-0.15.9.tgz). 설치 권한이 없으면 [구성원 가이드의 prefix 설치](docs/COP_GUIDE.md)를 보거나 공용 서버를 씁니다. `--doctor --json`은 설치 점검이고 `--live`를 붙이면 실제 규정 한 건을 조회해 봅니다.
+[tgz 직접 받기](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.10/dongguk-rule-mcp-0.15.10.tgz). 설치 권한이 없으면 [구성원 가이드의 prefix 설치](docs/COP_GUIDE.md)를 보거나 공용 서버를 씁니다. `--doctor --json`은 설치 점검이고 `--live`를 붙이면 실제 규정 한 건을 조회해 봅니다.
 
-현재 배포본(v0.15.9)을 내 PC에 설치하면 규정 조회와 타대학 비교는 바로 동작합니다. 인용 법령 조회는 법령 서버 연결 정보를 넣어야 동작합니다. 넣지 않으면 그 기능만 설정되지 않았다고 답하고, 규정 조회는 그대로 됩니다.
+현재 배포본(v0.15.10)을 내 PC에 설치하면 규정 조회와 타대학 비교는 바로 동작합니다. 인용 법령 조회는 법령 서버 연결 정보를 넣어야 동작합니다. 넣지 않으면 그 기능만 설정되지 않았다고 답하고, 규정 조회는 그대로 됩니다.
 
-| 기능 | v0.15.9 설치본에 넣을 환경변수 |
+| 기능 | v0.15.10 설치본에 넣을 환경변수 |
 |---|---|
 | 타대학 비교(`compare_university_rules`) | 없음(기본 켜짐). 서울대까지 보려면 `DONGGUK_LAWGO_OC`(법제처 Open API 인증키) 필요 |
 | 인용 법령의 원문·현행 여부(`get_rule_references`, `get_rule_upper_laws`) | 법제처 Open API 인증키(`LAW_OC`, PC에 `korean-law-mcp` 설치 필요) 또는 한국법령 MCP 주소(`DONGGUK_LEGAL_MCP_URL`). 호스팅 주소를 쓰면 `DONGGUK_LEGAL_MCP_API_KEY`에 본인 OC를 넣어 공용 한도를 피합니다 |
@@ -227,7 +227,7 @@ flowchart LR
 아니요. 서울·WISE·법인·산학협력단과 교원·직원·학생 적용범위는 원문에서 확인합니다.
 
 **타대학 비교가 바로 되나요?**  
-공용 서버에서는 바로 됩니다. 내 PC에 v0.15.9를 설치해도 바로 되고(v0.15.8 이하는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1` 필요), 서울대는 법제처 Open API 인증키(`DONGGUK_LAWGO_OC`)가 더 필요합니다. 공개된 규정만 읽으며 법적 동등성을 판정하지 않습니다.
+공용 서버에서는 바로 됩니다. 내 PC에 v0.15.10을 설치해도 바로 되고(v0.15.8 이하는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1` 필요), 서울대는 법제처 Open API 인증키(`DONGGUK_LAWGO_OC`)가 더 필요합니다. 공개된 규정만 읽으며 법적 동등성을 판정하지 않습니다.
 
 **답을 기안에 바로 써도 되나요?**  
 규정명, 조문 또는 별표, 기준일, 조회일, 원문 링크를 남기고 소관 부서 확인을 거칩니다. 일부만 조회됐다는 표시와 검색 0건은 검증 통과가 아닙니다.
