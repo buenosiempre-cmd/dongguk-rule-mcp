@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>동국 규정 MCP</title>
+<meta name="description" content="Claude Desktop, Claude Code, Cursor에서 동국대학교 공개 규정을 읽는 MCP 서버. 공식 서비스가 아닙니다.">
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #f4efe6;
+    --ink: #1c1915;
+    --muted: #5e584e;
+    --line: #e3d7c4;
+    --card: #fffdf8;
+    --pine: #1e4a3a;
+    --pine-soft: #e7f0ea;
+    --seal: #b8432f;
+    --seal-soft: #f8ebe6;
+    --shadow: 0 1px 0 rgba(28, 25, 21, 0.04);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #161411;
+    --ink: #f3ecdf;
+    --muted: #b7ad9e;
+    --line: #3a342c;
+    --card: #211e1a;
+    --pine: #8fbfa8;
+    --pine-soft: #24362d;
+    --seal: #f0a090;
+    --seal-soft: #3a2824;
+    --shadow: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #161411;
+      --ink: #f3ecdf;
+      --muted: #b7ad9e;
+      --line: #3a342c;
+      --card: #211e1a;
+      --pine: #8fbfa8;
+      --pine-soft: #24362d;
+      --seal: #f0a090;
+      --seal-soft: #3a2824;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    line-height: 1.55;
+  }
+  a { color: var(--pine); }
+  code, .mono { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+  .wrap { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 0 8px; gap: 12px;
+  }
+  .brand { display: flex; gap: 10px; align-items: center; text-decoration: none; color: inherit; }
+  .mark {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--pine); color: var(--paper);
+    display: grid; place-items: center; font-weight: 700;
+  }
+  :root[data-theme="dark"] .mark { color: #14241c; }
+  nav { display: flex; gap: 14px; align-items: center; font-size: 14px; }
+  nav a { color: inherit; text-decoration: none; }
+  button.theme {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 999px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  .hero { padding: 28px 0 10px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+  h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.045em; margin: 0 0 12px; }
+  .lede { font-size: 18px; margin: 0 0 8px; }
+  .en { color: var(--muted); margin: 0 0 16px; }
+  .warn {
+    background: var(--seal-soft); color: var(--seal); border-radius: 12px; padding: 10px 12px; font-size: 14px;
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .actions a {
+    text-decoration: none; border-radius: 999px; padding: 8px 14px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  .actions a.primary { background: var(--pine); color: var(--paper); border-color: transparent; }
+  :root[data-theme="dark"] .actions a.primary,
+  :root[data-theme="dark"] .bubble { color: #14241c; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .mark,
+    :root:not([data-theme="light"]) .actions a.primary,
+    :root:not([data-theme="light"]) .bubble { color: #14241c; }
+  }
+  .stage {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px;
+    box-shadow: var(--shadow); min-height: 320px;
+  }
+  .scene { display: none; }
+  .scene.on { display: block; animation: fade 0.45s ease; }
+  .who { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
+  .bubble {
+    margin: 8px 0 12px; background: var(--pine); color: #f7f3ea; border-radius: 14px 14px 4px 14px;
+    padding: 12px 14px; font-size: 15px;
+  }
+  :root[data-theme="dark"] .bubble { color: #14241c; }
+  .tool {
+    display: inline-block; background: var(--pine-soft); color: var(--pine); border-radius: 999px;
+    padding: 3px 8px; font-size: 12px; margin-bottom: 10px;
+  }
+  .scene h2 {
+    font-family: "Iowan Old Style", Palatino, "Apple Myungjo", Batang, serif;
+    font-size: 28px; margin: 0 0 8px; letter-spacing: -0.03em; font-weight: 600;
+  }
+  .rows { display: grid; gap: 6px; font-size: 14px; }
+  .rows div { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .rows span { color: var(--muted); text-align: right; }
+  .note { margin: 12px 0 0; background: var(--seal-soft); color: var(--seal); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+  .dots { display: flex; gap: 6px; margin-top: 12px; }
+  .dots button {
+    width: 8px; height: 8px; border-radius: 99px; border: 0; background: var(--line); padding: 0; cursor: pointer;
+  }
+  .dots button.on { background: var(--pine); }
+  h2.sec { font-size: 28px; letter-spacing: -0.03em; margin: 42px 0 12px; }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; min-width: 0; }
+  .panel h3 { margin: 0 0 8px; font-size: 18px; }
+  pre {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+    overflow: auto; font-size: 12.5px; line-height: 1.45; max-width: 100%;
+  }
+  .mono, pre, code { overflow-wrap: anywhere; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--card); border-radius: 16px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .arch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: stretch; }
+  .node {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; font-size: 14px;
+  }
+  .node strong { display: block; margin-bottom: 4px; }
+  .node span { color: var(--muted); font-size: 13px; }
+  .arrow { align-self: center; text-align: center; color: var(--muted); }
+  details { border-bottom: 1px solid var(--line); padding: 10px 0; }
+  summary { cursor: pointer; font-weight: 650; }
+  details p { margin: 8px 0 0; color: var(--muted); }
+  footer { padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 800px) {
+    .hero, .grid2, .arch { grid-template-columns: minmax(0, 1fr); }
+    .arrow { transform: rotate(90deg); }
+    nav .hide { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scene.on { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="#top"><span class="mark">규</span><strong>동국 규정 MCP</strong></a>
+      <nav>
+        <a class="hide" href="#start">설치</a>
+        <a class="hide" href="#tools">도구</a>
+        <a class="hide" href="#faq">질문</a>
+        <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp">저장소</a>
+        <button class="theme" type="button" id="theme">테마</button>
+      </nav>
+    </div>
+
+    <header class="hero" id="top">
+      <div>
+        <h1>규정을 대화에서 찾습니다.</h1>
+        <p class="lede">Claude Desktop, Claude Code, Cursor가 동국대학교 통합규정관리시스템의 조문·별표·개정 이력을 읽게 하는 읽기 전용 MCP 서버입니다.</p>
+        <p class="en">Read-only MCP for Dongguk University regulations. Version 0.15.8. Not an official university service.</p>
+        <p class="warn">동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다. 공개 규정 원문을 전달하며, 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.</p>
+        <div class="actions">
+          <a class="primary" href="#start">빠른 시작</a>
+          <a href="https://dgu.kr-univ-rules.com/guide">구성원 안내</a>
+          <a href="https://rule.dongguk.edu/">공식 규정집</a>
+          <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp">GitHub</a>
+        </div>
+      </div>
+      <div class="stage" aria-live="polite">
+        <article class="scene on" data-scene="0">
+          <div class="who">질문</div>
+          <div class="bubble">서울 직원 국내 출장 숙박비를 여비규정에서 찾아줘. 금액은 별표 행을 확인하기 전에 적지 마.</div>
+          <div class="tool">lookup_dongguk_rule</div>
+          <h2>「여비규정」</h2>
+          <div class="rows">
+            <div><b>LAW_ID 184</b><span>HISTORY_ID 3350</span></div>
+            <div><b>개정일 2025.04.29</b><span>별표 1 · 2 · 3</span></div>
+            <div><b>출처</b><span>원문 HWP(별표 포함)</span></div>
+          </div>
+          <p class="note">2026-11-05 점검 기록입니다. 오늘 개정본과 같다는 뜻이 아니며, 행·단위 확인 전 금액을 확정하지 않습니다.</p>
+        </article>
+        <article class="scene" data-scene="1">
+          <div class="who">질문</div>
+          <div class="bubble">이 비식별 문장의 「여비규정」 제○조(제목) 제○항이 실제 있는지 확인해줘.</div>
+          <div class="tool">verify_rule_citations</div>
+          <h2>인용 실존 점검</h2>
+          <div class="rows">
+            <div><b>규정</b><span>이름이 목록에 있는지</span></div>
+            <div><b>조문 · 제목 · 항</b><span>원문과 대조</span></div>
+            <div><b>검색 0건</b><span>통과가 아님</span></div>
+          </div>
+          <p class="note">인용이 있다는 결과와, 그 사안에 적용된다는 판단은 다릅니다.</p>
+        </article>
+        <article class="scene" data-scene="2">
+          <div class="who">질문</div>
+          <div class="bubble">2025-03-15 출장이야. 당시 여비규정 후보와 현행 차이를 보여줘.</div>
+          <div class="tool">applicable_rule</div>
+          <h2>기준일 후보</h2>
+          <div class="rows">
+            <div><b>date</b><span>2025-03-15</span></div>
+            <div><b>개정일</b><span>시행일과 다름</span></div>
+            <div><b>이어서</b><span>compare_rule_versions</span></div>
+          </div>
+          <p class="note">기준일 이전 개정본 후보를 찾습니다. 소급 적용을 확정하지 않습니다.</p>
+        </article>
+        <div class="dots" role="tablist" aria-label="사용 장면">
+          <button type="button" class="on" data-dot="0" aria-label="출장 숙박비"></button>
+          <button type="button" data-dot="1" aria-label="인용 점검"></button>
+          <button type="button" data-dot="2" aria-label="기준일"></button>
+        </div>
+      </div>
+    </header>
+
+    <h2 class="sec" id="start">빠른 시작</h2>
+    <div class="grid2">
+      <section class="panel">
+        <h3>공용 서버</h3>
+        <p>인증 없이 주소만 넣습니다. IP마다 1분 60회, 하루 1,000회. 공개 도구 15개입니다.</p>
+        <pre><code>{
+  "mcpServers": {
+    "dongguk-rule": {
+      "url": "https://dgu.kr-univ-rules.com/mcp/rules"
+    }
+  }
+}</code></pre>
+        <p>Claude Code: <span class="mono">claude mcp add --transport http dongguk-rule https://dgu.kr-univ-rules.com/mcp/rules</span></p>
+      </section>
+      <section class="panel">
+        <h3>내 PC · v0.15.8</h3>
+        <p>npm 레지스트리는 미발행입니다. Node.js 20.19 이상 20계열 또는 22.3 이상.</p>
+        <pre><code>npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz
+dongguk-rule-mcp --doctor --json
+dongguk-rule-mcp --print-config claude
+dongguk-rule-mcp --print-config cursor</code></pre>
+        <p><code>--print-config</code>의 command는 그 PC의 Node 절대 경로입니다. 앱 설정 파일은 바꾸지 않습니다.</p>
+      </section>
+    </div>
+
+    <h2 class="sec" id="tools">도구 15개</h2>
+    <table>
+      <thead><tr><th>도구</th><th>하는 일</th></tr></thead>
+      <tbody>
+        <tr><td><code>get_service_info</code></td><td>버전, 프로필, 도구 수</td></tr>
+        <tr><td><code>lookup_dongguk_rule</code></td><td>자연어·규정명에서 HWP 조문·별표 발췌</td></tr>
+        <tr><td><code>search_rule</code></td><td>후보 목록</td></tr>
+        <tr><td><code>get_rule_content</code></td><td>LAW_ID의 조·장·키워드</td></tr>
+        <tr><td><code>get_rule_full_text</code></td><td>전문. 긴 문서는 cursor로 이어 받기</td></tr>
+        <tr><td><code>get_rule_toc</code></td><td>목차</td></tr>
+        <tr><td><code>list_rule_history</code></td><td>개정 이력</td></tr>
+        <tr><td><code>applicable_rule</code></td><td>기준일 이전 개정본 후보</td></tr>
+        <tr><td><code>compare_rule_versions</code></td><td>조문·별표·표 셀·그림 파일 해시 비교</td></tr>
+        <tr><td><code>verify_rule_citations</code></td><td>문장 속 인용이 있는지</td></tr>
+        <tr><td><code>search_rule_deep</code></td><td>여러 규정 전문</td></tr>
+        <tr><td><code>check_rule_updates</code></td><td>여러 규정의 개정 여부</td></tr>
+        <tr><td><code>get_rule_references</code></td><td>교내 규정·국가 법령 인용</td></tr>
+        <tr><td><code>get_rule_upper_laws</code></td><td>상위법령과 현행 목록 대조</td></tr>
+        <tr><td><code>compare_university_rules</code></td><td>타대학 조문 비교. 기본 꺼짐</td></tr>
+      </tbody>
+    </table>
+    <p><code>finance</code> 프로필은 <code>get_finance_context</code>, <code>get_finance_evidence</code>, <code>search_finance_handbook</code>, <code>review_finance_case</code>가 더해져 19개입니다. 공용 <code>/mcp/rules</code>에는 포함되지 않습니다.</p>
+
+    <h2 class="sec">동작</h2>
+    <div class="arch" aria-label="구조">
+      <div class="node"><strong>앱</strong><span>Claude Desktop, Claude Code, Cursor</span></div>
+      <div class="node"><strong>연결</strong><span>공용 HTTP <code>/mcp/rules</code> 또는 내 PC stdio</span></div>
+      <div class="node"><strong>도구</strong><span>읽기 전용. Markdown과 structuredContent</span></div>
+      <div class="node"><strong>원문</strong><span>rule.dongguk.edu. 선택으로 한국법령·타대학 공개 규정</span></div>
+    </div>
+
+    <h2 class="sec" id="faq">자주 묻는 질문</h2>
+    <details open>
+      <summary>학교 공식 서비스인가요?</summary>
+      <p>아닙니다. 재무팀 개인 운영 도구입니다.</p>
+    </details>
+    <details>
+      <summary>왜 npm install 이름이 없나요?</summary>
+      <p>npm 레지스트리는 현재 미발행입니다. GitHub 릴리스 tgz v0.15.8 또는 공용 주소를 사용합니다.</p>
+    </details>
+    <details>
+      <summary>캠퍼스별로 자동 검색되나요?</summary>
+      <p>아닙니다. campus 값은 업무 맥락만 보존합니다. 적용범위는 원문에서 확인합니다.</p>
+    </details>
+    <details>
+      <summary>다른 대학 비교는 항상 켜져 있나요?</summary>
+      <p>아닙니다. DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 일 때만 요청이 나갑니다. 법적 동등성을 판정하지 않습니다.</p>
+    </details>
+    <details>
+      <summary>개인정보를 넣어야 하나요?</summary>
+      <p>넣지 않습니다. 개인번호, 계좌, 인증정보는 거부됩니다. 신고·지급·결재는 하지 않습니다.</p>
+    </details>
+
+    <footer>
+      <p>MIT · 서준호(원본 Python) · 오승훈(Node.js MCP). 저장소 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp">buenosiempre-cmd/dongguk-rule-mcp</a>. 운영 세부 사항은 저장소 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/main/docs/REFERENCE.md">docs/REFERENCE.md</a>.</p>
+      <p>이 파일은 외부 CDN 없이 GitHub Pages <code>docs/</code> 루트로 열 수 있습니다. Pages 설정은 이 저장소 변경에 포함하지 않습니다.</p>
+    </footer>
+  </div>
+  <script>
+    const root = document.documentElement;
+    const key = 'dongguk-rule-theme';
+    const saved = localStorage.getItem(key);
+    if (saved === 'light' || saved === 'dark') root.dataset.theme = saved;
+    document.getElementById('theme').addEventListener('click', () => {
+      const current = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      const next = current === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      localStorage.setItem(key, next);
+    });
+    const scenes = [...document.querySelectorAll('.scene')];
+    const dots = [...document.querySelectorAll('[data-dot]')];
+    let index = 0;
+    let timer;
+    function show(next) {
+      index = next;
+      scenes.forEach((scene, i) => scene.classList.toggle('on', i === index));
+      dots.forEach((dot, i) => dot.classList.toggle('on', i === index));
+    }
+    function arm() {
+      clearInterval(timer);
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      timer = setInterval(() => show((index + 1) % scenes.length), 4200);
+    }
+    dots.forEach((dot) => dot.addEventListener('click', () => { show(Number(dot.dataset.dot)); arm(); }));
+    arm();
+  </script>
+</body>
+</html>
