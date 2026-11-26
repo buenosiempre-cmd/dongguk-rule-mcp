@@ -2,12 +2,14 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>동국 규정 MCP 소개 영상 v3 원본</title>
+<title>동국 규정 MCP 소개 영상 v4 원본</title>
 <!--
-  소개 영상 v3(내레이션·광고형 모션그래픽) 원본입니다.
+  소개 영상 v4(내레이션·광고형 모션그래픽, 타대학 비교·상위 법령 장면 추가) 원본입니다.
   scripts/intro-video/record.cjs 가 window.render(t)를 프레임마다 불러 녹화합니다.
   장면·자막 시각은 timeline.js(내레이션 실제 길이에서 계산)를 따릅니다.
-  화면 속 규정 내용은 공용 서버 v0.15.8 lookup_dongguk_rule 실제 응답(2026-11-26 조회)만 씁니다.
+  화면 속 규정 내용은 공용 서버 v0.15.8 실제 응답(2026-11-26 조회)만 씁니다.
+    해결 장면: lookup_dongguk_rule(여비규정) / 비교 장면: compare_university_rules(주제 여비)
+    상위 법령 장면: get_rule_upper_laws(취업규칙), 법령 조문 원문은 korean-law MCP get_law_text로 대조했습니다.
   '문제 장면'의 문서 창은 연출이며 실제 시스템 화면이 아닙니다. 학교·앱 로고를 쓰지 않습니다.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -89,6 +91,56 @@
   #h-line { position: absolute; top: 287px; height: 2px; background: rgba(255,255,255,.15); left: 0; width: 3000px; }
   #h-fill { position: absolute; left: 0; top: 0; height: 2px; background: #e8775f; }
 
+  /* ---------- COMPARE ---------- */
+  #compare { background: #f5f2ea; color: #141615; }
+  .kick { position: absolute; left: 0; right: 0; text-align: center; font-size: 16px; letter-spacing: .32em; font-weight: 700; }
+  #p-k { top: 48px; color: #e8775f; }
+  #p-h { position: absolute; left: 0; right: 0; top: 76px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: -.03em; }
+  #p-chip { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: 140px; font-size: 15px; padding: 7px 16px; border-radius: 999px; background: #e7efe9; color: #1e4a3a; white-space: nowrap; }
+  #p-cards { position: absolute; left: 56px; right: 56px; top: 188px; display: flex; gap: 14px; }
+  .uc { flex: 1; min-width: 0; height: 392px; border-radius: 18px; background: #fff; box-shadow: 0 18px 40px rgba(30,40,35,.10), 0 0 0 1px rgba(0,0,0,.04); padding: 20px 18px; opacity: 0; position: relative; }
+  .uc.me { box-shadow: 0 18px 40px rgba(30,40,35,.14), 0 0 0 2.5px #1e4a3a; }
+  .uc .u { font-size: 24px; font-weight: 900; letter-spacing: -.02em; }
+  .uc .r { font-size: 15px; color: #49524c; margin-top: 8px; line-height: 1.35; min-height: 42px; }
+  .uc .a { display: inline-block; font-size: 14px; font-weight: 700; color: #1e4a3a; background: #eef3ef; padding: 4px 9px; border-radius: 6px; margin-top: 10px; }
+  .uc .lbl { font-size: 13px; color: #7a827d; margin-top: 14px; }
+  .uc .toks { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+  .uc .toks span { font-size: 16px; font-weight: 500; padding: 4px 10px; border-radius: 8px; background: #f1efe9; color: #2b302d; transition: none; }
+  .uc .toks span.common { background: #1e4a3a; color: #fff; }
+  .uc .toks span.uniq { background: #fbe3da; color: #b8432f; }
+  #p-note { position: absolute; left: 0; right: 0; top: 596px; text-align: center; font-size: 14px; color: #6b736e; }
+
+  /* ---------- LAW ---------- */
+  #law { background: radial-gradient(1100px 700px at 50% 25%, #1b3a30 0%, #0b100e 75%); }
+  #l-k { top: 48px; color: #9fd0b8; }
+  #l-h { position: absolute; left: 0; right: 0; top: 76px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: -.03em; }
+  #l-pair { position: absolute; left: 70px; right: 70px; top: 170px; height: 330px; }
+  .lc { position: absolute; top: 0; width: 500px; height: 300px; border-radius: 20px; padding: 24px 28px; opacity: 0; }
+  #l-rule { left: 0; background: #f5f2ea; color: #141615; }
+  #l-law { right: 0; background: #12241e; border: 1.5px solid #4f8f74; color: #f5f2ea; }
+  .lc .k2 { font-size: 13px; letter-spacing: .2em; font-weight: 700; }
+  #l-rule .k2 { color: #e8775f; } #l-law .k2 { color: #9fd0b8; }
+  .lc .t { font-size: 27px; font-weight: 900; letter-spacing: -.02em; margin-top: 8px; }
+  .lc .m { font-size: 14px; opacity: .65; margin-top: 4px; }
+  .lc .q { font-size: 18px; line-height: 1.6; margin-top: 16px; }
+  .lc .q b { background: #f6d77a; color: #141615; padding: 0 3px; border-radius: 3px; font-weight: 700; }
+  #l-law .q b { background: #2f6b55; color: #fff; }
+  #l-arrow { position: absolute; left: 500px; right: 500px; top: 130px; height: 40px; }
+  #l-arrow .bar { position: absolute; left: 10px; right: 18px; top: 18px; height: 3px; background: #e8775f; transform-origin: 0 50%; }
+  #l-arrow .head { position: absolute; right: 6px; top: 10px; width: 0; height: 0; border-left: 16px solid #e8775f; border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+  #l-arrow .cap { position: absolute; left: -30px; right: -30px; top: -34px; text-align: center; font-size: 15px; font-weight: 700; color: #f3b3a2; white-space: nowrap; }
+  #l-rel { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: 330px; font-size: 19px; padding: 11px 22px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); white-space: nowrap; opacity: 0; }
+  #l-rel em { font-style: normal; color: #f6d77a; font-weight: 700; }
+  #l-sig { position: absolute; left: 140px; right: 140px; top: 170px; }
+  #l-sig .cap2 { font-size: 19px; color: #a9b8b0; margin-bottom: 16px; opacity: 0; }
+  .sg { display: flex; align-items: center; gap: 16px; height: 88px; border-radius: 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); padding: 0 24px; margin-bottom: 14px; opacity: 0; }
+  .sg .b { flex: none; font-size: 14px; font-weight: 700; padding: 5px 10px; border-radius: 6px; }
+  .sg .b.rv { background: #e8775f; color: #1a0f0c; } .sg .b.ok { background: #2f6b55; color: #fff; }
+  .sg .x { font-size: 22px; font-weight: 700; white-space: nowrap; }
+  .sg .x small { font-size: 15px; font-weight: 400; color: #a9b8b0; margin-left: 10px; }
+  .sg .y { margin-left: auto; font-size: 14px; color: #a9b8b0; white-space: nowrap; }
+  #l-note { position: absolute; left: 0; right: 0; top: 590px; text-align: center; font-size: 14px; color: #8fa89c; }
+
   /* ---------- ANYWHERE ---------- */
   #anywhere { background: radial-gradient(1100px 700px at 50% 20%, #20302a 0%, #0b0d0c 75%); perspective: 1600px; }
   #w-head { position: absolute; left: 0; right: 0; top: 40px; text-align: center; font-size: 40px; font-weight: 900; letter-spacing: -.02em; }
@@ -148,10 +200,38 @@
     <div id="h-line"><div id="h-fill"></div></div>
     <div id="h-track">
       <div class="node" id="hn0"><div class="n">1</div><div class="w">질문</div><div class="s">평소 말투 그대로</div></div>
-      <div class="node" id="hn1"><div class="n">2</div><div class="w">규정 검색</div><div class="s">rule.dongguk.edu 규정 목록에서</div></div>
-      <div class="node" id="hn2"><div class="n">3</div><div class="w">원문·별표 확인</div><div class="s">최신 개정본의 조문과 표를 직접</div></div>
+      <div class="node" id="hn1"><div class="n">2</div><div class="w">규정 검색</div><div class="s">교내 규정 · 필요하면 타대학 규정까지</div></div>
+      <div class="node" id="hn2"><div class="n">3</div><div class="w">원문·별표 확인</div><div class="s">최신 조문·별표, 인용한 상위 법령 조문</div></div>
       <div class="node" id="hn3"><div class="n">4</div><div class="w">출처와 답변</div><div class="s">규정명 · 조문 · 개정일 · 원문 링크</div></div>
     </div>
+  </div></section>
+
+  <section class="scene" id="compare"><div class="cam" id="p-cam">
+    <div class="kick" id="p-k">타대학 규정 비교</div>
+    <div id="p-h">같은 주제, 대학별 조문을 나란히</div>
+    <div id="p-chip">동국 규정 MCP › <span class="mono">compare_university_rules</span> · 주제: 여비</div>
+    <div id="p-cards"></div>
+    <div id="p-note">공용 서버 v0.15.8 응답 발췌(2026-11-26 조회) · 조문 발췌 비교이며 법적 동등성 판정이 아닙니다 · 별표 금액은 비교 대상이 아닙니다</div>
+  </div></section>
+
+  <section class="scene" id="law"><div class="cam" id="l-cam">
+    <div class="kick" id="l-k">상위 법령 조회</div>
+    <div id="l-h">교내 규정 조항 → 근거 상위 법령 조문</div>
+    <div id="l-pair">
+      <div class="lc" id="l-rule"><div class="k2">교내 규정</div><div class="t">취업규칙 제17조 ②</div><div class="m">개정 2026.04.29 · rule.dongguk.edu</div>
+        <div class="q">직원은 <b>「사립학교법」 제70조의4</b>에서 규정한 당연퇴직 사유가 발생한 때에는 총장에게 서면(전자서면 포함)으로 보고해야 한다.</div></div>
+      <div id="l-arrow"><div class="cap">규정이 인용</div><div class="bar"></div><div class="head"></div></div>
+      <div class="lc" id="l-law"><div class="k2">상위 법령 · 현행</div><div class="t">사립학교법 제70조의4</div><div class="m">사무직원의 당연퇴직 · 현행본 시행 2026.10.02</div>
+        <div class="q">제70조의2제1항에도 불구하고 같은 조에 따라 임명된 <b>사무직원의 당연퇴직</b>에 관하여는 「지방공무원법」 제61조제1호를 준용한다.</div></div>
+      <div id="l-rel">관계: 당연퇴직 사유는 <em>법령 조문</em>을 따르고, 총장 서면 보고는 <em>교내 규정</em>이 정합니다</div>
+    </div>
+    <div id="l-sig">
+      <div class="cap2" id="l-cap2">취업규칙이 인용한 법령 8건 점검 결과 중</div>
+      <div class="sg" id="sg0"><span class="b rv">검토 필요</span><span class="x">향토예비군설치법<small>→ 현행 제명 「예비군법」</small></span><span class="y">규정 제41조 · 제명 변경</span></div>
+      <div class="sg" id="sg1"><span class="b rv">검토 필요</span><span class="x">사립학교연금법<small>현행 목록에 없음 · 비슷한 이름 「사립학교교직원 연금법」</small></span><span class="y">규정 제86조</span></div>
+      <div class="sg" id="sg2"><span class="b ok">현행 확인</span><span class="x">사립학교법 제70조의4<small>인용 조문 현행본에 있음</small></span><span class="y">규정 제17조</span></div>
+    </div>
+    <div id="l-note">get_rule_upper_laws 응답(공용 서버 v0.15.8) · 법령 원문은 국가법령 조회(korean-law MCP)로 대조 · 점검 신호는 충돌·적용 여부를 판정한 것이 아닙니다</div>
   </div></section>
 
   <section class="scene" id="anywhere"><div class="cam" id="w-cam">
@@ -167,7 +247,7 @@
   <section class="scene" id="cta"><div class="cam" id="c-cam">
     <div id="c-1">주소 하나만 추가하세요</div>
     <div id="c-url" class="mono">https://dgu.kr-univ-rules.com/mcp/rules</div>
-    <div id="c-pills"><span>로그인 불필요</span><span>읽기 전용</span><span>규정 도구 15개</span></div>
+    <div id="c-pills"><span>로그인 불필요</span><span>읽기 전용</span><span>타대학 비교 · 상위 법령</span><span>규정 도구 15개</span></div>
     <div id="c-title">동국 규정 <em>MCP</em></div>
     <div id="c-tag">이제 규정은, 대화로 찾습니다.</div>
     <div id="c-gh">github.com/buenosiempre-cmd/dongguk-rule-mcp</div>
@@ -352,6 +432,69 @@ function renderHow(t) {
   }
 }
 
+// ---------- 타대학 비교(compare_university_rules 실제 응답 발췌) ----------
+const UNIS = [
+  {u: '동국대학교', r: '여비규정', a: '제3조(여비의 종류)', groups: [['', ['운임', '일비', '숙박비', '식비', '출장목적경비']]], me: true},
+  {u: '연세대학교', r: '여비규정', a: '제4조 ①', groups: [['', ['운임', '일비', '숙박비', '식비']]]},
+  {u: '한양대학교', r: '여비지급 규정', a: '제2조(여비의 종류)', groups: [['', ['교통비', '숙박비', '식비', '일비']]]},
+  {u: '경희대학교', r: '여비규정', a: '제3조 ①', groups: [['국내출장', ['교통비', '숙박비', '잡비']], ['국외출장', ['교통비', '숙박비', '식비', '잡비']]]},
+  {u: '건국대학교', r: '교직원출장 및 여비지급 규정', a: '제6조 ①', groups: [['', ['운임', '일비', '숙박비', '식비', '준비금']]]},
+];
+const UNIQ = new Set(['출장목적경비', '잡비', '준비금']);
+UNIS.forEach((x, i) => {
+  const el = document.createElement('div'); el.className = 'uc' + (x.me ? ' me' : ''); el.id = 'uc' + i;
+  el.innerHTML = `<div class="u">${x.u}</div><div class="r">${x.r}</div><div class="a">${x.a}</div>` +
+    x.groups.map(([g, toks]) => `<div class="lbl">${g ? '여비의 종류 · ' + g : '여비의 종류'}</div><div class="toks">${toks.map((k) => `<span data-k="${k}">${k}</span>`).join('')}</div>`).join('');
+  $('p-cards').appendChild(el);
+});
+
+function renderCompare(t) {
+  const [a, b] = SC.compare;
+  if (!sceneOn('compare', t)) return;
+  $('compare').style.opacity = easeIO(prog(t, a, a + .5));
+  const c1 = L.c1, c2 = L.c2;
+  pop($('p-k'), t, a + .15, .6, 12, .95);
+  pop($('p-h'), t, a + .3, .7, 20, .94);
+  pop($('p-chip'), t, a + .8, .6, 10, .95);
+  for (let i = 0; i < UNIS.length; i++) pop($('uc' + i), t, c1.start + 1.2 + i * .35, .8, 40, .92);
+  pop($('p-note'), t, c1.start + 3.4, .6, 8, .98);
+  // c2: 공통 항목(숙박비) → 대학별로 다른 항목 강조
+  const common = prog(t, c2.start + .2, c2.start + .6), uniq = prog(t, c2.start + 1.6, c2.start + 2.0);
+  document.querySelectorAll('#p-cards .toks span').forEach((sp) => {
+    const k = sp.dataset.k;
+    sp.className = (k === '숙박비' && common > .5) ? 'common' : (UNIQ.has(k) && uniq > .5) ? 'uniq' : '';
+    sp.style.transform = (k === '숙박비' && common > 0 && common < 1) || (UNIQ.has(k) && uniq > 0 && uniq < 1) ? `scale(${1 + .15 * Math.sin(Math.PI * (k === '숙박비' ? common : uniq))})` : 'none';
+  });
+  $('p-cam').style.transform = `scale(${1 + .025 * prog(t, a, b)})`;
+}
+
+// ---------- 상위 법령(get_rule_upper_laws + korean-law MCP 조문) ----------
+function renderLaw(t) {
+  const [a, b] = SC.law;
+  if (!sceneOn('law', t)) return;
+  $('law').style.opacity = easeIO(prog(t, a, a + .5));
+  const l1 = L.l1, l2 = L.l2;
+  pop($('l-k'), t, a + .15, .6, 12, .95);
+  pop($('l-h'), t, a + .3, .7, 20, .94);
+  const out = easeIO(prog(t, l2.start - .5, l2.start + .1));
+  const pr = pop($('l-rule'), t, l1.start + .3, .8, 30, .92);
+  const pl = pop($('l-law'), t, l1.start + 2.0, .8, 30, .92);
+  const ar = ease(prog(t, l1.start + 1.1, l1.start + 1.9));
+  $('l-arrow').querySelector('.bar').style.transform = `scaleX(${ar})`;
+  $('l-arrow').style.opacity = ar > 0 ? 1 : 0;
+  $('l-arrow').querySelector('.head').style.opacity = ar > .9 ? 1 : 0;
+  pop($('l-rel'), t, l1.start + 3.6, .7, 14, .95);
+  const pair = $('l-pair');
+  pair.style.opacity = 1 - out;
+  pair.style.transform = `translateY(${-40 * out}px) scale(${1 - .08 * out})`;
+  pair.style.display = out >= 1 ? 'none' : 'block';
+  pop($('l-cap2'), t, l2.start + .1, .5, 10, .97);
+  for (let i = 0; i < 3; i++) pop($('sg' + i), t, l2.start + .4 + i * .9, .7, 24, .95);
+  $('l-sig').style.display = t >= l2.start - .2 ? 'block' : 'none';
+  $('l-note').style.opacity = ease(prog(t, l1.start + 4.2, l1.start + 4.8));
+  $('l-cam').style.transform = `scale(${1 + .025 * prog(t, a, b)})`;
+}
+
 // 앱 화면 몽타주(v2 예시 화면을 iframe으로 재사용)
 function renderAnywhere(t) {
   const [a, b] = SC.anywhere;
@@ -424,7 +567,7 @@ function renderSub(t) {
 }
 
 function render(t) {
-  renderBefore(t); renderAfter(t); renderHow(t); renderAnywhere(t); renderCta(t); renderSub(t);
+  renderBefore(t); renderAfter(t); renderHow(t); renderCompare(t); renderLaw(t); renderAnywhere(t); renderCta(t); renderSub(t);
   $('fadeblack').style.opacity = Math.max(1 - prog(t, 0, .6), prog(t, DURATION - .8, DURATION));
 }
 window.render = render;

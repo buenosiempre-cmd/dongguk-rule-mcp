@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="docs/assets/usage-demo.mp4"><img src="docs/assets/usage-demo.gif" alt="소개 영상 하이라이트: 여러 문서를 오가며 출장 숙박비를 찾던 화면이 걷히고, 질문 한 줄에 「여비규정」 [별표 1] 기준 팀원 국내 출장 숙박비 120,000원이 조문·개정일·원문 링크와 함께 나오는 장면. 하단에 한글 자막" width="800"></a>
-  <br><sub>하이라이트(소리 없음)입니다. <a href="docs/assets/usage-demo.mp4"><b>▶ 내레이션이 있는 전체 영상(MP4, 약 1분)</b></a> · 앱 화면은 예시이며 화면 속 규정 내용은 공용 서버 실제 응답(2026-11-26 조회)입니다.</sub>
+  <a href="docs/assets/usage-demo.mp4"><img src="docs/assets/usage-demo.gif" alt="소개 영상 하이라이트: 질문 한 줄에 「여비규정」 [별표 1] 기준 팀원 국내 출장 숙박비 120,000원이 조문·개정일·원문 링크와 함께 나오고, 이어서 동국대·연세대·한양대·경희대·건국대 여비 규정의 여비 종류 조문을 나란히 비교하는 장면. 하단에 한글 자막" width="800"></a>
+  <br><sub>하이라이트(소리 없음)입니다. <a href="docs/assets/usage-demo.mp4"><b>▶ 내레이션이 있는 전체 영상(MP4, 약 1분 30초: 타대학 비교·상위 법령 조회 포함)</b></a> · 앱 화면은 예시이며 화면 속 규정·법령 내용은 공용 서버와 국가법령 실제 조회 결과(2026-11-26)입니다.</sub>
 </p>
 
 <p align="center">
@@ -243,7 +243,7 @@ flowchart LR
 | [docs/FINANCE_DESK.md](docs/FINANCE_DESK.md) | finance 프로필과 자료팩 |
 | [CHANGELOG.md](CHANGELOG.md) | 변경 기록 |
 
-소개 영상 원본은 [docs/assets/intro/intro.html](docs/assets/intro/intro.html)(대본 [narration.json](docs/assets/intro/narration.json)), 앱 예시 화면 원본은 [docs/assets/usage-demo.html](docs/assets/usage-demo.html)입니다. `python3 scripts/intro-video/narrate.py`(MeloTTS로 내레이션 합성) 다음 `node scripts/intro-video/record.cjs`로 [MP4](docs/assets/usage-demo.mp4)와 하이라이트 GIF를 다시 만듭니다(크롬·ffmpeg·numpy 필요). 내레이션은 MIT 라이선스인 MeloTTS로 합성했고 배경음은 스크립트가 직접 합성해 외부 음원이 없습니다. 버전·라이선스 배지는 외부 배지 서버 장애에 영향받지 않도록 [docs/assets/badges](docs/assets/badges)의 SVG를 씁니다. 릴리스 때 version.svg의 버전 글자도 함께 바꿉니다. 소스에서 검사하려면 `npm ci` 다음 `npm test`입니다. CI는 Node 20.19.0, 22, 24에서 실행합니다. 실원문은 `npm run test:live`이며 네트워크가 필요합니다. 전교 용량 시험은 아닙니다.
+소개 영상 원본은 [docs/assets/intro/intro.html](docs/assets/intro/intro.html)(대본 [narration.json](docs/assets/intro/narration.json), 화면 속 내용은 `lookup_dongguk_rule`·`compare_university_rules`·`get_rule_upper_laws` 응답), 앱 예시 화면 원본은 [docs/assets/usage-demo.html](docs/assets/usage-demo.html)입니다. `python3 scripts/intro-video/narrate.py`(MeloTTS로 내레이션 합성, `--only c1,c2`처럼 일부 줄만 다시 합성 가능) 다음 `node scripts/intro-video/record.cjs`로 [MP4](docs/assets/usage-demo.mp4)와 하이라이트 GIF를 다시 만듭니다(크롬·ffmpeg·numpy 필요). 내레이션은 MIT 라이선스인 MeloTTS로 합성했고 배경음은 스크립트가 직접 합성해 외부 음원이 없습니다. 버전·라이선스 배지는 외부 배지 서버 장애에 영향받지 않도록 [docs/assets/badges](docs/assets/badges)의 SVG를 씁니다. 릴리스 때 version.svg의 버전 글자도 함께 바꿉니다. 소스에서 검사하려면 `npm ci` 다음 `npm test`입니다. CI는 Node 20.19.0, 22, 24에서 실행합니다. 실원문은 `npm run test:live`이며 네트워크가 필요합니다. 전교 용량 시험은 아닙니다.
 
 ## 기여 · 라이선스
 

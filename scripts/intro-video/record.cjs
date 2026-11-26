@@ -1,12 +1,13 @@
 'use strict';
 /**
- * 소개 영상 v3 녹화: docs/assets/intro/intro.html 을 헤드리스 크롬에서 프레임 단위로 캡처하고
+ * 소개 영상 v4 녹화: docs/assets/intro/intro.html 을 헤드리스 크롬에서 프레임 단위로 캡처하고
  * 내레이션·배경음(mix_audio.py)과 합쳐 MP4(소리 포함)와 README용 하이라이트 GIF를 만듭니다.
  *
  *   python3 scripts/intro-video/narrate.py      # 내레이션 합성 + timeline.js (MeloTTS 필요, 한 번만)
  *   node scripts/intro-video/record.cjs         # 프레임 녹화 + 오디오 믹스 + 인코딩
  *
- * 환경변수: INTRO_FPS(기본 30), INTRO_SCALE(기본 1.5 → 1920x1080), CHROME(크롬 경로)
+ * 환경변수: INTRO_FPS(기본 30), INTRO_SCALE(기본 1.5 → 1920x1080), CHROME(크롬 경로),
+ *   INTRO_GIF_ONLY=1(이미 녹화한 프레임으로 GIF만 다시 만들기)
  * 필요: google-chrome, ffmpeg, python3(numpy), Node 22 이상
  */
 const {spawn} = require('node:child_process');
@@ -18,7 +19,7 @@ const {setTimeout: delay} = require('node:timers/promises');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const ASSETS = path.join(ROOT, 'docs/assets');
-const WORK = path.join(os.tmpdir(), 'dongguk-intro-v3');
+const WORK = path.join(os.tmpdir(), 'dongguk-intro-v4');
 const FRAMES = path.join(WORK, 'frames');
 const FPS = Number(process.env.INTRO_FPS || 30);
 const SCALE = Number(process.env.INTRO_SCALE || 1.5);
@@ -79,6 +80,7 @@ function timeline() {
 
 async function main() {
   const tl = timeline();
+  if (process.env.INTRO_GIF_ONLY) return makeGif(tl);
   fs.rmSync(WORK, {recursive: true, force: true});
   fs.mkdirSync(FRAMES, {recursive: true});
   const server = await serve();
@@ -127,15 +129,24 @@ async function main() {
   await run('ffmpeg', ['-y', '-loglevel', 'error', ...input, '-i', mix,
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-pix_fmt', 'yuv420p', '-tune', 'animation',
     '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart', mp4]);
-  // README 하이라이트 GIF: 문제 장면 끝 3초 + 해결 장면 전체(자막 포함, 소리 없음)
-  const gs = Math.max(0, tl.scenes.after[0] - 3), ge = tl.scenes.how[0];
+  const gif = await makeGif(tl);
+  console.log(JSON.stringify({duration: tl.duration, fps: FPS, size: `${W * SCALE}x${H * SCALE}`, mp4Bytes: fs.statSync(mp4).size,
+    gifBytes: fs.statSync(gif).size, framesDir: FRAMES}));
+}
+
+// README 하이라이트 GIF(소리 없음, 자막 포함): '질문 한 줄' 해결 장면 + 타대학 비교 장면을 이어 붙입니다.
+async function makeGif(tl) {
+  const L = Object.fromEntries(tl.lines.map((l) => [l.id, l]));
+  const segs = [[L.n3.start - .8, tl.scenes.after[1]], [tl.scenes.compare[0], tl.scenes.compare[1]]];
+  const input = ['-framerate', String(FPS), '-i', path.join(FRAMES, 'f%05d.png')];
   const gif = path.join(ASSETS, 'usage-demo.gif');
   const palette = path.join(WORK, 'palette.png');
-  const base = `trim=${gs}:${ge},setpts=PTS-STARTPTS,fps=${GIF_FPS},scale=${GIF_WIDTH}:-1:flags=lanczos`;
-  await run('ffmpeg', ['-y', '-loglevel', 'error', ...input, '-vf', `${base},palettegen=stats_mode=diff:max_colors=160`, palette]);
-  await run('ffmpeg', ['-y', '-loglevel', 'error', ...input, '-i', palette, '-lavfi', `${base}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`, gif]);
-  console.log(JSON.stringify({duration: tl.duration, fps: FPS, size: `${W * SCALE}x${H * SCALE}`, mp4Bytes: fs.statSync(mp4).size,
-    gifBytes: fs.statSync(gif).size, gifRange: [gs, ge], framesDir: FRAMES}));
+  const parts = segs.map(([s, e], i) => `[0:v]trim=${s.toFixed(3)}:${e.toFixed(3)},setpts=PTS-STARTPTS[s${i}]`).join(';');
+  const cat = `${parts};${segs.map((_, i) => `[s${i}]`).join('')}concat=n=${segs.length}:v=1:a=0,fps=${GIF_FPS},scale=${GIF_WIDTH}:-1:flags=lanczos`;
+  await run('ffmpeg', ['-y', '-loglevel', 'error', ...input, '-filter_complex', `${cat},palettegen=stats_mode=diff:max_colors=160`, palette]);
+  await run('ffmpeg', ['-y', '-loglevel', 'error', ...input, '-i', palette, '-filter_complex', `${cat}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle`, gif]);
+  console.error(`gif ${fs.statSync(gif).size} bytes, segments ${JSON.stringify(segs.map(([s, e]) => [+s.toFixed(2), +e.toFixed(2)]))}`);
+  return gif;
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

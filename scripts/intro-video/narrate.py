@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""소개 영상 v3 내레이션을 합성하고 화면 타이밍(timeline.js)을 만듭니다.
+"""소개 영상 v4 내레이션을 합성하고 화면 타이밍(timeline.js)을 만듭니다.
 
   python3 scripts/intro-video/narrate.py --engine melo   # MeloTTS(MIT), 기본
   python3 scripts/intro-video/narrate.py --engine edge   # edge-tts(시험용, 배포 조건 불명확)
@@ -23,7 +23,7 @@ OUT = os.path.join(INTRO, 'narration')
 SR = 44100
 
 # 장면이 첫 내레이션보다 얼마나 먼저 시작하는지(초)
-SCENE_LEAD = {'before': None, 'after': 1.1, 'how': 0.9, 'anywhere': 0.9, 'cta': 1.0}
+SCENE_LEAD = {'before': None, 'after': 1.1, 'how': 0.9, 'compare': 0.9, 'law': 0.9, 'anywhere': 0.9, 'cta': 1.0}
 TAIL = 3.0
 
 
@@ -52,11 +52,13 @@ def normalize(src, dst, speed=1.0):
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, '-af', ','.join(af), '-ar', str(SR), '-ac', '1', dst], check=True)
 
 
-def synth_melo(lines, speed):
+def synth_melo(lines, speed, only=None):
     from melo.api import TTS
     model = TTS(language='KR', device='cpu')
     spk = model.hps.data.spk2id['KR']
     for ln in lines:
+        if only and ln['id'] not in only:
+            continue
         raw = os.path.join(OUT, f"{ln['id']}.raw.wav")
         model.tts_to_file(ln['tts'], spk, raw, speed=speed, quiet=True)
         wav = os.path.join(OUT, f"{ln['id']}.wav")
@@ -77,9 +79,10 @@ def synth_edge(lines, voice, edge_bin):
 
 def build_timeline(lines, engine):
     dpath = os.path.join(OUT, 'durations.json')
+    durs = json.load(open(dpath)) if os.path.exists(dpath) else {}
     if DURS:
-        json.dump(DURS, open(dpath, 'w'), indent=1)
-    durs = json.load(open(dpath))
+        durs.update(DURS)
+        json.dump(durs, open(dpath, 'w'), indent=1)
     t = 0.0
     out = []
     for ln in lines:
@@ -88,7 +91,7 @@ def build_timeline(lines, engine):
         out.append({'id': ln['id'], 'scene': ln['scene'], 'start': round(t, 3), 'end': round(t + d, 3), 'sub': ln['sub']})
         t += d
     scenes = {}
-    order = ['before', 'after', 'how', 'anywhere', 'cta']
+    order = ['before', 'after', 'how', 'compare', 'law', 'anywhere', 'cta']
     for name in order:
         first = next(x for x in out if x['scene'] == name)
         scenes[name] = [0.0 if SCENE_LEAD[name] is None else round(first['start'] - SCENE_LEAD[name], 3)]
@@ -110,12 +113,13 @@ def main():
     ap.add_argument('--voice', default='ko-KR-SunHiNeural')
     ap.add_argument('--edge-bin', default='edge-tts')
     ap.add_argument('--timeline-only', action='store_true')
+    ap.add_argument('--only', default='', help='쉼표로 구분한 줄 id만 다시 합성(나머지는 기존 음성 유지)')
     a = ap.parse_args()
     lines = json.load(open(os.path.join(INTRO, 'narration.json'), encoding='utf-8'))['lines']
     os.makedirs(OUT, exist_ok=True)
     if not a.timeline_only:
         if a.engine == 'melo':
-            synth_melo(lines, a.speed)
+            synth_melo(lines, a.speed, set(filter(None, a.only.split(','))) or None)
         else:
             synth_edge(lines, a.voice, a.edge_bin)
     tl = build_timeline(lines, a.engine)

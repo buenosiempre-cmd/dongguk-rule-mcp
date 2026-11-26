@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""소개 영상 v3 오디오: 배경음을 직접 합성하고 내레이션과 섞습니다.
+"""소개 영상 v4 오디오: 배경음을 직접 합성하고 내레이션과 섞습니다.
 
   python3 scripts/intro-video/mix_audio.py [출력.wav]
 
@@ -79,7 +79,7 @@ def build_music(tl, n):
         g = 0.6 + 0.4 * (t - a) / (b - a)
         add(L if k % 2 else R, tick * g, t); t += 0.5; k += 1
     # 2) 전환 효과음(휙): 장면 경계마다 걸러진 잡음
-    for name in ['after', 'how', 'anywhere', 'cta']:
+    for name in ['after', 'how', 'compare', 'law', 'anywhere', 'cta']:
         at = sc[name][0] - 0.35; m = int(0.9 * SR)
         nz = rng.standard_normal(m).astype(np.float32)
         nz = lowpass(nz, 1800) * np.hanning(m).astype(np.float32) * 0.22
