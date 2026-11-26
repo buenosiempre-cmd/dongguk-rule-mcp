@@ -241,7 +241,7 @@ dongguk-rule-mcp --build-index
 - **법령 응답 캐시:** 법령 서버의 성공 응답을 도구 구분 없이 디스크에 공유 저장합니다. 현행 법령 목록(`search_law`)·별표는 같은 날(한국 시간) 6시간, MST로 고정된 조문 본문(`get_law_text`)은 30일, 과거 기준일 판정(`legal_analysis`)은 7일입니다. MST는 공포된 한 버전을 가리키므로 법령이 개정되면 목록의 MST가 바뀌어 새 본문을 받습니다. 오류·빈 응답·점검 화면·"없음" 응답은 캐시하지 않습니다. `DONGGUK_MCP_NO_CACHE=1`이면 끕니다.
 - **한도 초과 재시도:** 법령 서버가 429(요청 한도 초과)를 돌려주면 `Retry-After`(최대 5초) 또는 0.5초·1초 간격으로 두 번까지 다시 시도하고, 그래도 막히면 `LEGAL_UPSTREAM_RATE_LIMITED`로 표시합니다. 전체 제한 시간을 넘겨 기다리지 않습니다.
 - **이용 한도:** 공개 주소의 IP별 제한(분당 60·하루 1,000)이 이 서버로 들어오는 요청의 상한입니다. 호스팅 한국법령 MCP를 키 없이 쓰면 그 서버의 공용 한도(접속 IP마다 분당 60회, 키 없는 사용자 전체가 나눠 쓰는 전역 한도)를 탑니다. 공용 서버는 모든 사용자의 법령 조회가 한 IP로 나가므로 `DONGGUK_LEGAL_MCP_API_KEY`로 운영자 OC를 넘기거나, `LAW_OC`로 서버에 설치한 `korean-law-mcp`(stdio)를 써서 운영자 키 한도로 조회하는 편이 안전합니다. 법제처 Open API 쪽 한도는 [국가법령정보 공동활용](https://open.law.go.kr)의 신청 정보에서 확인합니다.
-- `get_service_info`의 `integrations.legalCalls`가 `quota`(`own_key`/`shared_keyless`), 캐시 적중·실제 호출·재시도 횟수(프로세스 시작 이후)를 보여 줍니다. 키 값은 나오지 않습니다.
+- `get_service_info`의 `integrations.legalCalls`가 `quota`(`own_key`: 이 서버가 운영자 키를 넘김, `local_operator_key`: 같은 컴퓨터(loopback 주소)에서 운영자 `LAW_OC`로 띄운 `korean-law-mcp` 사용, `shared_keyless`: 원격 호스팅 서버의 공용 무키 한도), 캐시 적중·실제 호출·재시도 횟수(프로세스 시작 이후)를 보여 줍니다. 키 값은 나오지 않습니다.
 - `get_service_info`의 `integrations.lawLink`로 상태를 확인합니다. `state`는 `ready`(켜짐), `missing`(주소·키 없음), `invalid`(값 오류), `disabled`·`disabled_public`(운영자가 끔)입니다.
 
 ### 타대학 비교

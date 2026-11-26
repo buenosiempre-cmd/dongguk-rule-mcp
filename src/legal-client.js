@@ -135,7 +135,7 @@ function connectionSettings(){
     // shared keyless quota. Never echoed in any response or log.
     const apiKey=(process.env.DONGGUK_LEGAL_MCP_API_KEY||'').trim();
     if(/[\r\n]/.test(token)||/[\r\n]/.test(apiKey)) throw notConfigured('invalid');
-    return {kind,url:url.href,token,apiKey};
+    return {kind,url:url.href,token,apiKey,loopback};
   }
   if(kind!=='stdio') throw notConfigured('invalid');
   if(!process.env.LAW_OC) throw notConfigured('missing');
@@ -144,14 +144,23 @@ function connectionSettings(){
   if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw notConfigured('invalid');
   return {kind,command:process.env.DONGGUK_LEGAL_MCP_COMMAND||'npx',args,lawOc:process.env.LAW_OC};
 }
+// Which 법제처 quota a lookup draws on, from the settings alone (never the key).
+// own_key: this process passes the operator's key (stdio LAW_OC, apikey header
+// or bearer token). local_operator_key: a loopback korean-law-mcp the operator
+// runs on the same machine with its own LAW_OC, so lookups never touch a hosted
+// server's shared quota. shared_keyless: a remote hosted server without a key,
+// whose quota every keyless user shares.
+function legalQuota(settings){
+  if(settings.kind==='stdio'||settings.apiKey||settings.token) return 'own_key';
+  if(settings.loopback) return 'local_operator_key';
+  return 'shared_keyless';
+}
 // Whether the law server can be reached with the current settings, without
 // connecting. Never returns the address or the key.
 function legalServerState(){
   try{
     const settings=connectionSettings();
-    // own_key: lookups use the operator's 법제처 key; shared_keyless: a hosted
-    // server's quota shared by every keyless user. Never the key itself.
-    return {state:'ready',transport:settings.kind,quota:settings.kind==='stdio'||settings.apiKey||settings.token?'own_key':'shared_keyless'};
+    return {state:'ready',transport:settings.kind,quota:legalQuota(settings)};
   }
   catch(error){return {state:error.reason||'invalid',transport:legalTransport()};}
 }

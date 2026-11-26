@@ -114,12 +114,37 @@ test('own 법제처 key goes to the hosted server as the apikey header and never
     assert.ok(seen.length>=1);assert.equal(seen[0].apikey,'fixture-oc-key');
     assert.doesNotMatch(JSON.stringify(r),/fixture-oc-key/);
     delete process.env.DONGGUK_LEGAL_MCP_API_KEY;
-    assert.equal(legalServerState().quota,'shared_keyless');
+    assert.equal(legalServerState().quota,'local_operator_key');
     process.env.DONGGUK_LEGAL_MCP_API_KEY='bad\r\nkey';
     assert.equal(legalServerState().state,'invalid');
   }finally{
     for(const k of Object.keys(process.env)) if(!(k in saved)) delete process.env[k];
     Object.assign(process.env,saved);await closeLegalClient();server.close();
+  }
+});
+test('quota label: loopback local server is the operator key, remote keyless is the shared quota',()=>{
+  const saved={...process.env};
+  const quota=url=>{process.env.DONGGUK_LEGAL_MCP_URL=url;return legalServerState().quota;};
+  try{
+    Object.assign(process.env,{DONGGUK_LEGAL_MCP_ENABLED:'1',DONGGUK_LEGAL_MCP_TRANSPORT:'streamable-http'});
+    for(const k of ['DONGGUK_LEGAL_MCP_API_KEY','DONGGUK_LEGAL_MCP_BEARER_TOKEN']) delete process.env[k];
+    assert.equal(quota('http://127.0.0.1:3858/mcp'),'local_operator_key');
+    assert.equal(quota('http://localhost:3858/mcp'),'local_operator_key');
+    assert.equal(quota('http://[::1]:3858/mcp'),'local_operator_key');
+    assert.equal(quota('https://127.0.0.1:3858/mcp'),'local_operator_key');
+    assert.equal(quota('https://law.example.org/mcp'),'shared_keyless');
+    assert.equal(quota('https://127.0.0.1.example.org/mcp'),'shared_keyless');
+    assert.equal(quota('http://law.example.org/mcp'),undefined);
+    assert.equal(legalServerState().state,'invalid');
+    process.env.DONGGUK_LEGAL_MCP_API_KEY='fixture-oc-key';
+    assert.equal(quota('https://law.example.org/mcp'),'own_key');
+    assert.equal(quota('http://127.0.0.1:3858/mcp'),'own_key');
+    delete process.env.DONGGUK_LEGAL_MCP_API_KEY;process.env.DONGGUK_LEGAL_MCP_BEARER_TOKEN='fixture-token';
+    assert.equal(quota('https://law.example.org/mcp'),'own_key');
+    assert.doesNotMatch(JSON.stringify(legalServerState()),/fixture|example\.org|3858/);
+  }finally{
+    for(const k of Object.keys(process.env)) if(!(k in saved)) delete process.env[k];
+    Object.assign(process.env,saved);
   }
 });
 test('upper-law paging: laws past max_laws continue with law_offset instead of being dropped',()=>{
