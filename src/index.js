@@ -736,6 +736,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
       matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,edition:hit.edition,family:hit.family,
       priorityArticles:excerptPriority(body?rankedArticles.slice(0,1):[],hit.semanticArticle,[hit.wordArticle,...(body?rankedArticles.slice(1,2):[])]),rankedArticles,
+      semanticRuleRank:hit.semanticRuleRank,
       // Only the institution or campus name matched; no article is about the topic.
       scopeNameOnly:hit.matchedConcepts.length>0&&hit.matchedConcepts.every(term=>SCOPE_WORD.test(term))};
     if(!families.has(hit.family)) families.set(hit.family,[]);
@@ -760,7 +761,13 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // How clearly the first rule leads is judged by word scores. The semantic lift orders rules;
   // it is not evidence that one rule alone answers the question.
   const searchable=found.tokens.length-found.missingTerms.length;
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3);
+  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3)
+    // A campus or affiliate edition (WISE캠퍼스·산학협력단·의학계열) is not shown alone to a question that
+    // names no campus or institution: the asker may mean the general rule.
+    &&!(first.edition&&!scope.specified)
+    // When semantic search ran, the rule shown alone must also hold the article closest in meaning.
+    // Words and meaning pointing at different rules means the choice is not settled.
+    &&!(found.semantic&&first.semanticRuleRank!==1);
   return {hits,dominant};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
