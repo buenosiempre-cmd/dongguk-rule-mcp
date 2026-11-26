@@ -326,7 +326,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
   const searchForms = [...new Set(words.flatMap(word => word.forms))];
   const standing = ruleStanding(corpus);
   // Who the question is about, read from the question and the keywords together.
-  const subject = questionSubject(keywordMode ? `${query} ${keywords.map(phrase => phrase.join(' ')).join(' ')}` : query);
+  const subject = questionSubject(query, keywordMode ? keywords.map(phrase => phrase.join(' ')).join(' ') : '');
   const generalFamilies = new Set(corpus.rules.filter(r => !ruleFamily(r.title).edition).map(r => ruleFamily(r.title).family));
   const hits = [];
   for (const rule of corpus.rules) {

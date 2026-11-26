@@ -736,7 +736,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.score>=second.score*1.3);
   return {hits,dominant};
 }
-function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null}={}){
+function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
@@ -763,8 +763,8 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
       });
       const chosen=question.hits[0];
       // The rule the question alone ranks first always keeps the last preview slot.
-      if(!hits.slice(0,INDEX_PREVIEW_RULES).some(hit=>hit.lawId===chosen.lawId)){
-        hits=[...hits.slice(0,INDEX_PREVIEW_RULES-1),{...chosen,selectedBy:'question'},...hits.slice(INDEX_PREVIEW_RULES-1).filter(hit=>hit.lawId!==chosen.lawId)].slice(0,top);
+      if(!hits.slice(0,previewLimit).some(hit=>hit.lawId===chosen.lawId)){
+        hits=[...hits.slice(0,previewLimit-1),{...chosen,selectedBy:'question'},...hits.slice(previewLimit-1).filter(hit=>hit.lawId!==chosen.lawId)].slice(0,top);
         keywordInfo.questionRuleKept=chosen.lawId;
       }
       // One rule is shown alone only when the question by itself also singles out that rule.
@@ -957,7 +957,7 @@ async function hLookup(rawKeyword, {
   const exactTitle=candidateHits.size>0&&selectRuleCandidate([...candidateHits.values()],keyword).matchType==='exact';
   // One content word with no title candidate ("책 연체하면 어떻게 돼") is still a question for the index.
   if(!explicitLawId&&!exactTitle&&(questionTerms.length>1||(questionTerms.length===1&&!candidateHits.size)||keywordPhrases.length)){
-    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery,keywords:keywordPhrases});
+    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery,keywords:keywordPhrases,previewLimit:maxRules===1?INDEX_PREVIEW_RULES:maxRules});
     if(indexed){result=indexed;queryUsed=indexed.tokens.join(' ');searchMode='핵심어 색인';}
   }
   if(!result){
@@ -1002,6 +1002,7 @@ async function hLookup(rawKeyword, {
     }});
   }
   const hits=(selection.status==='unique'?[selection.hit]:indexMode?result.hits:rankRuleHits(result.hits,keyword)).slice(0,expandPreview?INDEX_PREVIEW_RULES:maxRules);
+  if(indexMode&&result.keywordInfo?.questionRuleKept&&!hits.some(hit=>hit.lawId===result.keywordInfo.questionRuleKept)) result.keywordInfo.questionRuleKept=null;
   const indexMulti=indexMode&&hits.length>1;
   if(indexMulti){maxSections=Math.min(maxSections,3);maxChars=Math.min(maxChars,6000);}
   const identityStatus=catalogRule?'catalog_title':explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
@@ -1013,7 +1014,7 @@ async function hLookup(rawKeyword, {
   const namedRule=selection.status==='unique'&&autoTerms&&validStr(rawTerms)&&hits.length===1&&rawTerms!==keyword;
   // Keywords also choose the articles of a rule picked by its name or its law_id.
   const keyedRule=!indexMode&&autoTerms&&keywordPhrases.length>0&&hits.length===1;
-  const focus=namedRule||keyedRule?focusWithinRule(hits[0].lawId,namedRule?rawTerms:'',keywordPhrases):null;
+  const focus=namedRule||keyedRule?focusWithinRule(hits[0].lawId,namedRule?rawTerms:scopeQuery,keywordPhrases):null;
   const keywordInfo=keywordPhrases.length?(indexMode?result.keywordInfo:focus?.keywordInfo)||{used:[],missing:[],rewritten:{},applied:false}:null;
   const keywordSelectors=keywordPhrases.length?[...articleSelectors(String(keywords)),...appendixSelectors(String(keywords))]:[];
   // The question's own words stay (an appendix may hold words the index lacks); rule vocabulary is added.
@@ -1407,7 +1408,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   {name:'get_finance_evidence', title:'재무 업무 근거 조회',description:'재무지식 팩이 지정한 교내 규정과 국가 법령 식별자를 실조회해 사전검토용 근거 묶음을 반환합니다. 각 출처의 조회 성공과 적용 판단은 구분합니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   {name:'search_finance_handbook', title:'재무 해설서 검색',description:'특례규칙 해설서의 계정과목·회계 개념·사례를 짧은 질문으로 검색합니다. 판본·원문 위치·추출 품질을 반환합니다. 법적 적용과 분개표 원문 검증은 별도입니다.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200},limit:{type:'integer',minimum:1,maximum:5}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   {name:'review_finance_case', title:'재무 사례 공동 검토',description:'출장비·외부 강사료의 교내 규정과 한국법령을 자동 연계하는 기본 도구. 확인한 기준일·캠퍼스·회계·대상 조건을 facts로 전달하세요. 필요한 사실이 없으면 먼저 질문하며 지원 범위 밖 급여·연금·국외 강연·비거주자 업무는 별도 조회가 필요합니다. 일반 교비 비용·계정·증빙·기안문 검토도 지원합니다. 부분 조회·적용 미확인을 지급 가능이나 소득구분 확정으로 해석하지 마세요.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:2000},text:{type:'string',maxLength:20000,description:'검토할 기안문 본문. 개인번호·계좌·인증정보 제외.'},facts:{type:'object',additionalProperties:false,properties:Object.fromEntries(Object.entries(require('./finance-desk.js').FACT_LABELS).map(([key,label])=>[key,{type:'string',maxLength:120,description:label}]))}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
-  { name:'lookup_dongguk_rule', title:'동국 규정 통합 조회', description:'동국대학교 규정 질문의 기본·우선 도구. 규정 검색→최신 원문 HWP→관련 조문·원문 내 별표(금액표·주석 포함)를 한 번에 반환합니다. 보통은 query와 keywords 두 가지만 넣으세요. query에는 사용자의 질문을 그대로, keywords에는 그 질문을 규정 문장에 쓰이는 명사로 바꾼 핵심어를 넣습니다(예: 질문 "빌린 장비 잃어버리면 물어내야 해?" → keywords "물품, 분실, 변상"). 규정은 구어가 아니라 한자어 명사로 쓰여 있어 keywords가 있어야 맞는 규정과 조문을 찾습니다. rule_keyword는 규정의 정확한 이름을 알 때만, terms는 조문·별표 번호를 알 때만 쓰고, 주제어는 모두 keywords에 넣으세요. 별도 첨부 자동 조회·OCR은 미지원입니다. 근거가 충분하면 중복 조회를 생략하세요. partial이면 사유를 확인하고, 발췌 한도인 경우 max_sections·max_chars를 늘려 조회하세요. 모호한 후보·적용범위는 추가 확인이 필요합니다.',
+  { name:'lookup_dongguk_rule', title:'동국 규정 통합 조회', description:'동국대학교 규정 질문의 기본·우선 도구. 규정 검색→최신 원문 HWP→관련 조문·원문 내 별표(금액표·주석 포함)를 한 번에 반환합니다. 보통은 query와 keywords 두 가지만 넣으세요. query에는 사용자의 질문을 그대로, keywords에는 그 질문을 규정 문장에 쓰이는 명사로 바꾼 핵심어를 넣습니다(예: 질문 "빌린 장비 잃어버리면 물어내야 해?" → keywords "물품, 분실, 변상"). keywords를 함께 넣으면 규정 용어로 더 정확히 찾습니다. 확신이 없으면 비워 두세요(query만으로도 찾습니다). rule_keyword는 규정의 정확한 이름을 알 때만, terms는 조문·별표 번호를 알 때만 쓰고, 주제어는 모두 keywords에 넣으세요. 별도 첨부 자동 조회·OCR은 미지원입니다. 근거가 충분하면 중복 조회를 생략하세요. partial이면 사유를 확인하고, 발췌 한도인 경우 max_sections·max_chars를 늘려 조회하세요. 모호한 후보·적용범위는 추가 확인이 필요합니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'선택 LAW_ID. 모호한 후보를 선택한 후 직접 원문·별표 조회'},
       query:{type:'string',description:'전체 자연어 질문. 사용자가 쓴 문장을 줄이지 말고 그대로 넣습니다. 캠퍼스·기관(WISE, 산학협력단, 대학원 등)은 여기서 읽습니다. 예: 대전 출장 가면 일비랑 숙박비 얼마 받아?'},
@@ -1603,7 +1604,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         // searched as a title and end in a list of candidates, so it joins the keywords and the question leads.
         if(validStr(a.rule_keyword)&&validStr(a.query)&&!a.law_id&&indexStatus().available&&!requestCookie()){
           try{catalog=await loadCatalog();}catch{}
-          if(catalog&&selectRuleCandidate(catalog,validStr(a.rule_keyword)).matchType!=='exact'){
+          const identity=catalog&&selectRuleCandidate(catalog,validStr(a.rule_keyword));
+          if(identity?.matchType==='partial'&&identity.candidates.length===1){
+            input={...a,rule_keyword:identity.candidates[0].title};
+          } else if(identity&&identity.matchType!=='exact'){
             topicAsRuleKeyword=validStr(a.rule_keyword);
             // Topic words sent as terms help choose the rule too; terms with an article or appendix number stay excerpt-only.
             const terms=validStr(a.terms), topicTerms=terms&&!articleSelectors(terms).length&&!appendixSelectors(terms).length?terms:null;

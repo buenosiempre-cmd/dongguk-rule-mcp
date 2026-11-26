@@ -345,9 +345,9 @@ const PHRASE_CONCEPTS = [
   [/계약.{0,6}(?:몇\s*년|기간|단위)/, '계약기간'],
   [/(?:몇\s*살|몇\s*세|나이).{0,12}(?:일할|일하|근무|재직|퇴직)|(?:일할|일하|근무|재직).{0,12}(?:몇\s*살|몇\s*세|나이)/, '정년'],
   [/(?:하던|맡은|담당).{0,6}(?:일|업무).{0,10}(?:넘겨|넘기|물려)|업무.{0,4}(?:넘겨|넘기)/, '인계'],
-  [/몇\s*년.{0,8}(?:다녀|다니|다닐)|(?:다녀|다니|다닐).{0,8}몇\s*년/, '수업연한'],
+  [/(?=.*(?:학생|학교|대학|학기|졸업|학사과정))(?=.*(?:몇\s*년.{0,8}(?:다녀|다니|다닐)|(?:다녀|다니|다닐).{0,8}몇\s*년))/, '수업연한'],
   [/(?:못\s*뽑|뽑을\s*수\s*없|(?:임용|채용|선발)될\s*수\s*없|될\s*수\s*없는\s*사람)/, '결격사유'],
-  [/보여\s*(?:달라|줘|줄)/, '열람'],
+  [/(?:자료|기록|문서|서류|장부|성적).{0,20}(?:보여\s*(?:달라|줘|줄)|볼\s*수|열람)/, '열람'],
   [/개인\s*(?:용무|용도|적으로|일로|볼일)|사적으로|집에\s*가져/, '사적'],
   [/(?:한\s*곳|한\s*군데|하나|한\s*명).{0,3}(?:만|밖에).{0,10}(?:들어오|참여|응찰|입찰)/, '재입찰'],
   [/(?:서류|계약서|영수증|증빙).{0,6}없이/, '생략'],
@@ -476,10 +476,10 @@ const SUBJECT_CLASSES = [
 // A lecturer is also faculty, so a rule for 교원 is not a mismatch for a 강사 question.
 const SUBJECT_COVERED_BY = { 강사: ['교원'] };
 const withoutMixedSubjects = text => String(text || '').replace(/교직원|학생\s*연구자|교수학습|교수법|강사료|강사비/g, ' ');
-function questionSubject(text) {
+function questionSubject(text, fallback = '') {
   const plain = withoutMixedSubjects(text);
   const named = SUBJECT_CLASSES.filter(([, ask]) => ask.test(plain)).map(([name]) => name);
-  return named.length === 1 ? named[0] : null;
+  return named.length === 1 ? named[0] : named.length === 0 && fallback ? questionSubject(fallback) : null;
 }
 // A rule whose title names another class and not the asked one (전임교원 인사규정 for a 직원 question)
 // counts for less. Titles that name no class, or both, are left alone.

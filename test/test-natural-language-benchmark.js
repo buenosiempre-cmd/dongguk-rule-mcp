@@ -31,6 +31,15 @@ async function main(){
    validateQuestions([row]);
    for(const args of ['분실',null,['분실']])assert.throws(()=>validateQuestions([{...q,args}]),/INVALID_QUESTION/);
  });
+ check('문항과 외부 args의 query 덮어쓰기 거절',()=>{
+   assert.throws(()=>callArguments({...q,args:{query:'다른 질문'}}),/INVALID_ARGS/);
+   assert.throws(()=>callArguments(q,{argsById:{test:{query:'다른 질문'}}}),/INVALID_ARGS/);
+   assert.throws(()=>callArguments({...q,args:{query:'다른 질문'}},{argsById:{test:{keywords:'계약'}}}),/INVALID_ARGS/);
+ });
+ await assert.rejects(evaluate([{...q,args:{query:'다른 질문'}}],async()=>response([])),/INVALID_ARGS/);
+ await assert.rejects(evaluate([q],async()=>response([]),()=>{},()=>0,{argsById:{test:{query:'다른 질문'}}}),/INVALID_ARGS/);
+ const external=await evaluate([q],async()=>response([]),()=>{},()=>0,{argsById:{test:{keywords:'계약',campus:'wise'}}});
+ check('외부 args의 실제 전송 인수 기록',()=>assert.deepEqual(external.results[0].args,{keywords:'계약',campus:'wise'}));
  const sent=[];
  const both=await evaluate([{...q,args:{keywords:'분실, 변상'}},{...q,id:'plain'}],async(query,args)=>{sent.push(args);return response([rule(7,'### 제3조(목적) 본문')]);},()=>{},()=>0);
  const alone=await evaluate([{...q,args:{keywords:'분실, 변상'}}],async(query,args)=>{sent.push(args);return response([rule(7,'### 제3조(목적) 본문')]);},()=>{},()=>0,{useArgs:false});

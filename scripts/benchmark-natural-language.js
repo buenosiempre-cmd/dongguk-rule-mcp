@@ -79,6 +79,7 @@ function statistics(results) {
 // then args from a separate file keyed by question id. With useArgs false only the query is sent.
 function callArguments(question, { useArgs = true, argsById = null } = {}) {
   if (Array.isArray(question)) return { query: question[0] };
+  if ([question.args, argsById?.[question.id]].some(args => args && Object.hasOwn(args, 'query'))) throw new Error('INVALID_ARGS: query');
   const extra = useArgs ? { ...(question.args || {}), ...(argsById?.[question.id] || {}) } : {};
   return { query: question.q, ...extra };
 }
