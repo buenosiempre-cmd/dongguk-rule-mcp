@@ -60,7 +60,7 @@ async function main(){
   await check('on by default: an address alone is enough, and only ENABLED=0 switches it off',async()=>{
     await closeLegalClient();
     delete process.env.DONGGUK_LEGAL_MCP_ENABLED;delete process.env.DONGGUK_LEGAL_MCP_TRANSPORT;
-    assert.deepEqual(legalServerState(),{state:'ready',transport:'streamable-http'});
+    {const st=legalServerState();assert.equal(st.state,'ready');assert.equal(st.transport,'streamable-http');assert.equal(st.quota,process.env.DONGGUK_LEGAL_MCP_BEARER_TOKEN?'own_key':'shared_keyless');}
     assert.equal((await query()).status,'retrieved');
     process.env.DONGGUK_LEGAL_MCP_ENABLED='0';
     assert.equal(legalServerState().state,'disabled');
