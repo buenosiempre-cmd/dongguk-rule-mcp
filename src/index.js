@@ -1492,7 +1492,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
           '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (재무 공동 검토용 법령 조회. 설정 여부이며 실제 연결 검증은 별도)',
-          '- 법령 호출: '+({own_key:'운영자 법제처 키 사용',shared_keyless:'호스팅 법령 서버의 공용(무키) 한도 사용 — DONGGUK_LEGAL_MCP_API_KEY로 운영자 키를 넘기면 공용 한도를 타지 않습니다'}[data.integrations.legalCalls.quota]||'연결 안 됨')+' / 법령 응답 캐시 '+data.integrations.legalCalls.cache+' (적중 '+data.integrations.legalCalls.cacheHits+', 실제 호출 '+data.integrations.legalCalls.upstreamCalls+', 한도 재시도 '+data.integrations.legalCalls.retries+')',
+          '- 법령 호출: '+({own_key:'운영자 법제처 키 사용',local_operator_key:'같은 컴퓨터의 로컬 법령 서버(운영자 법제처 키) 사용',shared_keyless:'호스팅 법령 서버의 공용(무키) 한도 사용 — DONGGUK_LEGAL_MCP_API_KEY로 운영자 키를 넘기면 공용 한도를 타지 않습니다'}[data.integrations.legalCalls.quota]||'연결 안 됨')+' / 법령 응답 캐시 '+data.integrations.legalCalls.cache+' (적중 '+data.integrations.legalCalls.cacheHits+', 실제 호출 '+data.integrations.legalCalls.upstreamCalls+', 한도 재시도 '+data.integrations.legalCalls.retries+')',
           '- 법령 연결(get_rule_references include_law_text, get_rule_upper_laws): '+(lawGuide?({missing:'연결 정보 없음',invalid:'설정 오류'}[lawGuide.state]||'운영자가 끔')+' — '+lawGuide.message:'켜짐'),
           '- 타대학 비교(compare_university_rules): '+(data.integrations.universityComparison.configured?'켜짐':'운영자가 끔(DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0)')+' / 서울대 조회 키(DONGGUK_LAWGO_OC): '+(data.integrations.universityComparison.snuKeyConfigured?'있음':'없음(서울대만 건너뜀, https://open.law.go.kr 에서 신청)'),
           '- jointWorkflows: '+(data.integrations.jointWorkflows.join(', ')||'없음'),
