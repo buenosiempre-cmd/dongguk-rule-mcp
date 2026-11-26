@@ -30,7 +30,7 @@ async function test() {
     const other=row();other.rules[0].lawId='2';compareSnapshot(other,first);assert.deepEqual(other.changes,['REPRESENTATIVE_CHANGED']);
   });
   await check('19개 대학 직접 로더, 대표 1개·단일 검색어, 동국대·게시 호출 없음', async () => {
-    const calls=[];const report=await runWatch({}, {loader:async (s,t,terms,c,signal,spec)=>{calls.push(s.key);assert.deepEqual(terms,['여비']);assert.equal(spec.maxRules,1);return loaded;},clientFactory:()=>({})});
+    const calls=[];const report=await runWatch({}, {loader:async (s,t,terms,c,signal,spec)=>{calls.push(s.key);assert.deepEqual(terms,['여비']);assert.deepEqual(spec.searchTerms,['여비','출장']);assert.deepEqual(spec.titleHints,['여비','출장','출장비']);assert.deepEqual(spec.titleQueries,['여비','출장','출장비']);assert.equal(spec.titleOnly,true);assert.equal(spec.maxRules,1);return loaded;},clientFactory:()=>({})});
     assert.equal(report.universities.length,19);assert.equal(calls.length,19);assert(!calls.includes('dongguk'));assert(report.universities.every(r=>r.success&&r.status==='partial'));assert.match(report.checkedAt,/\+09:00$/);
     for (const format of ['markdown','slack','json']) assert(formatWatch(report,format).includes('중앙대학교'));
   });
@@ -43,11 +43,19 @@ async function test() {
     const report=await runWatch({}, {sources:[source('uos')],clientFactory:()=>({}),loader:async()=>({...loaded,rules:[{...rule,title:'정보공개심의회 규정'}]})});
     assert(report.universities[0].success);assert(report.universities[0].changes.includes('TOPIC_TITLE_NOT_MATCHED'));
   });
+  await check('출장·출장비가 제목에 있으면 여비 주제로 인정한다', async () => {
+    for (const title of ['출장비 지급 규정','출장비규정','서울시립대학교 전임교원 국외출장 지침']) {
+      const report=await runWatch({}, {sources:[source('sogang')],clientFactory:()=>({}),loader:async()=>({...loaded,rules:[{...rule,title}]})});
+      assert(report.universities[0].success);assert(!report.universities[0].changes.includes('TOPIC_TITLE_NOT_MATCHED'), title);
+    }
+  });
   await check('조회 없음·형식 오류·현행본 미확인·OC 미설정은 코드로 구분', async () => {
     const cases=[{rules:[],failures:[],coverage:{}},{rules:[],failures:[{code:'UPSTREAM_FORMAT_CHANGED'}],coverage:{}},{...loaded,coverage:{currentRevisionUnverified:1}}];
     const report=await runWatch({}, {sources:UNIVERSITIES.slice(0,3),clientFactory:()=>({}),loader:async()=>cases.shift()});
     assert.deepEqual(report.universities.map(r=>r.failureCodes[0]),['NO_MATCH_IN_SCOPE','UPSTREAM_FORMAT_CHANGED','PDF_REVISION_UNVERIFIED']);assert(report.universities.every(r=>!r.success));
     const missing=await runWatch({}, {sources:[source('snu')],clientFactory:()=>({}),loader:async()=>{throw {code:'LAWGO_OC_NOT_CONFIGURED'};}});assert.equal(missing.universities[0].failureCodes[0],'LAWGO_OC_NOT_CONFIGURED');
+    const hidden=await runWatch({}, {sources:[source('korea')],clientFactory:()=>({}),loader:async()=>({rules:[],failures:[],coverage:{mode:'public_folder_list',publicOnly:true,titleMatches:0}})});
+    assert.equal(hidden.universities[0].failureCodes[0],'NOT_PUBLIC');assert.equal(hidden.universities[0].status,'not_public');assert(!hidden.universities[0].success);
   });
   await check('대표 제한은 실제 로더의 본문 요청을 1개로 제한; 일반 비교 기본값 유지', async () => {
     let bodies=0;const s=source('cau');const client={request:async(s,p)=>{
