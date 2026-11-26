@@ -1017,9 +1017,13 @@ async function hLookup(rawKeyword, {
   const keywordInfo=keywordPhrases.length?(indexMode?result.keywordInfo:focus?.keywordInfo)||{used:[],missing:[],rewritten:{},applied:false}:null;
   const keywordSelectors=keywordPhrases.length?[...articleSelectors(String(keywords)),...appendixSelectors(String(keywords))]:[];
   // The question's own words stay (an appendix may hold words the index lacks); rule vocabulary is added.
+  // Topic words sent as terms beside a rule_keyword that names no rule: the excerpt keeps those
+  // terms and also gets the vocabulary and articles the index chose, as for keywords.
+  const topicTerms=indexMode&&!autoTerms&&!!topicAsRuleKeyword&&!articleSelectors(rawTerms).length&&!appendixSelectors(rawTerms).length;
   const effectiveTerms=focus ? [...new Set([...(namedRule?[rawTerms]:[]),...focus.searchTerms,...keywordSelectors])].join(', ')
     : indexMode&&autoTerms
     ? [...new Set([...result.searchTerms,...articleSelectors(rawTerms||keyword),...appendixSelectors(rawTerms||keyword),...keywordSelectors])].join(', ')
+    : topicTerms ? [...new Set([rawTerms,...result.searchTerms])].join(', ')
     : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
@@ -1070,7 +1074,7 @@ async function hLookup(rawKeyword, {
       details:{lawId,historyId,sourceType,warning:warningData},
     });
     const noSelectors=!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length&&!keywordSelectors.length;
-    const preferredArticles=!noSelectors?[]:focus?focus.priorityArticles:indexMode&&autoTerms?hit.priorityArticles:[];
+    const preferredArticles=!noSelectors?[]:focus?focus.priorityArticles:indexMode&&(autoTerms||topicTerms)?hit.priorityArticles:[];
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
       maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
       ...(preferredArticles.length?{priorityArticles:preferredArticles}:{}),
