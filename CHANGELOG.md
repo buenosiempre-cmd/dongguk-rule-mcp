@@ -13,6 +13,14 @@
 - `get_service_info`의 `integrations.lawLink`(`state`, `setup`)와 `integrations.universityComparison`(`configured`, `snuKeyConfigured`)이 실제 동작을 표시합니다.
 - 운영 주의: `DONGGUK_LEGAL_MCP_ENABLED`·`DONGGUK_PUBLIC_LAW_LINK`를 넣지 않고 주소나 `LAW_OC`만 둔 서버는 이번 변경부터 법령 연결이 켜집니다. 끄려면 `0`을 넣습니다.
 
+### 질문 로그(선택)
+
+- `DONGGUK_MCP_QUERY_LOG_DIR`를 넣은 HTTP 서버만 검색·조회 도구(`lookup_dongguk_rule`, `search_rule`, `search_rule_deep`, `applicable_rule`, `compare_university_rules`, 회원용 재무 검색 3종)의 질문 문자열 하나를 `queries-YYYY-MM.jsonl`(디렉터리 0700·파일 0600)에 남깁니다. 시각(KST)·도구·경로(`/mcp/rules`·`/mcp`)·질문(마스킹, 최대 200자)·결과 상태·결과 건수·첫 결과 규정명·소요 시간만 저장하고, 다른 인자·답변 본문·IP·헤더·토큰·회원 식별자는 저장하지 않습니다. 기안문을 받는 `review_finance_case`는 제외합니다.
+- 주민·외국인등록번호, 전화번호, 이메일, 카드·계좌·사업자등록번호, 7자리 이상 숫자, URL, 긴 비밀값을 저장 전에 가립니다. 이름·사건 서술은 가리지 못하므로 고지 문구로 안내합니다.
+- `scripts/sync-query-log-notion.js`가 서버 밖에서 노션 데이터베이스로 올립니다(`NOTION_QUERY_LOG_TOKEN`, `NOTION_QUERY_LOG_DATABASE_ID`). 파일별 오프셋으로 중복을 막고 `--dry-run`, `--prune`(로컬 보관 기간 정리), `--prune-notion`, `--export-wrong`(오답 → 정답률 질문 세트)을 지원합니다. 보관 기간은 기본 365일(`DONGGUK_MCP_QUERY_LOG_RETENTION_DAYS`).
+- `get_service_info`가 `privacy.queryLog`와 `검색어 저장:` 줄로 수집 여부·보관 기간·고지 문구를 알려 줍니다. 설명은 `docs/QUERY_LOG.md`.
+- 기본은 꺼져 있습니다. 공용 서버 런처 변경과 동기화 예약은 이 변경에 포함하지 않습니다.
+
 ### 소개 자료
 
 - README·소개 페이지·구성원 안내 페이지 맨 앞에 공용 서버 주소만 넣는 앱별 설치법(Claude Desktop, Claude Code, Cursor, Codex, ChatGPT)을 두고, 내 PC 설치는 두 번째 선택지로 옮겼습니다. 내 PC 설치 안내는 배포본 v0.15.8의 동작(환경변수 필요) 기준으로 적었습니다.

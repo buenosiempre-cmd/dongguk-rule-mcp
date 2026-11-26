@@ -296,3 +296,7 @@ HTTP 서버에 `DONGGUK_MCP_USAGE_LOG_DIR`가 설정되어 있을 때만 파싱�
 집계는 기본 7일(`--days 1..366`)이며 환경변수 디렉터리를 쓰거나 `--usage-dir`로 지정합니다. 한 대학의 같은 실패 코드는 호출당 한 번만 셉니다. 파일/기간 내 비교 로그가 없으면 “로그 없음”, 손상 줄과 대학 결과가 없는 구버전 로그는 별도 건수로 표시합니다. 권한 오류는 빈 로그로 숨기지 않습니다. 로그는 운영자가 로컬 보관·삭제 정책을 정하며 본 CLI는 기존 로그를 수정하지 않습니다.
 
 예약 실행은 예를 들어 **월요일 06:00 KST**로 계획할 수 있습니다. 실행 호스트 시간대가 Asia/Seoul인지, 기존 동국대 색인 작업과 겹치지 않는지 확인한 뒤 별도 승인으로 등록합니다. launchd `StartCalendarInterval` 예시는 `{ Weekday: 1, Hour: 6, Minute: 0 }`이며 `ProgramArguments`는 절대 경로의 `node`, `scripts/university-watch.js`, `--snapshot`, 로컬 스냅샷 경로입니다. 이 PR은 launchd 등록·공용 서버 런처 변경·실제 게시를 수행하지 않습니다.
+
+## 질문 로그와 노션 동기화
+
+`DONGGUK_MCP_QUERY_LOG_DIR`를 넣은 HTTP 서버만 검색·조회 도구의 질문 문자열을 개인정보를 가린 뒤 `queries-YYYY-MM.jsonl`(0600)에 남깁니다. 노션 업로드는 서버 밖의 `scripts/sync-query-log-notion.js`가 맡습니다. 저장 필드, 마스킹 규칙, 노션 데이터베이스 속성, 보관 기간(기본 1년)과 삭제 방법, 런처 변경은 [QUERY_LOG.md](QUERY_LOG.md)를 따릅니다. 서버 반영과 동기화 예약 등록은 별도 승인으로 합니다.

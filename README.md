@@ -230,6 +230,9 @@ flowchart LR
 **답을 기안에 바로 써도 되나요?**  
 규정명, 조문 또는 별표, 기준일, 조회일, 원문 링크를 남기고 소관 부서 확인을 거칩니다. 일부만 조회됐다는 표시와 검색 0건은 검증 통과가 아닙니다.
 
+**질문 내용이 저장되나요?**  
+운영자가 켠 서버에서만 검색 품질 개선을 위해 검색어를 저장합니다. 저장 전에 주민등록번호·전화번호·이메일·카드·계좌번호와 긴 숫자를 가리고, IP·계정·답변 본문은 저장하지 않으며 1년 뒤 지웁니다. 이름이나 사건 내용은 질문에 넣지 마세요. 저장 여부는 `get_service_info`의 `검색어 저장` 줄에서 확인합니다. 자세한 내용은 [docs/QUERY_LOG.md](docs/QUERY_LOG.md)에 있습니다.
+
 ## 문서
 
 | 문서 | 내용 |
@@ -238,6 +241,7 @@ flowchart LR
 | [docs/REFERENCE.md](docs/REFERENCE.md) | 개발자용 인수·응답 필드·설정·운영 참고 |
 | [docs/COP_GUIDE.md](docs/COP_GUIDE.md) | 구성원 시작 |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | 서버, 토큰, 갱신 |
+| [docs/QUERY_LOG.md](docs/QUERY_LOG.md) | 질문 로그 수집 고지, 노션 동기화 |
 | [docs/WORKFLOWS.md](docs/WORKFLOWS.md) | 급여·출장·전결·감사·인용 점검 |
 | [docs/FINANCE_DESK.md](docs/FINANCE_DESK.md) | finance 프로필과 자료팩 |
 | [CHANGELOG.md](CHANGELOG.md) | 변경 기록 |
