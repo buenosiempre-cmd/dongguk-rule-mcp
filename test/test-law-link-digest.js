@@ -68,14 +68,14 @@ async function main() {
   await client.connect(b);
   const call = async (name, args) => (await client.callTool({ name, arguments: args })).structuredContent;
 
-  await check('요청 계획: 조문 있는 확정 법령만, 최대 3개', async () => {
+  await check('요청 계획: 조문 있는 확정 법령만, 최대 8개', async () => {
     const plan = planRequests([
       { lawName: '소득세법', articles: ['제12조', '제20조'], confirmedLawName: true },
       { lawName: '사립학교법', articles: [], confirmedLawName: true },
       { lawName: '어떤 지침', articles: ['제1조'], confirmedLawName: false },
-      { lawName: '법인세법', articles: ['제19조', '제20조'], confirmedLawName: true },
+      { lawName: '법인세법', articles: ['제19조', '제20조', '제21조', '제22조', '제23조', '제24조', '제25조'], confirmedLawName: true },
     ]);
-    assert.deepEqual(plan.requests.map(x => `${x.law_name} ${x.article}`), ['소득세법 제12조', '소득세법 제20조', '법인세법 제19조']);
+    assert.deepEqual(plan.requests.map(x => `${x.law_name} ${x.article}`), ['소득세법 제12조', '소득세법 제20조', '법인세법 제19조', '법인세법 제20조', '법인세법 제21조', '법인세법 제22조', '법인세법 제23조', '법인세법 제24조']);
     assert.deepEqual(plan.skipped.map(x => x.reason), ['NO_ARTICLE_CITED', 'LAW_NAME_UNCONFIRMED', 'LIMIT']);
   });
 
@@ -135,17 +135,17 @@ async function main() {
     lawDown = false;
   });
 
-  await check('인용된 조문 원문을 가져오고 한도를 넘은 것은 표시', async () => {
+  await check('인용된 조문 원문을 가져옴(한도 8개 안의 4개 조문은 모두)', async () => {
     lawCalls.length = 0;
     const raw = await client.callTool({ name: 'get_rule_references', arguments: { law_id: 1, article: 2, include_law_text: true } });
     const result = raw.structuredContent;
-    assert.equal(result.data.lawTexts.status, 'partial');
-    assert.deepEqual(result.data.lawTexts.laws.map(x => `${x.lawName} ${x.article} ${x.status}`), ['소득세법 제12조 retrieved', '소득세법 시행령 제12조 retrieved', '법인세법 제19조 retrieved']);
+    assert.equal(result.data.lawTexts.status, 'retrieved');
+    assert.deepEqual(result.data.lawTexts.laws.map(x => `${x.lawName} ${x.article} ${x.status}`), ['소득세법 제12조 retrieved', '소득세법 시행령 제12조 retrieved', '법인세법 제19조 retrieved', '부가가치세법 제10조 retrieved']);
     assert.match(result.data.lawTexts.laws[0].text, /합성 조문 본문/);
     assert.equal(result.data.lawTexts.laws[0].source.mst, '12345');
-    assert.deepEqual(result.data.lawTexts.skipped, [{ lawName: '부가가치세법', article: '제10조', reason: 'LIMIT' }]);
+    assert.deepEqual(result.data.lawTexts.skipped, []);
     assert.match(raw.content[0].text, /인용 법령 원문/);
-    assert.equal(lawCalls.filter(x => x.name === 'get_law_text').length, 3);
+    assert.equal(lawCalls.filter(x => x.name === 'get_law_text').length, 4);
   });
 
   await check('같은 날 같은 조문은 캐시에서 반환', async () => {

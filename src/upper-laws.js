@@ -55,7 +55,7 @@ function latestAnnotatedDate(content) {
 }
 
 // references: outgoing items from extractReferences with sourceLocation and the citing block's text.
-function planLaws(references, { title, includeCandidates = true, maxLaws = MAX_LAWS } = {}) {
+function planLaws(references, { title, includeCandidates = true, maxLaws = MAX_LAWS, offset = 0 } = {}) {
   const laws = new Map();
   for (const item of references) {
     if (item.scope !== 'external_law' && !item.externalCandidate) continue;
@@ -76,7 +76,13 @@ function planLaws(references, { title, includeCandidates = true, maxLaws = MAX_L
     ? topicCandidates(title).filter(x => !laws.has(normalizeName(x.lawName))).map(x => ({ lawName: x.lawName, relation: 'topic_candidate', nameStatus: 'law_name', nameGuessed: false, topics: x.topics, articles: [], citedBy: [] }))
     : [];
   const all = [...cited, ...candidates];
-  return { laws: all.slice(0, maxLaws), omitted: all.slice(maxLaws).map(x => ({ lawName: x.lawName, relation: x.relation })) };
+  // Laws past max_laws are not dropped: page.nextOffset continues from there.
+  const start = Math.min(Math.max(0, offset || 0), all.length);
+  const end = start + maxLaws;
+  return {
+    laws: all.slice(start, end), omitted: all.slice(end).map(x => ({ lawName: x.lawName, relation: x.relation })),
+    page: { offset: start, returned: Math.max(0, Math.min(end, all.length) - start), total: all.length, nextOffset: end < all.length ? end : null },
+  };
 }
 
 const later = (a, b) => Boolean(a && b && a > b);
@@ -113,8 +119,8 @@ function signalsFor(law, { ruleRevisedAt }) {
 
 function today() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); }
 
-async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandidates, includeText, maxLaws, configured, setupGuide, cached, inspectLaws }) {
-  const plan = planLaws(references, { title, includeCandidates, maxLaws });
+async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandidates, includeText, maxLaws, lawOffset = 0, configured, setupGuide, cached, inspectLaws }) {
+  const plan = planLaws(references, { title, includeCandidates, maxLaws, offset: lawOffset });
   const limits = { maxLaws: maxLaws || MAX_LAWS, maxArticles: MAX_ARTICLES, maxTextChars: MAX_TEXT_CHARS, totalTimeoutMs: TOTAL_TIMEOUT_MS };
   const revised = parseDateLoose(ruleRevisedAt)?.iso || null;
   const laws = plan.laws.map(law => ({ ...law, identity: { status: 'not_checked' }, articles: law.articles.map(article => ({ article, status: 'not_checked' })) }));
@@ -165,7 +171,7 @@ async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandida
     check: laws.reduce((sum, x) => sum + x.signals.filter(s => s.level === 'check').length, 0),
     omitted: plan.omitted.length,
   };
-  return { lookup, laws, omitted: plan.omitted, counts, limits, ruleRevisedAt: revised };
+  return { lookup, laws, omitted: plan.omitted, page: plan.page, counts, limits, ruleRevisedAt: revised };
 }
 
 const RELATION = { cited: '규정이 인용', topic_candidate: '주제 후보(인용 없음)' };
@@ -197,7 +203,8 @@ function formatUpperLaws(result, { title, selectorLabel }) {
     }
 
   }
-  if (result.omitted.length) lines.push('', `한 번에 ${result.limits.maxLaws}개 법령까지 확인합니다. 생략: ${result.omitted.map(x => x.lawName).join(', ')}`);
+  if (result.page?.offset) lines.push('', `법령 ${result.page.total}건 중 ${result.page.offset + 1}~${result.page.offset + result.page.returned}번째를 확인했습니다.`);
+  if (result.omitted.length) lines.push('', `한 번에 ${result.limits.maxLaws}개 법령까지 확인합니다. 남은 법령 ${result.omitted.length}건: ${result.omitted.map(x => x.lawName).join(', ')}${result.page?.nextOffset != null ? ` — law_offset=${result.page.nextOffset}로 이어서 확인하세요.` : ''}`);
   if (result.laws.some(law => law.articles.some(a => a.code === 'ARTICLE_LIMIT'))) lines.push('', `조문 확인은 한 번에 ${result.limits.maxArticles}개까지입니다. article을 지정해 나누어 조회하세요.`);
   if (result.comparison) lines.push('', formatComparison(result.comparison, result.laws));
   lines.push('', CAVEAT);
