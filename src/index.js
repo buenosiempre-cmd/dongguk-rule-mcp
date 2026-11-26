@@ -337,10 +337,13 @@ async function buildSemanticRuleIndex({onProgress,shared=false}={}) {
   const directory=publicCacheDir(), corpus=loadCorpus(directory);
   if(!corpus) return {ok:false,code:'INDEX_UNAVAILABLE',message:'전문 색인이 없습니다. 먼저 --build-index를 실행하세요.'};
   let embedder;
-  try{embedder=shared?await sharedEmbedder(directory):await createEmbedder({directory,download:true});}
+  try{embedder=shared?sharedEmbedder(directory):await createEmbedder({directory,download:true});}
   catch(error){return {ok:false,code:error.code||'SEMANTIC_MODEL_UNAVAILABLE',message:error.code==='SEMANTIC_RUNTIME_MISSING'?error.message+' 서버 설치 폴더에서 `npm install @huggingface/transformers`를 실행하거나 DONGGUK_MCP_SEMANTIC_RUNTIME에 설치 폴더를 지정하세요.':'임베딩 모델을 불러오지 못했습니다.'};}
   const started=Date.now();
-  const built=await buildSemanticIndex({corpus,directory,embedder,previous:loadSemanticIndex(directory),onProgress});
+  let built;
+  // A failure here leaves the previous vector file in place.
+  try{built=await buildSemanticIndex({corpus,directory,embedder,previous:loadSemanticIndex(directory),onProgress});}
+  catch{return {ok:false,code:'SEMANTIC_BUILD_FAILED',message:'조문 벡터를 만들지 못했습니다. 기존 벡터 파일은 그대로입니다.'};}
   return {ok:true,model:built.meta.model,articles:built.meta.articles,vectors:built.meta.rows,dims:built.meta.dims,reusedArticles:built.reused,seconds:Math.round((Date.now()-started)/1000),builtAt:built.meta.builtAt};
 }
 function indexStatus() {
@@ -824,14 +827,15 @@ function focusWithinRule(lawId,question,keywords=null,semantic=null){
     const hit=found.hits.find(x=>x.lawId===lawId);
     if(!hit) return null;
     const top=hit.articles[0];
-    return {searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null,wordArticle:hit.wordArticle,keywordInfo:found.keywords?{...found.keywords,applied:found.keywordMode}:null};
+    return {searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null,wordArticle:hit.wordArticle,semanticArticle:hit.semanticArticle,semantic:found.semantic,keywordInfo:found.keywords?{...found.keywords,applied:found.keywordMode}:null};
   };
+  // The article the words chose stays first; the article closest in meaning follows it.
   const alone=validStr(question)?within({}):null;
-  if(!keywords?.length) return alone&&{...alone,priorityArticles:[alone.topArticle].filter(Boolean)};
+  if(!keywords?.length) return alone&&{...alone,priorityArticles:excerptPriority([alone.topArticle],alone.semanticArticle,[])};
   // Keywords that this rule does not contain fall back to the question's own words.
   const keyed=within({keywords});
-  if(!keyed) return alone&&{...alone,priorityArticles:[alone.topArticle].filter(Boolean),keywordInfo:{used:[],missing:[],rewritten:{},applied:false}};
-  return {...keyed,priorityArticles:[...new Set([keyed.topArticle,alone?.topArticle,keyed.wordArticle].filter(Boolean))]};
+  if(!keyed) return alone&&{...alone,priorityArticles:excerptPriority([alone.topArticle],alone.semanticArticle,[]),keywordInfo:{used:[],missing:[],rewritten:{},applied:false}};
+  return {...keyed,priorityArticles:excerptPriority([keyed.topArticle],keyed.semanticArticle,[alone?.topArticle,keyed.wordArticle])};
 }
 const describeRewrites=map=>Object.keys(map||{}).length?Object.entries(map).map(([from,to])=>`${from}→${to}`).join(', '):'';
 
@@ -1068,7 +1072,7 @@ async function hLookup(rawKeyword, {
     : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
-    `- 검색 방식: ${searchMode}${result.semantic?' + 의미검색(조문 임베딩)':''}\n` +
+    `- 검색 방식: ${searchMode}${result.semantic||focus?.semantic?' + 의미검색(조문 임베딩)':''}\n` +
     (queryUsed!==keyword?`- 정규화 검색어: ${queryUsed}\n`:``) +
     `- 원문 집계 / 고유 후보: ${result.total}건 / ${metrics.uniqueRows}건\n` +
     `- 선택 규정: ${hits.length}건\n`+
@@ -1176,6 +1180,7 @@ async function hLookup(rawKeyword, {
   return success(out,{
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
+      ...(focus?.semantic?{semantic:true}:{}),
       ...(indexMode?{semantic:!!result.semantic,selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
         otherCandidates:result.hits.slice(hits.length,hits.length+3).map(x=>({lawId:x.lawId,title:x.title,matchedTerms:x.matchedTerms,topArticle:x.topArticle}))}:{})},
     rules,

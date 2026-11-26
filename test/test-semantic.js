@@ -107,8 +107,17 @@ async function main() {
   check('긴 조문은 겹치는 조각으로 나누고 조각마다 규정명·조 제목을 붙이며, 끝부분도 들어감', (() => {
     const body = `### 제7조(긴 조문)\n${'가나다라마바사아자차'.repeat(130)} 끝단서`;
     const texts = semantic.articleTexts('시험규정', body);
-    return texts.length > 3 && texts.length <= 12 && texts.every(text => text.startsWith('시험규정 ')) && texts.slice(1).every(text => text.includes('제7조(긴 조문)'))
+    return texts.length > 3 && texts.every(text => text.startsWith('시험규정 ')) && texts.slice(1).every(text => text.includes('제7조(긴 조문)'))
       && texts.at(-1).endsWith('끝단서') && texts.every(text => text.length < 460);
+  })());
+  check('가장 긴 조문 길이(약 5,500자)의 뒷부분까지 빠짐없이 조각에 들어감', (() => {
+    const marks = Array.from({ length: 55 }, (_, i) => `표지${String(i).padStart(2, '0')}번 ${'가나다라마바사아자차'.repeat(9)}`);
+    const texts = semantic.articleTexts('시험규정', `### 제8조(아주 긴 조문)\n${marks.join(' ')}`);
+    return texts.length > 12 && marks.every((_, i) => texts.some(text => text.includes(`표지${String(i).padStart(2, '0')}번`)));
+  })());
+  check('조각 상한(40)을 넘는 조문은 앞부분과 끝부분을 남김', (() => {
+    const texts = semantic.articleTexts('시험규정', `### 제9조(상한 초과)\n${'가나다라마바사아자차'.repeat(1500)} 맨끝단서`);
+    return texts.length === 40 && texts.at(-1).endsWith('맨끝단서') && texts[0].includes('제9조(상한 초과)');
   })());
 
   // ── 색인이 없을 때 ──
@@ -165,8 +174,73 @@ async function main() {
   check('깨진 색인 정보 파일은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null);
   fs.writeFileSync(metaFile, JSON.stringify({ ...JSON.parse(goodMeta), textVersion: 0 })); touch(metaFile);
   check('임베딩 입력 방식이 다른 색인은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null);
+  // 벡터 파일만 새 세대로 바뀐 상태(두 파일 교체 사이, 또는 그 사이에 프로세스가 죽은 경우)
+  const shuffled = Buffer.from(goodVectors);
+  shuffled.copyWithin(0, shuffled.length / 11, shuffled.length); // 같은 크기·같은 차원, 다른 내용
+  fs.writeFileSync(metaFile, goodMeta); fs.writeFileSync(vectorFile, shuffled); touch(metaFile);
+  check('정보 파일과 세대가 다른 벡터 파일(크기는 같음)은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null && semantic.semanticStatus(dir, loaded).indexAvailable === false);
+  fs.writeFileSync(vectorFile, goodVectors);
+  const good = JSON.parse(goodMeta);
+  const damaged = {
+    'rules가 배열이 아님': { ...good, rules: {} },
+    'blocks가 없음': { ...good, rules: good.rules.map(({ blocks, ...rest }) => rest) },
+    'blocks 항목 형식이 다름': { ...good, rules: [{ ...good.rules[0], blocks: [['0', 1, 1]] }, ...good.rules.slice(1)] },
+    '음수 조문 위치': { ...good, rules: [{ ...good.rules[0], blocks: good.rules[0].blocks.map(([, hash, count]) => [-1, hash, count]) }, ...good.rules.slice(1)] },
+    '행 수 합계가 맞지 않음': { ...good, rules: good.rules.slice(1) },
+    '벡터 수가 0인 조문': { ...good, rules: [{ ...good.rules[0], blocks: good.rules[0].blocks.map(([at, hash]) => [at, hash, 0]) }, ...good.rules.slice(1)] },
+    '해시 없음': { ...good, vectorHash: undefined },
+    'null': null,
+  };
+  for (const [label, meta] of Object.entries(damaged)) {
+    fs.writeFileSync(metaFile, JSON.stringify(meta)); touch(metaFile);
+    let status = null, thrown = false, result = 'unset';
+    try { result = await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }); status = semantic.semanticStatus(dir, loaded); } catch { thrown = true; }
+    check(`손상된 색인 정보(${label}): 예외 없이 색인 미사용, 상태 조회도 동작`, !thrown && result === null && status.indexAvailable === false);
+  }
+  const poisoned = new Float32Array(goodVectors.buffer.slice(goodVectors.byteOffset, goodVectors.byteOffset + goodVectors.byteLength));
+  poisoned[3] = NaN;
+  const poisonedBytes = Buffer.from(poisoned.buffer);
+  fs.writeFileSync(vectorFile, poisonedBytes);
+  fs.writeFileSync(metaFile, JSON.stringify({ ...good, vectorHash: require('node:crypto').createHash('sha256').update(poisonedBytes).digest('hex') })); touch(metaFile);
+  check('유한하지 않은 벡터 값이 든 색인은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null);
+  fs.writeFileSync(vectorFile, goodVectors);
   fs.writeFileSync(metaFile, goodMeta); touch(metaFile);
   check('정상 파일로 돌아오면 다시 씀', (await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }))?.size === 11);
+
+  // ── 멈춤·실패·동시 실행 ──
+  const never = { model: semantic.DEFAULT_MODEL, embedQuery: () => new Promise(() => {}), embedPassages: async texts => texts.map(fakeVector) };
+  semantic.setEmbedderForTests(never, { inferenceLimitMs: 60 });
+  const stalledAt = Date.now();
+  check('멈춘 추론: 질문은 시간 한도에 폴백', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '멈추는 질문', limitMs: 20 }) === null && Date.now() - stalledAt < 200);
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const afterStall = Date.now();
+  check('멈춘 추론을 포기한 뒤에는 큐가 막히지 않고, 다음 질문은 기다리지 않고 폴백하며 상태에 사유와 재시도 시각을 표시',
+    await semantic.semanticScores({ corpus: loaded, directory: dir, text: '다음 질문', limitMs: 5000 }) === null && Date.now() - afterStall < 100
+    && semantic.semanticStatus(dir).lastError === 'SEMANTIC_INFERENCE_STALLED' && Date.parse(semantic.semanticStatus(dir).pausedUntil) > Date.now() + 9 * 60 * 1000 && semantic.semanticStatus(dir).waiting === 0);
+  const flaky = fakeEmbedder({ fail: true });
+  semantic.setEmbedderForTests(flaky);
+  await semantic.semanticScores({ corpus: loaded, directory: dir, text: '실패하는 질문' });
+  await semantic.semanticScores({ corpus: loaded, directory: dir, text: '바로 다음 질문' });
+  check('추론 실패 뒤 1분 동안은 다시 추론하지 않고 폴백', flaky.calls.queries === 1 && semantic.semanticStatus(dir).lastError === 'SEMANTIC_INFERENCE_FAILED'
+    && Date.parse(semantic.semanticStatus(dir).pausedUntil) - Date.now() <= 60 * 1000 && Date.parse(semantic.semanticStatus(dir).pausedUntil) - Date.now() > 50 * 1000);
+  const order = [];
+  const slow = {
+    model: semantic.DEFAULT_MODEL,
+    embedQuery: async text => { order.push('질문 시작'); await new Promise(resolve => setTimeout(resolve, 60)); order.push('질문 끝'); return fakeVector(text); },
+    embedPassages: async texts => { order.push('갱신 시작'); await new Promise(resolve => setTimeout(resolve, 20)); order.push('갱신 끝'); return texts.map(fakeVector); },
+  };
+  semantic.setEmbedderForTests(slow);
+  const [askedDuring, refreshed] = await Promise.all([
+    semantic.semanticScores({ corpus: loaded, directory: dir, text: '갱신 중에 들어온 질문', limitMs: 5000 }),
+    semantic.buildSemanticIndex({ corpus: edited, directory: null, embedder: semantic.sharedEmbedder(dir), previous: semantic.loadSemanticIndex(dir) }),
+  ]);
+  check('서버 안 벡터 갱신과 질문 추론은 같은 큐에서 차례로 실행(겹치지 않음)', askedDuring?.size === 11 && refreshed.reused === 10
+    && order.join() === '질문 시작,질문 끝,갱신 시작,갱신 끝');
+  const many = fakeEmbedder({ delayMs: 30 });
+  semantic.setEmbedderForTests(many);
+  const burst = await Promise.all(Array.from({ length: 12 }, (_, i) => semantic.semanticScores({ corpus: loaded, directory: dir, text: `동시 질문 ${i}`, limitMs: 5000 })));
+  check('동시에 몰린 질문은 8건까지만 줄을 서고 나머지는 바로 폴백', burst.filter(Boolean).length === 8 && many.calls.queries === 8 && semantic.semanticStatus(dir).waiting === 0);
+  semantic.setEmbedderForTests(fakeEmbedder());
 
   // ── 순위 합치기 ──
   const question = '비품 대여';
@@ -229,6 +303,16 @@ async function main() {
       && headings(excerptOf(keyed, 1)).includes('제5조') && headings(excerptOf(keyed, 1)).includes('제9조'));
     const named = await call({ rule_keyword: '비품관리규정', query: '망가뜨리면 어떻게 해' });
     check('규정명을 정확히 준 조회는 그 규정만 반환', named.sc.ok === true && named.sc.data.rules.length === 1 && named.sc.data.rules[0].lawId === 1);
+    process.env.DONGGUK_MCP_SEMANTIC = '0';
+    const namedOff = await call({ rule_keyword: '비품관리규정', query: '대여 기간 끝나면 어떡해?' });
+    delete process.env.DONGGUK_MCP_SEMANTIC;
+    const namedOn = await call({ rule_keyword: '비품관리규정', query: '대여 기간 끝나면 어떡해?' });
+    check('규정명 지정 조회: 낱말이 고른 첫 조문은 그대로, 뜻이 가까운 조문을 둘째 자리에 발췌하고 사용을 표시',
+      namedOn.sc.data.rules.length === 1 && headings(namedOff.sc.data.rules[0].excerpt.text)[0] === headings(namedOn.sc.data.rules[0].excerpt.text)[0]
+      && !headings(namedOff.sc.data.rules[0].excerpt.text).includes('제9조') && headings(namedOn.sc.data.rules[0].excerpt.text)[1] === '제9조'
+      && namedOn.sc.data.search.semantic === true && namedOff.sc.data.search.semantic === undefined);
+    const byId = await call({ law_id: 1, query: '끝나면 어떡해?', keywords: '대여 기간' });
+    check('law_id와 keywords 조회에도 같은 방식 적용', byId.sc.ok === true && headings(byId.sc.data.rules[0].excerpt.text).slice(0, 2).join() === '제13조,제9조');
     const numbered = await call({ rule_keyword: '비품관리규정', terms: '제5조' });
     check('조문 번호를 준 조회는 그 조문만(의미 조문을 끼워 넣지 않음)', numbered.sc.ok === true && headings(numbered.sc.data.rules[0].excerpt.text).join() === '제5조');
   } finally {
