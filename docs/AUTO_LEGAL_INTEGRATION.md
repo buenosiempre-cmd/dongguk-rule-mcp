@@ -47,6 +47,8 @@ DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http
 DONGGUK_LEGAL_MCP_URL=https://mcp.gomdori.app/law
 ```
 
+주소(`DONGGUK_LEGAL_MCP_URL`)만 있어도 법령 연결은 켜집니다. `DONGGUK_LEGAL_MCP_ENABLED`는 생략하면 켜짐이고 `0`을 넣으면 꺼지며, `DONGGUK_LEGAL_MCP_TRANSPORT`는 생략하면 주소가 있을 때 `streamable-http`입니다. 주소와 키가 모두 없으면 오류 대신 설정 안내를 돌려줍니다. 자세한 표는 [운영 가이드](OPERATIONS.md#공개-프로필의-법령-원문-연계)에 있습니다.
+
 인증이 필요한 운영 서버에는 `DONGGUK_LEGAL_MCP_BEARER_TOKEN`을 별도 접근제한 설정으로 지정합니다. URL·질문·공개 저장소에 인증정보를 넣지 않습니다. 원격 연결에는 HTTPS를 사용하며 로컬 회귀검사용 loopback HTTP만 예외입니다. HTTP 모드는 `LAW_OC`를 요구하지 않습니다. 기존 stdio 방식과 `LAW_OC` 사용 방식도 유지합니다.
 
 이름·계좌·개인번호를 외부 법령 서비스에 보낼 필요가 없습니다. 통합 기능은 선정한 법령명·조문·기준일로 한국법령을 호출합니다. 공개 원문만 사용할 로컬 연결에서는 학교 쿠키와 내부 자료팩 경로를 비워 둡니다.

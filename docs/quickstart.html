@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="동국대학교 구성원을 위한 공개 규정 MCP 시작 안내. 연결 방법, 첫 질문, 원문 확인 순서를 안내합니다.">
+  <meta name="description" content="동국대학교 구성원을 위한 공개 규정 MCP 시작 안내. 주소 하나로 연결하는 방법, 첫 질문, 원문 확인 순서를 안내합니다.">
   <title>동국 규정 MCP · 구성원 시작 안내</title>
   <style>
     :root { --ink:#172c38; --muted:#52616a; --paper:#f6f5f0; --white:#fff; --line:#d9dfdf; --accent:#a94b13; --wash:#fff1df; --teal:#1c6265; --soft:#eaf3f1; --radius:20px; }
@@ -58,6 +58,13 @@
     .check b { display:block; font-size:17px; margin-bottom:8px; }
     .check p { margin:0; color:var(--muted); font-size:14px; }
     .check .num { color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.08em; margin-bottom:10px; }
+    .checks.four { grid-template-columns:repeat(4,1fr); }
+    .tablewrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { text-align:left; vertical-align:top; padding:9px 10px; border-bottom:1px solid var(--line); }
+    th { font-size:12px; color:var(--muted); }
+    td code { font-size:12px; word-break:break-all; }
+    .card.featured + details { margin-top:18px; }
     .record { margin-top:17px; padding:18px 22px; background:var(--soft); border-radius:12px; font-size:14px; }
     details { border:1px solid var(--line); border-radius:14px; background:white; margin-top:12px; padding:0 22px; }
     summary { cursor:pointer; font-size:15px; font-weight:720; padding:17px 0; }
@@ -73,16 +80,17 @@
     .footgrid .links { display:flex; flex-wrap:wrap; gap:8px 19px; margin-top:14px; font-size:14px; }
     footer { border-top:1px solid var(--line); color:var(--muted); font-size:12px; padding:22px 0 30px; }
     footer .wrap { display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; }
-    @media (max-width:720px) { .wrap { padding:0 20px; } .topbar .wrap { min-height:64px; } .toplinks { gap:14px; } .toplinks .desktop { display:none; } .hero { padding:40px 0 18px; } .intro { font-size:16px; } .grid,.checks,.footgrid { grid-template-columns:1fr; } .card,.prompt { padding:22px; } .card.featured { padding-top:19px; } section { margin-top:30px; } .checks { gap:10px; } .check { padding:20px; } .prompt pre { font-size:15px; } h2 { font-size:23px; } .footgrid { gap:22px; } }
+    @media (max-width:980px) { .checks.four { grid-template-columns:1fr 1fr; } }
+    @media (max-width:720px) { .wrap { padding:0 20px; } .topbar .wrap { min-height:64px; } .toplinks { gap:14px; } .toplinks .desktop { display:none; } .hero { padding:40px 0 18px; } .intro { font-size:16px; } .grid,.checks,.checks.four,.footgrid { grid-template-columns:1fr; } .card,.prompt { padding:22px; } .card.featured { padding-top:19px; } section { margin-top:30px; } .checks { gap:10px; } .check { padding:20px; } .prompt pre { font-size:15px; } h2 { font-size:23px; } .footgrid { gap:22px; } }
     @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
-    @media print { @page { size:A4; margin:15mm; } html,body { background:white; color:black; font-size:10pt; } .wrap { max-width:none; padding:0; } .skip,.toplinks,.route { display:none; } .topbar .wrap { min-height:40px; } .hero { padding:23px 0 6px; } h1 { font-size:29pt; } .intro { font-size:11pt; margin-top:12px; } section { margin-top:20px; } h2 { font-size:17pt; } .card,.check,.prompt,.footgrid { break-inside:avoid; border:1px solid #b9c1c2; border-radius:8px; padding:16px; background:white; color:black; } .grid { gap:12px; } .checks { grid-template-columns:1fr; gap:8px; } .check .num { float:left; margin-right:14px; } .check p,.card p,.footgrid p { font-size:10pt; } .prompt pre { font-size:10pt; line-height:1.6; } .prompt .mini { color:black; } .note,.record,.endpoint { background:#f3f3f3; } .button { background:white; color:black; border:1px solid #777; } details { break-inside:avoid; } details:not([open]) > .detailbody { display:block !important; } summary { font-size:11pt; } .codeblock { font-size:8pt; } .footgrid { grid-template-columns:1fr 1fr; } footer { padding:14px 0; } a { color:inherit; } }
+    @media print { @page { size:A4; margin:15mm; } html,body { background:white; color:black; font-size:10pt; } .wrap { max-width:none; padding:0; } .skip,.toplinks,.route { display:none; } .topbar .wrap { min-height:40px; } .hero { padding:23px 0 6px; } h1 { font-size:29pt; } .intro { font-size:11pt; margin-top:12px; } section { margin-top:20px; } h2 { font-size:17pt; } .card,.check,.prompt,.footgrid { break-inside:avoid; border:1px solid #b9c1c2; border-radius:8px; padding:16px; background:white; color:black; } .grid { gap:12px; } .checks,.checks.four { grid-template-columns:1fr; gap:8px; } .check .num { float:left; margin-right:14px; } .check p,.card p,.footgrid p { font-size:10pt; } .prompt pre { font-size:10pt; line-height:1.6; } .prompt .mini { color:black; } .note,.record,.endpoint { background:#f3f3f3; } .button { background:white; color:black; border:1px solid #777; } details { break-inside:avoid; } details:not([open]) > .detailbody { display:block !important; } summary { font-size:11pt; } .codeblock { font-size:8pt; } .footgrid { grid-template-columns:1fr 1fr; } footer { padding:14px 0; } a { color:inherit; } }
   </style>
 </head>
 <body>
   <a class="skip" href="#start">본문으로 이동</a>
   <header class="topbar">
     <div class="wrap">
-      <div class="brand"><span class="mark" aria-hidden="true">규</span>동국 규정 MCP <span class="tag">v0.12.0</span></div>
+      <div class="brand"><span class="mark" aria-hidden="true">규</span>동국 규정 MCP <span class="tag">v0.15.8</span></div>
       <nav class="toplinks" aria-label="관련 문서"><a href="https://rule.dongguk.edu/">공식 규정 원문</a><a class="desktop" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/main/docs/COP_GUIDE.md">전체 가이드</a></nav>
     </div>
   </header>
@@ -90,37 +98,77 @@
     <div class="hero">
       <p class="eyebrow">CoP · 구성원 시작 안내</p>
       <h1>업무 질문에서<br>동국 규정 원문까지.</h1>
-      <p class="intro">사용하는 AI에 규정 검색 도구를 연결하세요. 규정명·조문·개정 이력을 찾아주고, 직접 확인할 수 있는 원문을 함께 제공합니다.</p>
-      <nav class="route" aria-label="시작 순서"><a href="#start">1. 연결하기</a><a href="#ask">2. 첫 질문하기</a><a href="#verify">3. 원문 확인하기</a></nav>
+      <p class="intro">쓰는 AI 앱에 주소 하나만 등록하세요. 평소 말로 물으면 규정명·조문·개정 이력을 찾아 주고, 직접 확인할 수 있는 원문 링크를 함께 줍니다.</p>
+      <nav class="route" aria-label="시작 순서"><a href="#start">1. 연결하기</a><a href="#ask">2. 첫 질문하기</a><a href="#verify">3. 원문 확인하기</a><a href="#how">동작 원리와 도구</a></nav>
     </div>
     <main>
       <section id="start" aria-labelledby="start-title">
-        <div class="sectionhead"><span class="step" aria-hidden="true">1</span><div><h2 id="start-title">연결 방법을 하나 고르세요</h2><p>AI 앱이 MCP 연결을 지원해야 합니다. 앱·요금제·기관 정책에 따라 사용 가능 여부가 다릅니다.</p></div></div>
-        <div class="grid">
-          <article class="card featured">
-            <span class="mini">공용 서버 연결</span>
-            <h3>내 PC에 서버 설치 없이</h3>
-            <p>운영자가 서버를 관리합니다. 인증 없이 아래 주소만 넣으면 됩니다.</p>
-            <code class="endpoint">https://dgu.kr-univ-rules.com/mcp/rules</code>
-            <ol class="plainsteps"><li>사용하는 AI 앱의 원격 MCP 연결 설정을 엽니다.</li><li>이름과 위 주소를 입력합니다.</li><li>연결을 저장하고 아래 첫 질문을 실행합니다.</li></ol>
-            <p class="subtle" style="margin:15px 0 0">공개 규정 조회 전용입니다. 접속한 곳마다 1분 60회·하루 1,000회까지 받고, 넘으면 잠시 후 다시 시도하라는 응답이 갑니다.</p>
-          </article>
-          <article class="card">
-            <span class="mini">개인 PC 설치</span>
-            <h3>공유 토큰 없이 직접 시작</h3>
-            <p>Node.js 20.19 이상과 로컬 MCP를 지원하는 AI 앱이 필요합니다. 공개 규정만 조회하는 기본 설정으로 시작합니다.</p>
-            <a class="button" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.12.0/dongguk-rule-mcp-0.12.0.tgz">v0.12.0 설치 파일 받기</a>
-            <ol class="plainsteps"><li>GitHub의 고정 버전 설치 파일을 받습니다.</li><li>아래 설치 명령과 앱별 설정 출력을 확인합니다.</li><li>AI 앱을 다시 시작하고 첫 질문을 실행합니다.</li></ol>
-            <p class="subtle" style="margin:15px 0 0"><a href="#local-install">개인 설치 명령 보기</a> · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.12.0">릴리스 확인</a></p>
-          </article>
-        </div>
-        <div class="note"><p><strong>공개 규정 조회용입니다.</strong> 이 연결로 내부 재무지식팩, 개인별 급여·계좌, 학생기록, 결재·회계 시스템에 접근할 수 없습니다. 질문에는 개인을 식별하는 정보를 넣지 마세요.</p></div>
+        <div class="sectionhead"><span class="step" aria-hidden="true">1</span><div><h2 id="start-title">주소 하나만 넣으면 연결됩니다</h2><p>내 PC에 아무것도 설치하지 않습니다. 로그인도 토큰도 없습니다. 원격 MCP 지원 여부는 앱·요금제·기관 정책에 따라 다를 수 있습니다.</p></div></div>
+        <article class="card featured">
+          <span class="mini">공용 서버 주소</span>
+          <h3>쓰는 AI 앱에 이 주소를 등록하세요</h3>
+          <code class="endpoint">https://dgu.kr-univ-rules.com/mcp/rules</code>
+          <p class="subtle" style="margin:0">규정 도구 15개가 모두 켜져 있습니다. 접속한 곳마다 1분 60회·하루 1,000회까지 받고, 넘으면 잠시 후 다시 시도하라는 응답이 갑니다.</p>
+        </article>
+        <details open>
+          <summary>Claude Desktop</summary>
+          <div class="detailbody">
+            <ol class="plainsteps" style="margin-top:0"><li>설정에서 <strong>커넥터(Connectors)</strong> 화면을 엽니다.</li><li><strong>사용자 지정 커넥터 추가(Add custom connector)</strong>를 누릅니다.</li><li>이름은 <code>동국 규정</code>, 주소는 위 주소를 넣고 추가합니다. 인증 항목은 비워 둡니다.</li><li>새 대화를 열어 아래 첫 질문을 실행합니다.</li></ol>
+            <p>메뉴 이름과 위치는 앱 버전에 따라 조금 다를 수 있습니다. 회사·학교 계정은 관리자가 먼저 커넥터를 추가해야 할 수 있고, 요금제에 따라 추가할 수 있는 커넥터 수가 다릅니다.</p>
+          </div>
+        </details>
+        <details>
+          <summary>Claude Code</summary>
+          <div class="detailbody">
+            <p>터미널에서 한 줄을 실행합니다.</p>
+            <pre class="codeblock">claude mcp add --transport http dongguk-rule https://dgu.kr-univ-rules.com/mcp/rules</pre>
+          </div>
+        </details>
+        <details>
+          <summary>Cursor</summary>
+          <div class="detailbody">
+            <p>프로젝트의 <code>.cursor/mcp.json</code>(모든 프로젝트에 쓰려면 홈 폴더의 <code>~/.cursor/mcp.json</code>)에 아래를 넣습니다. 이미 다른 서버가 있으면 <code>mcpServers</code> 안에 <code>dongguk-rule</code> 항목만 더합니다.</p>
+            <pre class="codeblock">{
+  "mcpServers": {
+    "dongguk-rule": {
+      "url": "https://dgu.kr-univ-rules.com/mcp/rules"
+    }
+  }
+}</pre>
+          </div>
+        </details>
+        <details>
+          <summary>Codex</summary>
+          <div class="detailbody">
+            <p>터미널에서 한 줄을 실행합니다.</p>
+            <pre class="codeblock">codex mcp add dongguk-rule --url https://dgu.kr-univ-rules.com/mcp/rules</pre>
+            <p>또는 <code>~/.codex/config.toml</code>에 직접 적습니다.</p>
+            <pre class="codeblock">[mcp_servers.dongguk-rule]
+url = "https://dgu.kr-univ-rules.com/mcp/rules"</pre>
+          </div>
+        </details>
+        <details>
+          <summary>ChatGPT</summary>
+          <div class="detailbody">
+            <p>사용자 지정 MCP 커넥터를 추가하는 화면이 요금제와 앱 버전에 따라 다릅니다. 커넥터(또는 앱) 추가 화면이나 개발자 모드에서 원격 MCP 서버를 등록할 수 있다면 같은 주소를 넣습니다. 그런 메뉴가 보이지 않으면 현재 계정에서는 지원되지 않는 것이니 다른 앱을 쓰세요.</p>
+          </div>
+        </details>
+        <details>
+          <summary>두 번째 선택지: 내 PC에 설치</summary>
+          <div class="detailbody">
+            <p>공용 서버를 쓸 수 없거나 내 PC에서 직접 돌리고 싶을 때만 씁니다. Node.js(20.19 이상 20계열 또는 22.3 이상)와 로컬 MCP를 지원하는 AI 앱이 필요합니다.</p>
+            <p><a class="button" href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz">v0.15.8 설치 파일 받기</a></p>
+            <p><a href="#local-install">설치 명령 보기</a> · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.8">릴리스 확인</a></p>
+          </div>
+        </details>
+        <div class="note"><p><strong>공개 규정 조회용입니다.</strong> 이 주소로는 내부 재무지식팩, 개인별 급여·계좌, 학생기록, 결재·회계 시스템에 접근할 수 없습니다. 질문에는 개인을 식별하는 정보를 넣지 마세요.</p></div>
+        <div class="note"><p><strong>재무 도구가 필요한 구성원.</strong> 재무 업무용 도구 4개가 더해진 주소(<code>https://dgu.kr-univ-rules.com/mcp</code>)는 구성원 토큰이 있어야 열립니다. 토큰은 운영자(동국대 재무팀 담당자)에게 개별 요청하세요. 받은 토큰은 앱 설정의 인증 헤더(<code>Authorization: Bearer &lt;발급받은 토큰&gt;</code>)에만 넣고 문서·채팅·저장소에는 적지 않습니다.</p></div>
       </section>
 
       <section id="ask" aria-labelledby="ask-title">
         <div class="sectionhead"><span class="step" aria-hidden="true">2</span><div><h2 id="ask-title">이 질문으로 연결을 확인하세요</h2><p>아래 문장을 복사해 AI에 붙여 넣고, 대괄호 안을 내 업무 조건으로 바꾸세요.</p></div></div>
-        <div class="prompt"><span class="mini">첫 질문 · 출장 규정 예시</span><pre>동국 규정 MCP의 get_service_info로 연결과 버전을 확인해줘.
-이어서 lookup_dongguk_rule로 출장 관련 공개 규정을 찾아줘.
+        <div class="prompt"><span class="mini">첫 질문 · 출장 규정 예시</span><pre>동국 규정 MCP가 연결됐는지 버전과 도구 수를 확인해줘.
+이어서 출장과 관련된 동국대 공개 규정을 찾아줘.
 
 소속·캠퍼스: [서울 / WISE / 기타]
 대상 신분: [직원 / 교원 / 강사 / 학생 / 기타]
@@ -130,7 +178,7 @@
 공식 원문 링크를 보여줘. 최신 개정본이 이 날짜에 적용되는지,
 내 소속·신분에 적용되는지는 원문에서 별도로 확인해줘.
 확인하지 못한 금액·전결권자는 확정하지 말고 확인할 사실을 적어줘.</pre></div>
-        <p class="prompttip">성공 확인: <strong>앱의 get_service_info 버전 확인 → 도구 호출 성공 → 실제 원문 링크 확인.</strong> 업데이트 후에는 앱 응답이 v0.12.0인지 확인하세요. 설치 파일이나 서버 상태 응답만으로 기존 앱 연결까지 갱신됐다고 판단하지 않습니다.</p>
+        <p class="prompttip">성공 확인: <strong>버전과 도구 수(15)가 나옴 → 규정을 찾아 옴 → 답에 실제 원문 링크가 붙음.</strong> 도구가 보이지 않으면 앱을 완전히 종료한 뒤 다시 실행해 보세요.</p>
       </section>
 
       <section id="fast" aria-labelledby="fast-title">
@@ -153,13 +201,49 @@
         <div class="note"><p><strong>캠퍼스별 자동 필터는 제공하지 않습니다.</strong> 캠퍼스 입력은 질문의 맥락으로 보존하며 전체 통합목록을 검색합니다. 제목과 LAW_ID를 고른 뒤 원문에서 실제 적용범위를 확인하세요.</p></div>
       </section>
 
+      <section id="how" aria-labelledby="how-title">
+        <div class="sectionhead"><div><h2 id="how-title">어떻게 동작하나요</h2><p>AI가 기억으로 답하는 것이 아니라, 질문할 때마다 공식 원문을 찾아 읽고 답합니다.</p></div></div>
+        <div class="checks four">
+          <article class="check"><div class="num">STEP 01</div><b>질문합니다</b><p>"여비규정에서 숙박비 기준 찾아줘"처럼 평소 말로 묻습니다. 도구 이름을 외울 필요는 없습니다.</p></article>
+          <article class="check"><div class="num">STEP 02</div><b>AI 앱이 도구를 부릅니다</b><p>MCP는 AI 앱이 바깥 자료를 읽게 해 주는 연결 방식입니다. 앱이 질문에 맞는 도구를 골라 공용 서버에 요청합니다.</p></article>
+          <article class="check"><div class="num">STEP 03</div><b>공용 서버가 원문을 읽습니다</b><p>누구나 볼 수 있는 rule.dongguk.edu의 공개 원문을 그때그때 조회합니다. 로그인이 필요한 자료는 읽지 않습니다.</p></article>
+          <article class="check"><div class="num">STEP 04</div><b>조문과 출처로 답합니다</b><p>규정 이름, 조문·별표 위치, 개정일, 원문 링크가 함께 옵니다. 링크로 원문과 대조할 수 있습니다.</p></article>
+        </div>
+        <details>
+          <summary>도구 15개가 하는 일과 예시 질문</summary>
+          <div class="detailbody">
+            <p>도구는 AI 앱이 알아서 고릅니다. 모두 읽기 전용이고 공용 서버에서 모두 켜져 있습니다. 비교·점검 도구는 다시 볼 곳을 알려 줄 뿐이고, 같은 내용인지·적용되는지는 판정하지 않습니다.</p>
+            <div class="tablewrap"><table>
+              <thead><tr><th>하는 일</th><th>이렇게 물으면 씁니다</th><th>도구</th></tr></thead>
+              <tbody>
+                <tr><td>질문에 맞는 규정을 찾아 관련 조문과 별표를 보여 줍니다. 대부분의 질문은 여기서 시작합니다</td><td>여비규정에서 국내 출장 숙박비 기준 찾아줘</td><td><code>lookup_dongguk_rule</code></td></tr>
+                <tr><td>규정 이름이나 내용으로 후보 목록을 보여 줍니다</td><td>장학금과 관련된 규정이 뭐가 있어?</td><td><code>search_rule</code></td></tr>
+                <tr><td>이미 고른 규정에서 특정 조나 장을 보여 줍니다</td><td>여비규정 제5조 보여줘</td><td><code>get_rule_content</code></td></tr>
+                <tr><td>규정 하나를 부칙·별표·서식까지 처음부터 끝까지 보여 줍니다. 긴 규정은 여러 번에 나누어 가져옵니다</td><td>위임전결규정 전문을 보여줘</td><td><code>get_rule_full_text</code></td></tr>
+                <tr><td>규정의 목차를 보여 줍니다</td><td>학칙 목차 보여줘</td><td><code>get_rule_toc</code></td></tr>
+                <tr><td>규정이 언제 개정됐는지 이력을 보여 줍니다</td><td>여비규정이 언제 개정됐어?</td><td><code>list_rule_history</code></td></tr>
+                <tr><td>특정 날짜 기준으로 어느 개정본이 후보인지 찾습니다</td><td>2025년 3월 15일 출장에는 어느 여비규정을 봐야 해?</td><td><code>applicable_rule</code></td></tr>
+                <tr><td>두 개정본을 비교해 바뀐 조문과 별표를 보여 줍니다</td><td>여비규정이 직전 개정에서 뭐가 달라졌어?</td><td><code>compare_rule_versions</code></td></tr>
+                <tr><td>문장에 적은 규정명과 조문이 실제로 있는지 확인합니다</td><td>이 기안문에 인용한 조문이 실제 있는지 확인해줘</td><td><code>verify_rule_citations</code></td></tr>
+                <tr><td>여러 규정의 본문을 한꺼번에 검색합니다</td><td>'겸직'이 나오는 규정을 모두 찾아줘</td><td><code>search_rule_deep</code></td></tr>
+                <tr><td>여러 규정이 기준일 이후 개정됐는지 한 번에 점검합니다</td><td>여비규정과 위임전결규정이 지난달 이후 개정됐어?</td><td><code>check_rule_updates</code></td></tr>
+                <tr><td>규정이 인용한 다른 교내 규정·국가 법령과, 이 규정을 인용한 규정을 찾습니다. 인용한 법령 조문의 원문도 가져올 수 있습니다</td><td>여비규정이 인용하는 법령과 그 조문을 보여줘</td><td><code>get_rule_references</code></td></tr>
+                <tr><td>규정이 근거로 든 법령이 지금도 그대로인지(현행·삭제·개정) 점검합니다</td><td>이 규정이 근거로 든 법령이 바뀌었는지 봐줘</td><td><code>get_rule_upper_laws</code></td></tr>
+                <tr><td>같은 주제의 조문을 다른 대학(한 번에 최대 5곳) 규정과 나란히 보여 줍니다</td><td>겸직 허가 기준을 고려대·연세대와 나란히 보여줘</td><td><code>compare_university_rules</code></td></tr>
+                <tr><td>연결 상태, 버전, 켜진 기능을 알려 줍니다</td><td>동국 규정 MCP 연결됐는지 확인해줘</td><td><code>get_service_info</code></td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </details>
+      </section>
+
       <section aria-labelledby="detail-title">
         <div class="sectionhead"><div><h2 id="detail-title">필요할 때 펼쳐보세요</h2><p>설치·오류 해결·CoP 실습에 필요한 추가 안내입니다.</p></div></div>
         <details id="local-install">
           <summary>내 PC 설치와 앱별 설정 명령</summary>
           <div class="detailbody">
-            <p>macOS 터미널 또는 Windows PowerShell을 사용합니다. 먼저 <code>node --version</code>으로 20.19 이상인지 확인합니다. 내려받은 파일이 있는 폴더에서 실행하세요.</p>
-            <pre class="codeblock">npm install -g ./dongguk-rule-mcp-0.12.0.tgz
+            <p>macOS 터미널 또는 Windows PowerShell을 사용합니다. 먼저 <code>node --version</code>으로 20.19 이상 20계열 또는 22.3 이상인지 확인합니다. 내려받은 파일이 있는 폴더에서 실행하세요.</p>
+            <pre class="codeblock">npm install -g ./dongguk-rule-mcp-0.15.8.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json</pre>
             <p>사용하는 앱에 맞는 설정을 출력합니다. 아래 세 명령 중 하나를 선택하세요.</p>
@@ -167,6 +251,7 @@ dongguk-rule-mcp --doctor --json</pre>
 dongguk-rule-mcp --print-config claude
 dongguk-rule-mcp --print-config cursor</pre>
             <p>출력된 설정을 기존 연결을 보존하며 앱의 MCP 설정에 추가하고, 앱을 완전히 종료한 뒤 다시 실행합니다. 이 명령은 설정 예시를 출력하며 앱 설정을 직접 바꾸지 않습니다.</p>
+            <p>내 PC 설치에서도 도구는 모두 켜져 있습니다. 인용 법령의 원문은 한국법령 MCP 주소(<code>DONGGUK_LEGAL_MCP_URL</code>)나 법제처 Open API 인증키(<code>LAW_OC</code>)가, 타대학 비교 중 서울대는 인증키(<code>DONGGUK_LAWGO_OC</code>)가 있어야 채워집니다. 없으면 오류 대신 무엇을 넣으면 되는지 안내하고 규정 쪽 결과는 그대로 돌려줍니다. 인증키는 <a href="https://open.law.go.kr">open.law.go.kr</a>에서 신청합니다.</p>
             <p>글로벌 설치가 막힌 경우, 관리자 권한 사용을 서두르기보다 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/main/docs/COP_GUIDE.md">전체 설치 가이드</a>의 직접 실행 방법이나 공용 연결을 확인하세요. 기관 PC의 설치 정책은 담당 부서의 안내를 따릅니다.</p>
           </div>
         </details>
@@ -180,7 +265,7 @@ dongguk-rule-mcp --print-config cursor</pre>
         <details>
           <summary>연결이 안 되거나 답변이 불완전한가요?</summary>
           <div class="detailbody">
-            <ul><li><strong>업데이트 뒤에도 구버전:</strong> Codex의 작업을 정리하고 앱을 완전히 종료·재실행한 뒤 get_service_info를 다시 호출합니다. Aside는 공식 설정에서 도구 목록을 갱신한 뒤 실제 버전 응답까지 확인합니다.</li><li><strong>도구가 보이지 않음:</strong> 앱 재시작, 설정 문법, Node 버전과 실행 경로를 확인합니다.</li><li><strong>인증 실패:</strong> 공용 연결의 자격증명 발급·만료 여부를 운영자에게 확인합니다.</li><li><strong>원문 조회 실패:</strong> 발생 시각과 오류코드를 기록하고 <a href="https://rule.dongguk.edu/">공식 규정 시스템</a>에서 원문을 확인합니다.</li><li><strong>별표·발췌 누락:</strong> 부분 조회 상태를 남기고 원문 파일의 해당 표를 직접 확인합니다.</li></ul>
+            <ul><li><strong>업데이트 뒤에도 구버전:</strong> Codex의 작업을 정리하고 앱을 완전히 종료·재실행한 뒤 get_service_info를 다시 호출합니다. Aside는 공식 설정에서 도구 목록을 갱신한 뒤 실제 버전 응답까지 확인합니다.</li><li><strong>도구가 보이지 않음:</strong> 앱 재시작, 설정 문법, Node 버전과 실행 경로를 확인합니다.</li><li><strong>인증 실패:</strong> 공개 주소(<code>/mcp/rules</code>)는 인증이 없습니다. 주소 끝이 <code>/mcp</code>인 재무용 주소를 넣었는지 확인하고, 재무용 주소를 쓰는 구성원은 토큰 발급·만료 여부를 운영자에게 확인합니다.</li><li><strong>원문 조회 실패:</strong> 발생 시각과 오류코드를 기록하고 <a href="https://rule.dongguk.edu/">공식 규정 시스템</a>에서 원문을 확인합니다.</li><li><strong>별표·발췌 누락:</strong> 부분 조회 상태를 남기고 원문 파일의 해당 표를 직접 확인합니다.</li></ul>
             <p><a href="/health">서버 상태 확인</a>은 프로세스 상태를 보여줍니다. 원문 서버·앱 연결·업무 판단까지 검증하는 것은 아닙니다. 공개 <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues">오류 제보</a>에는 버전·비식별 질문·오류코드만 남기고 인증정보나 내부 문서를 올리지 마세요.</p>
           </div>
         </details>
@@ -195,12 +280,12 @@ dongguk-rule-mcp --print-config cursor</pre>
 
       <section aria-label="운영 범위와 참고 자료">
         <div class="footgrid">
-          <div><h3>현재 운영 범위</h3><p><strong>동국대학교의 공식 서비스가 아닙니다.</strong> 개인이 운영하는 도구로, 공개 규정 원문을 조회해 전달합니다. 공용 서버는 Mac mini에서 운영됩니다. 잠자기·전원·인터넷 상태 또는 공식 원문 서버 장애에 따라 중단될 수 있습니다. 학교의 공식 해석, 전 구성원 계정 개통, 상시 가용성 또는 현업 효과가 검증되었다는 의미는 아닙니다.</p></div>
+          <div><h3>현재 운영 범위</h3><p><strong>동국대학교의 공식 서비스가 아닙니다.</strong> 개인이 운영하는 도구로, 공개 규정 원문을 조회해 전달합니다. 공용 서버는 개인이 운영하는 장비 한 대에서 돌아갑니다. 전원·인터넷 상태 또는 공식 원문 서버 장애에 따라 중단될 수 있습니다. 학교의 공식 해석, 전 구성원 계정 개통, 상시 가용성 또는 현업 효과가 검증되었다는 의미는 아닙니다.</p></div>
           <div><h3>원문과 가이드를 곁에 두세요</h3><p>학교의 공식 규정 원문을 기준으로 검토하고, 운영 정보와 학습 자료는 아래에서 확인하세요.</p><div class="links"><a href="https://rule.dongguk.edu/">공식 규정 시스템</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/main/docs/COP_GUIDE.md">구성원 가이드</a><a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/main/docs/OPERATIONS.md">운영 가이드</a><a href="/health">서버 상태</a></div></div>
         </div>
       </section>
     </main>
   </div>
-  <footer><div class="wrap"><span>동국 규정 MCP · CoP 공개 규정 활용 안내</span><span>v0.12.0 · 2026-10-27</span></div></footer>
+  <footer><div class="wrap"><span>동국 규정 MCP · CoP 공개 규정 활용 안내</span><span>v0.15.8 · 2026-11-26</span></div></footer>
 </body>
 </html>

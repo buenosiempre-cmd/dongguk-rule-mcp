@@ -45,6 +45,8 @@
 | 공용 서버 | 원격 MCP 지원 앱. 인증 없이 주소만 입력 | `https://dgu.kr-univ-rules.com/mcp/rules` |
 | 내 PC | Node.js 20.19 이상 20계열 또는 22.3 이상, 로컬 MCP 지원 앱 | 아래 GitHub 릴리스 설치, 공유 토큰 불필요 |
 
+앱별 등록 방법(Claude Desktop, Claude Code, Cursor, Codex, ChatGPT)은 [README의 설치](../README.md#설치-주소-하나만-넣으면-됩니다)에 있습니다. 재무 도구가 더해진 `/mcp` 주소는 구성원 토큰이 필요하며, 토큰은 운영자(동국대 재무팀 담당자)에게 개별 요청합니다.
+
 공용 주소는 공개 규정 조회 전용이며 접속한 곳(IP)마다 1분 60회·하루 1,000회까지 받습니다. 넘으면 HTTP 429와 재시도 시간을 돌려줍니다. 동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다. 앱·요금제·기관 정책별 연결 가능 여부는 실제 환경에서 확인해야 합니다.
 
 ### 개인 설치
@@ -93,7 +95,7 @@ dongguk-rule-mcp --print-config cursor
 | `lookup_dongguk_rule` | 기본 조회: 자연어/규정명 검색 → 개정본 → HWP 조문·별표 발췌; `law_id` 직접 선택 지원 |
 | `search_rule` | 제목·전문으로 규정 후보 목록 검색 |
 | `get_rule_content` | 선택한 규정의 본문·조문·장·키워드 조회 |
-| `get_rule_full_text` | LAW_ID(선택 HISTORY_ID)의 조문·부칙·별표·서식 텍스트 전문. HWP 우선, 긴 문서는 cursor로 이어받기 |
+| `get_rule_full_text` | LAW_ID(선택 HISTORY_ID)의 조문·부칙·별표·서식 텍스트 전문. HWP 우선, 긴 문서는 여러 번에 나누어 받으며 다음 부분은 `cursor` 인수로 이어받기 |
 | `get_rule_toc` | 목차 조회 |
 | `list_rule_history` | 개정 이력 조회 |
 | `applicable_rule` | 기준일 이전 개정본 후보와 부칙의 명시 시행일 대조 |
@@ -103,7 +105,7 @@ dongguk-rule-mcp --print-config cursor
 | `check_rule_updates` | 여러 규정의 개정 여부 일괄 점검, 기준일 이후 개정된 규정 목록 |
 | `get_rule_references` | 규정·조문이 인용한 교내 규정·국가 법령과 역방향 인용(색인 필요). `include_law_text=true`이면 인용된 법령 조문의 현행 원문까지 |
 | `get_rule_upper_laws` | 규정·조문이 인용한 국가 법령을 현행 법령 목록과 대조: 현행 여부·시행일, 인용 조문의 존재·삭제, 옛 법령명, 규정 개정 뒤 법령 개정, 시행예정 개정을 점검 신호로 표시. `include_text=true`이면 규정 조문 원문과 현행 법령 조문 원문을 2열 대조 |
-| `compare_university_rules` | 동국대와 타대학(최대 5개) 규정에서 주제어가 든 조문을 학교별로 나란히 표시. 기본 꺼짐(`DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`), 자세한 범위는 아래 "타대학 규정 비교" |
+| `compare_university_rules` | 동국대와 타대학(최대 5개) 규정에서 주제어가 든 조문을 학교별로 나란히 표시. 기본 켜짐(운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0`으로 끌 수 있음), 자세한 범위는 아래 "타대학 규정 비교" |
 
 제목 검색·공식 사이트 전문검색의 기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 자연어 색인 조회에서는 아래와 같이 최대 3개 규정의 미확정 미리보기를 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
 
@@ -116,8 +118,8 @@ dongguk-rule-mcp --print-config cursor
 - **개정 비교:** 양쪽 개정본의 HWP 조문을 우선 비교합니다. HWP를 읽을 수 없으면 HTML 조문으로 대체하고 부분 상태와 대체 사유를 표시합니다. 기본값인 `include_appendices:true`에서는 별표·서식 텍스트와 표의 셀 좌표·행/열 병합 범위·값, 포함된 그림 파일의 SHA-256 해시도 비교합니다. `include_appendices:false`는 별표·서식 비교를 생략하며 HWP 조문 우선 원칙은 유지합니다.
 - **결과 해석:** 그림 파일의 동일·변경 판정은 OCR, 그림 속 문구의 의미 해석 또는 페이지 배치 비교를 뜻하지 않습니다. 실제 추출 누락·미지원 객체·식별 모호성은 부분 상태로 남기며 “변경 없음”으로 단정하지 않습니다. 시행일과 업무 적용성은 부칙·적용범위를 별도로 확인합니다.
 - **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 HTML 본문 색인은 후보를 찾는 데 사용하며, 별표 내용은 순위에 반영되지 않습니다. `search_rule_deep`은 색인 결과를 현행 목록의 최신 개정본과 대조하고, 개정된 규정은 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색으로 대체합니다. `lookup_dongguk_rule`은 오래된 색인도 후보 탐색에 사용하되 오래됨을 표시하고, 선택한 규정의 연혁·원문을 별도로 조회합니다(기존 캐시 정책 적용). 별표·금액표는 이 통합 조회의 원문 발췌로 확인합니다.
-- **법령 원문 연계:** 운영자가 `DONGGUK_LEGAL_MCP_*`와 `DONGGUK_PUBLIC_LAW_LINK=1`을 설정한 서버에서만 동작합니다. 조문이 특정된 인용만, 한 번에 3개 조문까지 현행 원문을 가져옵니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
-- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 연계가 꺼진 서버에서도 확인할 법령명·조문을 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
+- **법령 원문 연계:** 법령 서버 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있는 서버에서 기본으로 켜집니다. 없으면 오류 대신 `not_configured`와 설정 안내(`notice`, `setup`)를 돌려주고 규정 인용 결과는 그대로 반환합니다. 조문이 특정된 인용만, 한 번에 3개 조문까지 현행 원문을 가져옵니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
+- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 서버 연결 정보가 없거나 운영자가 꺼 둔 서버에서도 확인할 법령명·조문과 설정 안내를 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
 - **상위법령 본문 범위:** `get_rule_upper_laws`의 `lookup.status`는 법령·조문을 확인했는지, `textCoverage.status`는 `include_text=true`로 요청한 본문을 얼마나 받았는지를 따로 알립니다. 본문이 잘리면 `incompleteReasons`에 `LAW_TEXT_TRUNCATED`, 받지 못하면 `LAW_TEXT_UNAVAILABLE`이 들어가고 `evidenceStatus`는 `partial`입니다. 조문의 존재·삭제 여부는 `laws[].articles[].status`로 확인합니다.
 
   | `textCoverage.status` | 뜻 |
@@ -164,6 +166,7 @@ v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrie
 규정 하나의 전문이 필요하면 `get_rule_full_text({"law_id": LAW_ID})`를 호출합니다. 과거 개정본은 `history_id`도 지정합니다. 생략하면 해당 규정의 최신 개정본을 고르고, 지정한 HISTORY_ID가 그 LAW_ID의 연혁에 있는지 확인합니다. 관련 부분만 고르는 `lookup_dongguk_rule`, HTML의 조·장을 고르는 `get_rule_content`와 달리, 이 도구는 검색어 필터 없이 HWP에서 추출한 조문·부칙·별표·서식을 원문 순서로 반환합니다. 표의 셀 좌표·행/열 병합 범위와 표 아래 주석도 보존합니다.
 
 - 응답의 `contentMarkdown`이 전문 텍스트입니다. 기본 페이지 한도는 30,000, `max_chars`로 1,000~60,000 UTF-16 코드 단위까지 지정할 수 있습니다(설명·메타데이터 제외). 이모지 등의 서로게이트 쌍은 나누지 않지만 표·줄 중간에서 페이지가 끊길 수 있습니다.
+- 여기서 `cursor`는 긴 전문의 다음 부분이 어디서 시작하는지 가리키는 입력 인수 이름입니다. 코드 편집기 Cursor 앱과는 관계가 없습니다. 일반 이용자는 신경 쓸 필요가 없고, AI 앱이 응답의 `nextArguments`를 그대로 다시 보내 이어받습니다.
 - `textCoverage.hasMore: true`이면 `textCoverage.nextArguments`를 그대로 다음 `get_rule_full_text` 호출에 전달합니다. 첫 응답의 LAW_ID·HISTORY_ID·추출 출처·텍스트 SHA-256을 cursor가 고정하므로, 최신 개정본이 바뀌어도 이어받는 개정본은 바뀌지 않습니다. HTML로 시작했다면 이어받기도 HTML입니다. 원문 텍스트나 출처가 바뀌면 `FULL_TEXT_CHANGED` 오류를 반환하므로 첫 페이지부터 다시 받습니다. 다른 규정·개정본과 cursor를 섞으면 `INVALID_ARGUMENT`입니다.
 - 마지막 페이지의 `nextArguments`와 `nextCursor`는 `null`입니다. 모든 페이지의 **`contentMarkdown`만 순서대로 구분자 없이** 합치세요. `offset`(포함)·`endOffset`(제외)·`totalChars`로 전달 범위를, `sha256`으로 결합한 UTF-8 텍스트의 해시를 확인할 수 있습니다. 이 해시는 다운로드한 HWP 파일의 해시가 아닙니다.
 - 한 응답이 전문의 일부이면 첫·중간·마지막 페이지 모두 `evidenceStatus: partial`, `FULL_TEXT_PAGINATED`, `textCoverage.status: partial`입니다. `truncated`는 그 페이지 뒤에 남은 본문이 있는지 뜻하므로 마지막 페이지에서는 `false`입니다. 페이지 단위 전달 상태와 별도로 `sourceEvidenceStatus`가 추출 원문의 상태를 표시합니다.
@@ -224,9 +227,24 @@ HTTP는 stateless Streamable HTTP이며 MCP 경로는 POST 요청을 사용합�
 dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-file /secure/dongguk/tokens.json
 ```
 
-공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
+공용 서버는 개인이 운영하는 장비 한 대에서 돌아가며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
 `--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **19개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+
+### 켜고 끄는 설정
+
+모든 도구는 기본으로 켜져 있습니다. 환경변수는 운영자가 끄거나, 바깥 서비스의 연결 정보를 넣을 때만 씁니다. 실제 상태는 `get_service_info`의 `integrations`에서 확인합니다.
+
+| 기능 | 기본 | 끄는 값 | 내용을 채우는 데 필요한 것 |
+|---|---|---|---|
+| 타대학 비교(`compare_university_rules`) | 켜짐 | `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0` | 없음. 서울대만 `DONGGUK_LAWGO_OC` |
+| 법령 연결(`get_rule_references`의 `include_law_text`, `get_rule_upper_laws`) | 주소나 키가 있으면 켜짐 | `DONGGUK_LEGAL_MCP_ENABLED=0`(전체), `DONGGUK_PUBLIC_LAW_LINK=0`(공개 프로필만) | `DONGGUK_LEGAL_MCP_URL`(한국법령 MCP 주소) 또는 `LAW_OC`(법제처 Open API 인증키 + 서버에 설치된 `korean-law-mcp`) |
+
+- 끄는 값은 문자 `0`뿐입니다. 값이 없거나 `0`이 아닌 값이면 켜진 것으로 봅니다.
+- 법령 서버 주소·키가 없을 때는 오류가 아니라 `status: "not_configured"`, `code: "LAW_LINK_NOT_CONFIGURED"`와 함께 `notice`(사람이 읽는 안내), `setup.state`(`missing`·`invalid`·`disabled`·`disabled_public`), `setup.env`(넣을 환경변수 이름), `setup.ocApplyUrl`(OC 신청처)을 돌려줍니다. 규정 쪽 결과는 그대로입니다.
+- 주소만 넣으면 `DONGGUK_LEGAL_MCP_TRANSPORT`를 생략해도 `streamable-http`로 연결합니다. 기본 법령 서버 주소는 코드에 없습니다.
+- 법제처 Open API 인증키(OC)는 [open.law.go.kr](https://open.law.go.kr)에서 신청합니다. 키와 토큰은 접근제한 환경파일로만 주입하고 명령행·문서·저장소에 적지 않습니다.
+- 공용 서버에는 타대학 비교, 법령 연결, 서울대용 인증키가 모두 들어 있어 꺼진 도구가 없습니다(2026-11-26 확인).
 
 ## 소스 실행과 검증
 
@@ -294,8 +312,8 @@ MIT. 원본 Python 구현: 서준호. Node.js MCP 포팅·운영 개선: 오승�
 - PDF는 8 MiB·200페이지·추출 텍스트 100만 코드 단위로 제한하고, 별도 worker에서 최대 10초·동시 2건까지 추출합니다. 초과·취소는 실패 사유로 반환합니다. PDF 바이너리는 공용 텍스트 캐시에 저장하지 않습니다. `pdf-parse` 2.4.5를 고정하며 지원 런타임은 Node 20.19.x 이상 20계열 또는 22.3 이상입니다(Node 21 제외). CI는 20.19·22·24에서 검증합니다. [추출기 공식 호환성 문서](https://github.com/mehmet-kozan/pdf-parse/blob/main/docs/troubleshooting.md)
 - `retrieved`, `partial`, `no_match_in_scope`, `unsupported`, `unavailable` 구분. 조문 미발견은 규정 부존재를 뜻하지 않음. HWP 별표·시행일·법적 적용성은 미확인.
 - 참고 저장소 2026년 7월 탐지 설정 포팅으로 현재 가용성을 보장하지 않음. 차단 우회·로그인·리다이렉트 없음. 서울시립·숭실은 참고 자료의 HTTP 공개 주소.
-- 기본 비활성입니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`로 켜야 요청이 나갑니다(공개·재무 프로필 모두). `get_service_info`에 설정 여부를 표시합니다.
-- 서울대(`snu`)만 추가로 `DONGGUK_LAWGO_OC`(law.go.kr에서 발급하는 무료 OPEN API OC 키)가 필요합니다. 키가 없으면 다른 대학은 정상 동작하고 서울대 열만 `unavailable (LAWGO_OC_NOT_CONFIGURED)`로 표시됩니다. 키는 law.go.kr 로그인 → OPEN API 신청에서 받아 접근제한 환경파일로 주입하고 명령행·문서에 적지 않습니다.
+- 기본으로 켜져 있습니다(공개·재무 프로필 모두). 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0`을 넣었을 때만 꺼지고, 그때는 `NOT_CONFIGURED`와 꺼진 사유를 돌려줍니다. `get_service_info`의 `integrations.universityComparison.configured`에 켜짐 여부를 표시합니다.
+- 서울대(`snu`)만 추가로 `DONGGUK_LAWGO_OC`(법제처 Open API 인증키, 무료)가 필요합니다. 키가 없으면 다른 대학은 정상 동작하고 서울대 열만 `unavailable (LAWGO_OC_NOT_CONFIGURED)`로 표시되며, 그 열의 `notice`·`setup`에 무엇이 없는지와 신청처를 안내합니다. 키는 open.law.go.kr에서 신청해 접근제한 환경파일로 주입하고 명령행·문서에 적지 않습니다.
 - 외부대학에 쿠키·인증정보 전송 없음. 호출 전체 60초 제한, 요청당 8초, 외부대학당 15초 예산, 대학별 500ms 간격, HTML·JSON 응답 2 MiB 제한(세종대 목록만 6 MiB, 문서는 8 MiB). 시간 초과 시 받은 결과는 유지하고 남은 대학은 `TOTAL_TIMEOUT`으로 표시합니다. 공개 텍스트 응답 10분/최대 64개 메모리 캐시(UTF-8 2 MiB 이하 응답만)와 중복 요청 합치기. 백그라운드 크롤링·재시도 없음.
 
 실측 예(2026-11-24, "겸직"): 동국대는 「JA교원 운영규정」 등 다른 사안 20건을 빼고 「전임교원 인사규정 시행세칙」 제37조·제39조·제40조를 주규정으로, 국민·건국은 전용 겸직 규정을 주규정으로 표시하며, 기간 칸은 조문 제목이 그 요소인 국민 「제7조(겸직 기간)」을 고릅니다.
