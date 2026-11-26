@@ -233,6 +233,8 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 ### 켜고 끄는 설정
 
+> 이 절은 저장소의 현재 코드(v0.15.8 이후 미배포 변경) 기준입니다. 배포본 v0.15.8은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소(`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`, `DONGGUK_LEGAL_MCP_URL`) 또는 `LAW_OC`를 넣어야 켜집니다. 바뀌는 내용은 [변경 기록](../CHANGELOG.md)의 미배포 항목에 있습니다.
+
 모든 도구는 기본으로 켜져 있습니다. 환경변수는 운영자가 끄거나, 바깥 서비스의 연결 정보를 넣을 때만 씁니다. 실제 상태는 `get_service_info`의 `integrations`에서 확인합니다.
 
 | 기능 | 기본 | 끄는 값 | 내용을 채우는 데 필요한 것 |

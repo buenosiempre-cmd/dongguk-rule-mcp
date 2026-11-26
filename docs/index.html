@@ -149,7 +149,8 @@
   .panel p { margin: 8px 0; font-size: 14px; }
   .ask { background: var(--pine-soft); color: var(--pine); border-radius: 10px; padding: 10px 12px; }
   details.alt { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 12px 16px; margin-top: 14px; }
-  details.alt p { color: var(--ink); font-size: 14px; }
+  details.alt p, details.alt li { color: var(--ink); font-size: 14px; }
+  details.alt ul { padding-left: 20px; margin: 8px 0; }
   td:nth-child(3) { color: var(--muted); }
   @media (min-width: 801px) { td:first-child code { white-space: nowrap; } }
   details { border-bottom: 1px solid var(--line); padding: 10px 0; }
@@ -248,11 +249,12 @@
       <section class="panel">
         <h3>Claude Desktop</h3>
         <ol>
-          <li>설정에서 <strong>커넥터(Connectors)</strong> 화면을 엽니다.</li>
-          <li><strong>사용자 지정 커넥터 추가(Add custom connector)</strong>를 누릅니다.</li>
-          <li>이름은 <span class="mono">동국 규정</span>, 주소는 위 주소를 넣고 추가합니다. 인증 항목은 비워 둡니다.</li>
+          <li><strong>Customize(사용자 지정) &gt; Connectors(커넥터)</strong> 화면을 엽니다.</li>
+          <li><strong>+ Add</strong>를 누르고 <strong>Add custom connector(사용자 지정 커넥터 추가)</strong>를 고릅니다.</li>
+          <li>이름은 <span class="mono">동국 규정</span>, 주소는 위 주소를 넣습니다.</li>
+          <li>Authentication(인증) 항목에서 <strong>No sign in(로그인 없음)</strong>을 고르고 추가합니다. 이 서버는 인증이 없습니다.</li>
         </ol>
-        <p>메뉴 이름과 위치는 앱 버전에 따라 조금 다를 수 있습니다. 회사·학교 계정은 관리자가 먼저 추가해야 할 수 있습니다.</p>
+        <p>화면이 다르면 <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp">Anthropic 공식 안내</a>의 현재 절차를 따르세요. 메뉴 이름과 위치는 앱 버전에 따라 다를 수 있고, 회사·학교 계정은 관리자가 먼저 추가해야 할 수 있습니다.</p>
       </section>
       <section class="panel">
         <h3>Claude Code</h3>
@@ -279,7 +281,7 @@ url = "https://dgu.kr-univ-rules.com/mcp/rules"</code></pre>
       </section>
       <section class="panel">
         <h3>ChatGPT</h3>
-        <p>사용자 지정 MCP 커넥터를 추가하는 화면이 요금제와 앱 버전에 따라 다릅니다. 커넥터(또는 앱) 추가 화면이나 개발자 모드에서 원격 MCP 서버를 등록할 수 있다면 같은 주소를 넣습니다. 그런 메뉴가 없으면 현재 계정에서는 지원되지 않는 것입니다.</p>
+        <p>사용자 지정 MCP 서버를 등록하는 화면과 조건은 앱 버전, 계정, 워크스페이스 권한에 따라 다릅니다. <a href="https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt">OpenAI 공식 안내</a>의 현재 절차대로 서버를 추가하고 같은 주소를 넣습니다. 이 서버는 인증이 없습니다. 안내에 나온 메뉴가 보이지 않으면 앱 버전, 계정 조건, 워크스페이스 관리자의 권한 설정을 확인하세요.</p>
       </section>
       <section class="panel">
         <h3>연결 확인</h3>
@@ -297,7 +299,12 @@ url = "https://dgu.kr-univ-rules.com/mcp/rules"</code></pre>
 dongguk-rule-mcp --doctor --json
 dongguk-rule-mcp --print-config claude</code></pre>
       <p><code>--print-config</code> 뒤에는 <code>claude</code>, <code>cursor</code>, <code>codex</code> 중 쓰는 앱을 적습니다. 그 PC의 경로로 만든 설정을 보여 줄 뿐 앱 설정 파일은 바꾸지 않습니다. 나온 내용을 앱의 MCP 설정에 붙여 넣고 앱을 다시 시작합니다.</p>
-      <p>내 PC 설치에서도 도구는 모두 켜져 있습니다. 인용 법령의 원문은 한국법령 MCP 주소(<code>DONGGUK_LEGAL_MCP_URL</code>)나 법제처 Open API 인증키(<code>LAW_OC</code>)가, 서울대 비교는 인증키(<code>DONGGUK_LAWGO_OC</code>)가 있어야 채워집니다. 없으면 오류 대신 무엇을 넣으면 되는지 안내하고 규정 쪽 결과는 그대로 돌려줍니다. 인증키는 <a href="https://open.law.go.kr">open.law.go.kr</a>에서 신청합니다.</p>
+      <p>현재 배포본(v0.15.8)을 내 PC에 설치하면 규정 조회 도구는 바로 동작합니다. 타대학 비교와 인용 법령 조회는 앱의 MCP 서버 설정에 아래 환경변수를 넣어야 동작합니다. 넣지 않으면 그 기능만 설정되지 않았다고 답하고 규정 조회는 그대로 됩니다.</p>
+      <ul>
+        <li>타대학 비교: <code>DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1</code>. 서울대까지 보려면 <code>DONGGUK_LAWGO_OC</code>(법제처 Open API 인증키)도 필요합니다.</li>
+        <li>인용 법령의 원문·현행 여부: <code>DONGGUK_LEGAL_MCP_ENABLED=1</code>, <code>DONGGUK_PUBLIC_LAW_LINK=1</code>과 함께, 한국법령 MCP 주소(<code>DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http</code>, <code>DONGGUK_LEGAL_MCP_URL</code>) 또는 법제처 Open API 인증키(<code>LAW_OC</code>, PC에 <code>korean-law-mcp</code> 설치 필요).</li>
+      </ul>
+      <p>인증키는 <a href="https://open.law.go.kr">open.law.go.kr</a>에서 신청합니다. 공용 서버에는 이 설정이 모두 들어 있어 따로 할 일이 없습니다.</p>
     </details>
 
     <h2 class="sec" id="how">어떻게 동작하나요</h2>
@@ -356,7 +363,7 @@ dongguk-rule-mcp --print-config claude</code></pre>
     </details>
     <details>
       <summary>다른 대학 비교는 바로 되나요?</summary>
-      <p>네. 공용 서버와 내 PC 설치 모두 기본으로 켜져 있습니다. 서울대는 법제처 Open API 인증키가 있어야 해서, 키가 없는 내 PC 설치에서는 서울대만 건너뜁니다. 공개된 규정만 읽으며 법적 동등성을 판정하지 않습니다.</p>
+      <p>공용 서버에서는 바로 됩니다. 내 PC에 v0.15.8을 설치했다면 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1을 넣어야 하고, 서울대는 법제처 Open API 인증키(DONGGUK_LAWGO_OC)가 더 필요합니다. 공개된 규정만 읽으며 법적 동등성을 판정하지 않습니다.</p>
     </details>
     <details>
       <summary>개인정보를 넣어야 하나요?</summary>

@@ -221,6 +221,8 @@ dongguk-rule-mcp --build-index
 
 `get_rule_references`에 `include_law_text=true`를 주면 규정이 인용한 국가 법령 조문의 현행 원문을 한국법령 MCP에서 함께 가져옵니다. `get_rule_upper_laws`의 법령 대조도 같은 연결을 씁니다. **법령 서버 주소나 키가 있으면 기본으로 켜집니다.** 공개 `rules` 프로필과 `finance` 프로필 모두 같습니다.
 
+> 아래 표와 "타대학 비교" 절은 저장소의 현재 코드(v0.15.8 이후 미배포 변경) 기준입니다. 배포본 v0.15.8은 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`·`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`와 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`을 넣어야 켜집니다. 바뀌는 내용은 [변경 기록](../CHANGELOG.md)의 미배포 항목에 있습니다.
+
 | 환경 변수 | 값 |
 |---|---|
 | `DONGGUK_LEGAL_MCP_URL` | 한국법령 MCP 주소(https). 이 값만 있으면 `streamable-http`로 연결합니다 |

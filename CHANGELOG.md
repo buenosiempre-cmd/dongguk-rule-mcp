@@ -4,6 +4,8 @@
 
 ### 모든 도구 기본 켜짐
 
+아래 동작은 다음 릴리스부터 적용됩니다. 배포본 v0.15.8은 그대로이며 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소 또는 `LAW_OC`가 필요합니다. 공용 서버는 이 값들이 이미 들어 있어 지금도 모든 도구가 켜져 있습니다. 다음 릴리스에서 설치 링크와 내 PC 설치 안내를 함께 고칩니다.
+
 - 타대학 비교(`compare_university_rules`)는 환경변수가 없어도 켜져 있습니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0`을 넣었을 때만 꺼집니다.
 - 법령 연결(`get_rule_references`의 `include_law_text`, `get_rule_upper_laws`)은 법령 MCP 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있으면 `DONGGUK_LEGAL_MCP_ENABLED`·`DONGGUK_PUBLIC_LAW_LINK` 없이도 켜집니다. 각각 `0`이면 꺼집니다. 주소만 있으면 `streamable-http`로 연결합니다.
 - 주소·키가 없으면 오류 대신 무엇이 없고 어떤 환경변수를 넣으면 되는지, OC 신청처(open.law.go.kr)를 `notice`·`setup`으로 안내하고 규정 쪽 결과는 그대로 돌려줍니다. 기본 법령 서버 주소는 두지 않습니다.
@@ -13,7 +15,7 @@
 
 ### 소개 자료
 
-- README·소개 페이지·구성원 안내 페이지 맨 앞에 공용 서버 주소만 넣는 앱별 설치법(Claude Desktop, Claude Code, Cursor, Codex, ChatGPT)을 두고, 내 PC 설치는 두 번째 선택지로 옮겼습니다.
+- README·소개 페이지·구성원 안내 페이지 맨 앞에 공용 서버 주소만 넣는 앱별 설치법(Claude Desktop, Claude Code, Cursor, Codex, ChatGPT)을 두고, 내 PC 설치는 두 번째 선택지로 옮겼습니다. 내 PC 설치 안내는 배포본 v0.15.8의 동작(환경변수 필요) 기준으로 적었습니다.
 - 동작 원리를 4단계로, 도구가 하는 일을 쉬운 말과 예시 질문으로 다시 썼습니다. 개발자용 인수 설명은 `docs/REFERENCE.md`에 둡니다.
 - 공개 문서의 기기 이름을 '공용 서버'로 일반화했습니다. 구성원 안내 페이지의 버전 표기를 v0.15.8로 맞췄습니다.
 

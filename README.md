@@ -29,12 +29,13 @@ https://dgu.kr-univ-rules.com/mcp/rules
 
 ### Claude Desktop
 
-1. 설정에서 **커넥터(Connectors)** 화면을 엽니다.
-2. **사용자 지정 커넥터 추가(Add custom connector)** 를 누릅니다.
-3. 이름은 `동국 규정`, 주소는 위 공용 서버 주소를 넣고 추가합니다. 인증 항목은 비워 둡니다.
-4. 새 대화를 열어 아래 "연결 확인" 문장을 물어봅니다.
+1. **Customize(사용자 지정) > Connectors(커넥터)** 화면을 엽니다.
+2. **+ Add** 를 누르고 **Add custom connector(사용자 지정 커넥터 추가)** 를 고릅니다.
+3. 이름은 `동국 규정`, 주소는 위 공용 서버 주소를 넣습니다.
+4. Authentication(인증) 항목에서 **No sign in(로그인 없음)** 을 고르고 추가합니다. 이 서버는 인증이 없습니다.
+5. 새 대화를 열어 아래 "연결 확인" 문장을 물어봅니다.
 
-메뉴 이름과 위치는 앱 버전에 따라 조금 다를 수 있습니다. 회사·학교 계정은 관리자가 먼저 커넥터를 추가해야 할 수 있고, 요금제에 따라 추가할 수 있는 커넥터 수가 다릅니다.
+화면이 다르면 [Anthropic 공식 안내](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)의 현재 절차를 따르세요. 메뉴 이름과 위치는 앱 버전에 따라 다를 수 있습니다. 회사·학교 계정은 관리자가 먼저 커넥터를 추가해야 할 수 있고, 요금제에 따라 추가할 수 있는 커넥터 수가 다릅니다.
 
 ### Claude Code
 
@@ -75,7 +76,7 @@ url = "https://dgu.kr-univ-rules.com/mcp/rules"
 
 ### ChatGPT
 
-ChatGPT는 사용자 지정 MCP 커넥터를 추가할 수 있는 화면이 요금제와 앱 버전에 따라 다릅니다. 커넥터(또는 앱) 추가 화면이나 개발자 모드에서 원격 MCP 서버를 등록할 수 있다면 같은 주소를 넣습니다. 그런 메뉴가 보이지 않으면 현재 계정에서는 지원되지 않는 것이니 위의 다른 앱을 쓰세요.
+ChatGPT에서 사용자 지정 MCP 서버를 등록하는 화면과 조건은 앱 버전, 계정, 워크스페이스 권한에 따라 다릅니다. [OpenAI 공식 안내](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)의 현재 절차대로 서버를 추가하고, 주소에 위 공용 서버 주소를 넣습니다. 이 서버는 인증이 없습니다. 안내에 나온 메뉴가 보이지 않으면 앱 버전, 계정 조건, 워크스페이스 관리자의 권한 설정을 확인하세요.
 
 ### 연결 확인
 
@@ -108,14 +109,14 @@ claude mcp add --transport stdio dongguk-rule -- dongguk-rule-mcp --profile rule
 
 [tgz 직접 받기](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz). 설치 권한이 없으면 [구성원 가이드의 prefix 설치](docs/COP_GUIDE.md)를 보거나 공용 서버를 씁니다. `--doctor --json`은 설치 점검이고 `--live`를 붙이면 실제 규정 한 건을 조회해 봅니다.
 
-내 PC 설치에서도 도구는 모두 켜져 있습니다. 다만 아래 두 가지는 바깥 서비스의 연결 정보가 있어야 내용이 채워집니다. 없으면 오류 대신 무엇을 넣으면 되는지 안내하고, 규정 쪽 결과는 그대로 돌려줍니다.
+현재 배포본(v0.15.8)을 내 PC에 설치하면 규정 조회 도구는 바로 동작합니다. 타대학 비교와 인용 법령 조회는 앱의 MCP 서버 설정에 아래 환경변수를 넣어야 동작합니다. 넣지 않으면 그 기능만 설정되지 않았다고 답하고, 규정 조회는 그대로 됩니다.
 
-| 기능 | 필요한 것 | 넣는 곳 |
-|---|---|---|
-| 인용 법령의 원문·현행 여부(`get_rule_references`, `get_rule_upper_laws`) | 한국법령 MCP 서버 주소, 또는 법제처 Open API 인증키(OC) | `DONGGUK_LEGAL_MCP_URL` 또는 `LAW_OC` |
-| 타대학 비교 중 서울대 | 법제처 Open API 인증키(OC) | `DONGGUK_LAWGO_OC` |
+| 기능 | v0.15.8 설치본에 넣을 환경변수 |
+|---|---|
+| 타대학 비교(`compare_university_rules`) | `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`. 서울대까지 보려면 `DONGGUK_LAWGO_OC`(법제처 Open API 인증키)도 필요 |
+| 인용 법령의 원문·현행 여부(`get_rule_references`, `get_rule_upper_laws`) | `DONGGUK_LEGAL_MCP_ENABLED=1`, `DONGGUK_PUBLIC_LAW_LINK=1`과 함께, 한국법령 MCP 주소(`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`, `DONGGUK_LEGAL_MCP_URL`) 또는 법제처 Open API 인증키(`LAW_OC`, PC에 `korean-law-mcp` 설치 필요) |
 
-OC는 [open.law.go.kr](https://open.law.go.kr)에서 신청합니다. 공용 서버에는 이미 들어 있습니다. 환경변수 전체 목록은 [docs/REFERENCE.md](docs/REFERENCE.md#켜고-끄는-설정)에 있습니다.
+법제처 Open API 인증키(OC)는 [open.law.go.kr](https://open.law.go.kr)에서 신청합니다. 공용 서버에는 이 설정이 모두 들어 있어 따로 할 일이 없습니다. 설정이 번거로우면 공용 서버를 쓰세요.
 
 ## 어떻게 동작하나요
 
@@ -224,7 +225,7 @@ flowchart LR
 아니요. 서울·WISE·법인·산학협력단과 교원·직원·학생 적용범위는 원문에서 확인합니다.
 
 **타대학 비교가 바로 되나요?**  
-네. 공용 서버와 내 PC 설치 모두 기본으로 켜져 있습니다. 서울대는 법제처 Open API 인증키가 있어야 해서, 키가 없는 내 PC 설치에서는 서울대만 건너뛰고 나머지 대학은 그대로 비교합니다. 공개된 규정만 읽으며 법적 동등성을 판정하지 않습니다.
+공용 서버에서는 바로 됩니다. 내 PC에 v0.15.8을 설치했다면 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`을 넣어야 하고, 서울대는 법제처 Open API 인증키(`DONGGUK_LAWGO_OC`)가 더 필요합니다. 공개된 규정만 읽으며 법적 동등성을 판정하지 않습니다.
 
 **답을 기안에 바로 써도 되나요?**  
 규정명, 조문 또는 별표, 기준일, 조회일, 원문 링크를 남기고 소관 부서 확인을 거칩니다. 일부만 조회됐다는 표시와 검색 0건은 검증 통과가 아닙니다.
