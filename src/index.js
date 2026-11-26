@@ -128,7 +128,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope, selectRuleEditions } = require('./lookup.js');
+const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope, selectRuleEditions } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -1608,7 +1608,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           const identity=catalog&&selectRuleCandidate(catalog,validStr(a.rule_keyword));
           // A shortened rule name ("인사규정 시행세칙") that fits one title keeps the rule-name path. A bare topic
           // word that happens to sit in one title ("기숙사", "취업") is still a topic word and goes to the index.
-          if(identity?.matchType==='partial'&&identity.candidates.length===1&&RULE_NAME_SUFFIX.test(String(a.rule_keyword).replace(/\s+/g,''))){
+          // Only a name the title contains counts; a longer name that merely contains a title is not that rule.
+          if(identity?.matchType==='partial'&&identity.candidates.length===1&&RULE_NAME_SUFFIX.test(String(a.rule_keyword).replace(/\s+/g,''))
+            &&normalizeText(identity.candidates[0].title).includes(normalizeText(validStr(a.rule_keyword)))){
             input={...a,rule_keyword:identity.candidates[0].title};
           } else if(identity&&identity.matchType!=='exact'){
             topicAsRuleKeyword=validStr(a.rule_keyword);

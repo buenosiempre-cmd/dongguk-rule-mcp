@@ -140,7 +140,8 @@ async function main() {
     !phraseConcepts('휴학 기준 보여줘').includes('열람') && phraseConcepts('내 인사기록 볼 수 있어?').includes('열람')
     && !phraseConcepts('회사 몇 년 다녀야 장기근속수당 받아?').includes('수업연한') && !phraseConcepts('직원으로 몇 년 다니면 승진해?').includes('수업연한')
     && phraseConcepts('학교 몇 년 다녀야 졸업해?').includes('수업연한') && !phraseConcepts('학교 직원으로 몇 년 다니면 승진해?').includes('수업연한')
-    && phraseConcepts('학생은 최대 몇 년까지 다닐 수 있어?').includes('수업연한'));
+    && phraseConcepts('학생은 최대 몇 년까지 다닐 수 있어?').includes('수업연한')
+    && phraseConcepts('교수에게 물어보려는데 학생은 몇 년 다닐 수 있어?').includes('수업연한'));
   check('질문 주체 우선, 질문에 주체가 없을 때 핵심어 사용', questionSubject('직원 연수 의무', '교원 연수') === '직원' && questionSubject('연수 의무', '교원 연수') === '교원' && questionSubject('직원 교원 연수', '학생') === null);
   const conflictingSubject = searchCorpus(corpus, '직원 연수 의무', {top: 11, keywords: parseKeywords('교원, 연수')});
   check('상충 핵심어에도 직원 주체 가중치 유지', conflictingSubject.hits.find(hit => hit.lawId === 7).score < searchCorpus(corpus, '연수 의무', {top: 11, keywords: parseKeywords('교원, 연수')}).hits.find(hit => hit.lawId === 7).score);
@@ -253,6 +254,10 @@ async function main() {
     for (const word of ['취업', '기숙사']) {
       const topicPartial = await call({query: vague, rule_keyword: word});
       check(`한 제목에만 들어 있는 주제어(${word})는 규정으로 확정하지 않고 색인 경로`, topicPartial.sc.data.query.ruleKeywordUsedAsKeyword === word && topicPartial.sc.data.search.mode === '핵심어 색인' && topicPartial.sc.data.search.identityStatus !== 'exact_title');
+    }
+    for (const word of ['존재하지않는기숙사규정', '없는인사규정 시행세칙']) {
+      const notAName = await call({query: vague, rule_keyword: word});
+      check(`제목을 품었을 뿐인 규정 이름 꼴 입력(${word})는 규정으로 확정하지 않고 색인 경로`, notAName.sc.data.query.ruleKeywordUsedAsKeyword === word && notAName.sc.data.search.mode === '핵심어 색인' && notAName.sc.data.search.identityStatus !== 'exact_title');
     }
     const multiple = await call({query: vague, rule_keyword: '구매'});
     check('여러 제목의 부분명은 기존 색인 경로 유지', multiple.sc.data.query.ruleKeywordUsedAsKeyword === '구매' && multiple.sc.data.search.mode === '핵심어 색인');
