@@ -2,13 +2,13 @@
 
 규정을 찾은 결과를 지급 검토·기안·감사 근거로 남기는 실무 흐름입니다. 아래 질문은 예시이며 지급 가능 여부나 특정 금액을 확정한 사례가 아닙니다.
 
-상위 법령과 조문을 나란히 읽으려면 `get_rule_upper_laws`에 `law_id`, 선택 `article`·`history_id`, `include_text:true`를 전달합니다. 왼쪽은 인용 규정의 HTML 조문 전체, 오른쪽은 현행 법령 조문입니다. `comparison.status`와 기존 `textCoverage`·`evidenceStatus`를 함께 확인하고, 규정 본문이 잘리면 응답의 `fullTextRequest`로 전문을 받습니다. 과거 규정을 선택해도 법령은 현행본이며 충돌·적용 여부를 판정하지 않습니다. [상위법령 대조 응답 계약](../README.md#상위법령-조문-원문-대조-개발-중)을 참고하세요.
+상위 법령과 조문을 나란히 읽으려면 `get_rule_upper_laws`에 `law_id`, 선택 `article`·`history_id`, `include_text:true`를 전달합니다. 왼쪽은 인용 규정의 HTML 조문 전체, 오른쪽은 현행 법령 조문입니다. `comparison.status`와 기존 `textCoverage`·`evidenceStatus`를 함께 확인하고, 규정 본문이 잘리면 응답의 `fullTextRequest`로 전문을 받습니다. 과거 규정을 선택해도 법령은 현행본이며 충돌·적용 여부를 판정하지 않습니다. [상위법령 대조 응답 계약](REFERENCE.md#상위법령-조문-원문-대조-개발-중)을 참고하세요.
 
 ## 시작과 공통 원칙
 
 처음 연결하거나 업데이트한 뒤 `get_service_info`를 호출해 버전·프로필·도구 수를 확인합니다. 평소 단일 규정 질문은 `lookup_dongguk_rule`부터 사용하고, 충분한 근거를 받았으면 검색·목차·본문을 반복 조회하지 않습니다.
 
-규정 하나의 조문·부칙·별표·서식 전문이 필요하면 확인한 `LAW_ID`로 `get_rule_full_text`를 호출합니다. 과거 개정본은 `history_id`도 지정합니다. 긴 전문은 `textCoverage.nextArguments`로 이어 받고 각 페이지의 `contentMarkdown`을 순서대로 합칩니다. `sourceEvidenceStatus: partial`이면 이어받기를 마쳐도 HTML 대체·추출 누락·그림 문구 미확인 사유가 남습니다. [전문 조회와 이어받기 계약](../README.md#규정-전문-조회-개발-중)을 참고하세요.
+규정 하나의 조문·부칙·별표·서식 전문이 필요하면 확인한 `LAW_ID`로 `get_rule_full_text`를 호출합니다. 과거 개정본은 `history_id`도 지정합니다. 긴 전문은 `textCoverage.nextArguments`로 이어 받고 각 페이지의 `contentMarkdown`을 순서대로 합칩니다. `sourceEvidenceStatus: partial`이면 이어받기를 마쳐도 HTML 대체·추출 누락·그림 문구 미확인 사유가 남습니다. [전문 조회와 이어받기 계약](REFERENCE.md#규정-전문-조회-개발-중)을 참고하세요.
 
 - 질문에는 소속·캠퍼스, 교원/직원 등 신분, 업무 종류, 적용 기준일을 적습니다. 이름·개인번호·계좌는 필요하지 않습니다.
 - `campus:"seoul"` 등은 업무 맥락입니다. 캠퍼스 자동필터가 아니므로 법인·서울·WISE·산학협력단과 신분별 적용범위를 원문에서 확인합니다.
