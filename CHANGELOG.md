@@ -1,10 +1,10 @@
 # 변경 기록
 
-## 미배포 (v0.15.8 이후 변경, 2026-11-26)
+## v0.15.9 (2026-11-26)
 
 ### 모든 도구 기본 켜짐
 
-아래 동작은 다음 릴리스부터 적용됩니다. 배포본 v0.15.8은 그대로이며 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소 또는 `LAW_OC`가 필요합니다. 공용 서버는 이 값들이 이미 들어 있어 지금도 모든 도구가 켜져 있습니다. 다음 릴리스에서 설치 링크와 내 PC 설치 안내를 함께 고칩니다.
+아래 동작은 v0.15.9부터 적용됩니다. v0.15.8 이하 설치본은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소 또는 `LAW_OC`가 필요합니다.
 
 - 타대학 비교(`compare_university_rules`)는 환경변수가 없어도 켜져 있습니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0`을 넣었을 때만 꺼집니다.
 - 법령 연결(`get_rule_references`의 `include_law_text`, `get_rule_upper_laws`)은 법령 MCP 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있으면 `DONGGUK_LEGAL_MCP_ENABLED`·`DONGGUK_PUBLIC_LAW_LINK` 없이도 켜집니다. 각각 `0`이면 꺼집니다. 주소만 있으면 `streamable-http`로 연결합니다.
@@ -12,6 +12,15 @@
 - 서울대 OC(`DONGGUK_LAWGO_OC`)가 없으면 서울대 열에만 같은 방식의 안내를 붙입니다.
 - `get_service_info`의 `integrations.lawLink`(`state`, `setup`)와 `integrations.universityComparison`(`configured`, `snuKeyConfigured`)이 실제 동작을 표시합니다.
 - 운영 주의: `DONGGUK_LEGAL_MCP_ENABLED`·`DONGGUK_PUBLIC_LAW_LINK`를 넣지 않고 주소나 `LAW_OC`만 둔 서버는 이번 변경부터 법령 연결이 켜집니다. 끄려면 `0`을 넣습니다.
+
+### 법령 조회 부담 줄이기
+
+- 법령 서버(한국법령 MCP) 응답을 도구 구분 없이 디스크에 공유 캐시합니다. 현행 법령 목록·별표는 같은 날 6시간, MST로 고정된 조문 본문은 30일, 과거 기준일 판정은 7일입니다. 오류·빈 응답·"없음"은 캐시하지 않습니다. 캐시에서 나온 응답의 `retrievedAt`은 실제로 받아 온 시각입니다.
+- 법령 서버의 429(요청 한도 초과)는 최대 두 번 짧게 기다렸다 다시 시도하고, 그래도 막히면 `LEGAL_UPSTREAM_RATE_LIMITED`로 알립니다.
+- `DONGGUK_LEGAL_MCP_API_KEY`: 호스팅 한국법령 MCP에 운영자 OC를 `apikey` 헤더로 넘겨 공용(무키) 한도 대신 운영자 키 한도로 조회합니다. `get_service_info`의 `integrations.legalCalls.quota`가 `own_key`/`shared_keyless`를 표시합니다.
+- `get_rule_upper_laws`에 `law_offset`을 추가했습니다. 법령이 `max_laws`보다 많으면 `page.nextOffset`으로 나머지를 이어서 확인합니다.
+- `get_rule_references`의 `include_law_text`가 가져오는 조문 수를 3개에서 8개로 늘렸습니다.
+- 법령 본문의 첫 줄이 다른 조문 번호로 시작하는 경우(예: 사립학교법 제70조의4 "제70조의2제1항에도 불구하고…")를 조문 머리로 오인해 본문 없음으로 판정하던 문제를 고쳤습니다.
 
 ### 소개 자료
 

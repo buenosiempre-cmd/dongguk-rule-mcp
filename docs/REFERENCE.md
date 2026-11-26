@@ -8,13 +8,15 @@
 
 동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
 
-[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](COP_GUIDE.md) · [운영 가이드](OPERATIONS.md) · [CoP 평가 가이드](EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.8)
+[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](COP_GUIDE.md) · [운영 가이드](OPERATIONS.md) · [CoP 평가 가이드](EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.9)
 
 **v0.12.0**은 HWP 원문을 우선해 조문을 비교하고, 표의 셀 좌표·병합 범위·값과 포함된 그림의 파일 내용을 함께 비교합니다. 문서마다 실제 추출 범위와 미지원 항목을 표시하며, HWP를 읽지 못해 HTML로 대체한 결과는 부분 비교로 남깁니다. [v0.12.0 변경 기록](RELEASE-v0.12.0.md)에서 범위를 확인하세요. 출장비·외부 강사료의 교내 규정·한국법령 공동 조회 기능은 유지합니다. [자동 법령 연계 안내](AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](review-2026-10-27.md) · [이전 개선 기록](review-2026-10-07.md) · [빠른 사용과 운영 설정](PERFORMANCE.md)
 
 개발판 **v0.14.0**은 규정이 인용한 국가 법령 조문의 원문을 함께 가져오는 `get_rule_references(include_law_text=true)`와, 최근 개정된 규정과 변경 조문을 정리해 Slack에 올리는 `npm run weekly-updates`를 추가했습니다.
 
-**v0.15.8**은 타대학 대표 규정의 개정일·본문 지문·조회 실패를 직전 기록과 비교하는 `university-watch`와, 사용 중 비교 실패를 집계하는 선택적 사용 로그를 추가합니다. 캐시 10분은 유지하고 본문은 장기 저장하지 않습니다. 기본은 출력만 하며 실제 Slack 게시에는 `--post`가 필요합니다. [변경 기록](../CHANGELOG.md)
+**v0.15.9**는 법령 서버 응답을 공유 캐시하고 429(요청 한도 초과)를 짧게 재시도해 상위·인용 법령 조회가 한도에 덜 걸리게 하고, 상위법령의 남은 법령을 `law_offset`으로 이어서 확인하게 합니다. 모든 도구가 기본으로 켜집니다. [변경 기록](../CHANGELOG.md)
+
+이전 v0.15.8은 타대학 대표 규정의 개정일·본문 지문·조회 실패를 직전 기록과 비교하는 `university-watch`와, 사용 중 비교 실패를 집계하는 선택적 사용 로그를 추가합니다. 캐시 10분은 유지하고 본문은 장기 저장하지 않습니다. 기본은 출력만 하며 실제 Slack 게시에는 `--post`가 필요합니다. [변경 기록](../CHANGELOG.md)
 
 이전 v0.15.7은 타대학 비교에 홍익(`hongik`)·한양(`hanyang`)·성균관(`skku`)·세종(`sejong`)·가천(`gachon`)을 추가합니다. 공개된 목록·본문만 읽고 조문만 비교하며, 별표·표·그림 본문은 비교 근거로 올리지 않습니다. 한국외대와 상명대는 넣지 않았습니다. [변경 기록](../CHANGELOG.md)
 
@@ -36,7 +38,7 @@
 
 이전 개발판 v0.12.3은 부칙이 본칙과 섞여 `제1조`·`제2조` 조회와 인용 검증이 막히던 문제를 고치고, `부칙(2024.8.27.) 제1조`처럼 부칙 개정일로 조문을 고를 수 있게 했습니다. 규정명이 없는 질문과 원문에 없는 단어가 섞인 전문검색은 핵심어로 다시 찾습니다. [점검 기록](review-2026-11-09.md)
 
-이전 개발판 v0.12.2는 “여비규정 별표를 보여줘” 같은 자연어 질문에서 별표를 놓치는 문제를 고치고, 표 아래 여러 문단의 주석을 함께 반환합니다. 별표 번호·가지번호를 구분하며, 원문에서 별표 본체를 찾지 못하면 미확인 상태를 표시합니다. [별표 조회 수정](appendix-query-2026-11-05.md)과 이전 [유지보수 및 새 기능 검토](review-2026-11-05.md)에 범위·검증을 정리했습니다. 아래 개인 설치 링크는 v0.15.8 패키지를 가리킵니다. 공용 서버 반영은 별도 배포 후 확인합니다.
+이전 개발판 v0.12.2는 “여비규정 별표를 보여줘” 같은 자연어 질문에서 별표를 놓치는 문제를 고치고, 표 아래 여러 문단의 주석을 함께 반환합니다. 별표 번호·가지번호를 구분하며, 원문에서 별표 본체를 찾지 못하면 미확인 상태를 표시합니다. [별표 조회 수정](appendix-query-2026-11-05.md)과 이전 [유지보수 및 새 기능 검토](review-2026-11-05.md)에 범위·검증을 정리했습니다. 아래 개인 설치 링크는 v0.15.9 패키지를 가리킵니다. 공용 서버 반영은 별도 배포 후 확인합니다.
 
 ## 시작하기
 
@@ -54,12 +56,12 @@
 **npm 레지스트리는 현재 미발행**입니다. GitHub의 고정 버전 패키지로 설치합니다.
 
 ```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz
+npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.9/dongguk-rule-mcp-0.15.9.tgz
 dongguk-rule-mcp --version
 dongguk-rule-mcp --doctor --json
 ```
 
-[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz) `npm install -g ./dongguk-rule-mcp-0.15.8.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](COP_GUIDE.md) 또는 공용 연결을 확인하세요.
+[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.9/dongguk-rule-mcp-0.15.9.tgz) `npm install -g ./dongguk-rule-mcp-0.15.9.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](COP_GUIDE.md) 또는 공용 연결을 확인하세요.
 
 사용할 앱의 설정 예시를 출력합니다. 아래 중 하나를 선택해 기존 MCP 설정에 추가한 뒤 앱을 완전히 종료하고 다시 실행합니다.
 
@@ -118,8 +120,8 @@ dongguk-rule-mcp --print-config cursor
 - **개정 비교:** 양쪽 개정본의 HWP 조문을 우선 비교합니다. HWP를 읽을 수 없으면 HTML 조문으로 대체하고 부분 상태와 대체 사유를 표시합니다. 기본값인 `include_appendices:true`에서는 별표·서식 텍스트와 표의 셀 좌표·행/열 병합 범위·값, 포함된 그림 파일의 SHA-256 해시도 비교합니다. `include_appendices:false`는 별표·서식 비교를 생략하며 HWP 조문 우선 원칙은 유지합니다.
 - **결과 해석:** 그림 파일의 동일·변경 판정은 OCR, 그림 속 문구의 의미 해석 또는 페이지 배치 비교를 뜻하지 않습니다. 실제 추출 누락·미지원 객체·식별 모호성은 부분 상태로 남기며 “변경 없음”으로 단정하지 않습니다. 시행일과 업무 적용성은 부칙·적용범위를 별도로 확인합니다.
 - **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 HTML 본문 색인은 후보를 찾는 데 사용하며, 별표 내용은 순위에 반영되지 않습니다. `search_rule_deep`은 색인 결과를 현행 목록의 최신 개정본과 대조하고, 개정된 규정은 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색으로 대체합니다. `lookup_dongguk_rule`은 오래된 색인도 후보 탐색에 사용하되 오래됨을 표시하고, 선택한 규정의 연혁·원문을 별도로 조회합니다(기존 캐시 정책 적용). 별표·금액표는 이 통합 조회의 원문 발췌로 확인합니다.
-- **법령 원문 연계:** 법령 서버 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있는 서버에서 기본으로 켜집니다. 없으면 오류 대신 `not_configured`와 설정 안내(`notice`, `setup`)를 돌려주고 규정 인용 결과는 그대로 반환합니다. 조문이 특정된 인용만, 한 번에 3개 조문까지 현행 원문을 가져옵니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
-- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 서버 연결 정보가 없거나 운영자가 꺼 둔 서버에서도 확인할 법령명·조문과 설정 안내를 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
+- **법령 원문 연계:** 법령 서버 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있는 서버에서 기본으로 켜집니다. 없으면 오류 대신 `not_configured`와 설정 안내(`notice`, `setup`)를 돌려주고 규정 인용 결과는 그대로 반환합니다. 조문이 특정된 인용만, 한 번에 8개 조문까지 현행 원문을 가져옵니다. 법령 서버의 성공 응답은 캐시해 같은 법령을 여러 규정이 인용해도 다시 부르지 않습니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
+- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고(남은 법령은 `law_offset`에 `page.nextOffset`을 넣어 이어서 확인), 법령 서버 연결 정보가 없거나 운영자가 꺼 둔 서버에서도 확인할 법령명·조문과 설정 안내를 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
 - **상위법령 본문 범위:** `get_rule_upper_laws`의 `lookup.status`는 법령·조문을 확인했는지, `textCoverage.status`는 `include_text=true`로 요청한 본문을 얼마나 받았는지를 따로 알립니다. 본문이 잘리면 `incompleteReasons`에 `LAW_TEXT_TRUNCATED`, 받지 못하면 `LAW_TEXT_UNAVAILABLE`이 들어가고 `evidenceStatus`는 `partial`입니다. 조문의 존재·삭제 여부는 `laws[].articles[].status`로 확인합니다.
 
   | `textCoverage.status` | 뜻 |
@@ -233,7 +235,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 ### 켜고 끄는 설정
 
-> 이 절은 저장소의 현재 코드(v0.15.8 이후 미배포 변경) 기준입니다. 배포본 v0.15.8은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소(`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`, `DONGGUK_LEGAL_MCP_URL`) 또는 `LAW_OC`를 넣어야 켜집니다. 바뀌는 내용은 [변경 기록](../CHANGELOG.md)의 미배포 항목에 있습니다.
+> 이 절은 v0.15.9 기준입니다. v0.15.8 이하 설치본은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소(`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`, `DONGGUK_LEGAL_MCP_URL`) 또는 `LAW_OC`를 넣어야 켜집니다. 바뀐 내용은 [변경 기록](../CHANGELOG.md)의 v0.15.9 항목에 있습니다.
 
 모든 도구는 기본으로 켜져 있습니다. 환경변수는 운영자가 끄거나, 바깥 서비스의 연결 정보를 넣을 때만 씁니다. 실제 상태는 `get_service_info`의 `integrations`에서 확인합니다.
 
