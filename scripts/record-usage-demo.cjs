@@ -1,7 +1,8 @@
 'use strict';
 /**
- * docs/assets/usage-demo.html(소개 영상 원본)을 헤드리스 크롬으로 프레임 단위 녹화해
- * MP4(전체)와 GIF(README용)를 만듭니다. 제품 코드 경로는 호출하지 않습니다.
+ * docs/assets/usage-demo.html(앱 예시 화면: Claude·ChatGPT·팀 메신저)을 헤드리스 크롬으로
+ * 프레임 단위 녹화해 미리보기 MP4·GIF를 만듭니다. 결과는 임시 폴더에만 씁니다.
+ * README 소개 영상(v3)은 scripts/intro-video/record.cjs 가 만들며, 이 화면을 iframe으로 재사용합니다.
  *
  *   node scripts/record-usage-demo.cjs
  *
@@ -136,12 +137,12 @@ async function main() {
     }
     ws.close();
 
-    const mp4 = path.join(ASSETS, 'usage-demo.mp4');
+    const mp4 = path.join(WORK, 'app-screens.mp4');
     await run('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(FRAMES, 'frame-%05d.png'),
       '-c:v', 'libx264', '-preset', 'slow', '-crf', '22', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4]);
-    const gif = path.join(ASSETS, 'usage-demo.gif');
+    const gif = path.join(WORK, 'app-screens.gif');
     const gifBytes = await makeGif(gif);
-    const shortGif = path.join(ASSETS, 'usage-demo-short.gif');
+    const shortGif = path.join(WORK, 'app-screens-short.gif');
     let shortGifBytes = null;
     if (gifBytes > GIF_LIMIT) shortGifBytes = await makeGif(shortGif, SHORT_GIF_END);
     else fs.rmSync(shortGif, {force: true});
