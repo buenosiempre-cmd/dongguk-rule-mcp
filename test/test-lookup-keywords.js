@@ -141,7 +141,10 @@ async function main() {
     && !phraseConcepts('회사 몇 년 다녀야 장기근속수당 받아?').includes('수업연한') && !phraseConcepts('직원으로 몇 년 다니면 승진해?').includes('수업연한')
     && phraseConcepts('학교 몇 년 다녀야 졸업해?').includes('수업연한') && !phraseConcepts('학교 직원으로 몇 년 다니면 승진해?').includes('수업연한')
     && phraseConcepts('학생은 최대 몇 년까지 다닐 수 있어?').includes('수업연한')
-    && phraseConcepts('교수에게 물어보려는데 학생은 몇 년 다닐 수 있어?').includes('수업연한'));
+    && phraseConcepts('교수에게 물어보려는데 학생은 몇 년 다닐 수 있어?').includes('수업연한')
+    && phraseConcepts('근무하는 교수에게 학생은 몇 년 다닐 수 있는지 물어봐').includes('수업연한')
+    && !phraseConcepts('학생 상담하는 교수는 몇 년 다닐 수 있어?').includes('수업연한')
+    && !phraseConcepts('학생 지도하는 직원은 몇 년 다녀야 해?').includes('수업연한'));
   check('질문 주체 우선, 질문에 주체가 없을 때 핵심어 사용', questionSubject('직원 연수 의무', '교원 연수') === '직원' && questionSubject('연수 의무', '교원 연수') === '교원' && questionSubject('직원 교원 연수', '학생') === null);
   const conflictingSubject = searchCorpus(corpus, '직원 연수 의무', {top: 11, keywords: parseKeywords('교원, 연수')});
   check('상충 핵심어에도 직원 주체 가중치 유지', conflictingSubject.hits.find(hit => hit.lawId === 7).score < searchCorpus(corpus, '연수 의무', {top: 11, keywords: parseKeywords('교원, 연수')}).hits.find(hit => hit.lawId === 7).score);
