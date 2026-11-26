@@ -215,25 +215,6 @@ function truncateText(text, maxChars) {
   };
 }
 
-// Several texts inside one length limit: the shortest are kept whole first, the
-// rest are cut at a line break to the share that remains for each.
-function shareLength(texts, maxChars) {
-  const separators = (texts.length - 1) * 2;
-  let left = Math.max(0, maxChars - separators), remaining = texts.length;
-  const allowed = new Array(texts.length);
-  for (const [length, at] of texts.map((text, at) => [text.length, at]).sort((a, b) => a[0] - b[0])) {
-    allowed[at] = Math.min(length, Math.floor(left / remaining));
-    left -= allowed[at];
-    remaining--;
-  }
-  const parts = texts.map((text, at) => {
-    if (text.length <= allowed[at]) return text;
-    const cut = text.lastIndexOf('\n', allowed[at]);
-    return `${text.slice(0, cut > allowed[at] * 0.7 ? cut : allowed[at]).trimEnd()}\n\n...(결과 길이 제한으로 이 조문의 뒷부분 생략)`;
-  });
-  return { text: parts.join('\n\n'), truncated: true };
-}
-
 function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const maxBlocks = clampNumber(options.maxBlocks, 6, 1, 12);
   const maxChars = clampNumber(options.maxChars, 12000, 1000, 30000);
@@ -370,18 +351,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const matchedTerms = [...new Set(
     selectedMatches.flatMap(x => x.matched)
   )];
-  // In relevance order one long article must not push the others out of the
-  // length limit: each selected article gets an equal share, and what a short
-  // article leaves unused goes to the longer ones.
-  const groups = [];
-  if (options.order === 'relevance' && selected.length > maxChars) {
-    for (const index of orderedIndexes) {
-      const key = rank(index);
-      if (groups.at(-1)?.key === key) groups.at(-1).text += `\n\n${blocks[index]}`;
-      else groups.push({ key, text: blocks[index] });
-    }
-  }
-  const clipped = groups.length > 1 ? shareLength(groups.map(group => group.text), maxChars) : truncateText(selected, maxChars);
+  const clipped = truncateText(selected, maxChars);
   // Table context can recover a lower-ranked matching block. Only count
   // genuinely omitted matches, not every item below the score cutoff.
   const omittedBlockCount = scored.filter(item => !selectedIndexes.has(item.index)).length;

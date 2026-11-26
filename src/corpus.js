@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks } = require('./parsers.js');
-const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent } = require('./aliases.js');
+const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
 const { queryConcepts, keywordConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
@@ -249,14 +249,14 @@ const TITLE_WORD_SHARE = 0.3;
 // With caller keywords, the question's own words still count, at this share of
 // their weight: they add the context a short keyword list leaves out
 // ("노트북" next to 분실·변상) without outvoting the keywords.
-const QUESTION_SHARE_WITH_KEYWORDS = Number(process.env.NLX_QUESTION_SHARE_WITH_KEYWORDS || 0.35);
+const QUESTION_SHARE_WITH_KEYWORDS = 0.35;
 // A keyword in an article heading names what the article is about.
-const KEYWORD_HEADING_SHARE = Number(process.env.NLX_KEYWORD_HEADING_SHARE || 1);
+const KEYWORD_HEADING_SHARE = 1;
 // A whole keyword phrase in one heading ("사적 사용" in 제16조(학교재산 등의 사적 사용·수익 금지)).
-const KEYWORD_PHRASE_HEADING_SHARE = Number(process.env.NLX_KEYWORD_PHRASE_HEADING_SHARE || 1);
+const KEYWORD_PHRASE_HEADING_SHARE = 1;
 // Keywords already say what is asked ("기간", "자격"), so the intent read from
 // the question's wording weighs less beside them.
-const INTENT_SHARE_WITH_KEYWORDS = Number(process.env.NLX_INTENT_SHARE_WITH_KEYWORDS || 0.5);
+const INTENT_SHARE_WITH_KEYWORDS = 0.5;
 
 function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = {}) {
   const total = corpus.rules.length || 1;
@@ -325,6 +325,8 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
   const multiwordPhrases = [...phrases.values()].filter(group => group.length >= 2);
   const searchForms = [...new Set(words.flatMap(word => word.forms))];
   const standing = ruleStanding(corpus);
+  // Who the question is about, read from the question and the keywords together.
+  const subject = questionSubject(keywordMode ? `${query} ${keywords.map(phrase => phrase.join(' ')).join(' ')}` : query);
   const generalFamilies = new Set(corpus.rules.filter(r => !ruleFamily(r.title).edition).map(r => ruleFamily(r.title).family));
   const hits = [];
   for (const rule of corpus.rules) {
@@ -400,7 +402,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = 
       lawId: rule.lawId, historyId: rule.historyId, title: rule.title, code: rule.code, revisedAt: rule.revisedAt,
       score: ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01)
         * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family), { code: rule.code, forms: searchForms })
-        * (standing.get(rule.lawId) || 1),
+        * (standing.get(rule.lawId) || 1) * subjectWeight(rule.title, subject),
       matchedTerms, matchedConcepts, ...ruleFamily(rule.title),
       // Concepts that only the rule's title carries say nothing about its articles.
       articleConcepts: [...new Set(scored.flatMap(item => item.matchedConcepts))].filter(term => words.some(word => word.term === term)),
