@@ -16,6 +16,8 @@
     "LICENSE",
     "npm-shrinkwrap.json",
     "docs/",
+    "!docs/assets/*.gif",
+    "!docs/assets/*.mp4",
     "examples/",
     "scripts/",
     "skills/"

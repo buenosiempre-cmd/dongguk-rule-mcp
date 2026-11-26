@@ -1,10 +1,11 @@
 <p align="center">
-  <img src="docs/assets/usage-demo.gif" alt="여비규정을 대화로 찾아 규정명, LAW_ID, HISTORY_ID, 별표, 원문 출처를 카드로 보여주는 애니메이션" width="800">
+  <a href="docs/assets/usage-demo.mp4"><img src="docs/assets/usage-demo.gif" alt="동국 규정 MCP 소개 영상: 동작원리 4단계 뒤에 Claude 커넥터 추가와 질문, ChatGPT 사용자 지정 MCP 서버 추가와 질문, 팀 메신저 AI 봇 질문을 차례로 보여 주는 예시 화면. 답변은 공용 서버 실제 응답에서 옮긴 규정명·조문·개정일·원문 링크를 포함" width="800"></a>
+  <br><sub>예시 화면입니다. 화면 속 답변은 공용 서버 실제 응답(2026-11-26 조회)을 옮겼습니다. <a href="docs/assets/usage-demo.mp4">MP4로 보기</a></sub>
 </p>
 
 <p align="center">
-  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.8"><img alt="버전 0.15.8" src="https://img.shields.io/badge/version-0.15.8-1e4a3a"></a>
-  <a href="LICENSE"><img alt="MIT 라이선스" src="https://img.shields.io/badge/license-MIT-b8432f"></a>
+  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.8"><img alt="버전 0.15.8" src="docs/assets/badges/version.svg"></a>
+  <a href="LICENSE"><img alt="MIT 라이선스" src="docs/assets/badges/license.svg"></a>
   <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml"><img alt="CI: MCP regression" src="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
@@ -242,7 +243,7 @@ flowchart LR
 | [docs/FINANCE_DESK.md](docs/FINANCE_DESK.md) | finance 프로필과 자료팩 |
 | [CHANGELOG.md](CHANGELOG.md) | 변경 기록 |
 
-애니메이션 원본은 [docs/assets/usage-demo.html](docs/assets/usage-demo.html), 영상은 [MP4](docs/assets/usage-demo.mp4)입니다. 소스에서 검사하려면 `npm ci` 다음 `npm test`입니다. CI는 Node 20.19.0, 22, 24에서 실행합니다. 실원문은 `npm run test:live`이며 네트워크가 필요합니다. 전교 용량 시험은 아닙니다.
+소개 영상 원본은 [docs/assets/usage-demo.html](docs/assets/usage-demo.html), 영상은 [MP4](docs/assets/usage-demo.mp4)이며 `node scripts/record-usage-demo.cjs`로 다시 만듭니다(크롬·ffmpeg 필요). 버전·라이선스 배지는 외부 배지 서버 장애에 영향받지 않도록 [docs/assets/badges](docs/assets/badges)의 SVG를 씁니다. 릴리스 때 version.svg의 버전 글자도 함께 바꿉니다. 소스에서 검사하려면 `npm ci` 다음 `npm test`입니다. CI는 Node 20.19.0, 22, 24에서 실행합니다. 실원문은 `npm run test:live`이며 네트워크가 필요합니다. 전교 용량 시험은 아닙니다.
 
 ## 기여 · 라이선스
 

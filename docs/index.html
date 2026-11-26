@@ -75,6 +75,9 @@
     border: 1px solid var(--line); background: var(--card); color: var(--ink);
     border-radius: 999px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px;
   }
+  .demo { margin: 0 0 8px; }
+  .demo video { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 14px; border: 1px solid var(--line); background: #0f1f19; }
+  .demo figcaption { margin-top: 8px; font-size: 13px; color: var(--muted); }
   .hero { padding: 28px 0 10px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; }
   h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.05; letter-spacing: -0.045em; margin: 0 0 12px; }
   .lede { font-size: 18px; margin: 0 0 8px; }
@@ -240,6 +243,12 @@
         </div>
       </div>
     </header>
+
+    <h2 class="sec" id="demo">설정부터 질문까지 영상으로 보기</h2>
+    <figure class="demo">
+      <video src="assets/usage-demo.mp4" controls muted loop playsinline preload="metadata" aria-label="Claude, ChatGPT, 팀 메신저 AI 봇에서 공용 서버 주소를 등록하고 규정을 묻는 예시 화면"></video>
+      <figcaption>예시 화면입니다. 각 앱의 메뉴 이름과 위치는 버전·요금제·워크스페이스 권한에 따라 다를 수 있습니다. 화면 속 답변은 공용 서버 실제 응답(2026-11-26 조회)을 옮겼습니다.</figcaption>
+    </figure>
 
     <h2 class="sec" id="start">설치: 주소 하나만 넣으면 됩니다</h2>
     <p class="lead">내 PC에 아무것도 설치하지 않습니다. 쓰는 AI 앱에 아래 공용 서버 주소를 등록합니다. 로그인도 토큰도 없습니다.</p>
