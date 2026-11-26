@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const {Server}=require('@modelcontextprotocol/sdk/server/index.js');
 const {ListToolsRequestSchema,CallToolRequestSchema}=require('@modelcontextprotocol/sdk/types.js');
 const {createHttpServer}=require('../src/http-server.js');
-const {queryLegalReferences,closeLegalClient}=require('../src/legal-client.js');
+const {queryLegalReferences,closeLegalClient,legalServerState,legalSetupGuide}=require('../src/legal-client.js');
 const LAW='소득세법',TODAY='2026-10-27';
 const TOKEN='synthetic-law-http-token';
 const keys=['DONGGUK_LEGAL_MCP_ENABLED','DONGGUK_LEGAL_MCP_TRANSPORT','DONGGUK_LEGAL_MCP_URL','DONGGUK_LEGAL_MCP_BEARER_TOKEN','DONGGUK_LEGAL_MCP_ARGS','LAW_OC'];
@@ -56,6 +56,31 @@ async function main(){
     for(const [key,value] of [['DONGGUK_LEGAL_MCP_ENABLED','0'],['DONGGUK_LEGAL_MCP_URL',''],['DONGGUK_LEGAL_MCP_TRANSPORT','sse'],['DONGGUK_LEGAL_MCP_BEARER_TOKEN','bad\r\nheader']]){
       const before=process.env[key];process.env[key]=value;assert.equal((await query()).code,'LEGAL_MCP_NOT_CONFIGURED');process.env[key]=before;
     }
+  });
+  await check('on by default: an address alone is enough, and only ENABLED=0 switches it off',async()=>{
+    await closeLegalClient();
+    delete process.env.DONGGUK_LEGAL_MCP_ENABLED;delete process.env.DONGGUK_LEGAL_MCP_TRANSPORT;
+    assert.deepEqual(legalServerState(),{state:'ready',transport:'streamable-http'});
+    assert.equal((await query()).status,'retrieved');
+    process.env.DONGGUK_LEGAL_MCP_ENABLED='0';
+    assert.equal(legalServerState().state,'disabled');
+    const off=await query();assert.equal(off.code,'LEGAL_MCP_NOT_CONFIGURED');assert.equal(off.setup.state,'disabled');
+    process.env.DONGGUK_LEGAL_MCP_ENABLED='1';process.env.DONGGUK_LEGAL_MCP_TRANSPORT='streamable-http';
+  });
+  await check('missing address or key returns setup guidance without inventing an address',async()=>{
+    const before=process.env.DONGGUK_LEGAL_MCP_URL;
+    delete process.env.DONGGUK_LEGAL_MCP_URL;delete process.env.DONGGUK_LEGAL_MCP_TRANSPORT;delete process.env.DONGGUK_LEGAL_MCP_ENABLED;delete process.env.LAW_OC;
+    assert.deepEqual(legalServerState(),{state:'missing',transport:'stdio'});
+    const result=await query();
+    assert.equal(result.code,'LEGAL_MCP_NOT_CONFIGURED');
+    assert.deepEqual(result.setup.env,['DONGGUK_LEGAL_MCP_URL','LAW_OC']);
+    assert.equal(result.setup.ocApplyUrl,'https://open.law.go.kr');
+    assert.match(result.setup.message,/DONGGUK_LEGAL_MCP_URL/);assert.match(result.setup.message,/LAW_OC/);assert.match(result.setup.message,/open\.law\.go\.kr/);
+    // The only address in the guidance is the key application site.
+    assert.deepEqual(result.setup.message.match(/https?:\/\/[^\s)]+/g),['https://open.law.go.kr']);
+    assert.equal(legalSetupGuide('ready'),null);
+    process.env.DONGGUK_LEGAL_MCP_URL='not a url';assert.equal(legalServerState().state,'invalid');
+    Object.assign(process.env,{DONGGUK_LEGAL_MCP_ENABLED:'1',DONGGUK_LEGAL_MCP_TRANSPORT:'streamable-http',DONGGUK_LEGAL_MCP_URL:before});
   });
   await check('stdio still requires its own LAW_OC configuration',async()=>{
     process.env.DONGGUK_LEGAL_MCP_TRANSPORT='stdio';delete process.env.LAW_OC;
