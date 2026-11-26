@@ -5,6 +5,8 @@
 function formatLegalEvidence(legal) {
   if (!legal || ['not_requested', 'not_required'].includes(legal.status)) return '';
   const parts = ['## 법령 근거', `조회상태: ${legal.status || '확인 필요'}${legal.code ? ` (${legal.code})` : ''}`];
+  // A missing law connection is explained in plain words; rule evidence above is unaffected.
+  if (legal.setup?.message) parts.push(`${legal.setup.message} 교내 규정 근거는 그대로 제공합니다.`);
   if (legal.baseDate) parts.push(`요청 기준일: ${legal.baseDate}`);
   if (legal.scope) parts.push(legal.scope);
   const results = Array.isArray(legal.results) ? legal.results : [];

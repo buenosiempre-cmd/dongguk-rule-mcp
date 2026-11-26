@@ -25,23 +25,52 @@ async function bounded(operation,timeoutMs,onTimeout=()=>{}){
   try{return await Promise.race([Promise.resolve().then(()=>operation(controller.signal)),timeout]);}
   finally{clearTimeout(timer);}
 }
+// The law server is used whenever the operator has given an address or a key.
+// DONGGUK_LEGAL_MCP_ENABLED=0 is the operator's off switch; no value means on.
+// reason: disabled (switched off) | missing (no address or key) | invalid (bad value).
+const notConfigured=reason=>Object.assign(failure('LEGAL_MCP_NOT_CONFIGURED'),{reason});
+function legalTransport(){
+  return process.env.DONGGUK_LEGAL_MCP_TRANSPORT||((process.env.DONGGUK_LEGAL_MCP_URL||'').trim()?'streamable-http':'stdio');
+}
 function connectionSettings(){
-  if(process.env.DONGGUK_LEGAL_MCP_ENABLED!=='1') throw failure('LEGAL_MCP_NOT_CONFIGURED');
-  const kind=process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio';
+  if(process.env.DONGGUK_LEGAL_MCP_ENABLED==='0') throw notConfigured('disabled');
+  const kind=legalTransport();
   if(kind==='streamable-http'){
+    const raw=(process.env.DONGGUK_LEGAL_MCP_URL||'').trim();
+    if(!raw) throw notConfigured('missing');
     let url;
-    try{url=new URL(process.env.DONGGUK_LEGAL_MCP_URL||'');}catch{throw failure('LEGAL_MCP_NOT_CONFIGURED');}
+    try{url=new URL(raw);}catch{throw notConfigured('invalid');}
     const loopback=['localhost','127.0.0.1','[::1]'].includes(url.hostname);
-    if((url.protocol!=='https:'&&!(url.protocol==='http:'&&loopback))||url.username||url.password||url.search||url.hash) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+    if((url.protocol!=='https:'&&!(url.protocol==='http:'&&loopback))||url.username||url.password||url.search||url.hash) throw notConfigured('invalid');
     const token=(process.env.DONGGUK_LEGAL_MCP_BEARER_TOKEN||'').trim();
-    if(/[\r\n]/.test(token)) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+    if(/[\r\n]/.test(token)) throw notConfigured('invalid');
     return {kind,url:url.href,token};
   }
-  if(kind!=='stdio'||!process.env.LAW_OC) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  if(kind!=='stdio') throw notConfigured('invalid');
+  if(!process.env.LAW_OC) throw notConfigured('missing');
   let args;
-  try{args=JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]');}catch{throw failure('LEGAL_MCP_NOT_CONFIGURED');}
-  if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  try{args=JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]');}catch{throw notConfigured('invalid');}
+  if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw notConfigured('invalid');
   return {kind,command:process.env.DONGGUK_LEGAL_MCP_COMMAND||'npx',args,lawOc:process.env.LAW_OC};
+}
+// Whether the law server can be reached with the current settings, without
+// connecting. Never returns the address or the key.
+function legalServerState(){
+  try{return {state:'ready',transport:connectionSettings().kind};}
+  catch(error){return {state:error.reason||'invalid',transport:legalTransport()};}
+}
+// Plain-language guidance for a missing law connection. It names the settings
+// an operator can add and where the key is issued; it never invents an address.
+const OC_APPLY_URL='https://open.law.go.kr';
+function legalSetupGuide(state){
+  if(state==='ready') return null;
+  const env=state==='disabled'?['DONGGUK_LEGAL_MCP_ENABLED']:['DONGGUK_LEGAL_MCP_URL','LAW_OC'];
+  const message=state==='disabled'
+    ?'서버 운영자가 법령 연결을 꺼 두었습니다(DONGGUK_LEGAL_MCP_ENABLED=0). 운영자가 이 값을 지우면 다시 켜집니다.'
+    :state==='missing'
+      ?`이 서버에는 한국법령 MCP 연결 정보가 없어 법령을 조회할 수 없습니다. 서버 운영자가 환경변수 DONGGUK_LEGAL_MCP_URL에 한국법령 MCP 서버 주소를 넣거나, LAW_OC에 법제처 Open API 인증키(OC)를 넣으면 켜집니다(LAW_OC 방식은 서버에 korean-law-mcp가 설치되어 있어야 합니다). OC는 ${OC_APPLY_URL} 에서 신청합니다.`
+      :'법령 MCP 연결 설정 값이 올바르지 않아 법령을 조회할 수 없습니다. 서버 운영자가 DONGGUK_LEGAL_MCP_URL(https 주소, 계정·쿼리 문자열 없이)과 DONGGUK_LEGAL_MCP_TRANSPORT(streamable-http 또는 stdio) 값을 확인해야 합니다.';
+  return {state,env,ocApplyUrl:OC_APPLY_URL,message};
 }
 async function legalClient(timeoutMs){
   const settings=connectionSettings();
@@ -67,7 +96,7 @@ async function legalClient(timeoutMs){
         // Never expose transport URLs, credentials, child stderr or exception text.
         await client?.close().catch(()=>{});
         await transport?.close().catch(()=>{});
-        throw failure(error?.code==='LEGAL_TIMEOUT'?'LEGAL_TIMEOUT':error?.code==='LEGAL_MCP_NOT_CONFIGURED'?'LEGAL_MCP_NOT_CONFIGURED':'LEGAL_CONNECTION_FAILED');
+        throw error?.code==='LEGAL_MCP_NOT_CONFIGURED'?notConfigured(error.reason):failure(error?.code==='LEGAL_TIMEOUT'?'LEGAL_TIMEOUT':'LEGAL_CONNECTION_FAILED');
       }
     })().catch(error=>{if(connection===record)connection=null;throw error;});
   }
@@ -222,7 +251,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   if(!eligible.length) return summarize(results,date,limits);
   let client;
   try{const {allowed,totalLimited}=remaining();let timerExpired=false;client=injectedClient||await bounded(()=>legalClient(allowed),allowed,()=>{timerExpired=true;}).catch(error=>{if(timerExpired&&totalLimited&&errorCode(error)==='LEGAL_TIMEOUT')throw failure('LEGAL_TOTAL_TIMEOUT');throw error;});if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
-  catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code});}
+  catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code,...(code==='LEGAL_MCP_NOT_CONFIGURED'?{setup:legalSetupGuide(error?.reason||'invalid')}:{})});}
   const deadlineCall=async operation=>{
     const {allowed,totalLimited}=remaining();
     let timerExpired=false;
@@ -415,7 +444,7 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
   try{
     client=injectedClient||await legalClient(Math.min(timeoutMs,totalTimeoutMs));
     if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');
-  }catch(error){const code=errorCode(error);for(const law of laws) if(law.identity.status==='unavailable') law.identity.code=code;return finish({code});}
+  }catch(error){const code=errorCode(error);for(const law of laws) if(law.identity.status==='unavailable') law.identity.code=code;return finish({code,...(code==='LEGAL_MCP_NOT_CONFIGURED'?{setup:legalSetupGuide(error?.reason||'invalid')}:{})});}
   const codeOf=error=>/^LEGAL_/.test(error?.code||'')?error.code:errorCode(error);
   const call=async(name,args)=>{
     const left=deadline-Date.now();
@@ -494,4 +523,4 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
   return finish();
 }
 async function closeLegalClient(){const pending=connection;connection=null;if(pending){try{const client=await pending.promise;await client.close();}catch{ /* Failed connections already clean up their transport. */ }}}
-module.exports={queryLegalReferences,closeLegalClient,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};
+module.exports={queryLegalReferences,closeLegalClient,legalServerState,legalSetupGuide,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};

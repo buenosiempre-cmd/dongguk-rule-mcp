@@ -76,7 +76,7 @@ npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0
 | Codex·Aside 실제 연결 | 각 앱에서 `get_service_info` 호출 | 해당 앱의 현재 연결이 쓰는 코드 |
 
 1. 새 버전은 별도 디렉터리에 설치하고 검증한 뒤 기존 런처의 대상 경로를 바꿉니다. 공개용과 내부용 런처, 쿠키·인증 헤더·자료팩·한국법령 연결은 기존 경계를 보존합니다.
-2. Mac mini의 해당 MCP HTTP 서비스만 재시작합니다. 터널이나 다른 앱을 함께 재시작할 필요는 없습니다. 인증 거절·허용 경로·대표 원문 비교를 다시 확인합니다.
+2. 운영자 장비의 해당 MCP HTTP 서비스만 재시작합니다. 터널이나 다른 앱을 함께 재시작할 필요는 없습니다. 인증 거절·허용 경로·대표 원문 비교를 다시 확인합니다.
 3. Codex의 기존 stdio 연결은 패키지 교체 후에도 구버전을 유지할 수 있습니다. 기존 연결을 확실히 갱신하려면 진행 중인 작업을 정리하고 Codex 앱을 완전히 종료한 뒤 다시 실행합니다. 앱 재시작은 실행 중인 대화를 중단할 수 있으므로 배포·검증을 끝낸 후 시행합니다. 재실행 후 실제 `get_service_info` 응답을 받기 전에는 “기존 연결 갱신 완료”로 기록하지 않습니다.
 4. Aside는 실행 중인 데몬이 설정 파일을 덮어쓸 수 있으므로 `settings.json`을 직접 고치지 않습니다. `aside skills show aside`로 현재 공식 API를 확인하고, `aside repl --account u0`에서 `aside.settings.get('mcp')`로 읽은 설정을 보존한 채 `aside.settings.set('mcp', ...)`를 사용합니다. 새 런타임의 `tools/list`로 확인한 해당 서버의 `inventories`만 갱신하고 `refreshedAt`은 `Z`로 끝나는 UTC 시각으로 저장합니다. 기존 `servers`와 다른 도구 목록을 바꾸지 않았는지 재조회해 확인합니다. 실제 계정 ID는 운영 환경에 맞춥니다.
 5. Aside 도구 목록 저장 성공은 도구 실행 성공과 다릅니다. Aside에서 `get_service_info`와 대표 비교를 호출해 버전·결과를 확인합니다. 연결이 구버전을 유지하면 해당 앱의 재연결 절차를 진행하고 다시 확인합니다.
@@ -155,11 +155,11 @@ node src/index.js --http --profile rules --host 127.0.0.1 --port 3845 --token-fi
 
 ## 6. 정기 확인과 용량 계획
 
-### Mac mini에서 운영하는 공용 서버
+### 운영자 장비 한 대로 운영하는 공용 서버
 
-공용 서버를 Mac mini에서 운영할 때는 서비스 프로세스뿐 아니라 전원·잠자기·로그인 이후 자동 실행·인터넷·HTTPS 터널의 상태를 함께 확인합니다. OS 업데이트나 재부팅 뒤에는 프로세스와 터널이 다시 시작하는지, 인증과 공개 원문 조회가 복구되는지 확인합니다. 로컬 컴퓨터의 잠자기 방지나 자동 실행 설정은 해당 장비의 운영 정책에 맞춰 별도로 관리합니다.
+공용 서버는 운영자 장비 한 대(현재 맥스튜디오)에서 돌아갑니다. 이렇게 운영할 때는 서비스 프로세스뿐 아니라 전원·잠자기·로그인 이후 자동 실행·인터넷·HTTPS 터널의 상태를 함께 확인합니다. OS 업데이트나 재부팅 뒤에는 프로세스와 터널이 다시 시작하는지, 인증과 공개 원문 조회가 복구되는지 확인합니다. 로컬 컴퓨터의 잠자기 방지나 자동 실행 설정은 해당 장비의 운영 정책에 맞춰 별도로 관리합니다.
 
-Mac mini가 꺼지거나 잠자기에 들어가거나 인터넷이 끊기면 공용 MCP와 안내 페이지도 중단될 수 있습니다. 이런 환경에서 24시간 가용성 또는 SLA를 약속하지 않습니다. 장애 시 이용자는 공식 규정 시스템이나 개인 PC의 `rules` 설치 경로를 사용할 수 있지만 공식 원문 서버 자체가 장애인 경우 개인 설치로 해결되지는 않습니다.
+운영자 장비가 꺼지거나 잠자기에 들어가거나 인터넷이 끊기면 공용 MCP와 안내 페이지도 중단될 수 있습니다. 이런 환경에서 24시간 가용성 또는 SLA를 약속하지 않습니다. 장애 시 이용자는 공식 규정 시스템이나 개인 PC의 `rules` 설치 경로를 사용할 수 있지만 공식 원문 서버 자체가 장애인 경우 개인 설치로 해결되지는 않습니다.
 
 공용 안내 페이지는 `/`와 `/guide`에서 제공하며 외부 스크립트·폰트·외부 자원을 불러오지 않는 `docs/quickstart.html`을 사용합니다. 내용은 인증 없이 주소만 넣는 공용 연결과 개인 PC 설치를 구분합니다. 안내 페이지 공개 자체가 기관 승인·전원 통지·계정 개통을 뜻하지 않습니다.
 
@@ -219,19 +219,30 @@ dongguk-rule-mcp --build-index
 
 ### 공개 프로필의 법령 원문 연계
 
-`get_rule_references`에 `include_law_text=true`를 주면 규정이 인용한 국가 법령 조문의 현행 원문을 한국법령 MCP에서 함께 가져옵니다. 공개 `rules` 프로필에서는 아래를 모두 설정한 서버에서만 동작합니다. 설정하지 않으면 `lawTexts.status`가 `not_configured`로 나오고 규정 인용 결과는 그대로 반환합니다.
+`get_rule_references`에 `include_law_text=true`를 주면 규정이 인용한 국가 법령 조문의 현행 원문을 한국법령 MCP에서 함께 가져옵니다. `get_rule_upper_laws`의 법령 대조도 같은 연결을 씁니다. **법령 서버 주소나 키가 있으면 기본으로 켜집니다.** 공개 `rules` 프로필과 `finance` 프로필 모두 같습니다.
+
+> 아래 표와 "타대학 비교" 절은 저장소의 현재 코드(v0.15.8 이후 미배포 변경) 기준입니다. 배포본 v0.15.8은 공개 프로필의 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`이 필요하며, 원격 방식은 `DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`와 `DONGGUK_LEGAL_MCP_URL`을, 로컬 방식은 `LAW_OC`와 서버에 설치된 `korean-law-mcp`를 씁니다(`DONGGUK_LEGAL_MCP_TRANSPORT`는 생략하거나 `stdio`). 타대학 비교에는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`이 필요합니다. 바뀌는 내용은 [변경 기록](../CHANGELOG.md)의 미배포 항목에 있습니다.
 
 | 환경 변수 | 값 |
 |---|---|
-| `DONGGUK_LEGAL_MCP_ENABLED` | `1` |
-| `DONGGUK_LEGAL_MCP_TRANSPORT` | `streamable-http` |
-| `DONGGUK_LEGAL_MCP_URL` | 한국법령 MCP 주소 |
-| `DONGGUK_PUBLIC_LAW_LINK` | `1` (공개 프로필에서 법령 서버 호출을 허용) |
+| `DONGGUK_LEGAL_MCP_URL` | 한국법령 MCP 주소(https). 이 값만 있으면 `streamable-http`로 연결합니다 |
+| `LAW_OC` | 주소 대신 쓰는 방식. 법제처 Open API 인증키(OC)이며, 서버에 `korean-law-mcp`가 설치되어 있어야 합니다(stdio) |
+| `DONGGUK_LEGAL_MCP_TRANSPORT` | 생략하면 주소가 있을 때 `streamable-http`, 없으면 `stdio`. 직접 지정할 수도 있습니다 |
+| `DONGGUK_LEGAL_MCP_BEARER_TOKEN` | 법령 서버가 인증을 요구할 때만. 접근제한 설정으로 주입합니다 |
+| `DONGGUK_LEGAL_MCP_ENABLED` | 생략하면 켜짐. `0`이면 모든 프로필에서 법령 연결을 끕니다 |
+| `DONGGUK_PUBLIC_LAW_LINK` | 생략하면 켜짐. `0`이면 공개 `rules` 프로필과 `/mcp/rules`에서만 법령 연결을 끕니다 |
 
+- 주소와 키가 모두 없으면 오류를 내지 않습니다. `lawTexts.status`(또는 `lookup.status`)가 `not_configured`로 나오고, `notice`와 `setup`에 무엇이 없는지·어떤 환경변수를 넣으면 되는지·OC 신청처(open.law.go.kr)를 담아 돌려줍니다. 규정 인용 결과는 그대로 반환합니다.
+- 기본 법령 서버 주소는 코드에 들어 있지 않습니다. 운영자가 쓸 주소를 직접 넣습니다.
+- 이전 버전에서 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`을 넣어 둔 서버는 그대로 동작합니다. 두 값을 넣지 않고 주소나 `LAW_OC`만 있던 서버는 이번 버전부터 법령 연결이 켜지므로, 끄려면 `0`을 넣습니다.
 - 조문이 특정된 인용만, 한 번에 3개 조문·조문당 6,000자까지 가져옵니다. 전체 35초 안에 끝나지 않으면 가져온 것만 반환합니다.
 - 같은 날 같은 조문은 6시간 동안 디스크 캐시에서 반환해 법령 서버 호출을 줄입니다. 실패한 조회는 캐시하지 않습니다.
 - 법령 서버는 외부 운영입니다. 공개 주소의 IP별 호출 제한이 법령 서버로 가는 요청 수의 상한이 됩니다. 법령 서버 운영자가 정한 이용 한도를 넘지 않는지 확인합니다.
-- `get_service_info`의 `integrations.lawLink.configured`로 상태를 확인합니다.
+- `get_service_info`의 `integrations.lawLink`로 상태를 확인합니다. `state`는 `ready`(켜짐), `missing`(주소·키 없음), `invalid`(값 오류), `disabled`·`disabled_public`(운영자가 끔)입니다.
+
+### 타대학 비교
+
+`compare_university_rules`는 기본으로 켜져 있습니다. 끄려면 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0`을 넣습니다. 서울대만 법제처 Open API 인증키(`DONGGUK_LAWGO_OC`, open.law.go.kr에서 신청)가 필요하며, 키가 없으면 서울대 열에만 안내를 붙이고 나머지 대학은 그대로 비교합니다. 상태는 `get_service_info`의 `integrations.universityComparison`(`configured`, `snuKeyConfigured`)으로 확인합니다.
 
 ### 주간 개정 알림
 

@@ -113,7 +113,7 @@ function signalsFor(law, { ruleRevisedAt }) {
 
 function today() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); }
 
-async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandidates, includeText, maxLaws, configured, cached, inspectLaws }) {
+async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandidates, includeText, maxLaws, configured, setupGuide, cached, inspectLaws }) {
   const plan = planLaws(references, { title, includeCandidates, maxLaws });
   const limits = { maxLaws: maxLaws || MAX_LAWS, maxArticles: MAX_ARTICLES, maxTextChars: MAX_TEXT_CHARS, totalTimeoutMs: TOTAL_TIMEOUT_MS };
   const revised = parseDateLoose(ruleRevisedAt)?.iso || null;
@@ -154,7 +154,8 @@ async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandida
     lookup = { status: checked === laws.length && !articlesOpen ? 'retrieved' : checked ? 'partial' : 'unavailable' };
   } else if (laws.length) {
     lookup.code = 'LAW_LINK_NOT_CONFIGURED';
-    lookup.notice = '이 서버에는 법령 연계가 켜져 있지 않아 법령의 현행 여부·조문을 확인하지 못했습니다. 아래 법령명·조문으로 한국법령 MCP에서 확인하세요.';
+    lookup.notice = setupGuide?.notice || '이 서버에는 법령 연결 정보가 없어 법령의 현행 여부·조문을 확인하지 못했습니다. 규정 쪽 결과는 그대로입니다. 아래 법령명·조문으로 한국법령 MCP나 국가법령정보센터(law.go.kr)에서 확인하세요.';
+    if (setupGuide) { const { notice, message, ...setup } = setupGuide; lookup.setup = setup; }
   }
   for (const law of laws) law.signals = signalsFor(law, { ruleRevisedAt: revised });
   const counts = {
