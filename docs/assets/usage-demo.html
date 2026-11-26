@@ -2,103 +2,515 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>동국 규정 MCP 사용 장면</title>
+<title>동국 규정 MCP 소개 영상 원본</title>
+<!--
+  README 소개 영상의 원본입니다. scripts/record-usage-demo.cjs 가 window.render(t)를
+  프레임마다 호출해 녹화합니다. 브라우저로 직접 열면 실시간으로 재생됩니다.
+  화면 속 답변은 공용 서버(https://dgu.kr-univ-rules.com/mcp/rules, v0.15.8)의
+  lookup_dongguk_rule 실제 응답(2026-11-26 조회)에서 옮긴 내용입니다.
+  앱 화면은 예시 목업이며 각 앱의 로고·상표를 쓰지 않습니다.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
 <style>
-  :root {
-    --paper: #f3ecdf;
-    --ink: #1c1915;
-    --muted: #5e584e;
-    --line: #e4d8c6;
-    --card: #fffdf8;
-    --pine: #1e4a3a;
-    --pine-2: #e7f0ea;
-    --seal: #b8432f;
-    --seal-2: #f8ebe6;
-  }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; width: 960px; height: 540px; overflow: hidden;
-    background: var(--paper); color: var(--ink);
-    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
-  }
-  .stage { height: 540px; padding: 26px 36px 22px; display: flex; flex-direction: column; gap: 14px; }
-  header { display: flex; justify-content: space-between; align-items: center; opacity: 0; animation: rise .4s ease forwards; }
-  .brand { display: flex; gap: 12px; align-items: center; }
-  .mark { width: 36px; height: 36px; border-radius: 10px; background: var(--pine); color: #f6f1e7; display: grid; place-items: center; font-weight: 700; }
-  h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
-  .en { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
-  .pills { display: flex; gap: 6px; }
-  .pill, .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--muted); }
-  .thread {
-    flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 18px;
-    padding: 16px 18px; display: flex; flex-direction: column; gap: 12px;
-  }
-  .who { font-size: 11px; letter-spacing: .08em; color: var(--muted); }
-  .ask {
-    align-self: flex-end; max-width: 78%; background: var(--pine); color: #f7f3ea;
-    border-radius: 14px 14px 4px 14px; padding: 12px 14px; font-size: 15px; line-height: 1.45;
-    opacity: 0; animation: rise .4s ease .35s forwards;
-  }
-  .reply { opacity: 0; animation: rise .4s ease 1.15s forwards; display: flex; flex-direction: column; gap: 10px; }
-  .tool {
-    align-self: flex-start; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
-    background: var(--pine-2); color: var(--pine); border-radius: 999px; padding: 4px 10px;
-  }
-  h2 {
-    margin: 0; font-family: "Iowan Old Style", Palatino, "Apple Myungjo", Batang, serif;
-    font-size: 28px; font-weight: 600; letter-spacing: -0.03em;
-  }
-  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .fact {
-    border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px;
-    display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px;
-    opacity: 0; animation: rise .35s ease forwards;
-  }
-  .fact:nth-child(1) { animation-delay: 1.7s; }
-  .fact:nth-child(2) { animation-delay: 1.95s; }
-  .fact:nth-child(3) { animation-delay: 2.2s; }
-  .fact:nth-child(4) { animation-delay: 2.45s; }
-  .fact span { color: var(--muted); }
-  .note {
-    background: var(--seal-2); color: var(--seal); border-radius: 10px; padding: 8px 10px; font-size: 13px;
-    opacity: 0; animation: rise .4s ease 2.9s forwards;
-  }
-  footer { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; opacity: 0; animation: rise .4s ease 3.35s forwards; }
-  .chips { display: flex; gap: 6px; }
-  @keyframes rise { to { opacity: 1; transform: none; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; background: #0f1f19; }
+  body { font-family: 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif; color: #1c1915; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: 'JetBrains Mono', 'Noto Sans Mono', monospace; font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'calt' 0; }
+  #stage { position: relative; width: 1280px; height: 720px; overflow: hidden;
+    background: radial-gradient(1200px 700px at 20% 0%, #24584a 0%, #13302a 45%, #0c1a16 100%); }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+
+  /* ---------- intro / outro ---------- */
+  #intro, #outro { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f4efe6; }
+  .kicker { font-size: 20px; letter-spacing: .28em; color: #9fd0b8; font-weight: 500; }
+  .title { font-size: 92px; font-weight: 900; letter-spacing: -.02em; margin-top: 10px; }
+  .title .seal { color: #e8775f; }
+  .tagline { font-size: 26px; color: #d9d2c4; margin-top: 12px; font-weight: 500; }
+  .steps { display: flex; gap: 18px; margin-top: 54px; position: relative; }
+  .step { width: 238px; padding: 20px 18px; border-radius: 18px; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.14); text-align: left; }
+  .step .n { width: 34px; height: 34px; border-radius: 50%; background: #e8775f; color: #fff; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .step .h { font-size: 22px; font-weight: 700; margin-top: 12px; }
+  .step .d { font-size: 15px; color: #c9c1b2; margin-top: 6px; line-height: 1.45; }
+  .apps { margin-top: 40px; display: flex; gap: 12px; align-items: center; font-size: 18px; color: #d9d2c4; }
+  .chip { padding: 7px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); color: #fff; font-weight: 500; }
+  .urlbig { margin-top: 28px; font-size: 34px; padding: 18px 30px; border-radius: 16px; background: #fffdf8; color: #1e4a3a; font-weight: 500; }
+  .outro-sub { margin-top: 22px; font-size: 22px; color: #d9d2c4; }
+  .outro-gh { margin-top: 30px; font-size: 18px; color: #9fd0b8; }
+  .disclaimer { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; font-size: 14px; color: #8fa89c; }
+
+  /* ---------- app scene chrome ---------- */
+  .topbar { position: absolute; left: 60px; right: 60px; top: 22px; height: 44px; display: flex; align-items: center; gap: 14px; color: #f4efe6; }
+  .appname { font-size: 22px; font-weight: 700; }
+  .count { font-size: 15px; color: #9fd0b8; font-weight: 500; letter-spacing: .08em; }
+  .flow { margin-left: auto; display: flex; gap: 8px; align-items: center; font-size: 16px; }
+  .flow .f { padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.22); color: #c9c1b2; transition: none; }
+  .flow .f.on { background: #e8775f; border-color: #e8775f; color: #fff; font-weight: 700; }
+  .flow .arr { color: #6f8a7e; }
+  .win { position: absolute; left: 60px; top: 78px; width: 1160px; height: 586px; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,.45); background: #fff; }
+  .winbar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 13px; color: #6b665d; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #e3ddd2; }
+  .note { position: absolute; left: 60px; right: 60px; bottom: 16px; display: flex; justify-content: space-between; font-size: 14px; color: #a9bfb4; }
+  .note b { color: #f4efe6; font-weight: 500; background: rgba(255,255,255,.1); padding: 3px 10px; border-radius: 6px; }
+
+  .field { margin-top: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; color: #57524a; margin-bottom: 6px; }
+  .input { height: 40px; border-radius: 9px; border: 1px solid #d8d2c6; padding: 0 12px; display: flex; align-items: center; font-size: 15px; background: #fff; white-space: nowrap; overflow: hidden; }
+  .input.focus { border-color: #1e4a3a; box-shadow: 0 0 0 3px rgba(30,74,58,.15); }
+  .caret::after { content: ''; display: inline-block; width: 2px; height: 18px; background: #1c1915; margin-left: 1px; vertical-align: -3px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 38px; padding: 0 18px; border-radius: 9px; font-size: 15px; font-weight: 500; }
+  .press { transform: scale(.95); filter: brightness(.9); }
+  .hl { box-shadow: 0 0 0 3px #e8775f !important; }
+
+  /* Claude-like */
+  #claude .win { background: #faf9f5; }
+  #claude .winbar { background: #f0ede4; }
+  .c-side { position: absolute; left: 0; top: 34px; bottom: 0; width: 210px; background: #f0ede4; padding: 18px 14px; font-size: 14px; color: #57524a; }
+  .c-side .it { padding: 9px 12px; border-radius: 8px; margin-bottom: 4px; }
+  .c-side .it.on { background: #e4dfd2; color: #1c1915; font-weight: 700; }
+  .c-main { position: absolute; left: 210px; top: 34px; right: 0; bottom: 0; }
+  .c-set { position: absolute; inset: 0; padding: 30px 40px; }
+  .crumb { font-size: 14px; color: #8a8478; }
+  .c-h { font-size: 28px; font-weight: 700; margin-top: 6px; font-family: 'Noto Serif KR', 'Noto Serif CJK KR', serif; }
+  .c-addbtn { position: absolute; right: 40px; top: 40px; background: #1c1915; color: #fff; }
+  .c-menu { position: absolute; right: 40px; top: 86px; width: 280px; background: #fff; border-radius: 10px; border: 1px solid #e3ddd2; box-shadow: 0 10px 30px rgba(0,0,0,.12); padding: 6px; font-size: 15px; }
+  .c-menu .mi { padding: 10px 12px; border-radius: 7px; }
+  .c-list { margin-top: 26px; border: 1px solid #e3ddd2; border-radius: 12px; background: #fff; }
+  .c-row { padding: 16px 18px; display: flex; align-items: center; gap: 12px; font-size: 15px; border-top: 1px solid #efe9de; }
+  .c-row:first-child { border-top: none; }
+  .ico { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 15px; }
+  .ok { margin-left: auto; color: #1e7a4f; font-weight: 700; font-size: 14px; }
+  .modalbg { position: absolute; inset: 0; background: rgba(28,25,21,.28); }
+  .modal { position: absolute; left: 50%; top: 50%; width: 470px; transform: translate(-50%,-50%); background: #fff; border-radius: 14px; padding: 24px 26px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
+  .modal h3 { font-size: 20px; }
+  .select { justify-content: space-between; }
+  .c-chat { position: absolute; inset: 0; padding: 26px 70px 0; }
+  .bubble-u { margin-left: auto; max-width: 560px; background: #ece8dd; padding: 12px 16px; border-radius: 14px; font-size: 16px; line-height: 1.5; width: fit-content; }
+  .toolchip { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 7px 12px; border-radius: 9px; border: 1px solid #e3ddd2; background: #fff; font-size: 13.5px; color: #57524a; }
+  .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #d8d2c6; border-top-color: #e8775f; }
+  .done { color: #1e7a4f; font-weight: 700; }
+  .ans { margin-top: 14px; font-size: 16px; line-height: 1.62; max-width: 900px; }
+  .ans .ln { opacity: 0; }
+  .ans ul { margin: 4px 0 4px 22px; }
+  .money { font-weight: 700; color: #1e4a3a; }
+  .src { margin-top: 10px; display: inline-flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+  .src span { padding: 4px 10px; border-radius: 6px; background: #e7f0ea; color: #1e4a3a; font-weight: 500; }
+  .src span.link { background: #f8ebe6; color: #b8432f; }
+  .warn { font-size: 13px; color: #8a8478; margin-top: 8px; }
+  .composer { position: absolute; left: 70px; right: 70px; bottom: 22px; min-height: 54px; border-radius: 16px; border: 1px solid #d8d2c6; background: #fff; display: flex; align-items: center; padding: 0 18px; font-size: 16px; color: #1c1915; box-shadow: 0 4px 14px rgba(0,0,0,.05); }
+  .ph { color: #a39d91; }
+
+  /* ChatGPT-like */
+  #gpt .winbar { background: #f4f4f4; }
+  .g-side { position: absolute; left: 0; top: 34px; bottom: 0; width: 220px; background: #f9f9f9; border-right: 1px solid #ececec; padding: 18px 12px; font-size: 14px; color: #3d3d3d; }
+  .g-side .it { padding: 9px 12px; border-radius: 8px; margin-bottom: 3px; }
+  .g-side .it.on { background: #ececec; font-weight: 700; }
+  .g-main { position: absolute; left: 220px; top: 34px; right: 0; bottom: 0; background: #fff; }
+  .g-set { position: absolute; inset: 0; padding: 28px 40px; }
+  .g-h { font-size: 26px; font-weight: 700; }
+  .g-plus { position: absolute; right: 40px; top: 30px; width: 40px; height: 40px; border-radius: 50%; background: #0d0d0d; color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+  .g-menu { position: absolute; right: 40px; top: 78px; width: 260px; background: #fff; border-radius: 12px; border: 1px solid #e5e5e5; box-shadow: 0 10px 30px rgba(0,0,0,.12); padding: 6px; font-size: 15px; }
+  .g-menu .mi { padding: 10px 12px; border-radius: 8px; }
+  .g-form { position: absolute; left: 40px; top: 84px; width: 520px; }
+  .g-form .input { border-radius: 10px; border-color: #dedede; }
+  .riskbox { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #fff7e8; border: 1px solid #f1d9a8; font-size: 13.5px; color: #6b5214; display: flex; gap: 10px; align-items: center; }
+  .cb { width: 18px; height: 18px; border-radius: 4px; border: 2px solid #9a7a2c; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 700; flex: none; }
+  .cb.on { background: #0d0d0d; border-color: #0d0d0d; }
+  .g-create { margin-top: 16px; background: #0d0d0d; color: #fff; }
+  .g-tools { position: absolute; left: 590px; top: 84px; width: 310px; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px 18px; }
+  .g-tools h4 { font-size: 15px; }
+  .g-tools .t { margin-top: 8px; font-size: 13px; padding: 6px 10px; border-radius: 7px; background: #f4f4f4; opacity: 0; }
+  .g-chat { position: absolute; inset: 0; padding: 26px 90px 0; }
+  .g-chat .bubble-u { background: #f0f0f0; border-radius: 18px; }
+  .g-chat .toolchip { border-color: #e5e5e5; }
+  .g-chat .src span { background: #f0f0f0; color: #0d0d0d; }
+  .g-chat .src span.link { background: #e8f0fe; color: #1a56c4; }
+  .g-chat .money { color: #0d0d0d; }
+  .g-chat .composer { border-radius: 26px; border-color: #e0e0e0; }
+
+  /* team messenger-like */
+  #slack .win { background: #fff; }
+  #slack .winbar { background: #2a1630; color: #c8b6cd; }
+  #slack .winbar .dot { background: #4a3150; }
+  .s-side { position: absolute; left: 0; top: 34px; bottom: 0; width: 230px; background: #351b3c; color: #d9c9dd; padding: 18px 12px; font-size: 15px; }
+  .s-side .ws { color: #fff; font-weight: 700; font-size: 17px; padding: 0 10px 14px; border-bottom: 1px solid #4b2f52; margin-bottom: 12px; }
+  .s-side .it { padding: 6px 10px; border-radius: 6px; }
+  .s-side .it.on { background: #1164a3; color: #fff; font-weight: 700; }
+  .s-main { position: absolute; left: 230px; top: 34px; right: 0; bottom: 0; }
+  .s-head { height: 54px; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; padding: 0 22px; font-size: 18px; font-weight: 700; gap: 10px; }
+  .s-head small { font-size: 13px; color: #777; font-weight: 400; }
+  .s-msgs { position: absolute; top: 54px; left: 0; right: 0; bottom: 84px; padding: 18px 22px; overflow: hidden; }
+  .msg { display: flex; gap: 12px; margin-bottom: 16px; }
+  .av { width: 40px; height: 40px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+  .who { font-weight: 700; font-size: 15px; }
+  .who .tag { font-size: 11px; font-weight: 700; color: #555; background: #e8e8e8; padding: 1px 5px; border-radius: 4px; margin-left: 6px; vertical-align: 2px; }
+  .who time { font-weight: 400; font-size: 12px; color: #888; margin-left: 8px; }
+  .txt { font-size: 15.5px; line-height: 1.55; margin-top: 2px; }
+  .attach { margin-top: 8px; border-left: 4px solid #1e4a3a; padding: 6px 14px; background: #fafafa; border-radius: 0 8px 8px 0; max-width: 780px; }
+  .typing { display: inline-flex; gap: 4px; margin-top: 6px; }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: #999; display: block; }
+  .s-compose { position: absolute; left: 22px; right: 22px; bottom: 18px; height: 50px; border: 1px solid #ccc; border-radius: 10px; display: flex; align-items: center; padding: 0 14px; font-size: 15.5px; }
+  .toast { position: absolute; right: 22px; top: 66px; width: 400px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.14); padding: 14px 16px; font-size: 14px; }
+  .toast b { display: block; font-size: 15px; margin-bottom: 4px; }
+
+  #cursor { position: absolute; left: 0; top: 0; width: 22px; height: 22px; z-index: 50; opacity: 0; pointer-events: none; }
+  #ripple { position: absolute; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #e8775f; z-index: 49; opacity: 0; }
 </style>
 </head>
 <body>
-  <main class="stage">
-    <header>
-      <div class="brand">
-        <div class="mark" aria-hidden="true">규</div>
-        <div>
-          <h1>동국 규정 MCP</h1>
-          <p class="en">Read-only · rule.dongguk.edu</p>
+<div id="stage">
+
+  <!-- 1. 모션그래픽 소개 -->
+  <section class="scene" id="intro">
+    <div class="kicker" id="i-k">DONGGUK UNIVERSITY RULES · MCP</div>
+    <div class="title" id="i-t">동국 규정 <span class="seal">MCP</span></div>
+    <div class="tagline" id="i-s">AI 앱에서 동국대 규정·조문·별표를 원문 출처와 함께 찾습니다</div>
+    <div class="steps">
+      <div class="step" id="i-1"><div class="n">1</div><div class="h">질문</div><div class="d">평소 말투로 묻습니다<br>"출장 숙박비 얼마예요?"</div></div>
+      <div class="step" id="i-2"><div class="n">2</div><div class="h">규정 검색</div><div class="d">rule.dongguk.edu에서<br>맞는 규정을 찾습니다</div></div>
+      <div class="step" id="i-3"><div class="n">3</div><div class="h">원문 확인</div><div class="d">최신 개정본의 조문과<br>별표 표를 읽습니다</div></div>
+      <div class="step" id="i-4"><div class="n">4</div><div class="h">출처와 함께 답변</div><div class="d">규정명·조문·개정일·<br>원문 링크를 붙입니다</div></div>
+    </div>
+    <div class="apps" id="i-apps">주소 하나로 연결 <span class="chip">Claude</span><span class="chip">ChatGPT</span><span class="chip">팀 메신저 AI 봇</span></div>
+  </section>
+
+  <!-- 2. Claude 예시 -->
+  <section class="scene" id="claude">
+    <div class="topbar"><span class="count">1 / 3</span><span class="appname">Claude 데스크톱</span>
+      <div class="flow"><span class="f" id="c-f1">① 커넥터에 주소 추가</span><span class="arr">→</span><span class="f" id="c-f2">② 질문하기</span></div></div>
+    <div class="win">
+      <div class="winbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-left:10px">Claude</span></div>
+      <div class="c-side"><div class="it" id="c-s-chat">새 대화</div><div class="it">대화 목록</div><div class="it">프로젝트</div><div class="it on" id="c-s-set">Customize</div></div>
+      <div class="c-main">
+        <div class="c-set" id="c-set">
+          <div class="crumb">Customize(사용자 지정) › Connectors(커넥터)</div>
+          <div class="c-h">Connectors</div>
+          <div class="btn c-addbtn" id="c-add">+ Add</div>
+          <div class="c-list" id="c-list">
+            <div class="c-row" id="c-empty" style="color:#8a8478">아직 추가한 사용자 지정 커넥터가 없습니다.</div>
+            <div class="c-row" id="c-new" style="display:none"><div class="ico" style="background:#1e4a3a">규</div><div><b>동국 규정</b><div style="font-size:13px;color:#8a8478" class="mono">https://dgu.kr-univ-rules.com/mcp/rules</div></div><div class="ok">✓ 연결됨 · 도구 15개</div></div>
+          </div>
+          <div class="c-menu" id="c-menu"><div class="mi" id="c-mi">Add custom connector</div></div>
+          <div class="modalbg" id="c-mbg"></div>
+          <div class="modal" id="c-modal">
+            <h3>Add custom connector</h3>
+            <div class="field"><label>Name</label><div class="input" id="c-name"></div></div>
+            <div class="field"><label>URL</label><div class="input mono" style="font-size:14px" id="c-url"></div></div>
+            <div class="field"><label>Authentication</label><div class="input select" id="c-auth"><span id="c-authv" class="ph">선택</span><span>▾</span></div></div>
+            <div style="text-align:right;margin-top:20px"><span class="btn" style="background:#1c1915;color:#fff" id="c-addok">Add</span></div>
+          </div>
         </div>
-      </div>
-      <div class="pills"><span class="pill">v0.15.8</span><span class="pill">공개 도구 15</span></div>
-    </header>
-    <section class="thread" aria-label="사용 장면">
-      <div class="who">질문</div>
-      <div class="ask">서울 직원 국내 출장 숙박비를 여비규정에서 찾아줘. 금액은 별표 행을 확인하기 전에 적지 마.</div>
-      <div class="reply">
-        <div class="tool">lookup_dongguk_rule</div>
-        <h2>「여비규정」</h2>
-        <div class="facts">
-          <div class="fact"><b>LAW_ID 184</b><span>HISTORY_ID 3350</span></div>
-          <div class="fact"><b>개정일 2025.04.29</b><span>별표 1 · 2 · 3</span></div>
-          <div class="fact"><b>출처</b><span>원문 HWP(별표 포함)</span></div>
-          <div class="fact"><b>원문</b><span>rule.dongguk.edu</span></div>
+        <div class="c-chat" id="c-chat">
+          <div class="bubble-u" id="c-q">팀원인데 국내 출장 가면 숙박비랑 식비 기준이 얼마예요?</div>
+          <div class="toolchip" id="c-tool"><span class="spin" id="c-spin"></span><span>동국 규정 › <span class="mono">lookup_dongguk_rule</span></span><span id="c-tooldone" class="done"></span></div>
+          <div class="ans" id="c-ans">
+            <div class="ln">「여비규정」 <b>[별표 1] 국내 여비지급 구분표</b>에서 팀원 행 기준은 다음과 같습니다.</div>
+            <div class="ln"><ul><li>숙박비 <span class="money">120,000원</span></li><li>식비 <span class="money">36,000원(1일)</span> · <span class="money">12,000원(1식)</span></li><li>일비 <span class="money">20,000원</span></li></ul></div>
+            <div class="ln">국내출장 여비는 이 구분표에 따라 지급하고(제7조 ①), 운임은 실비로 정산하며 법인카드를 씁니다(제7조 ③).</div>
+            <div class="ln"><div class="src"><span>여비규정 제7조 · [별표 1]</span><span>개정 2026.03.13</span><span class="link">rule.dongguk.edu 원문 ↗</span></div><div class="warn">※ 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.</div></div>
+          </div>
         </div>
-        <p class="note">2026-11-05 점검 기록. 행·열·단위를 확인하기 전 금액은 확정하지 않습니다.</p>
+        <div class="composer" id="c-comp"><span id="c-input"></span></div>
       </div>
-    </section>
-    <footer>
-      <span>동국대학교 공식 서비스가 아닙니다</span>
-      <div class="chips"><span class="chip">인용 점검</span><span class="chip">기준일</span><span class="chip">상위법령</span></div>
-    </footer>
-  </main>
+    </div>
+    <div class="note"><span>메뉴 이름은 README 설치 안내·Anthropic 공식 안내 기준이며 앱 버전에 따라 다를 수 있습니다</span><b>예시 화면</b></div>
+  </section>
+
+  <!-- 3. ChatGPT 예시 -->
+  <section class="scene" id="gpt">
+    <div class="topbar"><span class="count">2 / 3</span><span class="appname">ChatGPT</span>
+      <div class="flow"><span class="f" id="g-f1">① 사용자 지정 MCP 서버 추가</span><span class="arr">→</span><span class="f" id="g-f2">② 질문하기</span></div></div>
+    <div class="win">
+      <div class="winbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-left:10px">ChatGPT</span></div>
+      <div class="g-side"><div class="it" id="g-s-chat">새 채팅</div><div class="it">검색</div><div class="it on" id="g-s-pl">Plugins</div><div class="it">프로젝트</div></div>
+      <div class="g-main">
+        <div class="g-set" id="g-set">
+          <div class="g-h">Plugins</div>
+          <div class="g-plus" id="g-plus">+</div>
+          <div class="g-menu" id="g-menu"><div class="mi" id="g-mi">Add custom MCP server</div></div>
+          <div class="g-form" id="g-form">
+            <div class="field"><label>Name</label><div class="input" id="g-name"></div></div>
+            <div class="field"><label>Connection · MCP endpoint URL</label><div class="input mono" style="font-size:14px" id="g-url"></div></div>
+            <div class="field"><label>Authentication</label><div class="input select" id="g-auth"><span id="g-authv" class="ph">선택</span><span>▾</span></div></div>
+            <div class="riskbox"><span class="cb" id="g-cb"></span><span>I understand and want to continue</span></div>
+            <span class="btn g-create" id="g-create">Create as a plugin</span>
+          </div>
+          <div class="g-tools" id="g-tools"><h4>발견된 도구 15개</h4>
+            <div class="t mono">lookup_dongguk_rule</div><div class="t mono">search_rule</div><div class="t mono">get_rule_full_text</div><div class="t mono">verify_rule_citations</div><div class="t mono">applicable_rule</div><div class="t">… 외 10개</div></div>
+        </div>
+        <div class="g-chat" id="g-chat">
+          <div class="bubble-u" id="g-q">직원 본인 결혼하면 경조휴가 며칠 받을 수 있어요?</div>
+          <div class="toolchip" id="g-tool"><span class="spin" id="g-spin"></span><span>동국 규정 › <span class="mono">lookup_dongguk_rule</span></span><span id="g-tooldone" class="done"></span></div>
+          <div class="ans" id="g-ans">
+            <div class="ln">「취업규칙」 <b>제42조(경조휴가) ① 제1호</b>에 따라 본인의 결혼은 <span class="money">경조휴가 7일</span>입니다.</div>
+            <div class="ln">같은 조에서 자녀의 결혼은 2일, 본인·배우자 형제자매의 결혼은 1일입니다.</div>
+            <div class="ln">산학협력단 직원은 별도의 「산학협력단 취업규칙」 제43조를 확인하세요.</div>
+            <div class="ln"><div class="src"><span>취업규칙 제42조</span><span>개정 2026.04.29</span><span class="link">rule.dongguk.edu 원문 ↗</span></div><div class="warn">※ 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.</div></div>
+          </div>
+        </div>
+        <div class="composer" id="g-comp" style="left:90px;right:90px"><span id="g-input"></span></div>
+      </div>
+    </div>
+    <div class="note"><span>OpenAI 공식 안내 기준 · Business·Enterprise/Edu 워크스페이스 권한에 따라 메뉴가 다를 수 있습니다</span><b>예시 화면</b></div>
+  </section>
+
+  <!-- 4. 팀 메신저 AI 봇 예시 -->
+  <section class="scene" id="slack">
+    <div class="topbar"><span class="count">3 / 3</span><span class="appname">Slack 같은 팀 메신저</span>
+      <div class="flow"><span class="f" id="s-f1">① 팀 AI 봇에 주소 연결</span><span class="arr">→</span><span class="f" id="s-f2">② 채널에서 질문</span></div></div>
+    <div class="win">
+      <div class="winbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span style="margin-left:10px">팀 메신저</span></div>
+      <div class="s-side"><div class="ws">재무팀 워크스페이스</div><div class="it"># 공지</div><div class="it on"># 규정-문의</div><div class="it"># 일반</div><div class="it" style="margin-top:14px;color:#b9a5be">앱</div><div class="it">● 규정봇</div></div>
+      <div class="s-main">
+        <div class="s-head"># 규정-문의 <small>규정 질문은 여기에 · 규정봇이 답합니다</small></div>
+        <div class="toast" id="s-toast"><b>규정봇 설정 · MCP 서버 추가됨 ✓</b><span class="mono" style="font-size:12.5px;color:#555">https://dgu.kr-univ-rules.com/mcp/rules</span><div style="font-size:12.5px;color:#888;margin-top:4px">연결 방법은 쓰는 AI 봇마다 다릅니다</div></div>
+        <div class="s-msgs">
+          <div class="msg" id="s-m1"><div class="av" style="background:#c46a3b">김</div><div><div class="who">김직원 <time>오전 10:12</time></div><div class="txt">입사 5년차 직원인데 연가가 며칠인가요? <span style="color:#1164a3">@규정봇</span></div></div></div>
+          <div class="msg" id="s-m2"><div class="av" style="background:#1e4a3a">규</div><div style="flex:1"><div class="who">규정봇 <span class="tag">앱</span> <time>오전 10:12</time></div>
+            <div class="typing" id="s-typing"><i></i><i></i><i></i></div>
+            <div class="toolchip" id="s-tool" style="margin-top:6px"><span class="spin" id="s-spin"></span><span>동국 규정 MCP › <span class="mono">lookup_dongguk_rule</span></span><span id="s-tooldone" class="done"></span></div>
+            <div class="ans" id="s-ans" style="margin-top:8px">
+              <div class="ln txt">「취업규칙」 <b>제35조(연가)</b>에 따르면 직원 연가는 재직년수에 따라 15일에서 25일입니다.</div>
+              <div class="ln attach txt">재직 <b>5년</b> → <span class="money">17일</span><br><span style="color:#666;font-size:14px">(1~2년 15일 · 3~4년 16일 · 5~6년 17일 … 21년 이상 25일)</span></div>
+              <div class="ln"><div class="src"><span>취업규칙 제35조</span><span>개정 2026.04.29</span><span class="link">rule.dongguk.edu 원문 ↗</span></div><div class="warn">※ 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.</div></div>
+            </div>
+          </div></div>
+        </div>
+        <div class="s-compose"><span class="ph"># 규정-문의에 메시지 보내기</span></div>
+      </div>
+    </div>
+    <div class="note"><span>개인이 바로 연결하는 기능이 아니라, 팀의 AI 봇이 MCP를 호출하는 예입니다</span><b>예시 화면</b></div>
+  </section>
+
+  <!-- 5. 마무리 -->
+  <section class="scene" id="outro">
+    <div class="kicker">설치는 이 주소 하나</div>
+    <div class="urlbig mono" id="o-url">https://dgu.kr-univ-rules.com/mcp/rules</div>
+    <div class="outro-sub" id="o-sub">로그인·토큰 없이 · 읽기 전용 · 규정 도구 15개</div>
+    <div class="outro-gh" id="o-gh">github.com/buenosiempre-cmd/dongguk-rule-mcp</div>
+    <div class="disclaimer">동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다 · 최종 판단은 공식 원문과 소관 부서 해석을 따르세요</div>
+  </section>
+
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.6 L11 13.3 L17.5 13.3 Z" fill="#1c1915" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <div id="ripple"></div>
+</div>
+
+<script>
+'use strict';
+const DURATION = 54;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const ease = (x) => 1 - Math.pow(1 - x, 3);
+const easeIO = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+
+// 등장: a초부터 dur초 동안 아래에서 떠오르며 나타남
+function show(el, t, a, dur = .45, dy = 14) {
+  const p = ease(prog(t, a, a + dur));
+  el.style.opacity = p;
+  el.style.transform = `translateY(${(1 - p) * dy}px)`;
+  return p;
+}
+function vis(el, on) { el.style.display = on ? '' : 'none'; }
+function fadeWin(t, a, b, f = .5) { return Math.min(prog(t, a, a + f), 1 - prog(t, b - f, b)); }
+function type(el, text, t, a, b, caretUntil) {
+  const n = Math.round(text.length * prog(t, a, b));
+  el.textContent = text.slice(0, n);
+  el.classList.toggle('caret', t >= a - .3 && t < (caretUntil ?? b + .4));
+  return n;
+}
+function lines(container, t, a, step) {
+  [...container.querySelectorAll(':scope > .ln')].forEach((el, i) => show(el, t, a + i * step, .5, 10));
+}
+function tool(prefix, t, a, b) {
+  show($(prefix + '-tool'), t, a, .35);
+  const done = t >= b;
+  $(prefix + '-spin').style.display = done ? 'none' : '';
+  $(prefix + '-spin').style.transform = `rotate(${t * 720}deg)`;
+  $(prefix + '-tooldone').textContent = done ? '✓ 규정 원문 확인' : '조회 중…';
+}
+function flow(prefix, t, swap) {
+  $(prefix + '-f1').classList.toggle('on', t < swap);
+  $(prefix + '-f2').classList.toggle('on', t >= swap);
+}
+function press(el, t, at) { el.classList.toggle('press', t >= at && t < at + .18); }
+function hl(el, t, a, b) { el.classList.toggle('hl', t >= a && t < b); }
+
+// 커서 경로: [시간, x, y, 클릭여부]
+function cursor(t, keys) {
+  const c = $('cursor'), r = $('ripple');
+  if (!keys || t < keys[0][0] - .3 || t > keys[keys.length - 1][0] + .6) { c.style.opacity = 0; r.style.opacity = 0; return; }
+  c.style.opacity = 1;
+  let x = keys[0][1], y = keys[0][2];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [t0, x0, y0] = keys[i], [t1, x1, y1] = keys[i + 1];
+    if (t >= t0 && t <= t1) { const p = easeIO(prog(t, t0 + (t1 - t0) * .25, t1)); x = x0 + (x1 - x0) * p; y = y0 + (y1 - y0) * p; }
+    else if (t > t1) { x = x1; y = y1; }
+  }
+  c.style.transform = `translate(${x - 3}px, ${y - 2}px)`;
+  r.style.opacity = 0;
+  for (const [tk, kx, ky, click] of keys) {
+    if (click && t >= tk && t < tk + .45) {
+      const p = prog(t, tk, tk + .45);
+      r.style.opacity = 1 - p;
+      r.style.transform = `translate(${kx - 18}px, ${ky - 18}px) scale(${.5 + p})`;
+    }
+  }
+}
+
+const URL = 'https://dgu.kr-univ-rules.com/mcp/rules';
+
+// 커서가 누를 요소: [시간, 요소 id 또는 x, (y), 클릭]
+const KEYS = {
+  claude: [[7.6, 700, 420], [8.3, 'c-add', 1], [9.0, 'c-mi', 1], [9.9, 'c-name', 1], [12.85, 'c-auth', 1], [13.5, 'c-addok', 1], [14.3, 900, 560], [14.6, 'c-s-chat', 1]],
+  gpt: [[23.3, 800, 380], [23.9, 'g-plus', 1], [24.5, 'g-mi', 1], [25.2, 'g-name', 1], [27.85, 'g-auth', 1], [28.5, 'g-cb', 1], [29.0, 'g-create', 1], [30.2, 500, 520], [30.6, 'g-s-chat', 1]],
+};
+// 요소 위치를 그 시점 화면에서 재서 [시간, x, y, 클릭]으로 바꿉니다.
+function prepareKeys() {
+  for (const name of Object.keys(KEYS)) {
+    KEYS[name] = KEYS[name].map((k) => {
+      if (typeof k[1] !== 'string') return [k[0], k[1], k[2], k[3]];
+      render(k[0] + .3, true);
+      const r = $(k[1]).getBoundingClientRect();
+      return [k[0], Math.round(r.left + Math.min(r.width / 2, 90)), Math.round(r.top + r.height / 2), k[2]];
+    });
+  }
+}
+
+function render(t, noCursor) {
+  // ---------- 장면 시간표 ----------
+  const S = { intro: [0, 7.4], claude: [7.0, 23.2], gpt: [22.8, 38.4], slack: [38.0, 49.4], outro: [49.0, DURATION + 1] };
+  for (const [id, [a, b]] of Object.entries(S)) {
+    const o = fadeWin(t, a, b, .45);
+    $(id).style.opacity = o;
+    $(id).style.display = o > 0 ? '' : 'none';
+  }
+  let keys = null;
+
+  // ---------- 소개 0~7.4초 ----------
+  if (t < 7.6) {
+    show($('i-k'), t, .2, .6);
+    const tp = ease(prog(t, .4, 1.3));
+    $('i-t').style.opacity = tp; $('i-t').style.transform = `scale(${.92 + .08 * tp})`; $('i-t').style.letterSpacing = `${(1 - tp) * .2 - .02}em`;
+    show($('i-s'), t, 1.1, .6);
+    ['i-1', 'i-2', 'i-3', 'i-4'].forEach((id, i) => show($(id), t, 2.0 + i * .7, .5, 24));
+    show($('i-apps'), t, 5.0, .6);
+    const outP = prog(t, 6.6, 7.4);
+    document.querySelector('#intro').style.transform = `scale(${1 + .04 * outP})`;
+  }
+
+  // ---------- Claude 7~23.2초 ----------
+  if (t > 6.8 && t < 23.4) {
+    const T0 = 7.0;
+    const chat = t >= 14.6;
+    flow('c', t, 14.6);
+    vis($('c-set'), !chat); vis($('c-chat'), chat); vis($('c-comp'), chat);
+    $('c-s-set').classList.toggle('on', !chat); $('c-s-chat').classList.toggle('on', chat);
+    // 설정
+    const menuOn = t >= 8.5 && t < 9.4;
+    $('c-menu').style.opacity = menuOn ? 1 : 0;
+    hl($('c-mi'), t, 9.0, 9.4); $('c-mi').style.background = t >= 9.0 && t < 9.4 ? '#f3efe6' : '';
+    press($('c-add'), t, 8.3);
+    const modalOn = t >= 9.4 && t < 13.9;
+    $('c-mbg').style.opacity = modalOn ? 1 : 0;
+    $('c-modal').style.display = modalOn ? '' : 'none';
+    if (modalOn) { const p = ease(prog(t, 9.4, 9.8)); $('c-modal').style.opacity = p; $('c-modal').style.transform = `translate(-50%, calc(-50% + ${(1 - p) * 16}px))`; }
+    type($('c-name'), '동국 규정', t, 9.9, 10.6, 10.8);
+    $('c-name').classList.toggle('focus', t >= 9.8 && t < 10.9);
+    type($('c-url'), URL, t, 11.0, 12.4, 12.6);
+    $('c-url').classList.toggle('focus', t >= 10.9 && t < 12.7);
+    const authOn = t >= 12.9;
+    $('c-authv').textContent = authOn ? 'No sign in(로그인 없음)' : '선택';
+    $('c-authv').className = authOn ? '' : 'ph';
+    hl($('c-auth'), t, 12.8, 13.2);
+    press($('c-addok'), t, 13.5);
+    const added = t >= 13.9;
+    vis($('c-empty'), !added); vis($('c-new'), added);
+    if (added) show($('c-new'), t, 13.9, .5, 8);
+    // 채팅
+    type($('c-input'), t < 17.0 ? '팀원인데 국내 출장 가면 숙박비랑 식비 기준이 얼마예요?' : '', t, 15.0, 16.6, 17.0);
+    if (t < 15.0) { $('c-input').innerHTML = '<span class="ph">메시지를 입력하세요</span>'; }
+    show($('c-q'), t, 17.0, .4);
+    tool('c', t, 17.5, 18.9);
+    lines($('c-ans'), t, 19.1, .75);
+    keys = KEYS.claude;
+  }
+
+  // ---------- ChatGPT 22.8~38.4초 ----------
+  if (t > 22.6 && t < 38.6) {
+    const chat = t >= 30.6;
+    flow('g', t, 30.6);
+    vis($('g-set'), !chat); vis($('g-chat'), chat); vis($('g-comp'), chat);
+    $('g-s-pl').classList.toggle('on', !chat); $('g-s-chat').classList.toggle('on', chat);
+    press($('g-plus'), t, 23.9);
+    $('g-menu').style.opacity = t >= 24.1 && t < 24.9 ? 1 : 0;
+    $('g-mi').style.background = t >= 24.5 && t < 24.9 ? '#f4f4f4' : '';
+    const formOn = t >= 24.9;
+    $('g-form').style.display = formOn ? '' : 'none';
+    if (formOn) show($('g-form'), t, 24.9, .45);
+    type($('g-name'), '동국 규정', t, 25.3, 25.9, 26.0);
+    $('g-name').classList.toggle('focus', t >= 25.2 && t < 26.1);
+    type($('g-url'), URL, t, 26.2, 27.5, 27.7);
+    $('g-url').classList.toggle('focus', t >= 26.1 && t < 27.8);
+    const authOn = t >= 27.9;
+    $('g-authv').textContent = authOn ? '없음 (이 서버는 인증이 없습니다)' : '선택';
+    $('g-authv').className = authOn ? '' : 'ph';
+    hl($('g-auth'), t, 27.8, 28.2);
+    const cb = t >= 28.5; $('g-cb').classList.toggle('on', cb); $('g-cb').textContent = cb ? '✓' : '';
+    press($('g-create'), t, 29.0);
+    const toolsOn = t >= 29.3;
+    $('g-tools').style.display = toolsOn ? '' : 'none';
+    if (toolsOn) { show($('g-tools'), t, 29.3, .4); [...$('g-tools').querySelectorAll('.t')].forEach((el, i) => show(el, t, 29.5 + i * .12, .3, 6)); }
+    type($('g-input'), t < 33.0 ? '직원 본인 결혼하면 경조휴가 며칠 받을 수 있어요?' : '', t, 31.0, 32.6, 33.0);
+    if (t < 31.0) { $('g-input').innerHTML = '<span class="ph">무엇이든 물어보세요</span>'; }
+    show($('g-q'), t, 33.0, .4);
+    tool('g', t, 33.5, 34.8);
+    lines($('g-ans'), t, 35.0, .7);
+    keys = KEYS.gpt;
+  }
+
+  // ---------- 팀 메신저 38~49.4초 ----------
+  if (t > 37.8 && t < 49.6) {
+    flow('s', t, 40.8);
+    const toastP = fadeWin(t, 38.6, 41.4, .4);
+    $('s-toast').style.opacity = toastP; $('s-toast').style.transform = `translateY(${(1 - toastP) * -10}px)`;
+    show($('s-m1'), t, 41.0, .45);
+    show($('s-m2'), t, 41.9, .45);
+    const typingOn = t >= 41.9 && t < 42.7;
+    $('s-typing').style.display = typingOn ? '' : 'none';
+    [...$('s-typing').children].forEach((d, i) => { d.style.opacity = .35 + .65 * Math.abs(Math.sin((t * 4) - i * .6)); });
+    $('s-tool').style.display = t >= 42.7 ? '' : 'none';
+    tool('s', t, 42.7, 44.0);
+    lines($('s-ans'), t, 44.2, .75);
+  }
+
+  // ---------- 마무리 49~54초 ----------
+  if (t > 48.8) {
+    const p = ease(prog(t, 49.3, 50.1));
+    $('o-url').style.opacity = p; $('o-url').style.transform = `scale(${.94 + .06 * p})`;
+    show($('o-sub'), t, 50.2, .5);
+    show($('o-gh'), t, 50.8, .5);
+  }
+  if (!noCursor) cursor(t, keys);
+}
+window.render = render;
+window.DURATION = DURATION;
+
+// 녹화 스크립트가 아니면 실시간 반복 재생
+if (!location.search.includes('record')) {
+  document.fonts.ready.then(() => {
+    prepareKeys();
+    const start = performance.now();
+    const loop = (now) => { render(((now - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  });
+} else {
+  window.ready = document.fonts.ready.then(() => { prepareKeys(); render(0); return true; });
+}
+</script>
 </body>
 </html>

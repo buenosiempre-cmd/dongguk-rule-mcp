@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>동국 규정 MCP 소개 영상 v4 원본</title>
+<!--
+  소개 영상 v4(내레이션·광고형 모션그래픽, 타대학 비교·상위 법령 장면 추가) 원본입니다.
+  scripts/intro-video/record.cjs 가 window.render(t)를 프레임마다 불러 녹화합니다.
+  장면·자막 시각은 timeline.js(내레이션 실제 길이에서 계산)를 따릅니다.
+  화면 속 규정 내용은 공용 서버 v0.15.8 실제 응답(2026-11-26 조회)만 씁니다.
+    해결 장면: lookup_dongguk_rule(여비규정) / 비교 장면: compare_university_rules(주제 여비)
+    상위 법령 장면: get_rule_upper_laws(취업규칙), 법령 조문 원문은 korean-law MCP get_law_text로 대조했습니다.
+  '문제 장면'의 문서 창은 연출이며 실제 시스템 화면이 아닙니다. 학교·앱 로고를 쓰지 않습니다.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
+<script src="timeline.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; background: #0b0d0c; }
+  body { font-family: 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif; color: #f5f2ea; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'calt' 0; }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: #0b0d0c; }
+  .scene { position: absolute; inset: 0; overflow: hidden; display: none; }
+  .cam { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  .tag { position: absolute; top: 22px; right: 26px; font-size: 13px; padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,.12); color: rgba(255,255,255,.8); z-index: 20; }
+  .tag.dark { background: rgba(0,0,0,.07); color: rgba(0,0,0,.55); }
+
+  /* ---------- BEFORE ---------- */
+  #before { background: radial-gradient(900px 600px at 50% 40%, #1d2120 0%, #0b0d0c 70%); }
+  #b-head { position: absolute; left: 0; right: 0; top: 230px; text-align: center; font-size: 74px; font-weight: 900; letter-spacing: -.03em; z-index: 10; text-shadow: 0 4px 24px rgba(0,0,0,.8); }
+  #b-head small { display: block; font-size: 22px; font-weight: 400; letter-spacing: .02em; color: #9aa39f; margin-top: 10px; }
+  .doc { position: absolute; width: 400px; height: 270px; border-radius: 12px; background: #f3f1ec; color: #2a2a2a; box-shadow: 0 30px 60px rgba(0,0,0,.55); overflow: hidden; opacity: 0; }
+  .doc .bar { height: 34px; background: #e2dfd7; display: flex; align-items: center; padding: 0 12px; gap: 6px; font-size: 13px; color: #555; }
+  .doc .bar i { width: 9px; height: 9px; border-radius: 50%; background: #c9c5bb; display: block; }
+  .doc .bar b { margin-left: 8px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc .body { position: absolute; top: 34px; left: 0; right: 0; bottom: 0; padding: 18px 20px; overflow: hidden; }
+  .doc .scroll { position: absolute; left: 20px; right: 20px; top: 18px; }
+  .ln { height: 9px; border-radius: 5px; background: #d5d1c7; margin-bottom: 11px; }
+  .ln.h { height: 14px; background: #b9b4a8; width: 55%; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin: 6px 0 14px; }
+  .grid span { height: 16px; background: #e0dcd2; border-radius: 2px; }
+  .grid span.k { background: #c2bcae; }
+  .hlite { background: #f6d77a !important; }
+  #tabs { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); display: flex; gap: 4px; z-index: 12; }
+  #tabs .t { width: 120px; height: 30px; border-radius: 8px 8px 0 0; background: #2a2f2d; color: #b8c0bc; font-size: 12px; display: flex; align-items: center; padding: 0 10px; white-space: nowrap; overflow: hidden; opacity: 0; }
+  #clock { position: absolute; left: 34px; top: 14px; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #7d8784; z-index: 12; opacity: 0; }
+  #clock .hand { position: absolute; left: 50%; top: 50%; width: 3px; height: 16px; margin-left: -1.5px; background: #e8775f; transform-origin: 50% 0; border-radius: 2px; }
+  #clock .hand.m { height: 11px; background: #f5f2ea; }
+  #b-tabcount { position: absolute; left: 0; right: 0; top: 662px; text-align: center; font-size: 15px; color: #8d9692; z-index: 12; opacity: 0; }
+
+  /* ---------- AFTER ---------- */
+  #after { background: #f5f2ea; color: #141615; }
+  #wipe { position: absolute; top: -10%; bottom: -10%; width: 140%; background: #f5f2ea; z-index: 30; }
+  #a-big { position: absolute; left: 0; right: 0; top: 250px; text-align: center; font-size: 96px; font-weight: 900; letter-spacing: -.04em; }
+  #a-big span { display: inline-block; }
+  #a-input { position: absolute; left: 50%; top: 120px; width: 860px; margin-left: -430px; height: 76px; border-radius: 38px; background: #fff; box-shadow: 0 20px 50px rgba(30,40,35,.12), 0 0 0 1px rgba(0,0,0,.05); display: flex; align-items: center; padding: 0 34px; font-size: 26px; font-weight: 500; }
+  #a-input .send { position: absolute; right: 12px; top: 12px; width: 52px; height: 52px; border-radius: 50%; background: #1e4a3a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .caret::after { content: ''; display: inline-block; width: 3px; height: 30px; background: #1e4a3a; margin-left: 2px; vertical-align: -5px; }
+  #a-chip { position: absolute; left: 50%; top: 222px; transform: translateX(-50%); font-size: 17px; padding: 9px 18px; border-radius: 999px; background: #e7efe9; color: #1e4a3a; white-space: nowrap; display: flex; gap: 10px; align-items: center; }
+  .spin { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid #b7cfc2; border-top-color: #1e4a3a; }
+  #a-card { position: absolute; left: 50%; top: 282px; width: 860px; margin-left: -430px; border-radius: 26px; background: #fff; box-shadow: 0 30px 70px rgba(30,40,35,.14); padding: 30px 40px 28px; }
+  #a-card .lab { font-size: 18px; color: #5d665f; font-weight: 500; }
+  #a-card .num { font-size: 92px; font-weight: 900; letter-spacing: -.04em; color: #1e4a3a; line-height: 1.05; margin-top: 4px; display: inline-block; transform-origin: 0 70%; }
+  #a-card .sub { display: flex; gap: 28px; margin-top: 10px; font-size: 20px; color: #2b302d; }
+  #a-card .sub b { color: #1e4a3a; }
+  #a-src { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  #a-src span { font-size: 15px; padding: 6px 12px; border-radius: 8px; background: #eef3ef; color: #1e4a3a; font-weight: 500; opacity: 0; }
+  #a-src span.link { background: #fbece7; color: #b8432f; }
+  #cmp { position: absolute; inset: 0; display: flex; opacity: 0; z-index: 25; }
+  #cmp .half { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #cmp .l { background: #121514; color: #f5f2ea; }
+  #cmp .r { background: #f5f2ea; color: #141615; }
+  #cmp .k { font-size: 16px; letter-spacing: .3em; font-weight: 700; }
+  #cmp .l .k { color: #8d9692; } #cmp .r .k { color: #e8775f; }
+  #cmp .h { font-size: 46px; font-weight: 900; letter-spacing: -.03em; margin-top: 14px; text-align: center; line-height: 1.2; }
+  #cmp .d { font-size: 18px; margin-top: 14px; opacity: .7; text-align: center; line-height: 1.5; }
+  #cmp .pile { position: relative; width: 300px; height: 150px; margin-top: 26px; }
+  #cmp .pile div { position: absolute; width: 170px; height: 110px; border-radius: 8px; background: #3a3f3d; border: 1px solid #4a504d; }
+  #cmp .one { margin-top: 26px; width: 380px; height: 56px; border-radius: 28px; background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.1); display: flex; align-items: center; padding: 0 22px; font-size: 18px; }
+
+  /* ---------- HOW ---------- */
+  #how { background: radial-gradient(1000px 700px at 50% 30%, #173a2f 0%, #0b1210 75%); }
+  #h-k { position: absolute; left: 0; right: 0; top: 120px; text-align: center; font-size: 18px; letter-spacing: .35em; color: #9fd0b8; font-weight: 500; }
+  #h-track { position: absolute; top: 260px; left: 0; height: 200px; width: 3000px; }
+  .node { position: absolute; top: 0; width: 520px; text-align: center; }
+  .node .n { width: 54px; height: 54px; margin: 0 auto; border-radius: 50%; border: 2px solid #e8775f; color: #e8775f; font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .node .w { font-size: 72px; font-weight: 900; letter-spacing: -.03em; margin-top: 20px; white-space: nowrap; }
+  .node .s { font-size: 20px; color: #a9b8b0; margin-top: 10px; }
+  #h-line { position: absolute; top: 287px; height: 2px; background: rgba(255,255,255,.15); left: 0; width: 3000px; }
+  #h-fill { position: absolute; left: 0; top: 0; height: 2px; background: #e8775f; }
+
+  /* ---------- COMPARE ---------- */
+  #compare { background: #f5f2ea; color: #141615; }
+  .kick { position: absolute; left: 0; right: 0; text-align: center; font-size: 16px; letter-spacing: .32em; font-weight: 700; }
+  #p-k { top: 48px; color: #e8775f; }
+  #p-h { position: absolute; left: 0; right: 0; top: 76px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: -.03em; }
+  #p-chip { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: 140px; font-size: 15px; padding: 7px 16px; border-radius: 999px; background: #e7efe9; color: #1e4a3a; white-space: nowrap; }
+  #p-cards { position: absolute; left: 56px; right: 56px; top: 188px; display: flex; gap: 14px; }
+  .uc { flex: 1; min-width: 0; height: 392px; border-radius: 18px; background: #fff; box-shadow: 0 18px 40px rgba(30,40,35,.10), 0 0 0 1px rgba(0,0,0,.04); padding: 20px 18px; opacity: 0; position: relative; }
+  .uc.me { box-shadow: 0 18px 40px rgba(30,40,35,.14), 0 0 0 2.5px #1e4a3a; }
+  .uc .u { font-size: 24px; font-weight: 900; letter-spacing: -.02em; }
+  .uc .r { font-size: 15px; color: #49524c; margin-top: 8px; line-height: 1.35; min-height: 42px; }
+  .uc .a { display: inline-block; font-size: 14px; font-weight: 700; color: #1e4a3a; background: #eef3ef; padding: 4px 9px; border-radius: 6px; margin-top: 10px; }
+  .uc .lbl { font-size: 13px; color: #7a827d; margin-top: 14px; }
+  .uc .toks { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+  .uc .toks span { font-size: 16px; font-weight: 500; padding: 4px 10px; border-radius: 8px; background: #f1efe9; color: #2b302d; transition: none; }
+  .uc .toks span.common { background: #1e4a3a; color: #fff; }
+  .uc .toks span.uniq { background: #fbe3da; color: #b8432f; }
+  #p-note { position: absolute; left: 0; right: 0; top: 596px; text-align: center; font-size: 14px; color: #6b736e; }
+
+  /* ---------- LAW ---------- */
+  #law { background: radial-gradient(1100px 700px at 50% 25%, #1b3a30 0%, #0b100e 75%); }
+  #l-k { top: 48px; color: #9fd0b8; }
+  #l-h { position: absolute; left: 0; right: 0; top: 76px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: -.03em; }
+  #l-pair { position: absolute; left: 70px; right: 70px; top: 170px; height: 330px; }
+  .lc { position: absolute; top: 0; width: 500px; height: 300px; border-radius: 20px; padding: 24px 28px; opacity: 0; }
+  #l-rule { left: 0; background: #f5f2ea; color: #141615; }
+  #l-law { right: 0; background: #12241e; border: 1.5px solid #4f8f74; color: #f5f2ea; }
+  .lc .k2 { font-size: 13px; letter-spacing: .2em; font-weight: 700; }
+  #l-rule .k2 { color: #e8775f; } #l-law .k2 { color: #9fd0b8; }
+  .lc .t { font-size: 27px; font-weight: 900; letter-spacing: -.02em; margin-top: 8px; }
+  .lc .m { font-size: 14px; opacity: .65; margin-top: 4px; }
+  .lc .q { font-size: 18px; line-height: 1.6; margin-top: 16px; }
+  .lc .q b { background: #f6d77a; color: #141615; padding: 0 3px; border-radius: 3px; font-weight: 700; }
+  #l-law .q b { background: #2f6b55; color: #fff; }
+  #l-arrow { position: absolute; left: 500px; right: 500px; top: 130px; height: 40px; }
+  #l-arrow .bar { position: absolute; left: 10px; right: 18px; top: 18px; height: 3px; background: #e8775f; transform-origin: 0 50%; }
+  #l-arrow .head { position: absolute; right: 6px; top: 10px; width: 0; height: 0; border-left: 16px solid #e8775f; border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+  #l-arrow .cap { position: absolute; left: -30px; right: -30px; top: -34px; text-align: center; font-size: 15px; font-weight: 700; color: #f3b3a2; white-space: nowrap; }
+  #l-rel { position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; top: 330px; font-size: 19px; padding: 11px 22px; border-radius: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); white-space: nowrap; opacity: 0; }
+  #l-rel em { font-style: normal; color: #f6d77a; font-weight: 700; }
+  #l-sig { position: absolute; left: 140px; right: 140px; top: 170px; }
+  #l-sig .cap2 { font-size: 19px; color: #a9b8b0; margin-bottom: 16px; opacity: 0; }
+  .sg { display: flex; align-items: center; gap: 16px; height: 88px; border-radius: 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); padding: 0 24px; margin-bottom: 14px; opacity: 0; }
+  .sg .b { flex: none; font-size: 14px; font-weight: 700; padding: 5px 10px; border-radius: 6px; }
+  .sg .b.rv { background: #e8775f; color: #1a0f0c; } .sg .b.ok { background: #2f6b55; color: #fff; }
+  .sg .x { font-size: 22px; font-weight: 700; white-space: nowrap; }
+  .sg .x small { font-size: 15px; font-weight: 400; color: #a9b8b0; margin-left: 10px; }
+  .sg .y { margin-left: auto; font-size: 14px; color: #a9b8b0; white-space: nowrap; }
+  #l-note { position: absolute; left: 0; right: 0; top: 590px; text-align: center; font-size: 14px; color: #8fa89c; }
+
+  /* ---------- ANYWHERE ---------- */
+  #anywhere { background: radial-gradient(1100px 700px at 50% 20%, #20302a 0%, #0b0d0c 75%); perspective: 1600px; }
+  #w-head { position: absolute; left: 0; right: 0; top: 40px; text-align: center; font-size: 40px; font-weight: 900; letter-spacing: -.02em; }
+  .shot { position: absolute; width: 1280px; height: 720px; left: 0; top: 0; transform-origin: 0 0; border-radius: 22px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.6); background: #111; }
+  .shot iframe { width: 1280px; height: 720px; border: 0; display: block; }
+  .shotlab { position: absolute; font-size: 22px; font-weight: 700; white-space: nowrap; transform: translateX(-50%); }
+  .shotlab small { font-size: 13px; font-weight: 400; color: #a9b8b0; margin-left: 8px; }
+
+  /* ---------- CTA ---------- */
+  #cta { background: radial-gradient(1000px 650px at 50% 45%, #173a2f 0%, #0b0d0c 72%); display: none; }
+  #c-1 { position: absolute; left: 0; right: 0; top: 170px; text-align: center; font-size: 54px; font-weight: 900; letter-spacing: -.03em; }
+  #c-url { position: absolute; left: 50%; top: 270px; transform: translateX(-50%); font-size: 36px; padding: 20px 34px; border-radius: 18px; background: #f5f2ea; color: #1e4a3a; white-space: nowrap; }
+  #c-pills { position: absolute; left: 0; right: 0; top: 380px; display: flex; justify-content: center; gap: 12px; }
+  #c-pills span { font-size: 18px; padding: 8px 18px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); }
+  #c-title { position: absolute; left: 0; right: 0; top: 230px; text-align: center; font-size: 104px; font-weight: 900; letter-spacing: -.04em; }
+  #c-title em { font-style: normal; color: #e8775f; }
+  #c-tag { position: absolute; left: 0; right: 0; top: 372px; text-align: center; font-size: 28px; color: #d9d2c4; }
+  #c-gh { position: absolute; left: 0; right: 0; top: 436px; text-align: center; font-size: 18px; color: #9fd0b8; }
+  #c-disc { position: absolute; left: 0; right: 0; bottom: 100px; text-align: center; font-size: 15px; color: #8fa89c; }
+
+  /* ---------- 자막 ---------- */
+  #sub { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); max-width: 1100px; padding: 9px 22px; border-radius: 10px; background: rgba(8,10,9,.72); color: #fff; font-size: 25px; font-weight: 500; text-align: center; line-height: 1.4; z-index: 100; white-space: nowrap; opacity: 0; }
+  #vignette { position: absolute; inset: 0; pointer-events: none; z-index: 90; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,.28) 100%); }
+  #fadeblack { position: absolute; inset: 0; background: #000; z-index: 95; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <section class="scene" id="before"><div class="cam" id="b-cam">
+    <div id="tabs"></div>
+    <div id="docs"></div>
+    <div id="b-head">출장 숙박비, 얼마까지?<small>규정은 어디에, 별표는 몇 번에, 최신 개정은 언제?</small></div>
+    <div id="clock"><div class="hand m" id="hand-m"></div><div class="hand" id="hand-h"></div></div>
+  </div><div class="tag">연출 화면</div></section>
+
+  <section class="scene" id="after"><div class="cam" id="a-cam">
+    <div id="a-big"><span>질문</span> <span>한</span> <span>줄.</span></div>
+    <div id="a-input"><span id="a-text"></span><div class="send">↑</div></div>
+    <div id="a-chip"><span class="spin" id="a-spin"></span><span>동국 규정 MCP › <span class="mono">lookup_dongguk_rule</span></span><b id="a-chipdone"></b></div>
+    <div id="a-card">
+      <div class="lab">국내 출장 · 팀원 · 숙박비</div>
+      <div class="num" id="a-num">120,000원</div>
+      <div class="sub"><span>식비 <b>36,000원</b>(1일) · <b>12,000원</b>(1식)</span><span>일비 <b>20,000원</b></span></div>
+      <div id="a-src"><span>「여비규정」 제7조 ①</span><span>[별표 1] 국내 여비지급 구분표</span><span>개정 2026.03.13</span><span class="link">rule.dongguk.edu 원문 ↗</span></div>
+    </div>
+  </div>
+  <div id="cmp">
+    <div class="half l"><div class="k">BEFORE</div><div class="h">여러 문서를<br>오가며 찾기</div><div class="pile"><div style="left:10px;top:20px;transform:rotate(-8deg)"></div><div style="left:70px;top:6px;transform:rotate(5deg)"></div><div style="left:120px;top:30px;transform:rotate(-3deg)"></div></div><div class="d">규정 → 별표 → 개정 이력</div></div>
+    <div class="half r"><div class="k">AFTER</div><div class="h">질문 한 줄로<br>출처까지</div><div class="one">팀원 국내 출장 숙박비 기준은?</div><div class="d">규정명 · 조문 · 개정일 · 원문 링크</div></div>
+  </div>
+  <div id="wipe"></div>
+  <div class="tag dark">예시 화면</div></section>
+
+  <section class="scene" id="how"><div class="cam" id="h-cam">
+    <div id="h-k">HOW IT WORKS</div>
+    <div id="h-line"><div id="h-fill"></div></div>
+    <div id="h-track">
+      <div class="node" id="hn0"><div class="n">1</div><div class="w">질문</div><div class="s">평소 말투 그대로</div></div>
+      <div class="node" id="hn1"><div class="n">2</div><div class="w">규정 검색</div><div class="s">교내 규정 · 필요하면 타대학 규정까지</div></div>
+      <div class="node" id="hn2"><div class="n">3</div><div class="w">원문·별표 확인</div><div class="s">최신 조문·별표, 인용한 상위 법령 조문</div></div>
+      <div class="node" id="hn3"><div class="n">4</div><div class="w">출처와 답변</div><div class="s">규정명 · 조문 · 개정일 · 원문 링크</div></div>
+    </div>
+  </div></section>
+
+  <section class="scene" id="compare"><div class="cam" id="p-cam">
+    <div class="kick" id="p-k">타대학 규정 비교</div>
+    <div id="p-h">같은 주제, 대학별 조문을 나란히</div>
+    <div id="p-chip">동국 규정 MCP › <span class="mono">compare_university_rules</span> · 주제: 여비</div>
+    <div id="p-cards"></div>
+    <div id="p-note">공용 서버 v0.15.8 응답 발췌(2026-11-26 조회) · 조문 발췌 비교이며 법적 동등성 판정이 아닙니다 · 별표 금액은 비교 대상이 아닙니다</div>
+  </div></section>
+
+  <section class="scene" id="law"><div class="cam" id="l-cam">
+    <div class="kick" id="l-k">상위 법령 조회</div>
+    <div id="l-h">교내 규정 조항 → 근거 상위 법령 조문</div>
+    <div id="l-pair">
+      <div class="lc" id="l-rule"><div class="k2">교내 규정</div><div class="t">취업규칙 제17조 ②</div><div class="m">개정 2026.04.29 · rule.dongguk.edu</div>
+        <div class="q">직원은 <b>「사립학교법」 제70조의4</b>에서 규정한 당연퇴직 사유가 발생한 때에는 총장에게 서면(전자서면 포함)으로 보고해야 한다.</div></div>
+      <div id="l-arrow"><div class="cap">규정이 인용</div><div class="bar"></div><div class="head"></div></div>
+      <div class="lc" id="l-law"><div class="k2">상위 법령 · 현행</div><div class="t">사립학교법 제70조의4</div><div class="m">사무직원의 당연퇴직 · 현행본 시행 2026.10.02</div>
+        <div class="q">제70조의2제1항에도 불구하고 같은 조에 따라 임명된 <b>사무직원의 당연퇴직</b>에 관하여는 「지방공무원법」 제61조제1호를 준용한다.</div></div>
+      <div id="l-rel">관계: 당연퇴직 사유는 <em>법령 조문</em>을 따르고, 총장 서면 보고는 <em>교내 규정</em>이 정합니다</div>
+    </div>
+    <div id="l-sig">
+      <div class="cap2" id="l-cap2">취업규칙이 인용한 법령 8건 점검 결과 중</div>
+      <div class="sg" id="sg0"><span class="b rv">검토 필요</span><span class="x">향토예비군설치법<small>→ 현행 제명 「예비군법」</small></span><span class="y">규정 제41조 · 제명 변경</span></div>
+      <div class="sg" id="sg1"><span class="b rv">검토 필요</span><span class="x">사립학교연금법<small>현행 목록에 없음 · 비슷한 이름 「사립학교교직원 연금법」</small></span><span class="y">규정 제86조</span></div>
+      <div class="sg" id="sg2"><span class="b ok">현행 확인</span><span class="x">사립학교법 제70조의4<small>인용 조문 현행본에 있음</small></span><span class="y">규정 제17조</span></div>
+    </div>
+    <div id="l-note">get_rule_upper_laws 응답(공용 서버 v0.15.8) · 법령 원문은 국가법령 조회(korean-law MCP)로 대조 · 점검 신호는 충돌·적용 여부를 판정한 것이 아닙니다</div>
+  </div></section>
+
+  <section class="scene" id="anywhere"><div class="cam" id="w-cam">
+    <div id="w-head">어디서나, 주소 하나로</div>
+    <div class="shot" id="sh0"><iframe id="if0" src="../usage-demo.html?record"></iframe></div>
+    <div class="shot" id="sh1"><iframe id="if1" src="../usage-demo.html?record"></iframe></div>
+    <div class="shot" id="sh2"><iframe id="if2" src="../usage-demo.html?record"></iframe></div>
+    <div class="shotlab" id="lb0">Claude</div>
+    <div class="shotlab" id="lb1">ChatGPT</div>
+    <div class="shotlab" id="lb2">팀 메신저 AI 봇</div>
+  </div><div class="tag">예시 화면 · 앱 로고 없음</div></section>
+
+  <section class="scene" id="cta"><div class="cam" id="c-cam">
+    <div id="c-1">주소 하나만 추가하세요</div>
+    <div id="c-url" class="mono">https://dgu.kr-univ-rules.com/mcp/rules</div>
+    <div id="c-pills"><span>로그인 불필요</span><span>읽기 전용</span><span>타대학 비교 · 상위 법령</span><span>규정 도구 15개</span></div>
+    <div id="c-title">동국 규정 <em>MCP</em></div>
+    <div id="c-tag">이제 규정은, 대화로 찾습니다.</div>
+    <div id="c-gh">github.com/buenosiempre-cmd/dongguk-rule-mcp</div>
+    <div id="c-disc">동국대학교의 공식 서비스가 아닙니다 · 개인 운영 도구 · 최종 판단은 공식 원문과 소관 부서 해석을 따르세요</div>
+  </div></section>
+
+  <div id="vignette"></div>
+  <div id="fadeblack"></div>
+  <div id="sub"></div>
+</div>
+
+<script>
+'use strict';
+const TL = window.TIMELINE;
+const DURATION = TL.duration;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const ease = (x) => 1 - Math.pow(1 - x, 3);
+const easeIO = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+// 스프링 이징: 살짝 넘쳤다 돌아옴
+const spring = (x) => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.exp(-6.5 * x) * Math.cos(9.5 * x);
+const L = Object.fromEntries(TL.lines.map((l) => [l.id, l]));
+const SC = TL.scenes;
+
+function pop(el, t, a, dur = .7, dy = 30, sc = .9) {
+  const p = spring(prog(t, a, a + dur)), o = ease(prog(t, a, a + dur * .45));
+  el.style.opacity = o;
+  el.style.transform = `translateY(${(1 - p) * dy}px) scale(${sc + (1 - sc) * p})`;
+  return p;
+}
+function fadeOut(el, t, a, dur = .4) { const o = 1 - prog(t, a, a + dur); el.style.opacity = Math.min(+el.style.opacity || 1, o); }
+function blurBy(el, px) { el.style.filter = px > .3 ? `blur(${px.toFixed(2)}px)` : 'none'; }
+
+// ---------- 문제 장면용 문서 창 만들기 ----------
+const DOCS = [
+  {title: '규정 목록 · 검색', x: 130, y: 175, r: -6, kind: 'list'},
+  {title: '여비규정 · 전문', x: 740, y: 160, r: 5, kind: 'text'},
+  {title: '[별표 1] 국내 여비지급 구분표', x: 440, y: 330, r: -3, kind: 'table'},
+  {title: '개정 연혁', x: 80, y: 380, r: 4, kind: 'list'},
+  {title: '여비규정 · 제7조', x: 800, y: 370, r: -7, kind: 'text'},
+  {title: '[별표 2] 국외 여비지급 구분표', x: 330, y: 150, r: 6, kind: 'table'},
+  {title: '다른 규정 검색 결과', x: 590, y: 250, r: 2, kind: 'list'},
+];
+function docHTML(d) {
+  let inner = '<div class="ln h"></div>';
+  if (d.kind === 'table') {
+    inner += '<div class="grid">' + Array.from({length: 48}, (_, i) => `<span class="${i < 6 || i % 6 === 0 ? 'k' : ''}${d.title.includes('별표 1') && i === 33 ? ' hlite' : ''}"></span>`).join('') + '</div>';
+    inner += Array.from({length: 6}, (_, i) => `<div class="ln" style="width:${60 + (i * 37) % 35}%"></div>`).join('');
+  } else {
+    inner += Array.from({length: 26}, (_, i) => `<div class="ln" style="width:${55 + (i * 53) % 45}%"></div>`).join('');
+  }
+  return `<div class="bar"><i></i><i></i><i></i><b>${d.title}</b></div><div class="body"><div class="scroll">${inner}</div></div>`;
+}
+DOCS.forEach((d, i) => {
+  const el = document.createElement('div'); el.className = 'doc'; el.id = 'doc' + i; el.innerHTML = docHTML(d); $('docs').appendChild(el);
+  const tab = document.createElement('div'); tab.className = 't'; tab.id = 'tab' + i; tab.textContent = d.title; $('tabs').appendChild(tab);
+});
+
+function sceneOn(name, t, fade = .35) {
+  const [a, b] = SC[name];
+  const on = t >= a - .001 && t < b + fade;
+  $(name).style.display = on ? 'block' : 'none';
+  return on;
+}
+
+function renderBefore(t) {
+  const [a, b] = SC.before;
+  if (!sceneOn('before', t)) return;
+  // 느린 카메라 푸시 + 끝으로 갈수록 살짝 흔들림
+  const p = prog(t, a, b);
+  const shake = p > .55 ? Math.sin(t * 23) * 1.2 * (p - .55) * 2 : 0;
+  $('b-cam').style.transform = `scale(${1 + .06 * easeIO(p)}) translate(${shake}px, ${shake * .6}px)`;
+  // 제목: n1 동안 크게, n2 시작하면 위로 작게
+  const h = $('b-head');
+  const hp = pop(h, t, L.n1.start - .3, .8, 40, .92);
+  const up = easeIO(prog(t, L.n2.start - .2, L.n2.start + .9));
+  h.style.transform = `translateY(${(1 - hp) * 40 - up * 178}px) scale(${(.92 + .08 * hp) * (1 - .5 * up)})`;
+  h.style.opacity = Math.min(+h.style.opacity, 1 - .15 * up);
+  // 문서 창이 하나씩 쌓임(n2 구간)
+  const s0 = L.n2.start - .1, s1 = L.n2.end - .4;
+  DOCS.forEach((d, i) => {
+    const el = $('doc' + i), at = s0 + (s1 - s0) * i / DOCS.length;
+    const q = spring(prog(t, at, at + .75)), o = ease(prog(t, at, at + .25));
+    el.style.opacity = o;
+    el.style.left = d.x + 'px'; el.style.top = d.y + 'px';
+    el.style.transform = `translateY(${(1 - q) * 120}px) rotate(${d.r * q}deg) scale(${.85 + .15 * q})`;
+    el.style.zIndex = 2 + i;
+    // 문서 안 스크롤
+    el.querySelector('.scroll').style.transform = `translateY(${-Math.max(0, t - at) * (d.kind === 'table' ? 8 : 26) % 200}px)`;
+    const tab = $('tab' + i);
+    tab.style.opacity = ease(prog(t, at, at + .3));
+  });
+  // 시계: 시간이 빨리 흐르는 연출(숫자 없음)
+  const ck = $('clock'); ck.style.opacity = ease(prog(t, L.n2.start + .5, L.n2.start + 1.1));
+  $('hand-m').style.transform = `rotate(${180 + (t - a) * 220}deg)`;
+  $('hand-h').style.transform = `rotate(${180 + (t - a) * 18}deg)`;
+  // 끝: 흐려지며 어두워짐
+  const out = prog(t, b - 1.0, b);
+  $('b-cam').style.filter = out > 0 ? `blur(${out * 6}px) saturate(${1 - out * .8}) brightness(${1 - out * .4})` : 'none';
+}
+
+function renderAfter(t) {
+  const [a, b] = SC.after;
+  if (!sceneOn('after', t)) return;
+  // 스와이프(밝은 면이 오른쪽에서 왼쪽으로 덮었다가 걷힘)
+  const w = $('wipe');
+  const wp = easeIO(prog(t, a - .02, a + .75));
+  w.style.left = `${(1 - wp) * 100 - 20 - wp * 140}%`;
+  w.style.display = wp > 0 && wp < 1 ? 'block' : 'none';
+  blurBy(w, Math.sin(wp * Math.PI) * 14);
+  $('after').style.clipPath = `inset(0 0 0 ${(1 - easeIO(prog(t, a - .02, a + .6))) * 100}%)`;
+  // 카메라 천천히 줌
+  $('a-cam').style.transform = `scale(${1.04 - .04 * easeIO(prog(t, a, b))})`;
+  // "질문 한 줄." 단어별 등장 → 위로 빠짐
+  const big = $('a-big');
+  [...big.children].forEach((s, i) => pop(s, t, L.n3.start - .1 + i * .28, .7, 50, .7));
+  const bigOut = easeIO(prog(t, L.n3.end + .1, L.n3.end + .7));
+  big.style.transform = `translateY(${-bigOut * 60}px)`; big.style.opacity = 1 - bigOut;
+  blurBy(big, bigOut * 8);
+  // 입력창 → 타이핑
+  const inp = $('a-input'); const ip = pop(inp, t, L.n3.end + .25, .8, 60, .94);
+  const Q = '팀원인데 국내 출장 숙박비 기준이 얼마예요?';
+  const ta = L.n3.end + .7, tb = L.n4.start - .35;
+  const n = Math.round(Q.length * prog(t, ta, tb));
+  $('a-text').textContent = n ? Q.slice(0, n) : '';
+  if (!n) $('a-text').innerHTML = '<span style="color:#a7aca8">규정에 대해 물어보세요</span>';
+  $('a-text').classList.toggle('caret', t > ta - .3 && t < tb + .3);
+  inp.style.display = ip > 0 ? 'flex' : 'none';
+  // 도구 호출 칩
+  const chip = $('a-chip'); const cp = pop(chip, t, tb + .15, .5, 10, .9);
+  chip.style.transform = `translateX(-50%) ${chip.style.transform}`;
+  const done = t > L.n4.start + .4;
+  $('a-spin').style.display = done ? 'none' : ''; $('a-spin').style.transform = `rotate(${t * 900}deg)`;
+  $('a-chipdone').textContent = done ? '✓ 원문 확인' : '조회 중';
+  // 답 카드 + 숫자
+  const card = $('a-card'); pop(card, t, L.n4.start + .45, .8, 50, .95);
+  const num = $('a-num'); const np = spring(prog(t, L.n4.start + 1.0, L.n4.start + 1.9));
+  num.style.transform = `scale(${.6 + .4 * np})`; num.style.opacity = ease(prog(t, L.n4.start + 1.0, L.n4.start + 1.3));
+  // 출처 칩(n5)
+  [...$('a-src').children].forEach((s, i) => pop(s, t, L.n5.start + .1 + i * .35, .5, 14, .85));
+  // 전후 비교 화면(n5 끝 무렵)
+  const cmp = $('cmp'); const cIn = easeIO(prog(t, L.n5.end - 1.2, L.n5.end - .5));
+  cmp.style.opacity = cIn;
+  cmp.querySelector('.l').style.transform = `translateX(${-(1 - cIn) * 60}px)`;
+  cmp.querySelector('.r').style.transform = `translateX(${(1 - cIn) * 60}px)`;
+}
+
+function renderHow(t) {
+  const [a, b] = SC.how;
+  if (!sceneOn('how', t)) return;
+  const enter = easeIO(prog(t, a, a + .6));
+  $('how').style.opacity = enter;
+  pop($('h-k'), t, a + .2, .6, 14, .95);
+  // 각 단계가 활성화되는 시각(내레이션에 맞춤)
+  const n6 = L.n6, n7 = L.n7;
+  const at = [n6.start - .15, n6.start + (n6.end - n6.start) * .5, n7.start + .2, n7.start + (n7.end - n7.start) * .55];
+  const GAP = 560, X0 = 640 - 260; // 노드 중심을 화면 가운데로
+  let idx = 0, f = 0;
+  for (let i = 0; i < 4; i++) if (t >= at[i]) idx = i;
+  // 카메라 이동: 현재 노드로 스프링 이동, 마지막에 전체가 보이게 줌아웃
+  let x = 0;
+  for (let i = 1; i < 4; i++) x += GAP * spring(prog(t, at[i] - .1, at[i] + .8));
+  const prev = (() => { let v = 0; const tt = t - 1 / 30; for (let i = 1; i < 4; i++) v += GAP * spring(prog(tt, at[i] - .1, at[i] + .8)); return v; })();
+  const zoomOut = easeIO(prog(t, b - 2.2, b - .6));
+  const scale = 1 - .55 * zoomOut;
+  const centerAll = (GAP * 3) / 2;
+  const camX = x * (1 - zoomOut) + centerAll * zoomOut;
+  const track = $('h-track');
+  track.style.transform = `translateX(${X0 - camX}px)`;
+  blurBy(track, Math.min(10, Math.abs(x - prev) * .12) * (1 - zoomOut));
+  $('h-cam').style.transform = `scale(${scale})`;
+  $('h-line').style.transform = `translateX(${X0 - camX + 260}px)`;
+  $('h-line').style.width = GAP * 3 + 'px';
+  $('h-fill').style.width = (x / (GAP * 3)) * 100 + '%';
+  for (let i = 0; i < 4; i++) {
+    const el = $('hn' + i); el.style.left = i * GAP + 'px';
+    const on = spring(prog(t, at[i] - .1, at[i] + .6));
+    const active = (i === idx) ? 1 : (i < idx ? .45 : .18);
+    el.style.opacity = (zoomOut > 0 ? Math.max(active, zoomOut * (t >= at[i] ? 1 : .3)) : active) * Math.max(.2, on);
+    el.style.transform = `scale(${.86 + .14 * on})`;
+  }
+}
+
+// ---------- 타대학 비교(compare_university_rules 실제 응답 발췌) ----------
+const UNIS = [
+  {u: '동국대학교', r: '여비규정', a: '제3조(여비의 종류)', groups: [['', ['운임', '일비', '숙박비', '식비', '출장목적경비']]], me: true},
+  {u: '연세대학교', r: '여비규정', a: '제4조 ①', groups: [['', ['운임', '일비', '숙박비', '식비']]]},
+  {u: '한양대학교', r: '여비지급 규정', a: '제2조(여비의 종류)', groups: [['', ['교통비', '숙박비', '식비', '일비']]]},
+  {u: '경희대학교', r: '여비규정', a: '제3조 ①', groups: [['국내출장', ['교통비', '숙박비', '잡비']], ['국외출장', ['교통비', '숙박비', '식비', '잡비']]]},
+  {u: '건국대학교', r: '교직원출장 및 여비지급 규정', a: '제6조 ①', groups: [['', ['운임', '일비', '숙박비', '식비', '준비금']]]},
+];
+const UNIQ = new Set(['출장목적경비', '잡비', '준비금']);
+UNIS.forEach((x, i) => {
+  const el = document.createElement('div'); el.className = 'uc' + (x.me ? ' me' : ''); el.id = 'uc' + i;
+  el.innerHTML = `<div class="u">${x.u}</div><div class="r">${x.r}</div><div class="a">${x.a}</div>` +
+    x.groups.map(([g, toks]) => `<div class="lbl">${g ? '여비의 종류 · ' + g : '여비의 종류'}</div><div class="toks">${toks.map((k) => `<span data-k="${k}">${k}</span>`).join('')}</div>`).join('');
+  $('p-cards').appendChild(el);
+});
+
+function renderCompare(t) {
+  const [a, b] = SC.compare;
+  if (!sceneOn('compare', t)) return;
+  $('compare').style.opacity = easeIO(prog(t, a, a + .5));
+  const c1 = L.c1, c2 = L.c2;
+  pop($('p-k'), t, a + .15, .6, 12, .95);
+  pop($('p-h'), t, a + .3, .7, 20, .94);
+  pop($('p-chip'), t, a + .8, .6, 10, .95);
+  for (let i = 0; i < UNIS.length; i++) pop($('uc' + i), t, c1.start + 1.2 + i * .35, .8, 40, .92);
+  pop($('p-note'), t, c1.start + 3.4, .6, 8, .98);
+  // c2: 공통 항목(숙박비) → 대학별로 다른 항목 강조
+  const common = prog(t, c2.start + .2, c2.start + .6), uniq = prog(t, c2.start + 1.6, c2.start + 2.0);
+  document.querySelectorAll('#p-cards .toks span').forEach((sp) => {
+    const k = sp.dataset.k;
+    sp.className = (k === '숙박비' && common > .5) ? 'common' : (UNIQ.has(k) && uniq > .5) ? 'uniq' : '';
+    sp.style.transform = (k === '숙박비' && common > 0 && common < 1) || (UNIQ.has(k) && uniq > 0 && uniq < 1) ? `scale(${1 + .15 * Math.sin(Math.PI * (k === '숙박비' ? common : uniq))})` : 'none';
+  });
+  $('p-cam').style.transform = `scale(${1 + .025 * prog(t, a, b)})`;
+}
+
+// ---------- 상위 법령(get_rule_upper_laws + korean-law MCP 조문) ----------
+function renderLaw(t) {
+  const [a, b] = SC.law;
+  if (!sceneOn('law', t)) return;
+  $('law').style.opacity = easeIO(prog(t, a, a + .5));
+  const l1 = L.l1, l2 = L.l2;
+  pop($('l-k'), t, a + .15, .6, 12, .95);
+  pop($('l-h'), t, a + .3, .7, 20, .94);
+  const out = easeIO(prog(t, l2.start - .5, l2.start + .1));
+  const pr = pop($('l-rule'), t, l1.start + .3, .8, 30, .92);
+  const pl = pop($('l-law'), t, l1.start + 2.0, .8, 30, .92);
+  const ar = ease(prog(t, l1.start + 1.1, l1.start + 1.9));
+  $('l-arrow').querySelector('.bar').style.transform = `scaleX(${ar})`;
+  $('l-arrow').style.opacity = ar > 0 ? 1 : 0;
+  $('l-arrow').querySelector('.head').style.opacity = ar > .9 ? 1 : 0;
+  pop($('l-rel'), t, l1.start + 3.6, .7, 14, .95);
+  const pair = $('l-pair');
+  pair.style.opacity = 1 - out;
+  pair.style.transform = `translateY(${-40 * out}px) scale(${1 - .08 * out})`;
+  pair.style.display = out >= 1 ? 'none' : 'block';
+  pop($('l-cap2'), t, l2.start + .1, .5, 10, .97);
+  for (let i = 0; i < 3; i++) pop($('sg' + i), t, l2.start + .4 + i * .9, .7, 24, .95);
+  $('l-sig').style.display = t >= l2.start - .2 ? 'block' : 'none';
+  $('l-note').style.opacity = ease(prog(t, l1.start + 4.2, l1.start + 4.8));
+  $('l-cam').style.transform = `scale(${1 + .025 * prog(t, a, b)})`;
+}
+
+// 앱 화면 몽타주(v2 예시 화면을 iframe으로 재사용)
+function renderAnywhere(t) {
+  const [a, b] = SC.anywhere;
+  if (!sceneOn('anywhere', t)) return;
+  $('anywhere').style.opacity = easeIO(prog(t, a, a + .5));
+  pop($('w-head'), t, a + .2, .7, 20, .95);
+  const n8 = L.n8, n8b = L.n8b;
+  const d8 = n8.end - n8.start;
+  const cues = [n8.start - .2, n8.start + d8 * .33, n8.start + d8 * .66];
+  // 1단계(n8): 하나씩 크게 등장(답변 화면). 2단계(n8b): 셋이 나란히, 설정→답변을 빠르게 재생
+  const BIG = .62, SMALL = .32;
+  const row = easeIO(prog(t, n8b.start - .5, n8b.start + .5));
+  const answerT = [22.6, 36.6, 47.0];
+  const setupFrom = [9.0, 23.6, 38.6], setupTo = [22.6, 36.6, 47.2];
+  for (let i = 0; i < 3; i++) {
+    const sh = $('sh' + i), lb = $('lb' + i);
+    const p = spring(prog(t, cues[i], cues[i] + .9)), o = ease(prog(t, cues[i], cues[i] + .3));
+    // 1단계 위치: 가운데 크게, 이전 것은 뒤로 밀려 옆으로
+    const later = cues.filter((c, j) => j > i && t >= c).length;
+    const bigX = 640 - 1280 * BIG / 2 + (1 - p) * 420 - later * 360;
+    const bigY = 140 + later * 30;
+    const bigS = BIG - later * .1;
+    const rowS = SMALL, rowX = 640 + (i - 1) * 410 - 1280 * rowS / 2, rowY = 200;
+    const s = bigS * (1 - row) + rowS * row;
+    const x = bigX * (1 - row) + rowX * row;
+    const y = bigY * (1 - row) + rowY * row;
+    const rot = (1 - p) * -25 * (1 - row) + (later ? 8 : 0) * (1 - row);
+    sh.style.transform = `translate(${x}px, ${y}px) scale(${s}) rotateY(${rot}deg)`;
+    sh.style.opacity = o * (later && row < .5 ? .55 + .45 * row * 2 : 1);
+    sh.style.zIndex = 10 + i;
+    blurBy(sh, (1 - p) * 8);
+    lb.style.left = (x + 1280 * s / 2) + 'px'; lb.style.top = (y - 34) + 'px'; lb.style.opacity = o * (later && row < .5 ? 0 : 1);
+    // iframe 안 시간
+    const fr = $('if' + i).contentWindow;
+    if (fr && fr.render) {
+      const st = row > 0 ? setupFrom[i] + (setupTo[i] - setupFrom[i]) * prog(t, n8b.start - .2 + i * .25, n8b.end + .3) : answerT[i];
+      fr.render(st);
+    }
+  }
+}
+
+function renderCta(t) {
+  const [a, b] = SC.cta;
+  if (!sceneOn('cta', t)) return;
+  $('cta').style.opacity = easeIO(prog(t, a, a + .5));
+  const n9 = L.n9, n10 = L.n10;
+  const part2 = easeIO(prog(t, n10.start - .6, n10.start));
+  const g1 = 1 - part2;
+  [$('c-1'), $('c-url'), $('c-pills')].forEach((el) => { el.style.opacity = g1; });
+  const p1 = pop($('c-1'), t, n9.start - .2, .8, 30, .9); $('c-1').style.opacity = Math.min(+$('c-1').style.opacity, g1);
+  const pu = spring(prog(t, n9.start + .4, n9.start + 1.3));
+  $('c-url').style.opacity = Math.min(ease(prog(t, n9.start + .4, n9.start + .7)), g1);
+  $('c-url').style.transform = `translateX(-50%) scale(${.85 + .15 * pu})`;
+  pop($('c-pills'), t, n9.start + 2.0, .6, 14, .95); $('c-pills').style.opacity = Math.min(+$('c-pills').style.opacity, g1);
+  const tp = spring(prog(t, n10.start, n10.start + 1.0));
+  $('c-title').style.opacity = ease(prog(t, n10.start, n10.start + .4));
+  $('c-title').style.transform = `scale(${.9 + .1 * tp})`; $('c-title').style.letterSpacing = `${-.04 + (1 - tp) * .08}em`;
+  pop($('c-tag'), t, n10.start + .5, .7, 16, .96);
+  pop($('c-gh'), t, n10.start + 1.4, .6, 10, .96);
+  pop($('c-disc'), t, n10.start + 1.8, .6, 10, .98);
+  $('c-cam').style.transform = `scale(${1 + .03 * prog(t, a, b)})`;
+}
+
+function renderSub(t) {
+  const el = $('sub');
+  const ln = TL.lines.find((l) => t >= l.start - .15 && t < l.end + .35);
+  if (!ln) { el.style.opacity = 0; return; }
+  el.textContent = ln.sub;
+  el.style.opacity = Math.min(ease(prog(t, ln.start - .15, ln.start + .1)), 1 - prog(t, ln.end + .15, ln.end + .35));
+}
+
+function render(t) {
+  renderBefore(t); renderAfter(t); renderHow(t); renderCompare(t); renderLaw(t); renderAnywhere(t); renderCta(t); renderSub(t);
+  $('fadeblack').style.opacity = Math.max(1 - prog(t, 0, .6), prog(t, DURATION - .8, DURATION));
+}
+window.render = render;
+window.DURATION = DURATION;
+
+const frames = [...document.querySelectorAll('iframe')];
+const iframeReady = Promise.all(frames.map((f) => new Promise((res) => {
+  const check = () => (f.contentWindow && f.contentWindow.ready) ? f.contentWindow.ready.then(res) : setTimeout(check, 50);
+  if (f.contentDocument && f.contentDocument.readyState === 'complete') check(); else f.addEventListener('load', check);
+})));
+// 모든 장면을 한 번씩 그려 글꼴(한글 하위 집합)을 미리 받아 둡니다.
+async function warmFonts() {
+  for (let t = 0; t < DURATION; t += .25) render(t);
+  await document.fonts.ready;
+  await new Promise((r) => setTimeout(r, 300));
+  await document.fonts.ready;
+  render(0);
+  return document.fonts.check('16px "Noto Sans KR"', '규정');
+}
+window.ready = Promise.all([document.fonts.ready, iframeReady]).then(warmFonts);
+if (!location.search.includes('record')) {
+  window.ready.then(() => {
+    const start = performance.now();
+    const loop = (now) => { render(((now - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  });
+}
+</script>
+</body>
+</html>
