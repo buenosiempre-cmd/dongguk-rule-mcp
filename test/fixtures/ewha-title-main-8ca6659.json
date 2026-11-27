@@ -1,0 +1,3322 @@
+{
+  "commit": "8ca6659881529121957ac11bf08621c6052fc8a6",
+  "sourceSha256": "f376eb174427c98e4af103dd598775e1b70bff82b1af238d8a9347bf871729bb",
+  "clock": "2026-11-27T00:00:00.000Z",
+  "description": "Frozen main outputs from synthetic inputs; full response/display hashes and exact request paths. Generator evidence: B2_t104 report.",
+  "rows": [
+    {
+      "id": "positive-0-false",
+      "responseSha256": "219ab58042a5ac39cdcdcb041fd22240760fc4d1b4690aa5c20e2586007028e0",
+      "formattedSha256": "4f401054cd838028b7d6e8200dde0d559cb81b8ab1b058a6fe9a24b23a4fe017",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-0-true",
+      "responseSha256": "4a482689a65a7656407b335e31cac7bc6eef8020513975378ac40c00ada84369",
+      "formattedSha256": "7c872853f7ee307ace35939fa95a4084e5887bd113cfbb6d002960c4b401f2b8",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-1-false",
+      "responseSha256": "eb879c4cf821c9fdce7c8b507edae828594a9bc88ca2dc80805d5104b7fcc5ce",
+      "formattedSha256": "0585791c54871a75c37d223655d326b7d33ba7119973b25336bf0cd9aec01e5e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-1-true",
+      "responseSha256": "b9b3d803878ea98bb261f0107e25f74d4bb1881d64c0785cb20acadfea78215e",
+      "formattedSha256": "da136a6ad6cb33f14494cd95c83f841a3aef5a90b42d83a4239d49fc3fcf648c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-2-false",
+      "responseSha256": "d2907caa7870364500aaf57ba6e53b46e4d0b2915595e7ba3ec8a89c2c63c4f4",
+      "formattedSha256": "91c75bb756fa56da7b162f2e30b2597d93cdc4406a36d05443dce46427ac9804",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-2-true",
+      "responseSha256": "1a9423f5834ccc9b5226ca71de27e87c956dbb2d78f8f0a38acc8a0737c658f6",
+      "formattedSha256": "1358eb4b2903fbad6e0642fed6f441d672492b25f70be8f352e49ca9b1a9ec26",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-3-false",
+      "responseSha256": "839699b96e5e4e85158227c2ec5ed9388261ed2cf626f606100f85d9b3df0ea3",
+      "formattedSha256": "f7cfbdcc2e7ca67077eeff34416ef36f55876ab1ee1036cd308b277a74913c6a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-3-true",
+      "responseSha256": "421ea470148751851018a16ab86986317f1fbfce119f9d51a693f0e79aa435e3",
+      "formattedSha256": "e0c5aa90f6bca393e4c69e5334994f308667ff7d9ba90c22fb470326c45b9d43",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-4-false",
+      "responseSha256": "3f0769f0c0b684dd4c17ff2b4ffbdb76197c3efaefd22c55016df6af130c803a",
+      "formattedSha256": "280266f6d36516f0a39b891ef7ef427c2d590c9650e481a926adce0748801f24",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-4-true",
+      "responseSha256": "3352071df7e3cade07e10c695c2e50bcee21688c0809481e71db6a81ce8767da",
+      "formattedSha256": "6b00906493c042675151e6151bcd91f692e03f92115b26562b02ab3a81800420",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-5-false",
+      "responseSha256": "7456a3f33048c12dac3a1d2a4e2452cd904f2ae44f105f294ec42aa4c6ebc55d",
+      "formattedSha256": "5db56da57fe45ce87f2fff8208cf519215f8f0695f6ce87100e60d93595a06ed",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-5-true",
+      "responseSha256": "f3eae0249a912747bd38f746bfed8a6993b5e1765283032c43832962b6e7bd1a",
+      "formattedSha256": "3079e83dea6bc67a83206d7df63239c46968f75fb988f983b49a6fdb6132165d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-6-false",
+      "responseSha256": "3150d8ab45aac8ceeec54301ec0353cad26eef4d7219032a73b57852ac182003",
+      "formattedSha256": "bbd37d1a73fd9289fa6efd19a0ac617f44ebeb42ba94688f3b224979d7c7fa4c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-6-true",
+      "responseSha256": "72c34917eb563dc45347f15ae2449f740636fe21e4c3d96d5a92f328dfd6742f",
+      "formattedSha256": "ee6f7612260d5c6a1421193604c6c9e383f9aad03dcef14a23a08103deda505a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-7-false",
+      "responseSha256": "fc7486383cc25e57ca6aba1d67a12a2134594e919895afc2fe91a0132120ef16",
+      "formattedSha256": "00606ab51066bdda68de5d6326cd9a40a94654014ad15892019f5763f6a7750d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-7-true",
+      "responseSha256": "4408a79645dbe9c4ba787332b7a932d1f5fa91110bd0d33469e29d5c3d5f15bc",
+      "formattedSha256": "5c6fea4dbe7a29587b23df1775afe8b18431488086d6dd2e59535cf5aaf83387",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-8-false",
+      "responseSha256": "b464bc4465ff958a3bdaad2636a10364ef0577877b3a70848571ce7b1088ce0a",
+      "formattedSha256": "21a07ecfbf8eb9d6e6024b60da8b07b6b3a2df9d185a7df503a4ce4f37c661bf",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-8-true",
+      "responseSha256": "58fc3c5c674a045afbed73d312b9964507381398e821b211eaca891446991c5b",
+      "formattedSha256": "f23fc3dbecf7a4ec70f66e9d0100faf6134e7bad8e38371359657f65bff054fb",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-9-false",
+      "responseSha256": "c7ba28f421a99114e3ccad32b2559ba66bba2b702a2ff928b5388c4776038ebf",
+      "formattedSha256": "d5ccce09eb1889ca91a8255b617767bd950db9bebf6188934134ab920918fbd5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-9-true",
+      "responseSha256": "6d615b51519a0b2b4c9c79f01759c3e4eb77b103c2c43548637abcf6404c8424",
+      "formattedSha256": "5bee1d1734adc1c04eba19c2e3b4ce063a768361783a2a89179d24b5808fa1dd",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-10-false",
+      "responseSha256": "a77b5f7306fc13ea03e3065197bf36250d8452be3b0b8c8fc8b4ddfaa44560d8",
+      "formattedSha256": "19e572e5702625678f0428a6489d664c94c8f4e6ab069afb75fd16124c21e140",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-10-true",
+      "responseSha256": "0de391f8c65b282caf131aa10163ac5421b7acee79d324fec29904786f068f62",
+      "formattedSha256": "07c9bee6b99b01af3a73c231c923b78c474af5b8fa8f7b5631ae33ff17f757aa",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-11-false",
+      "responseSha256": "74bfbf00dedefb3ed79706446088eb3f9b982ff8f585789c842f2ccd7d8083a8",
+      "formattedSha256": "46952967dcf1cca6be01248e7a9ecc094d69ede299fdd6acbf09d8894a16f4e4",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-11-true",
+      "responseSha256": "726ef33852111769e79cef0f5e5febee27fc162ca7e61822679453f27256f68a",
+      "formattedSha256": "ef1b6e4507cd54553a03ac97284319f64138403fdc45ed9c2775002e796d0708",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-12-false",
+      "responseSha256": "8f48513b01cea97547fff61d70e967492aa07c4b07157b0746b782cbddf6e7a0",
+      "formattedSha256": "081c342bcbd917a0276d70d95a77ca6960b7c6dafc327bf24618457283a23696",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-12-true",
+      "responseSha256": "a5b4bce73c5c2aa09eaa9cc9dea018bd159de18449da2b01d10bb91b4745d58f",
+      "formattedSha256": "c793a87482a84190bb7ce4e40e4206bc05313365c2b1030c2e389459afbec7ed",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-13-false",
+      "responseSha256": "22a767e402ebc7921bead072ba68d021500df100b1cf5109d8e311593ba0e3e9",
+      "formattedSha256": "629399627b3102b86741640c8a8f9426df7bf8fddb88d4d4f8d3a2105f1b7380",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-13-true",
+      "responseSha256": "c3874ce463f27e8919933f942fd5aba41cc8949c7ae3d16d9b9e81456a3d64b0",
+      "formattedSha256": "1651a828744fe636f7de1b470bf4d104f5de6c7b7fb34d9508f11386b7955d03",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-14-false",
+      "responseSha256": "08e79c5722d641db7a43c972457d1fec63310aa9ef3f5daa482f85f907a2ef9c",
+      "formattedSha256": "64c6c03d6c87bba568d2a45c42ab01522ef484bba94d37f17a9145139e4114c7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-14-true",
+      "responseSha256": "299d785bb9048672a52d1b5ddc90e20c922bb680140f7b86301ae9f68ca5263c",
+      "formattedSha256": "bdf1d85d93d9a452744a9df0ba66f8599d6e558b3ef33c8655cba0750d0d8df9",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-15-false",
+      "responseSha256": "09f262ccdd3d355d2b492aacf5f894da8cda5056cb428ee9bea7489bf4a454aa",
+      "formattedSha256": "de0289f163cf43d8c14a25570324e9c298c8a2462bf8aeddbba2cbec0c1c910a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-15-true",
+      "responseSha256": "dd9e39ff356c8c29bfaa1586950eb3ef142dc900a3967cf8ecf4ed01958ef66a",
+      "formattedSha256": "1acb0e2b4f80099d7c0b04ca873b3a149ba3194fcc2954f2b98a15faddda1eb2",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-16-false",
+      "responseSha256": "cadfd94c55ce605d493853acd08bec9a32ffd1754408e60612a5fc288c7a19c8",
+      "formattedSha256": "88b66f91aa058f60e0a5e2aa9fe410400e31565017c04a2f8b0fdace1ab97b27",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-16-true",
+      "responseSha256": "394e498ecb2705685ed9d1d79df8adf62a25321b7772165d81d9190ef2b9a782",
+      "formattedSha256": "60448e769f30b0ad975270e8be88cd6bbcb9b769de2fd79524fc8ac666090990",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-17-false",
+      "responseSha256": "8788af09405b7efa25325c592fd3584971dfc47b665361b8af06b1223c3db0bc",
+      "formattedSha256": "8cb4250f405d58692354ae9c45ffb3510e473092e38953afa615788e0c8a443a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-17-true",
+      "responseSha256": "2d684e4b69265325cf6ebf107fbcdf020f4bc9caf22781466ac47955e19239a8",
+      "formattedSha256": "eb21452e87b4d3723297964d2d37bffd1451775a158998c70f54438373714bce",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-18-false",
+      "responseSha256": "28a7b09c045707d5089be3815b10dd865d4bff1139710a77cbe6a29fa8540a2e",
+      "formattedSha256": "3764b50f9e0ef578e056f6f9aa6d94f416d2b4c68fc77b401231b871eb928693",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-18-true",
+      "responseSha256": "33e85ba44b9e04bc2b56e0d0ae2ef4fedc0cb9077ae0bd8b96158efe7f3ace64",
+      "formattedSha256": "a64f02af443d714edf3ef5e540a7f2f02e439c725f8d17b0ba957dd84dd82912",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-19-false",
+      "responseSha256": "df41776c1313851d476029b528eafc60463adad965deed6b6185ca3dfa01287f",
+      "formattedSha256": "e7ac1cff548b2592c0cd38b80b79628fd709f466f5eb3a39e9f198a9a784d531",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-19-true",
+      "responseSha256": "2ab43210969ed24d5758359bf823e1258b6bb3033a8976695ecceeaa165ae241",
+      "formattedSha256": "3b6c40319a03e6048d12d07fec1753a83f3ac71cf1fc13b487e9079aa7944229",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-20-false",
+      "responseSha256": "2e318e1d0d922fe64e82237795963da9a7198c83f779be6d838197236437376d",
+      "formattedSha256": "f29f31eb59173f8bb831b587ffd59ee678fbbc3a953a76495b19f062d847ac97",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-20-true",
+      "responseSha256": "12faeac4afc54a388cdb063b8bb612b5bace7d1a1fd3fa7e60840dd59925d21c",
+      "formattedSha256": "1b74b8833bd43fd7d3bccb52d0460bc5305080467cdae7c3cd02adcc6d984c83",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-21-false",
+      "responseSha256": "bb4b560880e0cb239e7148078b4d06ca0655fc58bc87863faa4bc84829093ace",
+      "formattedSha256": "c71bdca3bc6fc8629022b98c1208b067398018e08dcd25997f5d1c74bf34d2b2",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-21-true",
+      "responseSha256": "b8a96210730d3b7a56952907331551348fd81684f4b82a784d63586d5b26e3e5",
+      "formattedSha256": "9fd5c0e596105a9177d1e91e2fc45ed6db5d06991d65311b3866eb7b4ca19ddf",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-22-false",
+      "responseSha256": "52fbe9e6c75164e18fec0c9f84ead345f828784ee73d48c35fb08d30823d855e",
+      "formattedSha256": "172ab74a2732ae9185e6d69d64635d2c68b58bb73ec401d5ca1adc890b60ad1c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-22-true",
+      "responseSha256": "5a7d0b47d2aa77f199a8784d43bac32dc21275edb327becbcfa884b0d386dd67",
+      "formattedSha256": "270fd4276d92eeb30133f112349f02cc134bb73bd5ff5578d3794b6921f9a283",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-23-false",
+      "responseSha256": "e306dfebeca1b659ed6ec75c48a9010296b435e21c021dd7ae01039fe05c1084",
+      "formattedSha256": "4e696598f9f43997edea3b9c7dfe712ffe09040181c0673297aad7ef6c64d898",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-23-true",
+      "responseSha256": "cff519890177cfd88d94a2ccc68ba5527ed538260e3f1cfc97d49fd62b4705c3",
+      "formattedSha256": "61fdedd8420e3e02c5ff4740082cfea0b454d3187326e704f08a6757dddfdf93",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-24-false",
+      "responseSha256": "b5e04722604f84f5d1cbb998eeb1a8757f820911648f1c8ecc46e85f09d230d7",
+      "formattedSha256": "94f24c37dd96d813fc72b0298cebb01762751a1c8fade76076b0b29a425e95cc",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-24-true",
+      "responseSha256": "6ffc20572b71313546bc0cf558e45f5a5c24b962c32219a670889a8e197c9c6b",
+      "formattedSha256": "214c79caf90df16ecdf35ac2bc590877e62c162cc005fd7a198f1f32b6a1f382",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-25-false",
+      "responseSha256": "eadf38e2530b7d13682ba234a43979e08619bd6528e1bb5f119a76b284e24907",
+      "formattedSha256": "90346cfef0df5cb39cdc0fcb8444b4fbaee23839fdc7ad784a1175629ada857c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-25-true",
+      "responseSha256": "552d9c25504b84aef912f981429017a278d7b3330852caa20e64e5d475ec394c",
+      "formattedSha256": "04735d05eb8b510aa60324729e1e903a46f3bd666c78e5025a2b35e1792d1e08",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-26-false",
+      "responseSha256": "25d6e1eab6a79fce9acd647adee83e80585d0a1a7ec40e452435b8164cccb2a7",
+      "formattedSha256": "1d59da4e5c40403d466f55efa0c8043f8582db9ac4366349a45c53456557bd56",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-26-true",
+      "responseSha256": "4a546a6549df9a081be2ee53cf38c6c022563d768cba653a6d2dfe803d5c96a2",
+      "formattedSha256": "bf04cbf6ac7279d18e103509064c446ec13894b5c955a30d38972e293df86127",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-27-false",
+      "responseSha256": "ab70e9f41614eea47ceebf60dd21ed76ac544eb5b843bd4c8eabde7e24951665",
+      "formattedSha256": "18359b53a8000febf1c415c2d7bae76087a64c9100fb20d5489affbd96bb946a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-27-true",
+      "responseSha256": "18ebc0071d646d5c0c2d88e2438d6ab5f3f5713c16f7a9888884551f2259bc69",
+      "formattedSha256": "6463025ac75ab636368f18d2579b56fa9d59a7822a3443c700774c162b9c5985",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-28-false",
+      "responseSha256": "17eece4e5522a1b2d87f000c9e518946605fa1468e1cd864dd4ad9c3f6ccadf2",
+      "formattedSha256": "745d895a164d8d8c56e167e63dea655f4515539e99315b867f277097667cc128",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-28-true",
+      "responseSha256": "1bcec2f9f5db3cd7c642a8df5b4048c6f5889c5d1dc98a99b2747bd49cee0698",
+      "formattedSha256": "addca6fdd749a042b67e38c47ce67ffc0b40578cf5873e1a953f29532467ca2d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-29-false",
+      "responseSha256": "dfc872d9a6b404223708d77c3aaf525ac42a81436104debbca7b6dcbdfe797cf",
+      "formattedSha256": "3f446aa17555361929fad716d4f032cfcd081069ca3a191263b010aeaf255b5c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-29-true",
+      "responseSha256": "75066678d5faa16ba032132da7af5fba45433fce7af3f4ef647af994f66d20e0",
+      "formattedSha256": "ec3accbbfa048dab19316c63ee26a584c8cc49e36e5fe0a20cd68932d8e0cf1e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-30-false",
+      "responseSha256": "727ffcef887a2f7aeb7958b48aabe53727cd5517880c88a5dab7f7c140a985c1",
+      "formattedSha256": "fafbb915ddfe9d5b0666201731b0b94c106147766b7432e8e0177d59c89ef29f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-30-true",
+      "responseSha256": "e8725cc259985f31e642fdfcdd1c690258017506f6b3cf2451f4285ccd5bb255",
+      "formattedSha256": "ea50413ec4f38e5f11af14f1e3e7a7250e38f9b3da0606b608780feaa0cab863",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-31-false",
+      "responseSha256": "cf6951221a87ac921770db240fd6ee404813208c7d7cd6b7aa21208296804ca5",
+      "formattedSha256": "b9fa2227a1df26753939488d0bfd2df11df15ffafe011ca0534d3ae283e0de4a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-31-true",
+      "responseSha256": "03b6797722319266f987ac244c45fbd2d6552385c5a9f91ebd6370e064cbd466",
+      "formattedSha256": "8c0aa12df532e59c218c95a0a5a1e6d7f2e15ab5e80bb0d0511ea53441e55bb6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-32-false",
+      "responseSha256": "9dfddbac15cd6c7622637ac37226caefe242ca2ad15408f31a4712930a3dec72",
+      "formattedSha256": "03d9957e2a985b38eb825d7750635712683812da3a38fc05ff37fcd8156cf840",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-32-true",
+      "responseSha256": "b2b6dc76df485506b0f12451adc5a234d7e25d9ec506cb36e20520f675e8b979",
+      "formattedSha256": "82f40c8116aae9a96f865d2b776ab39b9df3c9f4edeb8b9650423536990f0b91",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-33-false",
+      "responseSha256": "cd014ce7be8396ec380f6c299c48594f11e01f9bb24fd2a04ed58027ae65e499",
+      "formattedSha256": "eb7ae7e2a5e51239f6025c31a795a186f8d6dd883b21ab93067aeb26d0bddb1a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-33-true",
+      "responseSha256": "c7c6a874494a46bcb15a6b39371df7be3349a856ee819ee8d47dbf3017b1091a",
+      "formattedSha256": "e0bfdc1fb47e0ab202f6c17c872126d627c98f645fa86cecf8879c6d524d9554",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-34-false",
+      "responseSha256": "c0fbf3421238a717caacd0523f597ff19d3b323a8b5f0f16a043ccc98b0be3c0",
+      "formattedSha256": "8a02d8081d3bc2c6e663990c8a0c399ec471b32864bb849a55ace8dad12fd320",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-34-true",
+      "responseSha256": "b9dafef822eb7e001df7512a64a272d45d350b7a62e38740bd5d3db8cf26e475",
+      "formattedSha256": "16587785e35d19c84dd2e23e23e6c2d137a80f77b1c767d5fec6d38e8023ffef",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-35-false",
+      "responseSha256": "c116d42b02850ca231aa02f66e03c3b7a381baec822d83d1884729dab48637b5",
+      "formattedSha256": "96cc34d848608b458a608a02a8d185d0593f07ba33a86ca4aaa18d417eff4c4d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-35-true",
+      "responseSha256": "a8cb2b700b46434beeee991f95770649041ad38050e7bc96766b9b28dbc5dee3",
+      "formattedSha256": "3d27794b8275e9ddfd36efd81bf158c6197170a789f9678652a09d30d94f972c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-36-false",
+      "responseSha256": "a131042ff40aa3de50bd314cfde9975cedfe000fdc13f56b79b33381d04fe9f3",
+      "formattedSha256": "e223b06e56185e817639475578b7b801b8458d622a0e5b02ea6b882b6de33b0f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-36-true",
+      "responseSha256": "975c6a527945717d30443439484eac5f4fdbf2c55f7d87a13fbca1c5f6a87c3b",
+      "formattedSha256": "a37b0f93ce0fce210b6b0760eaec544a9934807649b7a56291b00049caa01a1b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-37-false",
+      "responseSha256": "49d883d0d0d2aa590fb13f9a82adbf856f5fb199957b5766c0ecb6de60051d9e",
+      "formattedSha256": "5bddb777891f16e77f42a4710778f40b2b2cfc7abe812b4f1cbfaacb802cd26e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-37-true",
+      "responseSha256": "03b66aa304c8d2a119066dd8fe90d584b1a05a300168fb408c7600ca59284f29",
+      "formattedSha256": "db3bec9f4be10b4823f3d209637cd1ceaa50b9c2030d2ef608536c86df35ddd2",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-38-false",
+      "responseSha256": "f07419a4e4446a23ca5d123dd878ed7f3997fbe66c3c2cf7462b3f02621185df",
+      "formattedSha256": "c8376818d4eb636a3f1d63910e8ec36d3ade402a2bc468ebc3f8c8b77fca0c64",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-38-true",
+      "responseSha256": "c6fd6f64d18d288b9e4a3d3a7264139d62e047ea8e38770628995e8500f81aa1",
+      "formattedSha256": "303be0e4281b8031ff12d722f3c7805b008e02dface4d13c943d0ca0cada33fb",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-39-false",
+      "responseSha256": "e63e0e553756d6d4e2f375c6dd6711da10cfc89b540bb502880f47cd4df24039",
+      "formattedSha256": "36952d6b63550c66a7b1abc49a83e4af0f16765e8f8099cb6b48f89205bae928",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-39-true",
+      "responseSha256": "c69c1c92ae079a61acf3e9aa9b0c7df4d75832e8a38f12eff7181bb483ce43a8",
+      "formattedSha256": "8a9333862a1148763af917172cbf7a26bddfc786e07c4e15c299419f5ee0db43",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-40-false",
+      "responseSha256": "9b9cbc2fc5ab50f73f733f4762b643527bab5bc602e23e52fa2edf3a4d4a1865",
+      "formattedSha256": "adbb920baed90d43facdcb63ad16309e38823e812e065b3c853800338db62f15",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-40-true",
+      "responseSha256": "fd301e312dbd7788a49044c5ab747ad749e9f6a6f98de5ef6d8e25541d347086",
+      "formattedSha256": "021ef0901926458df711d49f1815df023773b96178fbfc2be18cbc79ab1530df",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-41-false",
+      "responseSha256": "dfe07d85919df835d64d87fc5db14e0002d0fa15504fd9419b762b80e32c3220",
+      "formattedSha256": "89220e25dcc7841df4cd274bb22ccb3f459d37febf9629a53671884aede7f24b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-41-true",
+      "responseSha256": "caac5b92bd8020dd8fa07c25dfb86869865cd4319c0d79a0eb4d0e6307fdb0d7",
+      "formattedSha256": "898e0723fc638b10613eaea86a9ae54d5ad1aa0558a1c972fa92189b8c79e934",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-42-false",
+      "responseSha256": "ba539fa5b5cf03fd568df6d670b6bf05ce92c4f265e4a00fa9096a667c4adfef",
+      "formattedSha256": "7df57c077c855ada3cdf09a5f124a914f84234b36d323666cd3c028627c26426",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-42-true",
+      "responseSha256": "8a40355b1d9f2c3559cfd4c344569293f10aca9ae36b14f9558eab91b335e441",
+      "formattedSha256": "7f724a19264fecbe19f57133a93c9e6c449057d7f590a9d02a2bcae2747e2536",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-43-false",
+      "responseSha256": "b426e1f7f23163e2068e1e1dd893d391c426d980f8c65eb8214333d2d49465eb",
+      "formattedSha256": "65600b8620cf7001bc97f16e8c17ff1978c4e341d6309a7942676cbcc892b5fb",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-43-true",
+      "responseSha256": "09216e4cb4664efc7d971de9f8e8a254040269e68415271bdd0cd0c9254484a8",
+      "formattedSha256": "41a8e8d9c83d3e999fa1ecdf25026deaeac20810d54043bd89cdf49417766535",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-44-false",
+      "responseSha256": "085739ba5749e667a2e282eea7ae90f49d2d7ec46789369c629545b6701d1eb2",
+      "formattedSha256": "07c2cf7404777604b572e2bccda318f12ec17676c6a51dcd0066418e40bfd81f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-44-true",
+      "responseSha256": "41e5b2d6585acbbf56e81bd8f8f6cbdc987b578cfba784f8fcf8c7486c68ba9d",
+      "formattedSha256": "f99f7aded37a21a4bdbf5657630a99f0d7e572d3e9a8c221c41f6b740fe0dd65",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-45-false",
+      "responseSha256": "b748c58e8bceeba0c183d6310bc80593eae4d6055363b7583c291f11ee36b840",
+      "formattedSha256": "121fad06b6e81c65ae6baa402f36969f3e3e60d978c599b7a72356c293475072",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-45-true",
+      "responseSha256": "8a3794770f76155eac3e33fe9a3367e5600e1dc693d933c5f4586940d5b6bba4",
+      "formattedSha256": "d7186eeb593b831ab2ca7ada6530b9cf2004b4ec7a9f7ee7f7739567c60a9a52",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-46-false",
+      "responseSha256": "0c4d974a363026a94d5819c237e0ed2e8baeda423c68ef8aeacae1dd2508d7d3",
+      "formattedSha256": "a2b1ca2ae1404f22076f45473daca3bca0366d3339cb519b196f6efb76b1b9f7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-46-true",
+      "responseSha256": "96edeb24258d02597a8aadddbf04000227b00f2c02636fc67dac4a3a9a4f5ecc",
+      "formattedSha256": "98f6aad77f1407e148ea8017f9ba19de8c66a03090cbddce96c0570a45666621",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-47-false",
+      "responseSha256": "5e8def7e4583147446e2442b849d8d58a2223ee470c6116bfc5e7ab9a2e9375a",
+      "formattedSha256": "995c68c389d5e5f1a7088920a8fe403a1c2d5d82d7d9332a34eeb9f2c535d024",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-47-true",
+      "responseSha256": "c14029c1211f7c71a380b4dff81187d2484d63165f0b26810202ad95030b9280",
+      "formattedSha256": "5a7d60afae6f3022ac0d1138cfe4f168507549d9538ad863b9e697518f7f5582",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-48-false",
+      "responseSha256": "659dc85d7f98e4049978090ce94cf423819976dc28f01cd020ef0ac06bc54423",
+      "formattedSha256": "8cbb38d93c77a98ef8c3067bd67ab5ed5fa4398ef83dda2fb74829a5ed677fa5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-48-true",
+      "responseSha256": "6a89cb31a147c8b7bf9000df53b0b800a6253d68482939a0de8d3d0c17ca4c25",
+      "formattedSha256": "3eb2d646f8bb3957532fc86c3cab3862f86fce12835a53a789fcd059ccc0bc57",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-49-false",
+      "responseSha256": "c1c1073fb8797acaf1106b8a462a4c9c38c433c2ad9e90616f25dd49c1e4dbd8",
+      "formattedSha256": "eba7d77897444194d28b8c25b3f844e7d4ec79201db84f5b9eb1f237e7a7b8f6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "positive-49-true",
+      "responseSha256": "4a87320e2611922c50a35dd7c348bc75005f8246c0df266c6711e70052d86e10",
+      "formattedSha256": "16c0ccc5226d73f49a6eb95a24af219986a1401ad8ac0f29ec715fb12c1e867b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-휴학-1-1",
+      "responseSha256": "59d8fc3dc13c411626302a0dc2c3d35de81bea4db65a60ad629d70e8836201a6",
+      "formattedSha256": "4da18c19fe2dc109b3d407880d9b3484ff50b400db86b88254401f51d6588ba3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-휴학-1-2",
+      "responseSha256": "59d8fc3dc13c411626302a0dc2c3d35de81bea4db65a60ad629d70e8836201a6",
+      "formattedSha256": "4da18c19fe2dc109b3d407880d9b3484ff50b400db86b88254401f51d6588ba3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-휴학-1-3",
+      "responseSha256": "59d8fc3dc13c411626302a0dc2c3d35de81bea4db65a60ad629d70e8836201a6",
+      "formattedSha256": "4da18c19fe2dc109b3d407880d9b3484ff50b400db86b88254401f51d6588ba3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-휴학-1-4",
+      "responseSha256": "59d8fc3dc13c411626302a0dc2c3d35de81bea4db65a60ad629d70e8836201a6",
+      "formattedSha256": "4da18c19fe2dc109b3d407880d9b3484ff50b400db86b88254401f51d6588ba3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-휴학-1-5",
+      "responseSha256": "59d8fc3dc13c411626302a0dc2c3d35de81bea4db65a60ad629d70e8836201a6",
+      "formattedSha256": "4da18c19fe2dc109b3d407880d9b3484ff50b400db86b88254401f51d6588ba3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-휴학-2-1",
+      "responseSha256": "6e04959fd1c4c449b2187f23005d000bb1313571e10c4e7311f2d4f820ae57b5",
+      "formattedSha256": "d614e35c5073f6d3f43ea31974a4ffdec2ad50699221a1fc917d456890cdfcb7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-휴학-2-2",
+      "responseSha256": "7cf8d4ef96af211c7b83ef3205078467a6ae406c902a94818a2a6f6af8f843b4",
+      "formattedSha256": "72ad835f67cf4c7291cc7b40653e46ea71fb1b22e385b24d247df372981bf553",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-휴학-2-3",
+      "responseSha256": "7cf8d4ef96af211c7b83ef3205078467a6ae406c902a94818a2a6f6af8f843b4",
+      "formattedSha256": "72ad835f67cf4c7291cc7b40653e46ea71fb1b22e385b24d247df372981bf553",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-휴학-2-4",
+      "responseSha256": "7cf8d4ef96af211c7b83ef3205078467a6ae406c902a94818a2a6f6af8f843b4",
+      "formattedSha256": "72ad835f67cf4c7291cc7b40653e46ea71fb1b22e385b24d247df372981bf553",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-휴학-2-5",
+      "responseSha256": "7cf8d4ef96af211c7b83ef3205078467a6ae406c902a94818a2a6f6af8f843b4",
+      "formattedSha256": "72ad835f67cf4c7291cc7b40653e46ea71fb1b22e385b24d247df372981bf553",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-휴학-3-1",
+      "responseSha256": "cf67e572daad28fcfe54d112e2b5ac9eb2424e83faa65d3388637b47ae5d0457",
+      "formattedSha256": "be34d2b47ab55e6b009b64edc0fe511d63894ed40757e9d0ffa1ce1cf79388e7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-휴학-3-2",
+      "responseSha256": "f532245d8b94ddfac2c5c8304a1d34a365f749511f317cd9d082de674b1be69b",
+      "formattedSha256": "1e84571bf6a84540eddec31b4096d1a56041d51a601896e5007368c94b296ccb",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-휴학-3-3",
+      "responseSha256": "2cbd45aa58757b1cf18be3e1856087ab7a12523ed2afca2c1e373e49c7518acb",
+      "formattedSha256": "bdd45b8830b9809066e54e313f90d69df7781697814f7bde6503043920e317d8",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-휴학-3-4",
+      "responseSha256": "2cbd45aa58757b1cf18be3e1856087ab7a12523ed2afca2c1e373e49c7518acb",
+      "formattedSha256": "bdd45b8830b9809066e54e313f90d69df7781697814f7bde6503043920e317d8",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-휴학-3-5",
+      "responseSha256": "2cbd45aa58757b1cf18be3e1856087ab7a12523ed2afca2c1e373e49c7518acb",
+      "formattedSha256": "bdd45b8830b9809066e54e313f90d69df7781697814f7bde6503043920e317d8",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-휴학-4-1",
+      "responseSha256": "1e5037b447463e656bbf4681d76a7668044430d640d66fbd2bc3c743ad5a4f9f",
+      "formattedSha256": "638c77afdbc7dff043af091a2a778c9347f9f46d78a654d14834be0c0b41fb99",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-휴학-4-2",
+      "responseSha256": "3ac313c6824d2ca36ac1400f0db05b160eb4b77c6984c6514f232b1434a30ea7",
+      "formattedSha256": "6b845ba1b4b7d4e1f19713ba22eb86dc48147c36c31ef52615075709d3a2191d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-휴학-4-3",
+      "responseSha256": "883e996b4f7e9cc944c2c049d1e609761e2356e547f2a9049997a91cfbd76057",
+      "formattedSha256": "433c95114c0c3dbd11d5938255f2c92f2b5600fbbd3bffa7b2d776537da0f0ca",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-휴학-4-4",
+      "responseSha256": "cbad9cce0c6f54c6838b9b9ba9355ced7cef4086ed35bdaa41b380ef2d30c15d",
+      "formattedSha256": "90d661ba3e493bb78e1ab1130447eee3e9f88d06577695141823845c252565e5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-휴학-4-5",
+      "responseSha256": "cbad9cce0c6f54c6838b9b9ba9355ced7cef4086ed35bdaa41b380ef2d30c15d",
+      "formattedSha256": "90d661ba3e493bb78e1ab1130447eee3e9f88d06577695141823845c252565e5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-복학-1-1",
+      "responseSha256": "fc1d99fe02a4d8eca7a6ecc6a4825b6253f1e13f6ddc33b290259f9a372fbdfc",
+      "formattedSha256": "a017a910aa9b55486bce77bffd90c0c7e22707ef619c28db44144caa11427d90",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-복학-1-2",
+      "responseSha256": "fc1d99fe02a4d8eca7a6ecc6a4825b6253f1e13f6ddc33b290259f9a372fbdfc",
+      "formattedSha256": "a017a910aa9b55486bce77bffd90c0c7e22707ef619c28db44144caa11427d90",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-복학-1-3",
+      "responseSha256": "fc1d99fe02a4d8eca7a6ecc6a4825b6253f1e13f6ddc33b290259f9a372fbdfc",
+      "formattedSha256": "a017a910aa9b55486bce77bffd90c0c7e22707ef619c28db44144caa11427d90",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-복학-1-4",
+      "responseSha256": "fc1d99fe02a4d8eca7a6ecc6a4825b6253f1e13f6ddc33b290259f9a372fbdfc",
+      "formattedSha256": "a017a910aa9b55486bce77bffd90c0c7e22707ef619c28db44144caa11427d90",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-복학-1-5",
+      "responseSha256": "fc1d99fe02a4d8eca7a6ecc6a4825b6253f1e13f6ddc33b290259f9a372fbdfc",
+      "formattedSha256": "a017a910aa9b55486bce77bffd90c0c7e22707ef619c28db44144caa11427d90",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-복학-2-1",
+      "responseSha256": "590304f0a60eaa9a79343c931a8b18bb71f15b80ea085be6ad47be43a9612bdd",
+      "formattedSha256": "a10df3a7cc7e2c4c83d7251f7a88d6b41234859130f7ffcaa9bf9070b65b3831",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-복학-2-2",
+      "responseSha256": "bdf4333a26caf0565b34e977f4a6c1e828bf3723c351d8558cdee370b727b679",
+      "formattedSha256": "f6fbe1da725bdca50872fe338a767674fa8e6b13801875b937ece3d59e559a12",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-복학-2-3",
+      "responseSha256": "bdf4333a26caf0565b34e977f4a6c1e828bf3723c351d8558cdee370b727b679",
+      "formattedSha256": "f6fbe1da725bdca50872fe338a767674fa8e6b13801875b937ece3d59e559a12",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-복학-2-4",
+      "responseSha256": "bdf4333a26caf0565b34e977f4a6c1e828bf3723c351d8558cdee370b727b679",
+      "formattedSha256": "f6fbe1da725bdca50872fe338a767674fa8e6b13801875b937ece3d59e559a12",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-복학-2-5",
+      "responseSha256": "bdf4333a26caf0565b34e977f4a6c1e828bf3723c351d8558cdee370b727b679",
+      "formattedSha256": "f6fbe1da725bdca50872fe338a767674fa8e6b13801875b937ece3d59e559a12",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-복학-3-1",
+      "responseSha256": "d0e1166dcc1316a6a881e3b534f31ae7e21c4b420e92622b52ae2092038a25cc",
+      "formattedSha256": "e8c50a557c66b67df7248a3d7871a18977b3723774a1c71610c12b25a75a6cc6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-복학-3-2",
+      "responseSha256": "ba3eac0601eca09af17845fdd4158803c232defb85bf9e72062a265687df2dc4",
+      "formattedSha256": "93e36f1e190c2fda56ca807344b5002b9dcabfbc3086c0096091c102fffde9f0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-복학-3-3",
+      "responseSha256": "8ea33da0cab23ea55dd6e1609b6a26621abadc80d7ff58db9bcc737368ea855e",
+      "formattedSha256": "5e812da51fd41d2fd7d470d27199bc6ee9af057e6f3b63857180c18229f3442a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-복학-3-4",
+      "responseSha256": "8ea33da0cab23ea55dd6e1609b6a26621abadc80d7ff58db9bcc737368ea855e",
+      "formattedSha256": "5e812da51fd41d2fd7d470d27199bc6ee9af057e6f3b63857180c18229f3442a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-복학-3-5",
+      "responseSha256": "8ea33da0cab23ea55dd6e1609b6a26621abadc80d7ff58db9bcc737368ea855e",
+      "formattedSha256": "5e812da51fd41d2fd7d470d27199bc6ee9af057e6f3b63857180c18229f3442a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-복학-4-1",
+      "responseSha256": "a9ac4d231abaeb64460ab3232d76ed3adf8d3bbd50491f3004e3ae14d9554608",
+      "formattedSha256": "881cfd987b0b8fa4258b785b5a7b594c587af54b565344d020298dbe500e51bb",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-복학-4-2",
+      "responseSha256": "5f39c953baf403133f596f3b91df9e7f80fdda18fbb5ab6b3a8c46af557f559d",
+      "formattedSha256": "efe355abb8e62e226f4a0375fc5ddb8ee999707b418ae37fd2d6993fa7b48ab8",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-복학-4-3",
+      "responseSha256": "efefc61289280ccdf54adfae16bada722b5ea12f75dd6ae4ef4f04f0b097c132",
+      "formattedSha256": "5fdd9a5be853a8d34927d77a872498b5eeba2f0bbbfc4a336c5df5c37dbc9e2f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-복학-4-4",
+      "responseSha256": "ebda04bb6491ceba5a2cb36df2a59f668e6ca252ce9a52232b96c731d9094a62",
+      "formattedSha256": "580932db44006246cf05135b8448c80116c9d2f887ba567dc41b61bc5bffc3e9",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-복학-4-5",
+      "responseSha256": "ebda04bb6491ceba5a2cb36df2a59f668e6ca252ce9a52232b96c731d9094a62",
+      "formattedSha256": "580932db44006246cf05135b8448c80116c9d2f887ba567dc41b61bc5bffc3e9",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-재입학-1-1",
+      "responseSha256": "f0de125e0af8b25a194364cae09ddbfebe78519838798332f0236a2a2f8d552f",
+      "formattedSha256": "b47fee2116d5ad88d007c1682f7f5c783df1a6ea8bc3bb96efc5725529f1d16d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-재입학-1-2",
+      "responseSha256": "f0de125e0af8b25a194364cae09ddbfebe78519838798332f0236a2a2f8d552f",
+      "formattedSha256": "b47fee2116d5ad88d007c1682f7f5c783df1a6ea8bc3bb96efc5725529f1d16d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-재입학-1-3",
+      "responseSha256": "f0de125e0af8b25a194364cae09ddbfebe78519838798332f0236a2a2f8d552f",
+      "formattedSha256": "b47fee2116d5ad88d007c1682f7f5c783df1a6ea8bc3bb96efc5725529f1d16d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-재입학-1-4",
+      "responseSha256": "f0de125e0af8b25a194364cae09ddbfebe78519838798332f0236a2a2f8d552f",
+      "formattedSha256": "b47fee2116d5ad88d007c1682f7f5c783df1a6ea8bc3bb96efc5725529f1d16d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-재입학-1-5",
+      "responseSha256": "f0de125e0af8b25a194364cae09ddbfebe78519838798332f0236a2a2f8d552f",
+      "formattedSha256": "b47fee2116d5ad88d007c1682f7f5c783df1a6ea8bc3bb96efc5725529f1d16d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-재입학-2-1",
+      "responseSha256": "fb739d79626b297a9fb8c9b9f664bf9dc9724258153951a36fa1c0f8adb0803d",
+      "formattedSha256": "9a68b42b15caa20d48d51cd4fa73f3f2c7f1c4496db7a5f5aa0bb972caddeb92",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-재입학-2-2",
+      "responseSha256": "a86bef4568fbb99923f4ad510b3b78fafd73be1982de3eff9486b46b1ab99341",
+      "formattedSha256": "e957305d98d27af1b680731481d2177e4789ac488e4c6e39c3e318f2365d694d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-재입학-2-3",
+      "responseSha256": "a86bef4568fbb99923f4ad510b3b78fafd73be1982de3eff9486b46b1ab99341",
+      "formattedSha256": "e957305d98d27af1b680731481d2177e4789ac488e4c6e39c3e318f2365d694d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-재입학-2-4",
+      "responseSha256": "a86bef4568fbb99923f4ad510b3b78fafd73be1982de3eff9486b46b1ab99341",
+      "formattedSha256": "e957305d98d27af1b680731481d2177e4789ac488e4c6e39c3e318f2365d694d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-재입학-2-5",
+      "responseSha256": "a86bef4568fbb99923f4ad510b3b78fafd73be1982de3eff9486b46b1ab99341",
+      "formattedSha256": "e957305d98d27af1b680731481d2177e4789ac488e4c6e39c3e318f2365d694d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-재입학-3-1",
+      "responseSha256": "76bebcfd89d9d313f9436d9ac596c78f8bc9f4f0e0a36664a3f64783bbf1dd75",
+      "formattedSha256": "e3bd1631b2ed99273712cd3134c4e28a48f6ed5fc42681c44a1074358133b4b6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-재입학-3-2",
+      "responseSha256": "9bf6ae6537398409051c5579891260d08606db1ff8e1e2a08eef351e2c0005a9",
+      "formattedSha256": "7d9ec56164a1dcf850865f58d14ee46b6b7f3a680789ed750dba228e1806743f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-재입학-3-3",
+      "responseSha256": "903cb5f96b252e996752676e6c9debf32878a15384089df7b7bbc0c1e3dae61a",
+      "formattedSha256": "9e63f5202c4d0e7aab02688bf7d1530be12c63f8f567c18b49ad80edbbc986de",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-재입학-3-4",
+      "responseSha256": "903cb5f96b252e996752676e6c9debf32878a15384089df7b7bbc0c1e3dae61a",
+      "formattedSha256": "9e63f5202c4d0e7aab02688bf7d1530be12c63f8f567c18b49ad80edbbc986de",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-재입학-3-5",
+      "responseSha256": "903cb5f96b252e996752676e6c9debf32878a15384089df7b7bbc0c1e3dae61a",
+      "formattedSha256": "9e63f5202c4d0e7aab02688bf7d1530be12c63f8f567c18b49ad80edbbc986de",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-재입학-4-1",
+      "responseSha256": "98b502096776666b4d52d3cdc225be09014884cacdc051e531e130554af9b309",
+      "formattedSha256": "fac1563775d9c98d2b61f45d5437cd8e7cf70ff128c4506cc37f4ff0cead7743",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-재입학-4-2",
+      "responseSha256": "681ae6859b3002e890b31b50a2ec3e2628e1fa52293ad753686875c8363fd83f",
+      "formattedSha256": "dfe8e36619530f85a07abe03efc9c8a96f44b8efcbc11382abedfea31f32acb1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-재입학-4-3",
+      "responseSha256": "6dade2eceb5ff9ae715b90f449397143707b09a70e8d0494aed7ebd9540b6ad2",
+      "formattedSha256": "0d58ea1fcb9f7ae30f5833ea228273196f39c7b3cdfa0728c5fa3dd718fd89d4",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-재입학-4-4",
+      "responseSha256": "620435d60e4f3b18e7f7ebcc6ede9d857f632e1253f45776e02b58a95ec07e5a",
+      "formattedSha256": "e1b30abb0d03949b2525e94339548b0c85e8795b8d5f350b03ac9130ecc4bfe7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-재입학-4-5",
+      "responseSha256": "620435d60e4f3b18e7f7ebcc6ede9d857f632e1253f45776e02b58a95ec07e5a",
+      "formattedSha256": "e1b30abb0d03949b2525e94339548b0c85e8795b8d5f350b03ac9130ecc4bfe7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-전과-1-1",
+      "responseSha256": "75e03834ce2ec2190759a481b1cebe977b6990dede4a42a29d529ce4f93f89d1",
+      "formattedSha256": "95d6cabf8f53bc661172fa8ca102396870b9856cd8c8480819765bd46c87e57c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-전과-1-2",
+      "responseSha256": "75e03834ce2ec2190759a481b1cebe977b6990dede4a42a29d529ce4f93f89d1",
+      "formattedSha256": "95d6cabf8f53bc661172fa8ca102396870b9856cd8c8480819765bd46c87e57c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-전과-1-3",
+      "responseSha256": "75e03834ce2ec2190759a481b1cebe977b6990dede4a42a29d529ce4f93f89d1",
+      "formattedSha256": "95d6cabf8f53bc661172fa8ca102396870b9856cd8c8480819765bd46c87e57c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-전과-1-4",
+      "responseSha256": "75e03834ce2ec2190759a481b1cebe977b6990dede4a42a29d529ce4f93f89d1",
+      "formattedSha256": "95d6cabf8f53bc661172fa8ca102396870b9856cd8c8480819765bd46c87e57c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-전과-1-5",
+      "responseSha256": "75e03834ce2ec2190759a481b1cebe977b6990dede4a42a29d529ce4f93f89d1",
+      "formattedSha256": "95d6cabf8f53bc661172fa8ca102396870b9856cd8c8480819765bd46c87e57c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-전과-2-1",
+      "responseSha256": "e5441b5a182bc32b5a8bd7985bded37d938d7644f1589644313b67e9ab2fc1c7",
+      "formattedSha256": "09c9049cce53e8f812e45d5cc58ad1d32bce965ea6dd690d96a9e0a711b0fb9e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-전과-2-2",
+      "responseSha256": "c562457f34a8c13b0a8f29825d328a492ba554b64eb34e75b02d986f78b7d335",
+      "formattedSha256": "ba5d7cba6819b5919fd325eb5c8c3686c58bebf24af25774d24332845339ea71",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-전과-2-3",
+      "responseSha256": "c562457f34a8c13b0a8f29825d328a492ba554b64eb34e75b02d986f78b7d335",
+      "formattedSha256": "ba5d7cba6819b5919fd325eb5c8c3686c58bebf24af25774d24332845339ea71",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-전과-2-4",
+      "responseSha256": "c562457f34a8c13b0a8f29825d328a492ba554b64eb34e75b02d986f78b7d335",
+      "formattedSha256": "ba5d7cba6819b5919fd325eb5c8c3686c58bebf24af25774d24332845339ea71",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-전과-2-5",
+      "responseSha256": "c562457f34a8c13b0a8f29825d328a492ba554b64eb34e75b02d986f78b7d335",
+      "formattedSha256": "ba5d7cba6819b5919fd325eb5c8c3686c58bebf24af25774d24332845339ea71",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-전과-3-1",
+      "responseSha256": "0949055e1568335ee257f51cf3e2ef16bb40e02ab1193cd2f7ac4308f065eac9",
+      "formattedSha256": "833f60aad5300e9c0a7ad1611f6e38a6908a152641c42fbe1ab170249b1e9c2c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-전과-3-2",
+      "responseSha256": "a4d35fb74e2d68e8cc0054d08bc73aab59545c652531a4eed615fe649b73499d",
+      "formattedSha256": "f8fbcd87f606894936ce744220632ef1c96e9c6847b94dbfdaec0a3b7b3493c1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-전과-3-3",
+      "responseSha256": "b8c5bd90cc29004ebb0eb9f7b520f8f347d57b5a0356ef8e7beeb6a087824803",
+      "formattedSha256": "4cdc6082c13a25a3e3dd7110e3d46f2c49397715249d2ea43047ab5fa81aaa32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-전과-3-4",
+      "responseSha256": "b8c5bd90cc29004ebb0eb9f7b520f8f347d57b5a0356ef8e7beeb6a087824803",
+      "formattedSha256": "4cdc6082c13a25a3e3dd7110e3d46f2c49397715249d2ea43047ab5fa81aaa32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-전과-3-5",
+      "responseSha256": "b8c5bd90cc29004ebb0eb9f7b520f8f347d57b5a0356ef8e7beeb6a087824803",
+      "formattedSha256": "4cdc6082c13a25a3e3dd7110e3d46f2c49397715249d2ea43047ab5fa81aaa32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-전과-4-1",
+      "responseSha256": "02b002b4698624d8b535bfa0a5791bf26502e50053866d50c67cba9b86a45832",
+      "formattedSha256": "002be41da439a12b5f075473e49d08edef8d101e4183997c0ce925402ebe55fd",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-전과-4-2",
+      "responseSha256": "a6b0e27109ba7f70835944e46827fc0ef74ab49f4d4457cb070c11c7299dfab1",
+      "formattedSha256": "9b58d763e4b2acdd49172843c309908b0b2ea1da5db4f029cbf0fbde120227f3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-전과-4-3",
+      "responseSha256": "aff92c75416170c0a2d6cc2cf7bf96cd8c3ffc06a441f33a361b55a64d45b660",
+      "formattedSha256": "c8bba4ccbc16a39ceb273085bdccf6c05c2960e7c8c5662ead9425572e1a0039",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-전과-4-4",
+      "responseSha256": "415ff73d23a6592d269f59f960ea326b5ce2839226330f419bd2296009d064c9",
+      "formattedSha256": "f63e3ad8821138b0e226088058d13ebe7f87874167a89455b43700f4a6ceed5a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-전과-4-5",
+      "responseSha256": "415ff73d23a6592d269f59f960ea326b5ce2839226330f419bd2296009d064c9",
+      "formattedSha256": "f63e3ad8821138b0e226088058d13ebe7f87874167a89455b43700f4a6ceed5a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-졸업-1-1",
+      "responseSha256": "6ffc20572b71313546bc0cf558e45f5a5c24b962c32219a670889a8e197c9c6b",
+      "formattedSha256": "214c79caf90df16ecdf35ac2bc590877e62c162cc005fd7a198f1f32b6a1f382",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-졸업-1-2",
+      "responseSha256": "6ffc20572b71313546bc0cf558e45f5a5c24b962c32219a670889a8e197c9c6b",
+      "formattedSha256": "214c79caf90df16ecdf35ac2bc590877e62c162cc005fd7a198f1f32b6a1f382",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-졸업-1-3",
+      "responseSha256": "6ffc20572b71313546bc0cf558e45f5a5c24b962c32219a670889a8e197c9c6b",
+      "formattedSha256": "214c79caf90df16ecdf35ac2bc590877e62c162cc005fd7a198f1f32b6a1f382",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-졸업-1-4",
+      "responseSha256": "6ffc20572b71313546bc0cf558e45f5a5c24b962c32219a670889a8e197c9c6b",
+      "formattedSha256": "214c79caf90df16ecdf35ac2bc590877e62c162cc005fd7a198f1f32b6a1f382",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-졸업-1-5",
+      "responseSha256": "6ffc20572b71313546bc0cf558e45f5a5c24b962c32219a670889a8e197c9c6b",
+      "formattedSha256": "214c79caf90df16ecdf35ac2bc590877e62c162cc005fd7a198f1f32b6a1f382",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-졸업-2-1",
+      "responseSha256": "a1444f342df384a6b29ba9c5840210d0726dcc5a6f0cafbfcd7ff382fc6ee2ba",
+      "formattedSha256": "932e7c4e04d1d9eae0f66041304fde87c1aac1df401572773da8e86acfdab49e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-졸업-2-2",
+      "responseSha256": "c5d662d2e5945d585859ca07651f0c880de80ba8be9ba8897dd7bd499d6f470c",
+      "formattedSha256": "29e46902dd78b3ffde740b01c2aba8027a3ed78e1a0aa721c92950a7773320d3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-졸업-2-3",
+      "responseSha256": "c5d662d2e5945d585859ca07651f0c880de80ba8be9ba8897dd7bd499d6f470c",
+      "formattedSha256": "29e46902dd78b3ffde740b01c2aba8027a3ed78e1a0aa721c92950a7773320d3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-졸업-2-4",
+      "responseSha256": "c5d662d2e5945d585859ca07651f0c880de80ba8be9ba8897dd7bd499d6f470c",
+      "formattedSha256": "29e46902dd78b3ffde740b01c2aba8027a3ed78e1a0aa721c92950a7773320d3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-졸업-2-5",
+      "responseSha256": "c5d662d2e5945d585859ca07651f0c880de80ba8be9ba8897dd7bd499d6f470c",
+      "formattedSha256": "29e46902dd78b3ffde740b01c2aba8027a3ed78e1a0aa721c92950a7773320d3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-졸업-3-1",
+      "responseSha256": "41e7fcecd625425897c65d9fd2387fb6f712aa880ccaa3dfa1cfa031ad8aaf17",
+      "formattedSha256": "94ad3c4eccde2a300a918a703a1fd73dc64fa70caebd27587b28f3e0732cfc8f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-졸업-3-2",
+      "responseSha256": "badc1f0f7cd5f784be3a53053459e7f5f2646f8cb0b65ba079eb0f8ef1aa1c1b",
+      "formattedSha256": "55f6e85240d29ed097d617ff701f4e875c0ef1fa7a800ab6f606f893f932da72",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-졸업-3-3",
+      "responseSha256": "eec1938c293f2e25c916111de102ad3f6bf75e0c668d354e4d356f170dc1a4eb",
+      "formattedSha256": "36215ffe1ae9d6f5e30be1730cb50504d80d859688362d229dc6615caae0e9bc",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-졸업-3-4",
+      "responseSha256": "eec1938c293f2e25c916111de102ad3f6bf75e0c668d354e4d356f170dc1a4eb",
+      "formattedSha256": "36215ffe1ae9d6f5e30be1730cb50504d80d859688362d229dc6615caae0e9bc",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-졸업-3-5",
+      "responseSha256": "eec1938c293f2e25c916111de102ad3f6bf75e0c668d354e4d356f170dc1a4eb",
+      "formattedSha256": "36215ffe1ae9d6f5e30be1730cb50504d80d859688362d229dc6615caae0e9bc",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-졸업-4-1",
+      "responseSha256": "a0c93cc62cac391b63f315da2077a66809420cb6e1a0e9d6a2980eae23cd0187",
+      "formattedSha256": "0bddea753df9bda869de5e74c93f55951042f252e9a56e83d60785f64ab68335",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-졸업-4-2",
+      "responseSha256": "d559c0fe31b79ebe342b2d3f40b0bffa41002ab280a53fa3d8fc6ad11093cbbe",
+      "formattedSha256": "d600725dd1a5076a07506762e03e1e3bb3e8d2b4a7548ad4ecb2c5e8de900510",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-졸업-4-3",
+      "responseSha256": "7b1b1701fd5c354d4c4bd36875b61b8f9ad1d97992adf602796740e44ffae2f7",
+      "formattedSha256": "700d4a3092542773143b565a15a18a324c25a1fea875667a9fa21cc40512e290",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-졸업-4-4",
+      "responseSha256": "b78f27b2a512c66c38f89d90a7a1deff7150fc34a57380c084c25bd26138c0ca",
+      "formattedSha256": "48f07b20d0524b08343a3c707efe908da471bc91c20152033311e78daf95a32a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-졸업-4-5",
+      "responseSha256": "b78f27b2a512c66c38f89d90a7a1deff7150fc34a57380c084c25bd26138c0ca",
+      "formattedSha256": "48f07b20d0524b08343a3c707efe908da471bc91c20152033311e78daf95a32a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수료-1-1",
+      "responseSha256": "16ceffc9c8af5b43cad071f4acc6a4dd4b65c266d153db998d3eeb39a53e2a21",
+      "formattedSha256": "c05e281e012d0fc98b3e93da787d453254708ce51b9b0ae7efe5b8a23dfc2bd5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수료-1-2",
+      "responseSha256": "16ceffc9c8af5b43cad071f4acc6a4dd4b65c266d153db998d3eeb39a53e2a21",
+      "formattedSha256": "c05e281e012d0fc98b3e93da787d453254708ce51b9b0ae7efe5b8a23dfc2bd5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수료-1-3",
+      "responseSha256": "16ceffc9c8af5b43cad071f4acc6a4dd4b65c266d153db998d3eeb39a53e2a21",
+      "formattedSha256": "c05e281e012d0fc98b3e93da787d453254708ce51b9b0ae7efe5b8a23dfc2bd5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수료-1-4",
+      "responseSha256": "16ceffc9c8af5b43cad071f4acc6a4dd4b65c266d153db998d3eeb39a53e2a21",
+      "formattedSha256": "c05e281e012d0fc98b3e93da787d453254708ce51b9b0ae7efe5b8a23dfc2bd5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수료-1-5",
+      "responseSha256": "16ceffc9c8af5b43cad071f4acc6a4dd4b65c266d153db998d3eeb39a53e2a21",
+      "formattedSha256": "c05e281e012d0fc98b3e93da787d453254708ce51b9b0ae7efe5b8a23dfc2bd5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수료-2-1",
+      "responseSha256": "893e6dbe8901f7b3568f2401b7f8c9f7451be1fa75431919f3e43f02838d933b",
+      "formattedSha256": "d5d9cdc7258cebcfd76bee270335a305eb59695b277efb6ee0b7e1c1b76c08ac",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수료-2-2",
+      "responseSha256": "d908d95891216ce68d13f601b64379436190afb1423d73806301c71541fee7ad",
+      "formattedSha256": "2d144394810b3342ba93c0d6731a5d73f4534c2a3e2b703895ce833f30aaf65a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수료-2-3",
+      "responseSha256": "d908d95891216ce68d13f601b64379436190afb1423d73806301c71541fee7ad",
+      "formattedSha256": "2d144394810b3342ba93c0d6731a5d73f4534c2a3e2b703895ce833f30aaf65a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수료-2-4",
+      "responseSha256": "d908d95891216ce68d13f601b64379436190afb1423d73806301c71541fee7ad",
+      "formattedSha256": "2d144394810b3342ba93c0d6731a5d73f4534c2a3e2b703895ce833f30aaf65a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수료-2-5",
+      "responseSha256": "d908d95891216ce68d13f601b64379436190afb1423d73806301c71541fee7ad",
+      "formattedSha256": "2d144394810b3342ba93c0d6731a5d73f4534c2a3e2b703895ce833f30aaf65a",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수료-3-1",
+      "responseSha256": "75f8a8adf4997b17d145075d1e0f265856c2ca08c66baea95a07672ba6904695",
+      "formattedSha256": "01b4e9ff098aadf618d5ecd1ec4a017d4d5a8d9bf27c236dfcd686459d1b5520",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수료-3-2",
+      "responseSha256": "f7351d5c1d13ac82cfece9307c597b44d8d55d2874739b6d082f5492cb2c6d24",
+      "formattedSha256": "3cfebf8fdf4c9fc7fa89d62b597fb1a6f56036f9ec04f5dd359aea2ac4cee630",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수료-3-3",
+      "responseSha256": "b440c5649d1255b9212d8d66d44520674955dba83f8f6250d11045fb06c7fce0",
+      "formattedSha256": "118f6776bafa1ba0011c1576e01e205711d2baef3af2a4c830095a3f03d4279e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수료-3-4",
+      "responseSha256": "b440c5649d1255b9212d8d66d44520674955dba83f8f6250d11045fb06c7fce0",
+      "formattedSha256": "118f6776bafa1ba0011c1576e01e205711d2baef3af2a4c830095a3f03d4279e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수료-3-5",
+      "responseSha256": "b440c5649d1255b9212d8d66d44520674955dba83f8f6250d11045fb06c7fce0",
+      "formattedSha256": "118f6776bafa1ba0011c1576e01e205711d2baef3af2a4c830095a3f03d4279e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수료-4-1",
+      "responseSha256": "78f4f89c763979558585497406b56ce805f166c41d1fcf87e9e93824281a8dff",
+      "formattedSha256": "8f95fe412b5f789b1def380d682e0457c60bbcd7784e3320bec754cc32b785db",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수료-4-2",
+      "responseSha256": "de13af293c888e993d6df0c2c01c703d1b1fa11e776e809482027d16f6215169",
+      "formattedSha256": "ccdeab221b3654bad8e57d2aff35edcee197afe4fea8ada382ba5d70dec8a318",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수료-4-3",
+      "responseSha256": "a3cb8cbd5dfaa7d1c83296935cc1cbb6e77285bb96cc1c769eb1655c56dfa5c3",
+      "formattedSha256": "6a369e234d50c35845b403da0e5da75605c1e026753e44811cd60cc5cb71ab4b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수료-4-4",
+      "responseSha256": "ca20047a7e6331395a193d803a1fda8c0b64f38046f8d4069d2b59653c13f604",
+      "formattedSha256": "2c49c10173552fb8100f1939c8fa4609da2bcdbf0b10962763c750d6c6f3da71",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수료-4-5",
+      "responseSha256": "ca20047a7e6331395a193d803a1fda8c0b64f38046f8d4069d2b59653c13f604",
+      "formattedSha256": "2c49c10173552fb8100f1939c8fa4609da2bcdbf0b10962763c750d6c6f3da71",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-학점-1-1",
+      "responseSha256": "c4b7a9dea9aa677d87c1a98830187f0d48bef1a6caba31290245e5b58c970427",
+      "formattedSha256": "9aef205796bbf70cff915b3d856ed7990e954794f39861bbecb2bcdfeb9120a0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-학점-1-2",
+      "responseSha256": "c4b7a9dea9aa677d87c1a98830187f0d48bef1a6caba31290245e5b58c970427",
+      "formattedSha256": "9aef205796bbf70cff915b3d856ed7990e954794f39861bbecb2bcdfeb9120a0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-학점-1-3",
+      "responseSha256": "c4b7a9dea9aa677d87c1a98830187f0d48bef1a6caba31290245e5b58c970427",
+      "formattedSha256": "9aef205796bbf70cff915b3d856ed7990e954794f39861bbecb2bcdfeb9120a0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-학점-1-4",
+      "responseSha256": "c4b7a9dea9aa677d87c1a98830187f0d48bef1a6caba31290245e5b58c970427",
+      "formattedSha256": "9aef205796bbf70cff915b3d856ed7990e954794f39861bbecb2bcdfeb9120a0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-학점-1-5",
+      "responseSha256": "c4b7a9dea9aa677d87c1a98830187f0d48bef1a6caba31290245e5b58c970427",
+      "formattedSha256": "9aef205796bbf70cff915b3d856ed7990e954794f39861bbecb2bcdfeb9120a0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-학점-2-1",
+      "responseSha256": "8b3a020502cdc45148dab50b0ce28278904cdd5ff522fb8639cd38751ed72d28",
+      "formattedSha256": "17a18316020260802724bd54b5ad7ea2bd5fc2611b712c6dd36dc3dbd7ac8735",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-학점-2-2",
+      "responseSha256": "50abd2297076e9132690008b0d910c3f2c5a138b05ecd98235afaf5ea4f557f7",
+      "formattedSha256": "69885864a3ec1f6cf146a50257a9e95cf7eda3112daf34b6402fa4439c0338e1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-학점-2-3",
+      "responseSha256": "50abd2297076e9132690008b0d910c3f2c5a138b05ecd98235afaf5ea4f557f7",
+      "formattedSha256": "69885864a3ec1f6cf146a50257a9e95cf7eda3112daf34b6402fa4439c0338e1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-학점-2-4",
+      "responseSha256": "50abd2297076e9132690008b0d910c3f2c5a138b05ecd98235afaf5ea4f557f7",
+      "formattedSha256": "69885864a3ec1f6cf146a50257a9e95cf7eda3112daf34b6402fa4439c0338e1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-학점-2-5",
+      "responseSha256": "50abd2297076e9132690008b0d910c3f2c5a138b05ecd98235afaf5ea4f557f7",
+      "formattedSha256": "69885864a3ec1f6cf146a50257a9e95cf7eda3112daf34b6402fa4439c0338e1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-학점-3-1",
+      "responseSha256": "1f746e09ebcc2c11e1eebc50d34c86146cce2421b3654160a252847acdcbcd7b",
+      "formattedSha256": "6e761e2aa4c6659704500e5b6ce800b0f66891f995e0673c8fbf42056f6b21a7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-학점-3-2",
+      "responseSha256": "bf8e27d88c184be727f3f926b07f967bb7d64c2aa79758f7a28245f6f462d691",
+      "formattedSha256": "98d02256fefba8149dd4f6217fa36d02dc3768dc75eb8759313fcf8abab88049",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-학점-3-3",
+      "responseSha256": "978a65ccc48dd5499fa1442612356413e8cdc931558d43f9a53e5ab9829b0c8a",
+      "formattedSha256": "ea8f21d8be4a081cd15a1eb5b6fa30960fa3a3854e3c8f170413a532dcd0d151",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-학점-3-4",
+      "responseSha256": "978a65ccc48dd5499fa1442612356413e8cdc931558d43f9a53e5ab9829b0c8a",
+      "formattedSha256": "ea8f21d8be4a081cd15a1eb5b6fa30960fa3a3854e3c8f170413a532dcd0d151",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-학점-3-5",
+      "responseSha256": "978a65ccc48dd5499fa1442612356413e8cdc931558d43f9a53e5ab9829b0c8a",
+      "formattedSha256": "ea8f21d8be4a081cd15a1eb5b6fa30960fa3a3854e3c8f170413a532dcd0d151",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-학점-4-1",
+      "responseSha256": "a36e653720115dfcbd1b380f93245474c13a14b2247919ef4e3e0918eccf68d9",
+      "formattedSha256": "8672ff9326182c672c3f2c61e3e4e5e5422cfa275bf4cb2b4a95ea28b7e6c334",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-학점-4-2",
+      "responseSha256": "241ed3fccb33c3487778277ec2f53a85f24ec94ef4af6206c0c7e59bf2b9e53b",
+      "formattedSha256": "8ece40fdf93cc8f04186f92e8b42b226f83c4e6f910fc8c3d170311ae7e7e73f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-학점-4-3",
+      "responseSha256": "88e5a3bf797b8766934c137bbd1059d84eac163ef14d59a603866a49a1f5dd01",
+      "formattedSha256": "ca97c58c6b5b3029c82bc541ff12b23d2fd47359d3c3b541c0821e25aefb88b2",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-학점-4-4",
+      "responseSha256": "f17fa2fcac6fac7bb811db1126d44fdefd68ae348de856dcb07d45110fa5e907",
+      "formattedSha256": "16c616f189cc3fad0d770a120be9a288e91b54e44fbb5e7b792bb8a738b423bf",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-학점-4-5",
+      "responseSha256": "f17fa2fcac6fac7bb811db1126d44fdefd68ae348de856dcb07d45110fa5e907",
+      "formattedSha256": "16c616f189cc3fad0d770a120be9a288e91b54e44fbb5e7b792bb8a738b423bf",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-1-1",
+      "responseSha256": "b863aa9d69588c771bac38ac090d5a68b120f3ec4de13973f3999c80d3bb772e",
+      "formattedSha256": "6ba086e85c5aba2bf317cbee64cf20ab6dc8fcb2e66b654791095da0948ba8b0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-1-2",
+      "responseSha256": "b863aa9d69588c771bac38ac090d5a68b120f3ec4de13973f3999c80d3bb772e",
+      "formattedSha256": "6ba086e85c5aba2bf317cbee64cf20ab6dc8fcb2e66b654791095da0948ba8b0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-1-3",
+      "responseSha256": "b863aa9d69588c771bac38ac090d5a68b120f3ec4de13973f3999c80d3bb772e",
+      "formattedSha256": "6ba086e85c5aba2bf317cbee64cf20ab6dc8fcb2e66b654791095da0948ba8b0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-1-4",
+      "responseSha256": "b863aa9d69588c771bac38ac090d5a68b120f3ec4de13973f3999c80d3bb772e",
+      "formattedSha256": "6ba086e85c5aba2bf317cbee64cf20ab6dc8fcb2e66b654791095da0948ba8b0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-1-5",
+      "responseSha256": "b863aa9d69588c771bac38ac090d5a68b120f3ec4de13973f3999c80d3bb772e",
+      "formattedSha256": "6ba086e85c5aba2bf317cbee64cf20ab6dc8fcb2e66b654791095da0948ba8b0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-2-1",
+      "responseSha256": "82b3522ecba3d0d64edc8574e80f7baa3a6841de481c22dddcf81d9b31d51ab8",
+      "formattedSha256": "45d2f7ee080d1808f5043842ae88040ec51738fe509960e4d5b58edb73509bb4",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-2-2",
+      "responseSha256": "4c7e491d14ecab1fe33b82917cb9e4c40d2021360d50ecf93ada89508b8a064c",
+      "formattedSha256": "4a5fef19a1ce3376a05646e0db0fa9ec0cc5306dd18774b1f8ba0a287f199785",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-2-3",
+      "responseSha256": "4c7e491d14ecab1fe33b82917cb9e4c40d2021360d50ecf93ada89508b8a064c",
+      "formattedSha256": "4a5fef19a1ce3376a05646e0db0fa9ec0cc5306dd18774b1f8ba0a287f199785",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-2-4",
+      "responseSha256": "4c7e491d14ecab1fe33b82917cb9e4c40d2021360d50ecf93ada89508b8a064c",
+      "formattedSha256": "4a5fef19a1ce3376a05646e0db0fa9ec0cc5306dd18774b1f8ba0a287f199785",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-2-5",
+      "responseSha256": "4c7e491d14ecab1fe33b82917cb9e4c40d2021360d50ecf93ada89508b8a064c",
+      "formattedSha256": "4a5fef19a1ce3376a05646e0db0fa9ec0cc5306dd18774b1f8ba0a287f199785",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-3-1",
+      "responseSha256": "727a2c2bf8e0c8bc7f37964891c5c989c5abe56a377358021e4deacf7d175aef",
+      "formattedSha256": "c51e8f08d685bce65955223d9e6b12b8fbe1a8a7475f70b697fbd0a95244764d",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-3-2",
+      "responseSha256": "758ac2b2f8dafdcf52398048ff0959d20fb265dd409eaf3ea8a2068bb232cdd3",
+      "formattedSha256": "08bf6991c8a745fd8b8ea843353552e7ff576498973f1844003dcfbeb56db332",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-3-3",
+      "responseSha256": "ccb643c12e3ffa78e881229c9a544bb55d6fb6c67dc62a3a93137fa018269b0f",
+      "formattedSha256": "034d33a3c9bd80852d58c760359f573bc4f49260cd1adfcd7da3ee59146daf66",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-3-4",
+      "responseSha256": "ccb643c12e3ffa78e881229c9a544bb55d6fb6c67dc62a3a93137fa018269b0f",
+      "formattedSha256": "034d33a3c9bd80852d58c760359f573bc4f49260cd1adfcd7da3ee59146daf66",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-3-5",
+      "responseSha256": "ccb643c12e3ffa78e881229c9a544bb55d6fb6c67dc62a3a93137fa018269b0f",
+      "formattedSha256": "034d33a3c9bd80852d58c760359f573bc4f49260cd1adfcd7da3ee59146daf66",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-4-1",
+      "responseSha256": "bdf2f5dc148b64ea075e375594e209c9bd720e9cd18ca69982523650d734d3dc",
+      "formattedSha256": "660f1fb31beb9048ea64974f36d68f5f9830244482e8ad6d39111a99bef67d4c",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-4-2",
+      "responseSha256": "e7a09cceb0a8fc77950420165072d754bd8b2c776a3afad94de8c5bdce5f0a53",
+      "formattedSha256": "eb265016028e1c647329082798fb5085c575e7ca4e9840d3c87bd38c6efa49b6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-4-3",
+      "responseSha256": "6bb92114c77d58a06cc11c7b7ec6256d473de42fe9cec0f4fda6b374dd75ff91",
+      "formattedSha256": "48ddb5cffe05f9bf8413087f2a9743b5066a2c097cc55783e64e0c064517a789",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-4-4",
+      "responseSha256": "381c89508ac673868fed0a38e99fca6c17f727e74620c4472f18b42049ab4c95",
+      "formattedSha256": "84e1230348e54903cb746e9d93f81c9ff845030af97978fabc902c1386e75ac7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-수강신청-4-5",
+      "responseSha256": "381c89508ac673868fed0a38e99fca6c17f727e74620c4472f18b42049ab4c95",
+      "formattedSha256": "84e1230348e54903cb746e9d93f81c9ff845030af97978fabc902c1386e75ac7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-제적-1-1",
+      "responseSha256": "7f997f29628eb6381b6eccdd094554ee27ff6b7e4ad71cb2fbece7a111c6bf25",
+      "formattedSha256": "874cb7e8ae5f81478b971083d73d0609044d9cdfc3b502e0d7b8bf11110ffd32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-제적-1-2",
+      "responseSha256": "7f997f29628eb6381b6eccdd094554ee27ff6b7e4ad71cb2fbece7a111c6bf25",
+      "formattedSha256": "874cb7e8ae5f81478b971083d73d0609044d9cdfc3b502e0d7b8bf11110ffd32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-제적-1-3",
+      "responseSha256": "7f997f29628eb6381b6eccdd094554ee27ff6b7e4ad71cb2fbece7a111c6bf25",
+      "formattedSha256": "874cb7e8ae5f81478b971083d73d0609044d9cdfc3b502e0d7b8bf11110ffd32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-제적-1-4",
+      "responseSha256": "7f997f29628eb6381b6eccdd094554ee27ff6b7e4ad71cb2fbece7a111c6bf25",
+      "formattedSha256": "874cb7e8ae5f81478b971083d73d0609044d9cdfc3b502e0d7b8bf11110ffd32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-제적-1-5",
+      "responseSha256": "7f997f29628eb6381b6eccdd094554ee27ff6b7e4ad71cb2fbece7a111c6bf25",
+      "formattedSha256": "874cb7e8ae5f81478b971083d73d0609044d9cdfc3b502e0d7b8bf11110ffd32",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-제적-2-1",
+      "responseSha256": "96c28305da6f2a988bc119e5c705ddfd07d852b579de16ec0c39f50157d808ca",
+      "formattedSha256": "9384afac71b84a62ec0ccab3a6dee1ebb375853adcb512f184f02f3f87c29b88",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-제적-2-2",
+      "responseSha256": "2069d933fac80598c615c9d42aa2e76385ba2c9d14062660490a28311486b138",
+      "formattedSha256": "51782a86f043ee3a95dd0a2e85c5cfecb3abec272b7f380b2c263095591edfe7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-제적-2-3",
+      "responseSha256": "2069d933fac80598c615c9d42aa2e76385ba2c9d14062660490a28311486b138",
+      "formattedSha256": "51782a86f043ee3a95dd0a2e85c5cfecb3abec272b7f380b2c263095591edfe7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-제적-2-4",
+      "responseSha256": "2069d933fac80598c615c9d42aa2e76385ba2c9d14062660490a28311486b138",
+      "formattedSha256": "51782a86f043ee3a95dd0a2e85c5cfecb3abec272b7f380b2c263095591edfe7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-제적-2-5",
+      "responseSha256": "2069d933fac80598c615c9d42aa2e76385ba2c9d14062660490a28311486b138",
+      "formattedSha256": "51782a86f043ee3a95dd0a2e85c5cfecb3abec272b7f380b2c263095591edfe7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-제적-3-1",
+      "responseSha256": "bf9a98952b321d046f0e7590ad6efbd6f18ce9d0526d7ac6d1dc079e3e8715ba",
+      "formattedSha256": "9f4e331732231ace0ea25af3cf5138bf4de93a63d3747a3271ce110f6d36d957",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-제적-3-2",
+      "responseSha256": "f016a5fc4f4d01f0725d7bb1bb99729178c6b0b8c1804d48da79c2918adfb0c4",
+      "formattedSha256": "7cc4443a2c9c8e8238d75d71ef70de0190822bbb1b9e04d670bad911dfc0d9d5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-제적-3-3",
+      "responseSha256": "a5a7825548d8a356150adc45f206f12febbf2cfe901692280515b03c03541fb4",
+      "formattedSha256": "3c39fd940ee0f977cc297ce80adb6c90b26c6b472ba4d89368a678677fd852af",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-제적-3-4",
+      "responseSha256": "a5a7825548d8a356150adc45f206f12febbf2cfe901692280515b03c03541fb4",
+      "formattedSha256": "3c39fd940ee0f977cc297ce80adb6c90b26c6b472ba4d89368a678677fd852af",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-제적-3-5",
+      "responseSha256": "a5a7825548d8a356150adc45f206f12febbf2cfe901692280515b03c03541fb4",
+      "formattedSha256": "3c39fd940ee0f977cc297ce80adb6c90b26c6b472ba4d89368a678677fd852af",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-제적-4-1",
+      "responseSha256": "0846e17aae99bdf767d70b496d3372a2a68ab34e2801bbb8b48dc33ac7303406",
+      "formattedSha256": "326cacd3d81b9b56985b1c3762949f2a7637af845d00a300dfede01255bdd08e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-제적-4-2",
+      "responseSha256": "b0dc419b636e6ff55e9a30d1381f773356273bb0298605dd3ed9273a710de044",
+      "formattedSha256": "7099c23c09212463261426b0a9f1b5646201c9028907e790ded7c8ea1c1354d9",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-제적-4-3",
+      "responseSha256": "5e2ed09080044feee041e962cf9d6c009288f55942f23dd4c47ac38b31ffd746",
+      "formattedSha256": "8c5656872a6f9d1e3a668ca0bafbd12dee442e19f61ecf99cbbdca132bc3799f",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-제적-4-4",
+      "responseSha256": "74ee3faccc6961e78d6110fd7fe4f4c21ea6ebf6ff80c86797363f05422eec3d",
+      "formattedSha256": "5e3aeff0f247340ab22408fa0dfce22c7de714f6407dc0ba84f0177b89354bc6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-제적-4-5",
+      "responseSha256": "74ee3faccc6961e78d6110fd7fe4f4c21ea6ebf6ff80c86797363f05422eec3d",
+      "formattedSha256": "5e3aeff0f247340ab22408fa0dfce22c7de714f6407dc0ba84f0177b89354bc6",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-1-1",
+      "responseSha256": "6a5aeca24b0f4814f6127995887b21bf8c358d656b4936f76ea157d3081e4d48",
+      "formattedSha256": "899e0cbfe63cbd277f609ae993eebc44e0ca8b6f7f4a9b968e99e2188fbd49c5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-1-2",
+      "responseSha256": "6a5aeca24b0f4814f6127995887b21bf8c358d656b4936f76ea157d3081e4d48",
+      "formattedSha256": "899e0cbfe63cbd277f609ae993eebc44e0ca8b6f7f4a9b968e99e2188fbd49c5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-1-3",
+      "responseSha256": "6a5aeca24b0f4814f6127995887b21bf8c358d656b4936f76ea157d3081e4d48",
+      "formattedSha256": "899e0cbfe63cbd277f609ae993eebc44e0ca8b6f7f4a9b968e99e2188fbd49c5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-1-4",
+      "responseSha256": "6a5aeca24b0f4814f6127995887b21bf8c358d656b4936f76ea157d3081e4d48",
+      "formattedSha256": "899e0cbfe63cbd277f609ae993eebc44e0ca8b6f7f4a9b968e99e2188fbd49c5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-1-5",
+      "responseSha256": "6a5aeca24b0f4814f6127995887b21bf8c358d656b4936f76ea157d3081e4d48",
+      "formattedSha256": "899e0cbfe63cbd277f609ae993eebc44e0ca8b6f7f4a9b968e99e2188fbd49c5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-2-1",
+      "responseSha256": "99682db2a8e16964ac2bab063f20973ecbbae32308b52543e1ccafcc23f50967",
+      "formattedSha256": "a22b1853ce47b47ee1f09b4179c9ffcb0b1b264fa6a8012c8c1f468a9112666e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-2-2",
+      "responseSha256": "9342b11fb6002b851fb78f4bb8dfc5bae7a3f5901f37bd0d6542ee383082e1a1",
+      "formattedSha256": "123724ff37717fa909cb73d75928e99da3e4508a9665b5e35b909289322df706",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-2-3",
+      "responseSha256": "9342b11fb6002b851fb78f4bb8dfc5bae7a3f5901f37bd0d6542ee383082e1a1",
+      "formattedSha256": "123724ff37717fa909cb73d75928e99da3e4508a9665b5e35b909289322df706",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-2-4",
+      "responseSha256": "9342b11fb6002b851fb78f4bb8dfc5bae7a3f5901f37bd0d6542ee383082e1a1",
+      "formattedSha256": "123724ff37717fa909cb73d75928e99da3e4508a9665b5e35b909289322df706",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-2-5",
+      "responseSha256": "9342b11fb6002b851fb78f4bb8dfc5bae7a3f5901f37bd0d6542ee383082e1a1",
+      "formattedSha256": "123724ff37717fa909cb73d75928e99da3e4508a9665b5e35b909289322df706",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-3-1",
+      "responseSha256": "c9d2e36de34793da11737499b6176c151e04206b4e3f0dfb6518c1b422153b01",
+      "formattedSha256": "dcd0a5fca02364267ad1aa96374b9f3608330b921fb81257b2ec3c09a3000622",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-3-2",
+      "responseSha256": "9e300ac4ff892116f017711aac0874b03e233d1f33baf61eb2e80937382b5e21",
+      "formattedSha256": "7b4f19f9e261bda998dca1946c8d8ef0866a2b41a9968aa2891bee1db15e222e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-3-3",
+      "responseSha256": "47f1cea6a56979c9d002f60d0e58468dbc2b96fa45c02168347edc190835faf3",
+      "formattedSha256": "899dd669133aa98ef185e626ca5b4c261200f3fd606abd7bbd609a609453e608",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-3-4",
+      "responseSha256": "47f1cea6a56979c9d002f60d0e58468dbc2b96fa45c02168347edc190835faf3",
+      "formattedSha256": "899dd669133aa98ef185e626ca5b4c261200f3fd606abd7bbd609a609453e608",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-3-5",
+      "responseSha256": "47f1cea6a56979c9d002f60d0e58468dbc2b96fa45c02168347edc190835faf3",
+      "formattedSha256": "899dd669133aa98ef185e626ca5b4c261200f3fd606abd7bbd609a609453e608",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-4-1",
+      "responseSha256": "d1c255d1cbbfe551dde915bcad7b6ce99940920e8d0f140e1cb719ea0b9da92a",
+      "formattedSha256": "8b09027d389ffa7b6858d1df00d8036860345c945c3dc85ccf63f1c81d0e2121",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-4-2",
+      "responseSha256": "e31ee684d94a1c0c50997133ed916733297d379d263165ca2c4069767c29e7f7",
+      "formattedSha256": "b3a8bd6fcc61c9a57050e784cc5f7314a877a1b27c39b0f858d0c72aaa7e9706",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-4-3",
+      "responseSha256": "d3be49493ec0b485ac2a4d1081303dd440c7c6065629d01219b6c95e3463799d",
+      "formattedSha256": "3834502b1894042232325d8409ddcb9c3eeb01dbd3cba562fa363b4308f98052",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-4-4",
+      "responseSha256": "9cebc02ec2b8923852560f8cb03229e8ced81ccf05e58ec8d6e62ed3969d462b",
+      "formattedSha256": "3d25f06d15e37089679c60bf2ac50906b79b37af92b19cd925f47d7d220c93a3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "ranking-자퇴-4-5",
+      "responseSha256": "9cebc02ec2b8923852560f8cb03229e8ced81ccf05e58ec8d6e62ed3969d462b",
+      "formattedSha256": "3d25f06d15e37089679c60bf2ac50906b79b37af92b19cd925f47d7d220c93a3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13"
+      ]
+    },
+    {
+      "id": "title-휴학-fail",
+      "responseSha256": "82063c9c21c885915f9d0df06a85df9c57782b4e305ace508f8dfbd99bce9ee7",
+      "formattedSha256": "7b99e5ac075cfb7d2cdc5ea1b10a7d2a66e3f409d0e6c61cf17079e7ebd61121",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-휴학-malformed",
+      "responseSha256": "d557daa03a711532799d517f74fcedc587ba7430d91a16075ec42d08c5dcab8f",
+      "formattedSha256": "7b99e5ac075cfb7d2cdc5ea1b10a7d2a66e3f409d0e6c61cf17079e7ebd61121",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-휴학-unrelated",
+      "responseSha256": "5b7444182422b4c45f0d735100dc8a4cc497d3002620a69d0969af68c1c2665c",
+      "formattedSha256": "0d0a8e815dd9c4dcd187a6118ebc066dd0df1e973ab0506deda32ae355e5c410",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-복학-fail",
+      "responseSha256": "1a155bf9fbaf33a789c4e867e8702430ff871c037f15ade49619980e4dbbb322",
+      "formattedSha256": "860bd93ccf4e394daeb4230397484074ac3c686f90aec82d042d2b7a27e724e7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-복학-malformed",
+      "responseSha256": "274cc41f32a5ac505c2e891d2c01b3f6bb9a14064f3c1618e61d9214e8475f74",
+      "formattedSha256": "860bd93ccf4e394daeb4230397484074ac3c686f90aec82d042d2b7a27e724e7",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-복학-unrelated",
+      "responseSha256": "c33fd8b2194a600ad15cc2e06b6df71356b6809b3061d120c5940c82a23fd434",
+      "formattedSha256": "0e217e064c84f3ff02b71489b1b175b3d039aaf068dbc819d2f4a3e561aacfa9",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-재입학-fail",
+      "responseSha256": "ba7935af69d3154cf92d0966a2c2588cb808f075e75c31ca5af5c2c33935938c",
+      "formattedSha256": "cb816ff8614b57ac045ba9896b534ca06d58abda5299b246574075b5c0c87ee2",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-재입학-malformed",
+      "responseSha256": "440fd42e7a0903064deb7ae27f31d326f268d8562efb597483ebcf747bf85285",
+      "formattedSha256": "cb816ff8614b57ac045ba9896b534ca06d58abda5299b246574075b5c0c87ee2",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-재입학-unrelated",
+      "responseSha256": "54b732967c43d5144dd780265b65c091c08d4bd964568086d2d573131772b75c",
+      "formattedSha256": "aef554f2618d821545102d279f4a86f43eccc43d74a0925195056e94f4e872c0",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-전과-fail",
+      "responseSha256": "7c7305b9d99dba85eeb500453fb8de652f95cd229e094d6096e21dbf7b685661",
+      "formattedSha256": "3542eac3870ac52269ff7c53afb98911996f75ba9ec294726bb96073806c6127",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-전과-malformed",
+      "responseSha256": "8e5b20c6fcc5d06c476b7588f3bf151400dafbebc61eedde20f8c63caaae8b36",
+      "formattedSha256": "3542eac3870ac52269ff7c53afb98911996f75ba9ec294726bb96073806c6127",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-전과-unrelated",
+      "responseSha256": "0194e233ed8a63299e91731c0a7b865bf049df22d453d99df3491f7a0ee804d2",
+      "formattedSha256": "a06397c765fb7e4d798fe54209da3fe2eebd7c46707efa42bb505cca9b2dc050",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-졸업-fail",
+      "responseSha256": "900de1c185e9cdfa480a63055ed1c494886bf7aa353d90e15b2fb1bd60f7f10e",
+      "formattedSha256": "ec1526969c460cc377b6652f9630255a8b3f94d6d0bb084a4bca156771a3d0f1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-졸업-malformed",
+      "responseSha256": "bb795bbce128263c21518ae96cc29bd1d66215aa8470236c4c06836155c09669",
+      "formattedSha256": "ec1526969c460cc377b6652f9630255a8b3f94d6d0bb084a4bca156771a3d0f1",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-졸업-unrelated",
+      "responseSha256": "36e31927228c5c2ac11e7bb639e3bc78b9dee795dedfe843d64d30dcb31a84e3",
+      "formattedSha256": "24c499c596d0bd0e83337f5573262e3609b11626d14390b8e7e49b4e7299fd93",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-수료-fail",
+      "responseSha256": "68d253d585c299a6b1ad4b87dba89138e05b9c4a5075f728b36c2ae4365695f9",
+      "formattedSha256": "e59354837fb04a07d923349d40b038f570968c13819e5970181ca5f303b6b414",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-수료-malformed",
+      "responseSha256": "36086fb2b6b15e59a77779401954d99cdcb1c89fdfe4f0c8e20532d8156047f4",
+      "formattedSha256": "e59354837fb04a07d923349d40b038f570968c13819e5970181ca5f303b6b414",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-수료-unrelated",
+      "responseSha256": "87edcfc1cb7c5ca13d237c1c06521ffaab937ec3abdcd15cf06f15ceef9ad388",
+      "formattedSha256": "a04255cd4df000c567dee8cf8b7e275a170edd4c323cebc9f6d18f6200f621da",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-학점-fail",
+      "responseSha256": "94632a62242eba5acc17d8f1ae1ae2c3059abe000574d6e572d894ba979e5759",
+      "formattedSha256": "bfe5c0802c2ec6a8b447c557025fd66966ffbefd91ec32c7c0cbd406f975df4b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-학점-malformed",
+      "responseSha256": "644ba12e35c61db5c0b84edaca48617baf8cb806a6f2bea15e852aeb4dc2b600",
+      "formattedSha256": "bfe5c0802c2ec6a8b447c557025fd66966ffbefd91ec32c7c0cbd406f975df4b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-학점-unrelated",
+      "responseSha256": "0e94508162cd81ad9eb5ba4c995036bd2265640d8d820b9dc83c3c34b72ff265",
+      "formattedSha256": "7a40c56da0e4e7e84c7800f0721fcd8eebe410c8fe673f2a4d73cea79cb72b27",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-수강신청-fail",
+      "responseSha256": "6e1a3bb6b24f1352bf6fc3804892894a52dea7c691911df3a67f5eb1b8397228",
+      "formattedSha256": "9bcad840001375fd5b5763d33798dafb2ab78325b5abe8be3ca5b347ee575113",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-수강신청-malformed",
+      "responseSha256": "d648c176b0ea0cdb48bc6d9e97eaeb4dd240ab3c20b6f938a547431ecac0678c",
+      "formattedSha256": "9bcad840001375fd5b5763d33798dafb2ab78325b5abe8be3ca5b347ee575113",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-수강신청-unrelated",
+      "responseSha256": "022b0b0638bd7030df39b816da8ff46bb1f5c9ad2fd946e63d0259f86992583e",
+      "formattedSha256": "58fc60f34f9294ade7a32dcf4f2802eaee6e430f5e4dc5b49b5e4f1251e6e7e3",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-제적-fail",
+      "responseSha256": "5ced79fde18f79d15416c96c2a5b444862590a44f8d9e8d67590ed8f52de8950",
+      "formattedSha256": "4d1d06b2126d0487f1881677f46c43b90fdf9657a6de2f11be2587b5c22736e4",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-제적-malformed",
+      "responseSha256": "7bda9c587dd9894f20ab36b75568a5b5229200897b58dd11a7190bb0fbb7e322",
+      "formattedSha256": "4d1d06b2126d0487f1881677f46c43b90fdf9657a6de2f11be2587b5c22736e4",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-제적-unrelated",
+      "responseSha256": "0b93013945a00b4294fe0d9ee13533145ba9a251d759239b570b2583708127f3",
+      "formattedSha256": "87e14a2b3236c0755d348a02734c4564e4ede042f55ae069be23515adc8779d5",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-자퇴-fail",
+      "responseSha256": "266c651397ec2111469f23f4567da5daa2b576970746674c8bc291310ff1922d",
+      "formattedSha256": "d6cab1e9f74b793bade76bb1f52eb2b003e6418dd7fd5edb7cf2a8ab2591617e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-자퇴-malformed",
+      "responseSha256": "45fe28e63360e27a101e4a7d45a0b395189ec44a5cc9a2fbfcc6ccec4bce461b",
+      "formattedSha256": "d6cab1e9f74b793bade76bb1f52eb2b003e6418dd7fd5edb7cf2a8ab2591617e",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "title-자퇴-unrelated",
+      "responseSha256": "4fafdb826c084d0633f0f5ca0d60f96b9233743ffb1cf7a94a3304d4d4ee85de",
+      "formattedSha256": "59e59f0dd1ae061604bb028b1e2c0e5eb7f963f88f372220516898843e71de59",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "loader-false-1",
+      "responseSha256": "4da4483b53be7607e8683ee419813a2b62d17d98cd2703eba15057d2a91b236b",
+      "formattedSha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "loader-false-5",
+      "responseSha256": "00ed23a16fdd7d549168d3dac156625332e6f7f28cee97b6967f6432970decd6",
+      "formattedSha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=14"
+      ]
+    },
+    {
+      "id": "loader-true-1",
+      "responseSha256": "4da4483b53be7607e8683ee419813a2b62d17d98cd2703eba15057d2a91b236b",
+      "formattedSha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10"
+      ]
+    },
+    {
+      "id": "loader-true-5",
+      "responseSha256": "00ed23a16fdd7d549168d3dac156625332e6f7f28cee97b6967f6432970decd6",
+      "formattedSha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "calls": [
+        "/ewha/intro/rules.do",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=10",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=11",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=12",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=13",
+        "/ewha/intro/rules.do?mode=view-rule&srRuleCd1=994&srRuleCd2=14"
+      ]
+    }
+  ]
+}
