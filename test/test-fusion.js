@@ -146,13 +146,14 @@ check('jev: 확률이 오면 확률 순서, 없으면 hybrid', () => {
 console.log('측정 요약');
 check('요약: 규정 선택과 조문 선택을 나눠 세고 세트별로 냄', () => {
   const rows = [
-    { id: 'A1', set: 'a', answered: true, ruleInTop3: true, ruleFirst: true, rulesShown: 1, ms: 10 },
+    { id: 'A1', set: 'a', answered: true, ruleInTop3: true, ruleFirst: true, rulesShown: 1, semantic: true, ms: 10 },
     { id: 'A2', set: 'a', answered: false, ruleInTop3: true, ruleFirst: false, rulesShown: 3, ms: 30 },
-    { id: 'B1', set: 'b', answered: false, ruleInTop3: false, ruleFirst: false, rulesShown: 1, ms: 20 },
+    { id: 'B1', set: 'b', answered: false, ruleInTop3: false, ruleFirst: false, rulesShown: 1, error: 'NOT_FOUND', ms: 20 },
   ];
   const { total, sets } = summarize(rows);
   assert.deepEqual([total.questions, total.answered, total.ruleInTop3, total.articleGivenRule, total.singleRule, total.singleRuleRight, total.singleRuleAnswered], [3, 1, 2, 1, 2, 1, 1]);
   assert.equal(total.answeredShare, 33.3);
+  assert.deepEqual([total.semanticUsed, total.errors, sets.a.semanticUsed, sets.b.errors], [1, 1, 1, 1]);
   assert.equal(total.articleGivenRuleShare, 50);
   assert.deepEqual([total.medianMs, total.p95Ms], [20, 30]);
   assert.equal(sets.a.questions, 2);

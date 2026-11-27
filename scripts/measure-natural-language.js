@@ -53,6 +53,8 @@ function summarize(rows) {
       articleGivenRule: withRule.filter(row => row.answered).length, articleGivenRuleShare: share(withRule.filter(row => row.answered).length, withRule.length),
       singleRule: single.length, singleRuleShare: share(single.length, list.length),
       singleRuleRight: single.filter(row => row.ruleFirst).length, singleRuleAnswered: single.filter(row => row.answered).length,
+      // Questions whose candidates came with meaning ranks, and questions the tool answered with an error.
+      semanticUsed: list.filter(row => row.semantic).length, errors: list.filter(row => row.error).length,
       medianMs: times.length ? Math.round(percentile(times, 0.5)) : null, p95Ms: times.length ? Math.round(percentile(times, 0.95)) : null,
     };
   };
@@ -79,7 +81,7 @@ function compareReports(before, after) {
 function formatSummary(report) {
   const line = (name, g) => `| ${name} | ${g.questions} | ${g.answered} (${g.answeredShare}%) | ${g.ruleInTop3} (${g.ruleInTop3Share}%) | ${g.articleGivenRule}/${g.ruleInTop3} (${g.articleGivenRuleShare}%) | ${g.singleRule} (맞는 규정 ${g.singleRuleRight}, 정답 조문 ${g.singleRuleAnswered}) | ${g.medianMs} / ${g.p95Ms} |`;
   return [
-    `순위 방식: ${report.ranking} · 핵심어: ${report.keywords ? '있음' : '없음'} · 의미검색: ${report.semantic ? '사용' : '미사용'} · RSS ${report.rssMb}MB`,
+    `순위 방식: ${report.ranking} · 핵심어: ${report.keywords ? '있음' : '없음'} · 의미검색을 실제로 쓴 문항: ${report.summary.total.semanticUsed}/${report.summary.total.questions} · 오류: ${report.summary.total.errors} · RSS ${report.rssMb}MB`,
     '', '| 세트 | 문항 | 정답 조문 포함(엄격) | 정답 규정 상위 3 | 규정이 맞을 때 조문 포함 | 한 규정만 보여 줌 | 지연 중앙값 / p95 (ms) |', '|---|---:|---:|---:|---:|---:|---:|',
     ...Object.entries(report.summary.sets).map(([name, g]) => line(name, g)), line('합계', report.summary.total),
   ].join('\n');
@@ -141,7 +143,6 @@ async function main(args = process.argv.slice(2)) {
   const keywords = options.keywords ? JSON.parse(fs.readFileSync(options.keywords, 'utf8')) : null;
   const { client, state } = await connect(options);
   const rows = [];
-  let semantic = false;
   for (const file of options.questions) {
     const set = path.basename(file).replace(/\.json$/, '');
     const questions = validateQuestions(JSON.parse(fs.readFileSync(file, 'utf8')));
@@ -152,12 +153,11 @@ async function main(args = process.argv.slice(2)) {
       const response = await client.callTool({ name: 'lookup_dongguk_rule', arguments: { query: question.q, ...extra } });
       const ms = performance.now() - started;
       const score = scoreResponse(question, response, index);
-      semantic = semantic || !!score.search?.semantic;
-      rows.push({ id: score.id, set, answered: !!score.bodyIncluded, ruleInTop3: !!score.top3, ruleFirst: !!score.top1, rulesShown: score.rules.length, ms: Math.round(ms * 10) / 10,
+      rows.push({ id: score.id, set, answered: !!score.bodyIncluded, ruleInTop3: !!score.top3, ruleFirst: !!score.top1, rulesShown: score.rules.length, semantic: !!score.search?.semantic, ms: Math.round(ms * 10) / 10,
         shown: score.rules.map(rule => rule.lawId), ...(score.error ? { error: score.error } : {}) });
     }
   }
-  const report = { ranking: rankingMethod(), keywords: !!keywords, semantic, offline: options.offline, liveFetches: state.liveFetches,
+  const report = { ranking: rankingMethod(), keywords: !!keywords, offline: options.offline, liveFetches: state.liveFetches,
     rssMb: Math.round(process.memoryUsage().rss / 1048576), summary: summarize(rows), rows };
   console.log(formatSummary(report));
   if (options.compare) {
