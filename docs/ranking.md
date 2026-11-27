@@ -33,10 +33,12 @@ rankRules({
   semantic,     // 의미 순위가 있으면 true
   graph,        // Map(lawId → 점수) 또는 null. hybrid는 최대 1.3배 가점, rrf는 한 목록으로 더함(가중 0.5)
   probability,  // Map(lawId → 확률) 또는 null. jev에서 순서를 정함
+  placeAgreementOf, // (candidate, place) → 정수 | null. 규정의 장소를 제목 말고 다른 근거로 읽는 실험용(아래)
   method,       // 생략하면 DONGGUK_MCP_RANKING
 }) // → { method: 실제 쓴 방식, ranked: [{ ...후보, scopeMatch, scopeAmbiguous, editions, order }] }
 ```
 
+- `placeAgreementOf(candidate, place)`: `candidate`는 위 후보 객체, `place`는 `ontology.placeRequest(질문, campus)`의 결과(`{campuses, institutions, specified, ambiguous}`)입니다. 돌려주는 값은 `placeAgreement`와 같은 뜻의 정수입니다 — 양수: 질문이 말한 곳의 규정, 음수: 질문이 말하지 않은 곳의 규정, 0: 전교 규정. **근거가 없으면 `null`을 돌려주면 그 규정은 제목으로 읽습니다.** 정수가 아니거나 예외가 나도 제목으로 읽습니다. `legacy`에서는 부르지 않고, 질문이 장소를 말하지 않으면(`place.specified`가 false) 부르지 않습니다. 판 고르기(같은 계열에서 가장 잘 맞는 판만 남김)와 가중(1.5배·0.6배)은 fusion에 그대로 있습니다. 동기 함수여야 하고, 규정별 판독은 호출부가 색인당 한 번 만들어 재사용합니다.
 - `graph`·`probability`는 후보를 새로 만들지 않습니다. `candidates`에 있는 규정의 순서만 바꿉니다. 그래프로 후보를 넓히려면 호출부(`index.js`의 `rankIndexHits`)에서 후보를 더한 뒤 넘깁니다.
 - 호출부는 과거 기준일·조문/별표 명시·로그인 쿠키 요청에서 새 신호를 넘기지 않습니다(지금은 색인 조회 자체를 하지 않는 경로입니다).
 - `index.js`·`corpus.js`의 순위 코드는 이 모듈을 통해서만 바꿉니다.
