@@ -25,4 +25,16 @@ function verifyHandoff(root) {
   }
   return { ...EXPECTED, public: pub, files: manifest.files, bytes: manifest.bytes, vectorFile: manifest.vectorFile };
 }
-module.exports = { EXPECTED, hash, verifyHandoff };
+const AUX_MANIFEST = 'cc3c9fd1c09456c928d6444188b83e246941ec06756a0cbffe92e15fb52b6bf0';
+function verifyAux(root) {
+  if (hash(path.join(root, 'manifest.json')) !== AUX_MANIFEST) throw new Error('AUX_MANIFEST_MISMATCH');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json')));
+  if (manifest.files.length !== 673) throw new Error('AUX_FILE_COUNT_MISMATCH');
+  for (const entry of manifest.files) {
+    const file = path.join(root, entry.path);
+    if (fs.statSync(file).size !== entry.bytes || hash(file) !== entry.sha256) throw new Error('AUX_FILE_HASH_MISMATCH: ' + entry.path);
+  }
+  return { manifest: AUX_MANIFEST, files: manifest.files.length,
+    harness: hash(path.join(root, 'harness/harness-d1.js')), launcher: hash(path.join(root, 'harness/run2.sh')) };
+}
+module.exports = { EXPECTED, hash, verifyHandoff, verifyAux };
