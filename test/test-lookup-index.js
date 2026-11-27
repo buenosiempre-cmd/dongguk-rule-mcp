@@ -74,7 +74,7 @@ for (const [lawId, title, markdown] of extraRules) {
 seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
   value.markdown = value.markdown.replace(/\n(?=###)/g, '\n\n');
-  seed('content-v3', key, value);
+  seed('content-v4', key, value);
   const appendix = key === '1_20' ? '\n\n제10조의2(특례)\n가지조문고유내용\n\n<별표 1> 지급표\n\n| 항목 | 금액 |\n|---|---|\n| 합성 | 100원 |\n\n① 별표주석\n\n<별표 10> 다른 표\n\n다른표고유내용\n\n<별표 1의2> 가지 표\n\n가지표고유내용\n\n## 부칙\n\n### 제9조(시행일)\n2050년부터 시행한다.' : '';
   seed('original-structure-v2', key, { markdown: value.markdown + appendix, structure: { coverage: { articles: 'complete' } } });
 }
