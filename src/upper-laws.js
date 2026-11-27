@@ -105,6 +105,8 @@ function signalsFor(law, { ruleRevisedAt }) {
   for (const pending of id.pendingAmendments || []) add('PENDING_AMENDMENT', 'check', `${pending.kind} 시행예정: ${pending.effectiveAt} 시행(${pending.promulgatedAt} 공포).`);
   if (law.relation === 'cited' && later(id.effectiveAt, ruleRevisedAt)) add('LAW_EFFECTIVE_AFTER_RULE', 'info', `법령 현행본 시행일(${id.effectiveAt})이 규정 개정일(${ruleRevisedAt})보다 늦습니다. 규정 개정 뒤 법령이 바뀌었습니다.`);
   for (const article of law.articles) {
+    if (article.versionCheck === 'unverified') add('ARTICLE_VERSION_UNVERIFIED', 'unknown',
+      `${article.article} 본문 시행일 미확인: 목록 ${id.effectiveAt || '미확인'}, 응답 ${article.source?.bodyEffectiveAt || '미확인'}. 현행 조문 본문으로 제시하지 않습니다.`);
     if (article.status === 'missing') add('ARTICLE_MISSING', 'review', `${article.article}가 현행 「${id.name}」에 없습니다.`);
     if (article.status === 'deleted') add('ARTICLE_DELETED', 'review', `${article.article}는 현행 「${id.name}」에서 삭제된 조문입니다.`);
     if (article.status === 'found') {
@@ -133,7 +135,8 @@ async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandida
       budget -= articles.length;
       const remaining = deadline - Date.now();
       if (remaining < 1000) { law.identity = { status: 'unavailable', code: 'LEGAL_TOTAL_TIMEOUT' }; continue; }
-      const key = crypto.createHash('md5').update([normalizeName(law.lawName), law.nameGuessed ? 'guess' : 'name', articles.join(','), today()].join('|')).digest('hex');
+      // Do not reuse pre-validation entries; leave the old cache files untouched.
+      const key = crypto.createHash('md5').update(['effective-date-v2', normalizeName(law.lawName), law.nameGuessed ? 'guess' : 'name', articles.join(','), today()].join('|')).digest('hex');
       let found;
       try {
         found = await cached('upper-law', key, CACHE_SECONDS, async () => {
