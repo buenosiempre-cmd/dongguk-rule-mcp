@@ -1784,7 +1784,9 @@ function startHttp() {
       finally{indexRunning=false;}
     };
     indexTimer=setInterval(refresh,refreshHours*3600*1000);indexTimer.unref();
-    setTimeout(refresh,30000).unref();
+    // Serve immediately, then rebuild stale/missing parser generations in the background.
+    // refresh catches failures so startup remains available and the interval can retry.
+    server.once('listening',()=>{void refresh();});
   }
   const withWarmStatus=server.getStatus;
   server.getStatus=()=>({...withWarmStatus(),fullTextIndex:{...indexStatus(),autoRefreshHours:indexTimer?refreshHours:0,running:indexRunning,lastRefresh:indexLast},
