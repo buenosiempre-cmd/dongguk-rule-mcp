@@ -40,13 +40,26 @@ function parseAccountAppendix(text) {
   });
   return accounts.filter((a,i,list)=>list.findIndex(b=>b.code===a.code&&b.name===a.name)===i);
 }
+// Historical resolution identifies a version by MST, not by a fabricated law ID.
+// Accept that identity only when the annex independently confirms the same
+// law/version/effective date and the requested base date.
+function hasAccountLawIdentity(legal,result,annex) {
+  if(result.law?.lawId) return true;
+  const law=result.law,source=annex.source;
+  const normalize=value=>String(value||'').replace(/[\sㆍ·]/g,'');
+  return !!law && /^\d+$/.test(law.mst||'') && !!law.effectiveAt
+    && source?.versionVerified===true && source.tool==='get_annexes'
+    && normalize(source.lawName)===normalize(law.name)
+    && source.mst===law.mst && source.effectiveAt===law.effectiveAt
+    && !!legal.baseDate && source.baseDate===legal.baseDate;
+}
 function findAccountCandidates(legal,query,unit,{limit=4}={}) {
   if(!['school','corporation_general'].includes(unit)) return {status:'scope_unconfirmed',candidates:[],notice:'회계단위를 확인한 뒤 계정 적용 표시를 대조합니다.'};
   const expanded=query.replace(/복사지|A4\s*용지|에이포\s*용지/gi,'복사용지').replace(/프린터\s*용지/g,'프린트용지');
   const normalized=expanded.replace(/\s+/g,''),candidates=[];
   const searchTerms=(expanded.match(/[가-힣A-Za-z0-9]+/g)||[]).map(x=>x.replace(/(?:으로|에서|에는|은|는|을|를|이|가)$/,'')).filter(x=>x.length>=3&&!/^(?:계정|처리|검토|증빙|확인|지급|구입|구매|일반|비용|이거|어떻게|해주세요|알려)/.test(x));
   for(const result of legal.results||[]) for(const annex of result.annexes||[]) {
-    if(!['retrieved','partial'].includes(result.status)||!result.law?.lawId||!['retrieved','partial'].includes(annex.status)||annex.bodyRetrieved!==true||!annex.text||!/^별표\s*1$/.test(annex.selector||'')||result.law.name?.replace(/[\sㆍ·]/g,'')!=='사학기관재무회계규칙에대한특례규칙')continue;
+    if(!['retrieved','partial'].includes(result.status)||!hasAccountLawIdentity(legal,result,annex)||!['retrieved','partial'].includes(annex.status)||annex.bodyRetrieved!==true||!annex.text||!/^별표\s*1$/.test(annex.selector||'')||result.law.name?.replace(/[\sㆍ·]/g,'')!=='사학기관재무회계규칙에대한특례규칙')continue;
     for(const account of parseAccountAppendix(annex.text)) {
       const name=account.name.replace(/\s+/g,'');
       const stem=name.replace(/비$/,'');
