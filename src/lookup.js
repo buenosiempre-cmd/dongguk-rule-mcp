@@ -259,7 +259,9 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   }
 
   let outsideBody = false;
-  let priorityAssigned = false;
+  // Each priority article is taken once, from the main body, in the order given.
+  const priorityOrder = (options.priorityArticles || []).slice(0, maxBlocks);
+  const priorityAssigned = new Set();
   const scored = blocks
     .map((block, index) => {
       // Supplementary provisions restart article numbering. Once their boundary
@@ -269,13 +271,13 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
       const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)[ \t]*[(（]([^)）]+)[)）]/.exec(block);
       const article = heading?.[1].replace(/[ \t]/g, '');
       const genericHeading = heading && /^(?:목적|정의|용어의정의)$/.test(heading[2].replace(/\s/g, ''));
-      const priority = !outsideBody && !priorityAssigned && !genericHeading && options.priorityArticles?.includes(article);
+      const priority = !outsideBody && !genericHeading && priorityOrder.includes(article) && !priorityAssigned.has(article);
       const result = scoreBlock(block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
-      if (priority) priorityAssigned = true;
-      return result ? { block, index, ...result, priority: !!priority } : null;
+      if (priority) priorityAssigned.add(article);
+      return result ? { block, index, ...result, priority: !!priority, priorityRank: priority ? priorityOrder.indexOf(article) : Infinity } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => Number(b.priority) - Number(a.priority) || b.score - a.score || a.index - b.index);
+    .sort((a, b) => a.priorityRank - b.priorityRank || b.score - a.score || a.index - b.index);
 
   if (!scored.length) {
     return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false, missingAppendices };
@@ -294,21 +296,31 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     if (articleContext) articleContext.push(index);
     return articleContext;
   });
-  // The priority article and its paragraphs consume one slot, never one slot
+  // A priority article and its paragraphs consume one slot, never one slot
   // per paragraph. Fill remaining slots using the original keyword ranking.
-  const priorityContext = scored[0]?.priority ? articleContexts[scored[0].index] : null;
-  const selectedMatches = scored.filter((item, rank) => !rank || !priorityContext?.includes(item.index)).slice(0, maxBlocks);
+  const priorityIndexes = new Set();
+  for (const item of scored.filter(item => item.priority).slice(0, maxBlocks)) {
+    for (const index of articleContexts[item.index] || []) if (index !== item.index) priorityIndexes.add(index);
+  }
+  const selectedMatches = scored.filter(item => !priorityIndexes.has(item.index)).slice(0, maxBlocks);
   // Preserve previously selected annex evidence when a new priority article
-  // would displace it. Replace a lower-ranked ordinary match, within the limit.
+  // would displace it. Replace a lower-ranked ordinary match, within the limit;
+  // when priority articles fill every slot, the last of them gives way once.
   if (scored[0]?.priority) {
     const originalMatches = scored.filter(item => item.matched.length)
       .sort((a, b) => b.score - a.score || a.index - b.index).slice(0, maxBlocks);
-    for (const annex of originalMatches.filter(item => appendixHeading(item.block.split('\n', 1)[0]))) {
+    const isAnnex = item => !!appendixHeading(item.block.split('\n', 1)[0]);
+    let priorityGaveWay = false;
+    for (const annex of originalMatches.filter(isAnnex)) {
       if (selectedMatches.includes(annex)) continue;
-      const replaceAt = selectedMatches.findLastIndex(item => !item.priority && !appendixHeading(item.block.split('\n', 1)[0]));
+      let replaceAt = selectedMatches.findLastIndex(item => !item.priority && !isAnnex(item));
+      if (replaceAt < 0 && !priorityGaveWay && !selectedMatches.some(item => !item.priority)) {
+        replaceAt = selectedMatches.findLastIndex((item, at) => at > 0 && item.priority);
+        priorityGaveWay = replaceAt >= 0;
+      }
       if (replaceAt >= 0) selectedMatches[replaceAt] = annex;
     }
-    selectedMatches.sort((a, b) => Number(b.priority) - Number(a.priority) || b.score - a.score || a.index - b.index);
+    selectedMatches.sort((a, b) => a.priorityRank - b.priorityRank || b.score - a.score || a.index - b.index);
   }
   const selectedIndexes = new Set(selectedMatches.map(x => x.index));
   for (const item of selectedMatches) {
@@ -458,6 +470,45 @@ function queryConcepts(value, maxConcepts = 6) {
   return { tokens, concepts };
 }
 
+// Rule vocabulary the caller supplies next to the question ("분실, 변상, 계약 해지").
+// One phrase per comma; the words are nouns as written, so no particle or verb
+// ending is stripped. Words that carry no rule vocabulary are dropped.
+const MAX_KEYWORDS = 8;
+const KEYWORD_STOPWORDS = new Set(['규정', '규칙', '동국대', '동국대학교', '학교', '관련', '내용', '여부', '경우', '대한', '관한']);
+function parseKeywords(value) {
+  let source = normalizeMiddots(Array.isArray(value) ? value.join(',') : String(value || ''));
+  const separator = /[,，、;；|/\nㆍ]+/;
+  // Three or more words with no separator at all are a list written with spaces, not one phrase.
+  if (!separator.test(source) && source.trim().split(/\s+/).length >= 3) source = source.trim().split(/\s+/).join(',');
+  const phrases = [], seen = new Set();
+  for (const part of source.split(separator)) {
+    const words = part.replace(/[^가-힣A-Za-z0-9\s]/g, ' ').split(/\s+/)
+      // Article and appendix numbers ("제10조", "별표1") are excerpt selectors, not vocabulary.
+      .filter(word => word.length >= 2 && !KEYWORD_STOPWORDS.has(word) && !/^(?:\d+|제?\d+조(?:의\d+)?|별표\d*)$/.test(word));
+    const key = words.join(' ');
+    if (!words.length || seen.has(key)) continue;
+    seen.add(key);
+    phrases.push(words);
+  }
+  return phrases.slice(0, MAX_KEYWORDS);
+}
+
+// Keyword phrases as search concepts: each word with the rule vocabulary that
+// may stand for it, and the words of one phrase joined the way rules may write
+// them ("계약 해지" → 계약해지).
+function keywordConcepts(phrases) {
+  const concepts = [], terms = new Set();
+  const add = concept => { if (!terms.has(concept.term)) { terms.add(concept.term); concepts.push(concept); } };
+  (phrases || []).forEach((words, phrase) => {
+    for (const term of words) add({ term, alternatives: businessTerms(term), keyword: true, phrase });
+    for (let i = 0; i + 1 < words.length; i++) {
+      const joined = words[i] + words[i + 1];
+      add({ term: joined, alternatives: businessTerms(joined, { verbs: false }), joinedFrom: [words[i], words[i + 1]], keyword: true, phrase });
+    }
+  });
+  return concepts;
+}
+
 // Campus and affiliate editions of one rule ("WISE캠퍼스 구매규정", "산학협력단
 // 위임전결규정") share a family with the unprefixed rule.
 const EDITION_PREFIX = /^(?:WISE캠퍼스\s*산학협력단|WISE캠퍼스|의학계열|산학협력단)\s*/;
@@ -514,6 +565,9 @@ module.exports = {
   extractRelevantBlocks,
   queryContentTokens,
   queryConcepts,
+  parseKeywords,
+  keywordConcepts,
+  MAX_KEYWORDS,
   ruleFamily,
   appendixSelectors,
   articleSelectors,

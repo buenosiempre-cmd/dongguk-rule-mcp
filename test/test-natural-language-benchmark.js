@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {validateQuestions,scoreResponse,evaluate,statistics,headingPattern,parseArgs}=require('../scripts/benchmark-natural-language');
+const {validateQuestions,callArguments,scoreResponse,evaluate,statistics,headingPattern,parseArgs,formatMarkdown}=require('../scripts/benchmark-natural-language');
 const questions=require('./fixtures/natural-language-benchmark.train.json');
 const response=rules=>({structuredContent:{ok:true,data:{rules}}});
 const rule=(lawId,text)=>({lawId,title:'fixture',excerpt:{text}});
@@ -21,6 +21,40 @@ async function main(){
    assert.equal(quality.enforcementHeadingRules,1);assert.equal(quality.enforcementHeadingQuestions,1);assert.equal(quality.shortExpectedRules,1);assert.equal(quality.meanRules,2);
  });
  check('기존 배열은 기존 제목/키워드 기준 유지',()=>{const r=scoreResponse(['여비',['여비규정'],'숙박'],response([{title:'여비규정',excerpt:{text:'숙박비'}}]));assert(r.bodyIncluded);assert(r.top1);assert.equal(scoreResponse(['미채점',null,null],response([])).bodyIncluded,null);});
+ check('문항별 args는 query 옆에 합치고, --query-only면 query만 보냄',()=>{
+   const row={...q,args:{keywords:'분실, 변상'}};
+   assert.deepEqual(callArguments(row),{query:'질문',keywords:'분실, 변상'});
+   assert.deepEqual(callArguments(row,{useArgs:false}),{query:'질문'});
+   assert.deepEqual(callArguments(q),{query:'질문'});
+   assert.deepEqual(callArguments(row,{argsById:{test:{keywords:'망실',campus:'wise'}}}),{query:'질문',keywords:'망실',campus:'wise'});
+   assert.deepEqual(callArguments(['배열 질문',null,null],{argsById:{x:{keywords:'a'}}}),{query:'배열 질문'});
+   validateQuestions([row]);
+   for(const args of ['분실',null,['분실']])assert.throws(()=>validateQuestions([{...q,args}]),/INVALID_QUESTION/);
+ });
+ check('문항과 외부 args의 query 덮어쓰기 거절',()=>{
+   assert.throws(()=>callArguments({...q,args:{query:'다른 질문'}}),/INVALID_ARGS/);
+   assert.throws(()=>callArguments(q,{argsById:{test:{query:'다른 질문'}}}),/INVALID_ARGS/);
+   assert.throws(()=>callArguments({...q,args:{query:'다른 질문'}},{argsById:{test:{keywords:'계약'}}}),/INVALID_ARGS/);
+ });
+ await assert.rejects(evaluate([{...q,args:{query:'다른 질문'}}],async()=>response([])),/INVALID_ARGS/);
+ await assert.rejects(evaluate([q],async()=>response([]),()=>{},()=>0,{argsById:{test:{query:'다른 질문'}}}),/INVALID_ARGS/);
+ const external=await evaluate([q],async()=>response([]),()=>{},()=>0,{argsById:{test:{keywords:'계약',campus:'wise'}}});
+ check('외부 args의 실제 전송 인수 기록',()=>assert.deepEqual(external.results[0].args,{keywords:'계약',campus:'wise'}));
+ const sent=[];
+ const both=await evaluate([{...q,args:{keywords:'분실, 변상'}},{...q,id:'plain'}],async(query,args)=>{sent.push(args);return response([rule(7,'### 제3조(목적) 본문')]);},()=>{},()=>0);
+ const alone=await evaluate([{...q,args:{keywords:'분실, 변상'}}],async(query,args)=>{sent.push(args);return response([rule(7,'### 제3조(목적) 본문')]);},()=>{},()=>0,{useArgs:false});
+ check('같은 문항을 인수 포함·질문만으로 나눠 측정하고 보낸 인수를 결과에 기록',()=>{
+   assert.deepEqual(sent,[{query:'질문',keywords:'분실, 변상'},{query:'질문'},{query:'질문'}]);
+   assert.deepEqual(both.results[0].args,{keywords:'분실, 변상'});assert.equal(both.results[1].args,undefined);
+   assert.equal(both.summary.withArgs,1);assert.equal(alone.summary.withArgs,0);assert.equal(alone.results[0].args,undefined);
+   assert.match(formatMarkdown({...both,argsMode:'query+문항에 든 args'}),/호출 인수: query\+문항에 든 args \(query 외 인수를 보낸 문항 1\/2\)/);
+ });
+ check('CLI: --args 파일과 --query-only, 둘을 함께 쓰면 거절',()=>{
+   assert.equal(parseArgs(['--output','x.json','--args','a.json']).args,'a.json');
+   assert.equal(parseArgs(['--output','x.json','--query-only']).queryOnly,true);
+   assert.throws(()=>parseArgs(['--output','x.json','--query-only','--args','a.json']));
+   assert.throws(()=>parseArgs(['--output','x.json','--args']));
+ });
  check('CLI 출력 경로 필수·잘못된 옵션/시간 제한 거절',()=>{assert.throws(()=>parseArgs([]));assert.throws(()=>parseArgs(['--output','x','--timeout','0']));assert.equal(parseArgs(['--output','x.json']).output,'x.json');});
  const fs=require('node:fs'),os=require('node:os'),path=require('node:path');const dir=fs.mkdtempSync(path.join(os.tmpdir(),'nl-bench-'));
  try {

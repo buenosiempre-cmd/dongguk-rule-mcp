@@ -265,6 +265,14 @@ const CONCEPT_GROUPS = [
   [['늘리', '연장'], ['연장', '증원']],
   [['떨어지', '탈락', '불합격'], ['불합격', '탈락']],
   [['부재', '공석', '대행'], ['부재', '대리', '직무대행']],
+  [['인수인계', '인계', '업무인계', '넘겨주', '넘기'], ['사무인계', '인계', '인계인수', '인수인계']],
+  [['위탁교육', '위탁연수', '교육파견'], ['위탁연수', '위탁교육', '연수']],
+  [['반론', '반박', '해명', '소명', '항변', '의견진술'], ['이의제기', '변론', '소명', '의견진술']],
+  [['나이', '연령'], ['연령', '정년']],
+  [['수업연한', '재학연한', '재학기간'], ['수업연한', '재학연한']],
+  [['결격', '결격사유', '부적격'], ['결격사유', '결격자', '결격']],
+  [['사적', '개인용도', '사적사용'], ['사적', '사적 사용']],
+  [['재입찰', '유찰', '단독응찰'], ['재입찰', '재공고', '유찰']],
   [['다치', '부상', '산재'], ['재해', '부상', '안전사고']],
   // 학사·장학·학생
   [['학부생'], ['학생']], [['대학원생'], ['대학원']],
@@ -335,6 +343,17 @@ const PHRASE_CONCEPTS = [
   [/예산.{0,8}(?:짜|세우|잡)/, '편성'],
   [/(?:공문|문서|서류|우편).{0,8}받/, '접수'],
   [/계약.{0,6}(?:몇\s*년|기간|단위)/, '계약기간'],
+  [/(?:몇\s*살|몇\s*세|나이).{0,12}(?:일할|일하|근무|재직|퇴직)|(?:일할|일하|근무|재직).{0,12}(?:몇\s*살|몇\s*세|나이)/, '정년'],
+  [/(?:하던|맡은|담당).{0,6}(?:일|업무).{0,10}(?:넘겨|넘기|물려)|업무.{0,4}(?:넘겨|넘기)/, '인계'],
+  // 수업연한: the student is the one who studies ("학생은 몇 년 다닐 수 있어?", even beside "교수에게"), or the whole
+  // question is about school with no worker in it ("학교 몇 년 다녀야 졸업해?"). "학생 상담하는 교수는 몇 년" is not.
+  [/(?:학생|학부생|대학원생|재학생|신입생|학부|대학원|학사과정|학위과정)(?:은|는|이|가|도|에서)?\s*(?:최대\s*|최장\s*)?몇\s*년.{0,8}(?:다녀|다니|다닐)|^(?=.*(?:학생|학부|대학원|학위|졸업|학사과정|재학|입학))(?!.*(?:직원|교원|교수|강사|근무|회사|재직|근속|승진))(?=.*(?:몇\s*년.{0,8}(?:다녀|다니|다닐)|(?:다녀|다니|다닐).{0,8}몇\s*년))/, '수업연한'],
+  [/(?:못\s*뽑|뽑을\s*수\s*없|(?:임용|채용|선발)될\s*수\s*없|될\s*수\s*없는\s*사람)/, '결격사유'],
+  // 열람 needs a record to look at; a person's own 개인정보 is one (정보주체의 열람청구).
+  [/(?:자료|기록|문서|서류|장부|성적|개인정보).{0,20}(?:보여\s*(?:달라|줘|줄)|볼\s*수|열람)/, '열람'],
+  [/개인\s*(?:용무|용도|적으로|일로|볼일)|사적으로|집에\s*가져/, '사적'],
+  [/(?:한\s*곳|한\s*군데|하나|한\s*명).{0,3}(?:만|밖에).{0,10}(?:들어오|참여|응찰|입찰)/, '재입찰'],
+  [/(?:서류|계약서|영수증|증빙).{0,6}없이/, '생략'],
 ];
 function phraseConcepts(query) {
   const text = String(query || '');
@@ -360,7 +379,7 @@ const VERB_STEMS = [
   [/^잘못/, '잘못'], [/^틀(?:리|려|릴|린)/, '틀리'], [/^속(?:이|여|일|인)/, '속이'], [/^어(?:기|겨|길|긴)/, '어기'],
   [/^죽(?:으|었|은|을)/, '죽'], [/^일(?:하|해|할|한)/, '일하'], [/^가르(?:치|쳐|칠|친)/, '가르치'],
   [/^알(?:려야|리|릴|린)/, '알리'], [/^만(?:들|든)/, '만들'], [/^없(?:애|앨|앤)/, '없애'], [/^고(?:치|쳐|칠|친)/, '고치'],
-  [/^차(?:리|려|릴|린)/, '차리'], [/^걷어(?:가|갈|간)/, '걷어가'], [/^없어(?:지|져|질|진)/, '없어지'],
+  [/^차(?:리|려|릴|린)/, '차리'], [/^넘겨(?:주|줘|줄|준)/, '넘겨주'], [/^걷어(?:가|갈|간)/, '걷어가'], [/^없어(?:지|져|질|진)/, '없어지'],
   [/^줄(?:이|여|일|인)/, '줄이'], [/^늘(?:리|려|릴|린)/, '늘리'], [/^떨어(?:지|져|질|진)/, '떨어지'], [/^커닝|^컨닝/, '커닝'],
 ];
 // Endings that rules and people swap for the same thing (심사비·심사료·심사수당).
@@ -416,6 +435,9 @@ const QUESTION_INTENTS = [
   { ask: /무슨\s*일|하는\s*일|어떤\s*일|역할이|업무가/, headings: [/임무|직무|업무|역할|기능/] },
   { ask: /몇\s*명|인원|정원/, headings: [/정원|인원/, /구성/] },
   { ask: /자격|조건|요건|대상/, headings: [/자격|요건|대상/] },
+  // "몇 살까지" asks for the age itself (정년), not when the retirement takes effect (정년퇴직).
+  { ask: /몇\s*살|몇\s*세|나이|연령/, headings: [/^정년$|연령|나이/, /정년/] },
+  { ask: /반론|반박|해명|소명|변론|입장을?\s*(?:말|밝)|억울/, headings: [/이의제기|변론|소명|의견진술/, /이의/] },
   { ask: /절차|순서|어떻게\s*(?:해|하|신청|처리|등록)/, headings: [/절차|방법|신청|신고/] },
 ];
 const CUE_STEP = 0.2;
@@ -444,6 +466,35 @@ function questionScope(query) {
     selfGoverning: /학생회|자치기구|학생자치|대의원|동아리|노동조합|노조/.test(text),
   };
 }
+// ── 질문의 주체 ────────────────────────────────────────────────
+// Who the question is about, when it names exactly one of 직원·교원·학생·강사·조교.
+// 교직원 covers both staff and faculty and names no class; 조교수 is a professor, not an assistant.
+const SUBJECT_CLASSES = [
+  ['직원', /직원|팀원/, /직원/],
+  ['교원', /교수|교원/, /교원|교수/],
+  ['학생', /학생|학부생|원생/, /학생/],
+  ['강사', /강사/, /강사/],
+  ['조교', /조교(?!수)/, /조교(?!수)/],
+];
+// A lecturer is also faculty, so a rule for 교원 is not a mismatch for a 강사 question.
+const SUBJECT_COVERED_BY = { 강사: ['교원'] };
+const withoutMixedSubjects = text => String(text || '').replace(/교직원|학생\s*연구자|교수학습|교수법|강사료|강사비/g, ' ');
+function questionSubject(text, fallback = '') {
+  const plain = withoutMixedSubjects(text);
+  const named = SUBJECT_CLASSES.filter(([, ask]) => ask.test(plain)).map(([name]) => name);
+  return named.length === 1 ? named[0] : named.length === 0 && fallback ? questionSubject(fallback) : null;
+}
+// A rule whose title names another class and not the asked one (전임교원 인사규정 for a 직원 question)
+// counts for less. Titles that name no class, or both, are left alone.
+const SUBJECT_MISMATCH_WEIGHT = 0.75;
+function subjectWeight(title, subject) {
+  if (!subject) return 1;
+  const plain = withoutMixedSubjects(title);
+  const inTitle = SUBJECT_CLASSES.filter(([, , pattern]) => pattern.test(plain)).map(([name]) => name);
+  const accepted = [subject, ...(SUBJECT_COVERED_BY[subject] || [])];
+  return inTitle.length && !inTitle.some(name => accepted.includes(name)) ? SUBJECT_MISMATCH_WEIGHT : 1;
+}
+
 const compactText = value => String(value || '').replace(/\s+/g, '');
 const EDITION_PREFIX = /^(?:WISE캠퍼스산학협력단|WISE캠퍼스|의학계열|산학협력단|동국대학교)/;
 const TITLE_TAIL = /(?:에관한|의)?(?:설치·운영|설치및운영|관리운영|관리및운영|운영|관리)?(?:에관한)?(?:규정|내규|시행세칙|운영세칙|세칙|회칙|규약|수칙|지침)$/;
@@ -497,7 +548,7 @@ function generalRuleWeight(title, query, hasGeneralEdition = false, { code = '',
   } else if (scopeClass === 'unit') {
     const part8 = /^8-/.test(String(code || ''));
     if (!(part8 && scope.industry) && !namesRuleSubject(title, query, forms)) weight *= 0.8;
-  } else if (/(?:학칙|규정)$/.test(text) && !/시행세칙|내규|대학원/.test(text)) {
+  } else if (/(?:학칙|규정|규칙)$/.test(text) && !/시행세칙|내규|대학원/.test(text)) {
     // University-wide main rules get a modest preference over their sub-rules.
     weight *= 1.15;
   }
@@ -505,7 +556,7 @@ function generalRuleWeight(title, query, hasGeneralEdition = false, { code = '',
 }
 
 module.exports = {
-  RULE_VOCABULARY, CONCEPT_GROUPS, businessTerms, knownTerm, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
+  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, knownTerm, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
   BUILTIN_ALIASES,
   aliasTable,
   resetAliasCacheForTest,

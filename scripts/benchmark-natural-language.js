@@ -10,13 +10,15 @@ const legacy = require('./evaluate-natural-language');
 const DEFAULT_QUESTIONS = path.join(__dirname, '../test/fixtures/natural-language-benchmark.train.json');
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
 const selector = /^(?:제\s*[1-9]\d*\s*조(?:\s*의\s*[1-9]\d*)?|별표\s*[1-9]\d*)$/;
+// Optional per-question tool arguments ({"keywords":"분실, 변상"}), merged into the call next to the question.
+const isArgs = value => value === undefined || (value !== null && typeof value === 'object' && !Array.isArray(value));
 function validateQuestions(rows) {
   if (!Array.isArray(rows) || !rows.length) throw new Error('EMPTY_QUESTIONS');
   const ids = new Set();
   for (const row of rows) {
     if (Array.isArray(row)) { legacy.validateQuestions([row]); continue; }
     if (!row || typeof row.id !== 'string' || !row.id || ids.has(row.id) || typeof row.q !== 'string' || !row.q.trim()
-      || !Array.isArray(row.gt) || !row.gt.length || row.gt.some(g => !Number.isSafeInteger(g.lawId) || g.lawId < 1 || !Array.isArray(g.articles) || !g.articles.length || g.articles.some(a => typeof a !== 'string' || !selector.test(a)))) throw new Error('INVALID_QUESTION');
+      || !Array.isArray(row.gt) || !row.gt.length || row.gt.some(g => !Number.isSafeInteger(g.lawId) || g.lawId < 1 || !Array.isArray(g.articles) || !g.articles.length || g.articles.some(a => typeof a !== 'string' || !selector.test(a))) || !isArgs(row.args)) throw new Error('INVALID_QUESTION');
     ids.add(row.id);
   }
   return rows;
@@ -73,32 +75,44 @@ function statistics(results) {
     medianMs:n?(elapsed[Math.floor((n-1)/2)]+elapsed[Math.ceil((n-1)/2)])/2:null,p95Ms:n?elapsed[Math.ceil(n*0.95)-1]:null,
     errors,choiceOnly:results.filter(r=>r.choiceOnly).length };
 }
-async function evaluate(questions, call, onResult = () => {}, now = () => performance.now()) {
+// The arguments sent for one question: the question itself as query, then the question's own args,
+// then args from a separate file keyed by question id. With useArgs false only the query is sent.
+function callArguments(question, { useArgs = true, argsById = null } = {}) {
+  if (Array.isArray(question)) return { query: question[0] };
+  if ([question.args, argsById?.[question.id]].some(args => args && Object.hasOwn(args, 'query'))) throw new Error('INVALID_ARGS: query');
+  const extra = useArgs ? { ...(question.args || {}), ...(argsById?.[question.id] || {}) } : {};
+  return { query: question.q, ...extra };
+}
+async function evaluate(questions, call, onResult = () => {}, now = () => performance.now(), options = {}) {
   validateQuestions(questions);const results=[];
   for (let i=0;i<questions.length;i++) {
-    const q=questions[i],start=now();let response;
-    try { response=await call(Array.isArray(q)?q[0]:q.q); } catch { response={structuredContent:{ok:false,error:{code:'CALL_FAILED'}}}; }
-    const r={...scoreResponse(q,response,i),elapsedMs:Math.max(0,now()-start)};results.push(r);onResult(r,i+1);
+    const q=questions[i],args=callArguments(q,options),start=now();let response;
+    try { response=await call(args.query,args); } catch { response={structuredContent:{ok:false,error:{code:'CALL_FAILED'}}}; }
+    const {query:_query,...extra}=args;
+    const r={...scoreResponse(q,response,i),...(Object.keys(extra).length?{args:extra}:{}),elapsedMs:Math.max(0,now()-start)};results.push(r);onResult(r,i+1);
   }
-  return {summary:statistics(results),results};
+  return {summary:{...statistics(results),withArgs:results.filter(r=>r.args).length},results};
 }
 function formatMarkdown(report) {
   const s=report.summary, metric=m=>`${m.hits}/${m.total} (${m.rate===null?'—':(m.rate*100).toFixed(1)+'%'})`;
   const cell=v=>String(v??'—').replace(/[|\n\r]/g,' ');
-  return ['# 자연어 조회 벤치마크','',`측정: ${report.startedAt || 'offline'}`,`기준 커밋: ${report.gitHead || '—'}`,`문항 SHA-256: ${report.questionsSha256 || '—'}`,`색인 SHA-256: ${report.indexSha256 || '—'}`,'',
+  return ['# 자연어 조회 벤치마크','',`측정: ${report.startedAt || 'offline'}`,`기준 커밋: ${report.gitHead || '—'}`,`호출 인수: ${report.argsMode || 'query만'} (query 외 인수를 보낸 문항 ${s.withArgs ?? 0}/${s.total})`,`문항 SHA-256: ${report.questionsSha256 || '—'}`,`색인 SHA-256: ${report.indexSha256 || '—'}`,'',
     '| 지표 | 결과 |','|---|---|',`| 정답 조문 본문 포함 | ${metric(s.bodyIncluded)} |`,`| top3 | ${metric(s.top3)} |`,`| 1순위 | ${metric(s.top1)} |`,`| 중간값 / p95 | ${s.medianMs?.toFixed(1)} / ${s.p95Ms?.toFixed(1)} ms |`,`| 오류 코드 | ${JSON.stringify(s.errors)} |`,`| 본문 없이 규정 선택 요청 | ${s.choiceOnly} |`,`| 시행일 조문 표제가 든 반환 규정 / 문항 | ${s.excerptQuality?.enforcementHeadingRules} / ${s.excerptQuality?.enforcementHeadingQuestions} |`,`| 정답 규정 중 발췌 500자 미만 | ${s.excerptQuality?.shortExpectedRules} |`,`| 평균 반환 규정 수 / 본문 글자 수 | ${s.excerptQuality?.meanRules?.toFixed(2)} / ${s.excerptQuality?.meanCharacters?.toFixed(2)} |`,'',
     '법적 정확성·적용 여부를 판정하지 않습니다. 동일 lawId의 실제 본문에 조문/별표 표제가 있는지 확인합니다. top3는 반환 규정만 세고 후보 목록은 제외합니다. 기존 배열 문항은 기존 제목·키워드 방식으로 별도 채점합니다. p95는 nearest-rank입니다.','',
     '| ID | 본문 | top3 | 1순위 | ms | 오류 | 반환 규정 |','|---|---|---|---|---:|---|---|',
     ...report.results.map(r=>`| ${[r.id,r.bodyIncluded,r.top3,r.top1,r.elapsedMs.toFixed(1),r.error,r.rules.map(x=>`${x.lawId}:${x.title}`).join('; ')].map(cell).join(' | ')} |`),''].join('\n');
 }
 function parseArgs(args) {
-  const o={questions:DEFAULT_QUESTIONS,output:null,timeout:60000};
-  for(let i=0;i<args.length;i++) {if(args[i]==='--help')return {help:true};if(!['--questions','--output','--timeout'].includes(args[i])||!args[i+1]||args[i+1].startsWith('--'))throw new Error('INVALID_OPTIONS');o[args[i].slice(2)]=args[++i];}
+  const o={questions:DEFAULT_QUESTIONS,output:null,timeout:60000,args:null,queryOnly:false};
+  for(let i=0;i<args.length;i++) {if(args[i]==='--help')return {help:true};if(args[i]==='--query-only'){o.queryOnly=true;continue;}if(!['--questions','--output','--timeout','--args'].includes(args[i])||!args[i+1]||args[i+1].startsWith('--'))throw new Error('INVALID_OPTIONS');o[args[i].slice(2)]=args[++i];}
+  if(o.queryOnly&&o.args)throw new Error('INVALID_OPTIONS');
   o.timeout=Number(o.timeout);if(!o.output||!Number.isSafeInteger(o.timeout)||o.timeout<1)throw new Error('OUTPUT_AND_POSITIVE_TIMEOUT_REQUIRED');return o;
 }
 async function main(args=process.argv.slice(2)) {
-  const o=parseArgs(args);if(o.help){console.log('npm run benchmark:natural-language -- --questions FILE --output NEW.json [--timeout MS]\nWrites NEW.json + NEW.md without overwrite. Requires local --build-index. Uses a fresh MCP process and normal caches. Exit 0 means measurement completed, not accuracy target achieved.');return;}
+  const o=parseArgs(args);if(o.help){console.log('npm run benchmark:natural-language -- --questions FILE --output NEW.json [--timeout MS] [--args ARGS.json | --query-only]\nEach question may carry an "args" object (for example {"keywords":"분실, 변상"}) that is merged into the lookup_dongguk_rule call next to the question. --args ARGS.json supplies them from a separate file keyed by question id; --query-only ignores them, so one question file can be measured both ways.\nWrites NEW.json + NEW.md without overwrite. Requires local --build-index. Uses a fresh MCP process and normal caches. Exit 0 means measurement completed, not accuracy target achieved.');return;}
   const input=fs.readFileSync(o.questions);const questions=validateQuestions(JSON.parse(input));
+  const argsInput=o.args?fs.readFileSync(o.args):null;const argsById=argsInput?JSON.parse(argsInput):null;
+  if(argsById&&(typeof argsById!=='object'||Array.isArray(argsById)||Object.values(argsById).some(value=>value===undefined||!isArgs(value))))throw new Error('INVALID_ARGS_FILE');
   const output=path.resolve(o.output),markdown=output.replace(/\.json$/i,'')+'.md';if(output===markdown||[output,markdown].some(f=>fs.existsSync(f)))throw new Error('OUTPUT_EXISTS');
   const created=[];try{for(const f of [output,markdown]){const fd=fs.openSync(f,'wx',0o600);fs.closeSync(fd);created.push(f);}}catch(e){for(const f of created)fs.unlinkSync(f);throw e;}
   const cacheRoot=process.env.XDG_CACHE_HOME || path.join(require('node:os').homedir(),'.cache');
@@ -111,12 +125,12 @@ async function main(args=process.argv.slice(2)) {
     const info=await client.callTool({name:'get_service_info',arguments:{}});const index=info.structuredContent?.data?.fullTextIndex;
     if(!index?.available)throw new Error('INDEX_UNAVAILABLE');
     const startedAt=new Date().toISOString();
-    const evaluation=await evaluate(questions,q=>client.callTool({name:'lookup_dongguk_rule',arguments:{query:q}},undefined,{timeout:o.timeout}), (r,n)=>console.error(`${n}/${questions.length} ${r.id}: ${r.error || (r.bodyIncluded?'HIT':'MISS')}`));
+    const evaluation=await evaluate(questions,(q,args)=>client.callTool({name:'lookup_dongguk_rule',arguments:args},undefined,{timeout:o.timeout}), (r,n)=>console.error(`${n}/${questions.length} ${r.id}: ${r.error || (r.bodyIncluded?'HIT':'MISS')}`),undefined,{useArgs:!o.queryOnly,argsById});
     const after=sha(fs.readFileSync(indexPath));if(after!==before)throw new Error('INDEX_CHANGED_DURING_BENCHMARK');
     const root=path.join(__dirname,'..');const sourceHashes=Object.fromEntries(fs.readdirSync(path.join(root,'src')).filter(f=>f.endsWith('.js')).sort().map(f=>[f,sha(fs.readFileSync(path.join(root,'src',f)))]));
-    const report={startedAt,completedAt:new Date().toISOString(),gitHead:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),sourceHashes,serverVersion:client.getServerVersion()?.version,questionsFile:path.resolve(o.questions),questionsSha256:sha(input),indexPath,indexSha256:before,index,cache:'normal public disk cache; fresh MCP process; document responses may be cached',...evaluation};
+    const report={startedAt,completedAt:new Date().toISOString(),gitHead:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),sourceHashes,serverVersion:client.getServerVersion()?.version,questionsFile:path.resolve(o.questions),questionsSha256:sha(input),argsMode:o.queryOnly?'query만(--query-only)':argsById?'query+문항별 인수(--args)':'query+문항에 든 args',...(argsInput?{argsFile:path.resolve(o.args),argsSha256:sha(argsInput)}:{}),indexPath,indexSha256:before,index,cache:'normal public disk cache; fresh MCP process; document responses may be cached',...evaluation};
     fs.writeFileSync(output,JSON.stringify(report,null,2)+'\n');fs.writeFileSync(markdown,formatMarkdown(report));console.log(JSON.stringify({output,markdown,...report.summary}));
   }finally{await client.close();await transport.close();}
 }
 if(require.main===module)main().catch(()=>{console.error('Benchmark failed: check options, new output paths and local index; no existing report was overwritten.');process.exitCode=1;});
-module.exports={validateQuestions,headingPattern,bodyText,scoreResponse,statistics,evaluate,formatMarkdown,parseArgs,main};
+module.exports={validateQuestions,callArguments,headingPattern,bodyText,scoreResponse,statistics,evaluate,formatMarkdown,parseArgs,main};

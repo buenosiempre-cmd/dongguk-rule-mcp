@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks } = require('./parsers.js');
-const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent } = require('./aliases.js');
-const { queryConcepts, ruleFamily } = require('./lookup.js');
+const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
+const { queryConcepts, keywordConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
 // callers re-check each hit against the current catalog before using its text.
@@ -174,6 +174,50 @@ function planConcepts(query, documentFrequency, total) {
   return { original, concepts, rewrittenTerms, missingTerms };
 }
 
+// A keyword written as one word that the rules write as two ("휴학사유" → 휴학 + 사유).
+// Both parts must occur in some rule; the pair with the rarest words is used.
+function splitCompound(term, documentFrequency, total) {
+  let best = null;
+  for (let cut = 2; cut <= term.length - 2; cut++) {
+    const parts = [term.slice(0, cut), term.slice(cut)];
+    if (!parts.every(part => documentFrequency(part))) continue;
+    const rarity = parts.reduce((sum, part) => sum + Math.log(1 + total / documentFrequency(part)), 0);
+    if (!best || rarity > best.rarity) best = { parts, rarity };
+  }
+  return best?.parts || null;
+}
+
+// Caller-supplied keywords as the rules spell them. A keyword keeps the rule
+// vocabulary the dictionary knows for it; one that no rule contains is tried
+// as two shorter words and then by a shorter form. Keywords that still match
+// nothing are reported, never guessed.
+function planKeywordConcepts(phrases, documentFrequency, total) {
+  const concepts = [], missingTerms = [], rewrittenTerms = {}, terms = new Set();
+  const push = concept => { if (!terms.has(concept.term)) { terms.add(concept.term); concepts.push(concept); } };
+  const existing = term => businessTerms(term).filter(form => documentFrequency(form));
+  for (const concept of keywordConcepts(phrases)) {
+    const base = { keyword: true, phrase: concept.phrase };
+    let forms = concept.alternatives.filter(form => documentFrequency(form));
+    if (concept.joinedFrom) {
+      if (forms.length) push({ ...base, term: concept.term, forms, joined: true });
+      continue;
+    }
+    if (!forms.length) {
+      const parts = splitCompound(concept.term, documentFrequency, total);
+      if (parts) {
+        rewrittenTerms[concept.term] = parts.join(' ');
+        for (const part of parts) push({ ...base, term: part, forms: existing(part), joined: false });
+        continue;
+      }
+      const shorter = rewriteMissingToken(concept.term, documentFrequency, total);
+      if (shorter) { rewrittenTerms[concept.term] = shorter; forms = [shorter]; }
+    } else if (!documentFrequency(concept.term)) rewrittenTerms[concept.term] = forms[0];
+    if (forms.length) push({ ...base, term: concept.term, forms, joined: false });
+    else missingTerms.push(concept.term);
+  }
+  return { concepts, missingTerms, rewrittenTerms };
+}
+
 // How central a rule is in the rule book: rules that many other rules cite by
 // name (「학칙」, 「교원인사규정」) and rules with many articles are the general
 // ones people usually mean. A mild preference, computed once per index.
@@ -202,22 +246,50 @@ function ruleStanding(corpus) {
 // rule they tell articles apart far less than the other question words do.
 const TITLE_WORD_SHARE = 0.3;
 
-function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
+// With caller keywords, the question's own words still count, at this share of
+// their weight: they add the context a short keyword list leaves out
+// ("노트북" next to 분실·변상) without outvoting the keywords.
+const QUESTION_SHARE_WITH_KEYWORDS = 0.35;
+// A keyword in an article heading names what the article is about.
+const KEYWORD_HEADING_SHARE = 1;
+// A whole keyword phrase in one heading ("사적 사용" in 제16조(학교재산 등의 사적 사용·수익 금지)).
+const KEYWORD_PHRASE_HEADING_SHARE = 1;
+// Keywords already say what is asked ("기간", "자격"), so the intent read from
+// the question's wording weighs less beside them.
+const INTENT_SHARE_WITH_KEYWORDS = 0.5;
+
+function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null } = {}) {
   const total = corpus.rules.length || 1;
   const frequencies = new Map();
   const documentFrequency = term => {
     if (!frequencies.has(term)) frequencies.set(term, corpus.rules.filter(rule => rule.title.includes(term) || rule.blocks.some(block => block.content.includes(term))).length);
     return frequencies.get(term);
   };
-  const { original, concepts, rewrittenTerms, missingTerms } = planConcepts(query, documentFrequency, total);
-  if (!original.length) return { tokens: original, hits: [] };
+  const planned = planConcepts(query, documentFrequency, total);
+  const { original } = planned;
+  let { concepts, rewrittenTerms, missingTerms } = planned;
+  // Keywords lead only when some rule contains them; otherwise the question alone is searched, as without keywords.
+  const keyed = keywords?.length ? planKeywordConcepts(keywords, documentFrequency, total) : null;
+  const keywordMode = !!keyed?.concepts.length;
+  const keywordReport = keyed ? {
+    keywords: { used: keyed.concepts.filter(concept => !concept.joined).map(concept => concept.term), missing: keyed.missingTerms, rewritten: keyed.rewrittenTerms },
+  } : {};
+  if (!original.length && !keywordMode) return { tokens: original, hits: [], ...keywordReport };
+  if (keywordMode) {
+    const keywordForms = new Set(keyed.concepts.flatMap(concept => concept.forms));
+    const fromQuestion = concepts.filter(concept => !concept.forms.some(form => keywordForms.has(form)));
+    concepts = [...keyed.concepts, ...fromQuestion.map(concept => ({ ...concept, share: QUESTION_SHARE_WITH_KEYWORDS }))];
+    missingTerms = [...keyed.missingTerms, ...missingTerms];
+    rewrittenTerms = { ...rewrittenTerms, ...keyed.rewrittenTerms };
+  }
   const weight = form => Math.log(1 + total / documentFrequency(form));
   // A rule-vocabulary form stands in for the question word, so it never counts
   // for more than that word itself would ("식사" → 금품등 must not outweigh a
   // rule that says 식사). A word no rule contains lends its full weight.
   for (const concept of concepts) {
     const own = documentFrequency(concept.term) ? weight(concept.term) : Infinity;
-    concept.weights = new Map(concept.forms.map(form => [form, form === concept.term ? weight(form) : Math.min(weight(form), own) * 0.9]));
+    const share = concept.share || 1;
+    concept.weights = new Map(concept.forms.map(form => [form, (form === concept.term ? weight(form) : Math.min(weight(form), own) * 0.9) * share]));
   }
   const formWeight = (concept, forms) => Math.max(0, ...forms.map(form => concept.weights.get(form)));
   const words = concepts.filter(concept => !concept.joined);
@@ -225,10 +297,12 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
   const headingOf = content => /^[^\n]*?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（]([^)）\n]{1,40})[)）]/.exec(content)?.[1] || null;
   const GENERIC_HEADING = /^(?:목적|정의|용어의정의|적용범위)$/;
   // Adjacent question words that also sit together in an article ("예산의 전용").
+  // Keywords pair only inside one phrase ("계약 해지"), never across commas or with question words.
   const adjacent = [];
   for (let i = 0; i + 1 < words.length; i++) {
+    if (!!words[i].keyword !== !!words[i + 1].keyword || (words[i].keyword && words[i].phrase !== words[i + 1].phrase)) continue;
     const [a, b] = [words[i].forms[0], words[i + 1].forms[0]];
-    adjacent.push({ pattern: new RegExp(`${escapeRegExp(a)}[^\\n]{0,3}${escapeRegExp(b)}`), bonus: (weight(a) + weight(b)) * 0.5 });
+    adjacent.push({ pattern: new RegExp(`${escapeRegExp(a)}[^\\n]{0,3}${escapeRegExp(b)}`), bonus: (weight(a) + weight(b)) * 0.5 * (words[i].share || 1) });
   }
   // A concept scores by the rarest of its forms that the text contains.
   const scoreText = text => {
@@ -245,8 +319,14 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
     }
     return { score, matched, matchedConcepts, contributions };
   };
+  // Keyword phrases of two or more words, for headings that carry the whole phrase.
+  const phrases = new Map();
+  for (const word of words) if (word.keyword) phrases.set(word.phrase, [...(phrases.get(word.phrase) || []), word]);
+  const multiwordPhrases = [...phrases.values()].filter(group => group.length >= 2);
   const searchForms = [...new Set(words.flatMap(word => word.forms))];
   const standing = ruleStanding(corpus);
+  // Who the question is about, read from the question and the keywords together.
+  const subject = questionSubject(query, keywordMode ? keywords.map(phrase => phrase.join(' ')).join(' ') : '');
   const generalFamilies = new Set(corpus.rules.filter(r => !ruleFamily(r.title).edition).map(r => ruleFamily(r.title).family));
   const hits = [];
   for (const rule of corpus.rules) {
@@ -263,8 +343,13 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
         result.score += words.reduce((sum, word) => {
           const inHeading = word.forms.filter(form => compactHeading.includes(form));
           if (!inHeading.length) return sum;
-          return sum + formWeight(word, inHeading) * (inHeading.includes(compactHeading) ? 1 : 0.5);
+          const share = inHeading.includes(compactHeading) ? 1 : word.keyword ? KEYWORD_HEADING_SHARE : 0.5;
+          return sum + formWeight(word, inHeading) * share;
         }, 0);
+        for (const group of multiwordPhrases) {
+          const inHeading = group.map(word => word.forms.filter(form => compactHeading.includes(form)));
+          if (inHeading.every(forms => forms.length)) result.score += group.reduce((sum, word, i) => sum + formWeight(word, inHeading[i]), 0) * KEYWORD_PHRASE_HEADING_SHARE;
+        }
       }
       scored.push({ block, ...result });
     }
@@ -286,7 +371,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
       return { ...item, rank: item.score - (titleWords + (titleOnly ? bonuses : 0)) * (1 - TITLE_WORD_SHARE) };
     });
     if (intent) {
-      const fullBonus = Math.max(...words.map(word => formWeight(word, word.forms)), 1);
+      const fullBonus = Math.max(...words.map(word => formWeight(word, word.forms)), 1) * (keywordMode ? INTENT_SHARE_WITH_KEYWORDS : 1);
       const seen = new Set(scored.map(item => item.block));
       for (const block of rule.blocks) {
         if (block.supplementary) continue;
@@ -300,6 +385,10 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
         else if (!seen.has(block) && title.matched.length) articleOrder.push({ block, score: 0, matched: [], matchedConcepts: [], contributions: new Map(), rank: bonus * 0.9 });
       }
     }
+    const usable = item => {
+      const heading = headingOf(item.block.content)?.replace(/\s+/g, '');
+      return !item.block.supplementary && !(heading && GENERIC_HEADING.test(heading));
+    };
     for (const item of articleOrder) {
       const heading = headingOf(item.block.content)?.replace(/\s+/g, '');
       if (heading && GENERIC_HEADING.test(heading)) item.rank -= 1000;
@@ -313,8 +402,12 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
       lawId: rule.lawId, historyId: rule.historyId, title: rule.title, code: rule.code, revisedAt: rule.revisedAt,
       score: ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01)
         * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family), { code: rule.code, forms: searchForms })
-        * (standing.get(rule.lawId) || 1),
+        * (standing.get(rule.lawId) || 1) * subjectWeight(rule.title, subject),
       matchedTerms, matchedConcepts, ...ruleFamily(rule.title),
+      // Concepts that only the rule's title carries say nothing about its articles.
+      articleConcepts: [...new Set(scored.flatMap(item => item.matchedConcepts))].filter(term => words.some(word => word.term === term)),
+      // The article that holds the most question words, before the intent reading reorders them.
+      wordArticle: scored.find(usable)?.block.article || null,
       // Articles containing as many of the query words as the best article does.
       matchCount: scored.filter(item => item.matched.length === mostMatched).length,
       articles: articleOrder.slice(0, perDoc).map(item => ({
@@ -329,6 +422,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5 } = {}) {
     tokens: [...tokens, ...missingTerms], missingTerms, rewrittenTerms,
     // Every form searched, for callers that re-read or excerpt the matched rules.
     searchTerms: [...new Set(concepts.flatMap(concept => concept.forms))],
+    ...keywordReport, keywordMode,
     hits: hits.slice(0, top),
   };
 }
