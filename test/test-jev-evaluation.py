@@ -37,6 +37,14 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'BOTH_CLASSES'):
             m.fit_article([{'candidates':[{'features':[0]*16,'label':0}]}], [0])
 
+    def test_regressions_match_ids_not_row_order(self):
+        before = [{'id':'a','top3':True},{'id':'b','top3':False}]
+        after = [{'id':'b','top3':True},{'id':'a','top3':False}]
+        self.assertEqual(m.comparison_by_id(before, after, ['top3']), {'top3':{'newWrong':['a'],'fixed':['b']}})
+        for rows in [after[:1], [after[0], after[0]]]:
+            with self.assertRaisesRegex(ValueError, 'QUESTION_SET_MISMATCH'):
+                m.comparison_by_id(before, rows, ['top3'])
+
 
 if __name__ == '__main__':
     unittest.main()

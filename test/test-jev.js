@@ -48,6 +48,11 @@ async function main() {
   assert.throws(()=>assertFullVectorCoverage(partiallyAligned),/JEV_VECTOR_COVERAGE_INCOMPLETE: 1\/2/);
   assert.throws(()=>assertFullVectorCoverage({coverage:{articles:0,vectorArticles:0}}),/INCOMPLETE/);
   const evidence = await retriever.gather('출장비를 지급받으려면', async()=>new Float32Array([1,0]));
+  let calls = 0;
+  const single = await createRetriever(corpus,index,{extraDenseKeys:false}).gather('출장 숙박비 휴학 신청',async()=>{calls++;return new Float32Array([1,0]);});
+  assert.equal(calls,1); assert.equal(single.queryEncodings,1);
+  assert.equal(single.semantic.size,2); assert(single.semantic.has(blocks[0]));
+  assert(single.candidates.flatMap(c=>c.features).every(Number.isFinite));
   assert(evidence.keys.length<=4); assert.equal(evidence.keys[0],'출장비를 지급받으려면');
   assert(evidence.candidates.every(c=>c.features.length===16 && c.features.every(Number.isFinite)));
   assert.equal([...evidence.candidates].sort((a,b)=>b.rrf-a.rrf)[0].lawId,1);

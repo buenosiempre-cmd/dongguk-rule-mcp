@@ -20,8 +20,8 @@ const weighted = (a, w) => a.reduce((s, x, i) => s + x * w[i], 0) / Math.max(1e-
 const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
 const normalize = a => { const norm = Math.sqrt(dot(a, a)) || 1; return Float32Array.from(a, x => x / norm); };
 
-function experimentFingerprint(corpusHash, vectorHash) {
-  const hash = crypto.createHash('sha256').update(JSON.stringify({ corpusHash, vectorHash, version: 1 }));
+function experimentFingerprint(corpusHash, vectorHash, extraDenseKeys = true) {
+  const hash = crypto.createHash('sha256').update(JSON.stringify({ corpusHash, vectorHash, version: 1, extraDenseKeys }));
   for (const file of ['jev.js', 'lookup.js', 'aliases.js']) hash.update(fs.readFileSync(path.join(__dirname, file)));
   return hash.digest('hex');
 }
@@ -51,12 +51,12 @@ function reciprocalRankFusion(lists, k = 60) {
   return scores;
 }
 
-function createRetriever(corpus, index) {
+function createRetriever(corpus, index, { extraDenseKeys = true } = {}) {
   if (!corpus?.rules?.length || !index?.meta?.dims || !index?.vectors) throw new Error('JEV_INDEX_MISSING');
   const docs = [], byBlock = new Map();
   for (const rule of corpus.rules) rule.blocks.forEach((block, position) => {
     if (block.supplementary || !block.content?.trim()) return;
-    const doc = { lawId: rule.lawId, article: block.article, position, title: rule.title, content: block.content, rows: [] };
+    const doc = { lawId: rule.lawId, article: block.article, position, title: rule.title, content: block.content, block, rows: [] };
     byBlock.set(`${rule.lawId}:${position}`, docs.length); docs.push(doc);
   });
   let row = 0;
@@ -134,14 +134,16 @@ function createRetriever(corpus, index) {
     const rocchio = normalize(feedback), dr = dense(rocchio);
     const pool = [...new Set([...fullB, ...fullD, ...b.slice(1).flatMap(s => top(s, 50, true)), ...top(dr, 50).filter(i => docs[i].rows.length)])].sort((a, b) => a - b);
     const extra = [];
-    for (const key of keys.slice(1)) extra.push(dense(await embedQuery(key.text), pool));
+    if (extraDenseKeys) for (const key of keys.slice(1)) extra.push(dense(await embedQuery(key.text), pool));
     const B = pool.map(id => b.map(s => s[id])), D = pool.map((id, i) => [d[id], dr[id], ...extra.map(s => s[i])]);
-    const wb = keys.map(k => k.weight), wd = [1, 1, ...wb.slice(1)];
+    const wb = keys.map(k => k.weight), wd = [1, 1, ...(extraDenseKeys ? wb.slice(1) : [])];
     const featureStart = performance.now(), features = evidenceFeatures(B, D, wb, wd, 1);
     const featureMs = performance.now() - featureStart;
     const allLists = [...b.map((s, i) => top(s, i ? 50 : 100, true)), fullD, top(dr, 50).filter(i => docs[i].rows.length)];
     const expandedRrf = reciprocalRankFusion(allLists);
-    return { keys: keys.map(k => k.text), candidates: pool.map((id, i) => ({ id, lawId: docs[id].lawId, article: docs[id].article, features: features[i], rrf: rrf.get(id) || 0, expandedRrf: expandedRrf.get(id) || 0 })), rrfMs, featureMs, jevMs: performance.now() - start };
+    const jevMs = performance.now() - start;
+    return { keys: keys.map(k => k.text), candidates: pool.map((id, i) => ({ id, lawId: docs[id].lawId, article: docs[id].article, features: features[i], rrf: rrf.get(id) || 0, expandedRrf: expandedRrf.get(id) || 0 })), rrfMs, featureMs, jevMs,
+      queryEncodings: 1 + extra.length, semantic: new Map(docs.map((doc, i) => [doc.block, d[i]])) };
   };
   return { docs, gather, keysFor, coverage: { articles: docs.length, vectorArticles: docs.filter(d => d.rows.length).length, chunks: row } };
 }

@@ -49,12 +49,12 @@ def folds_for(indices, groups, n=5):
     return [sorted(f) for f in folds]
 
 
-def fit_article(records, indices):
+def fit_article(records, indices, C=1.0):
     candidates = [c for i in indices for c in records[i]['candidates']]
     y = np.array([c['label'] for c in candidates])
     if len(np.unique(y)) < 2:
         raise ValueError('TRAINING_REQUIRES_BOTH_CLASSES')
-    model = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, max_iter=2000, random_state=0))
+    model = make_pipeline(StandardScaler(), LogisticRegression(C=C, max_iter=2000, random_state=0))
     model.fit(np.array([c['features'] for c in candidates]), y)
     return model
 
@@ -117,6 +117,7 @@ def evaluate_record(record, scores, rule_model=None, positive_only=False):
                           'articles': [{'article': c['article'], 'label': c['label'], 'score': p} for p, c in r['articles']]}
                          for j, r in enumerate(rows[:3])],
             'ruleLabels': rule_labels, 'ruleProbabilities': rule_probs,
+            'ruleScores': [{'lawId': r['lawId'], 'probability': rule_probs[j]} for j, r in enumerate(rows)] if rule_probs else [],
             'selectionMs': (time.perf_counter() - start) * 1000}
 
 
@@ -143,10 +144,19 @@ def percentiles(values):
     return {'p50': float(np.median(values)), 'p95': float(np.percentile(values, 95))}
 
 
+def comparison_by_id(before, after, metrics):
+    before_by_id = {r['id']: r for r in before}
+    if len(before_by_id) != len(before) or len({r['id'] for r in after}) != len(after) or set(before_by_id) != {r['id'] for r in after}:
+        raise ValueError('COMPARISON_QUESTION_SET_MISMATCH')
+    return {key: {'newWrong': [r['id'] for r in after if before_by_id[r['id']][key] and not r[key]],
+                  'fixed': [r['id'] for r in after if not before_by_id[r['id']][key] and r[key]]} for key in metrics}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--evidence', required=True)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--reference', help='t10x final-v3 production MCP baseline, same corpus and public fixtures')
     args = parser.parse_args()
     output = Path(args.output)
     if output.exists():
@@ -156,6 +166,17 @@ def main():
     records = evidence['records']
     if len(records) != 71 or {s['count'] for s in evidence['sources']} != {46, 25}:
         raise ValueError('PUBLIC_FIXTURE_COUNT_MISMATCH')
+    reference = None
+    if args.reference:
+        ref_raw = Path(args.reference).read_bytes()
+        ref = json.loads(ref_raw)
+        if ref['after']['indexSha256'] != evidence['corpusHash'] or {s['sha256'] for s in ref['questionFiles']} != {s['sha256'] for s in evidence['sources']}:
+            raise ValueError('REFERENCE_SNAPSHOT_MISMATCH')
+        if ref['after']['sourceHashes']['corpus.js'] != evidence['codeHashes']['src/corpus.js']:
+            raise ValueError('REFERENCE_PRODUCTION_SCORER_MISMATCH')
+        reference = {'path': args.reference, 'sha256': hashlib.sha256(ref_raw).hexdigest(),
+                     'scope': 't10x full MCP baseline; JEV below is isolated retrieval, not a full MCP replacement run',
+                     'summary': ref['after']['summary'], 'results': ref['after']['results']}
     groups = groups_for(records)
     folds = folds_for(range(len(records)), groups)
     predictions, fold_reports = {}, []
@@ -199,6 +220,16 @@ def main():
     dev = [i for i, r in enumerate(records) if r['split'] == 'dev']
     train_model = fit_article(records, train)
     dev_rows = [evaluate_record(records[i], predict(train_model, records[i])) for i in dev]
+    dev_model = fit_article(records, dev)
+    reverse_rows = [evaluate_record(records[i], predict(dev_model, records[i])) for i in train]
+    # Predeclared neighbors, reported without selecting the best setting.
+    sensitivity = {}
+    for C in [0.5, 1.0, 2.0]:
+        rows = []
+        for validation in folds:
+            fit = fit_article(records, sorted(set(range(len(records))) - set(validation)), C=C)
+            rows.extend(evaluate_record(records[i], predict(fit, records[i])) for i in validation)
+        sensitivity[str(C)] = {'summary': summary(rows), 'vsDefault': comparison_by_id(jev, rows, ['top1', 'top3', 'articleTop3', 'selectedArticleHit'])}
     all_model = fit_article(records, list(range(len(records))))
     all_rule_model = fit_rule(records, list(range(len(records))), groups)
     # Cluster bootstrap preserves dependence between questions about one rule.
@@ -216,6 +247,7 @@ def main():
               'groups': len(group_ids), 'folds': fold_reports,
               'summary': {'rrf': summary(baseline['rrf']), 'expandedRrf': summary(baseline['expandedRrf']), 'jevOOF': summary(jev),
                           'train46ToDev25': summary(dev_rows),
+                          'dev25ToTrain46': summary(reverse_rows),
                           'rrfDev25': summary([baseline['rrf'][i] for i in dev])},
               'pairedSelectedHitDelta': {'mean': float(diffs.mean()), 'clusterBootstrap95': np.percentile(boots, [2.5, 97.5]).tolist(),
                                          'wins': int((diffs > 0).sum()), 'losses': int((diffs < 0).sum())},
@@ -227,9 +259,26 @@ def main():
                             'featureConstruction': percentiles([r['featureMs'] for r in records]),
                             'pythonPredictionAndSelection': percentiles(inference_ms)},
               'records': [{'id': r['id'], 'group': int(groups[i]), 'rrf': baseline['rrf'][i], 'expandedRrf': baseline['expandedRrf'][i], 'jevOOF': jev[i]} for i, r in enumerate(records)],
+              'sensitivityC': sensitivity,
+              'newWrongVsRrf': comparison_by_id(baseline['rrf'], jev, ['top1', 'top3', 'articleTop3', 'selectedArticleHit']),
               'model': {'version': 1, 'fingerprint': evidence['fingerprint'], 'featureNames': evidence['featureNames'],
                         'article': model_json(all_model), 'rule': model_json(all_rule_model),
                         'scope': 'Experimental; fitted on all 71 public questions, not independently evaluated. No production activation.'}}
+    if records and all('production' in r for r in records):
+        report['productionSearchCorpus'] = {}
+        for mode in ['off', 'on']:
+            rows = [{'id': r['id'], **r['production'][mode]} for r in records]
+            report['productionSearchCorpus'][mode] = {
+                'scope': 'Unchanged production searchCorpus only; top3 rules with 3 selected blocks; no index.js final ranking/excerpt pipeline',
+                'top3': {'hits': sum(r['top3'] for r in rows), 'total': len(rows)},
+                'selectedArticleHit': {'hits': sum(r['selectedArticleHit'] for r in rows), 'total': len(rows)},
+                'latencyMs': percentiles([r['elapsedMs'] for r in rows]),
+                'jevVsProduction': comparison_by_id(rows, jev, ['top3', 'selectedArticleHit']), 'records': rows}
+    if reference:
+        report['productionMcpReference'] = {k: v for k, v in reference.items() if k != 'results'}
+        report['productionMcpReference']['ruleTop3Diagnostic'] = comparison_by_id(reference['results'], jev, ['top3'])
+        ref_selection = [{'id': r['id'], 'selectedArticleHit': r['strict']} for r in reference['results']]
+        report['productionMcpReference']['crossScopeSelectedDiagnostic'] = comparison_by_id(ref_selection, jev, ['selectedArticleHit'])
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open('x') as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
