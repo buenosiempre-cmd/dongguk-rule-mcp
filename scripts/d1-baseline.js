@@ -188,8 +188,14 @@ function installSnapshotAdapter(entry) {
       const file = path.join(process.env.D1_HTML_DIR, `${key}.html`);
       if (!fs.existsSync(file)) return fail('OFFLINE_HTML_MISSING');
       html = fs.readFileSync(file, 'utf8');
+    } else if (parsed.pathname === '/lmxsrv/law/lawFullView.srv') {
+      const params = new URLSearchParams(request.body);
+      const lawId = Number(params.get('SEQ') || parsed.searchParams.get('SEQ'));
+      const rule = catalog.find(item => item.lawId === lawId);
+      if (!rule) return fail('OFFLINE_UNPINNED_HISTORY');
+      html = `<select id="histroySeq"><option value="${rule.historyId}" onclick="showDate('${String(rule.revisedAt || '').replace(/\D/g, '')}')"></option></select>`;
     } else {
-      // HWP downloads, missing history, and unsupported endpoints are never fabricated.
+      // HWP downloads and unsupported endpoints are never fabricated.
       process.stderr.write(NETWORK_MARKER + '\n');
       if (process.env.D1_OFFLINE_TRACE === '1' && /^\/[a-zA-Z0-9/._-]*$/.test(parsed.pathname)) process.stderr.write(`D1_OFFLINE_PATH ${parsed.pathname}\n`);
       return fail('OFFLINE_CACHE_MISS');
@@ -220,7 +226,7 @@ async function main(args = process.argv.slice(2)) {
   const after = await measure('after', afterCache, path.resolve(options.afterRepo), questions, options);
   const report = { startedAt, completedAt: new Date().toISOString(), questionFiles: files,
     mode: options.useArgs ? 'query+문항 자체 args' : 'query만', network: 'blocked',
-    snapshotAdapter: { catalogSha256, search: 'LAWNAME 제목 포함 비교, 같은 고정 catalog', content: '동일 lawId/historyId 수집 HTML만 사용', hwp: '캐시 이외 실패 유지' },
+    snapshotAdapter: { catalogSha256, search: 'LAWNAME 제목 포함 비교, 같은 고정 catalog', content: '동일 lawId/historyId 수집 HTML만 사용', history: '누락 연혁은 catalog의 알려진 고정 연혁 1개만 재현. 과거 기준일 평가 미지원. before/after는 측정 전용 캐시이며 일반 조회용으로 사용하지 않는다.', hwp: '캐시 이외 실패 유지' },
     definitions: { strict: '상위 3개 정답 규정 본문에 정답 조문/별표 표제 포함', top3: '상위 3개 반환 규정에 정답 규정 포함', bodyIncluded: '반환 전체 정답 규정 본문에 정답 조문/별표 표제 포함', articleGivenTop3: 'strict 정답 수 / 규정 top3 정답 수',
       limitation: '표제 존재를 채점하며 조문 내용의 법적 정확성이나 발췌 완전성을 판정하지 않는다. 원본 구조 캐시에서 발췌한 경우 HTML 전문 색인 변경은 후보 순위에만 드러날 수 있다. 첫 질의를 포함한 1회 실행 지연이다.' },
     before, after, diff: comparison(before.results, after.results) };
