@@ -27,7 +27,7 @@ check('방식 이름: 기본은 legacy, 모르는 값도 legacy', () => {
   assert.equal(rankingMethod(''), 'legacy');
   assert.equal(rankingMethod('  RRF '), 'rrf');
   assert.equal(rankingMethod('nonsense'), 'legacy');
-  assert.deepEqual(METHODS, ['legacy', 'hybrid', 'rrf', 'jev', 'hybrid-scope']);
+  assert.deepEqual(METHODS, ['legacy', 'hybrid', 'rrf', 'jev']);
 });
 
 console.log('캠퍼스·기관');
@@ -85,6 +85,33 @@ check('hybrid: 서울캠퍼스를 물으면 WISE 규정은 뒤로', () => {
 });
 check('hybrid: 도구의 campus 인수도 범위로 읽음', () => {
   assert.deepEqual(titles(rank('구매 계약', purchasing(), { method: 'hybrid', campus: 'wise' })), ['WISE캠퍼스 구매규정', '취업규칙', 'WISE캠퍼스 대관 규정']);
+});
+
+check('호출부의 장소 판독(placeAgreementOf): 정수만 받고, null·예외·비정수는 제목으로, legacy와 범위 없는 질문에는 부르지 않음', () => {
+  const candidates = () => [candidate('취업규칙', 10), candidate('대관 규정', 9), candidate('WISE캠퍼스 대관 규정', 8)];
+  // A reading that says 대관 규정 is a Seoul rule: for a WISE question it falls behind.
+  const calls = [];
+  const reading = (member, place) => { calls.push([member.title, place.campuses.join()]); return member.title === '대관 규정' ? -1 : null; };
+  const read = rank('경주캠퍼스 대관 신청과 직원 휴가', [candidate('취업규칙', 10), candidate('학생준칙', 9), candidate('문서규정', 8)], { method: 'hybrid', placeAgreementOf: member => member.title === '학생준칙' ? -1 : null });
+  assert.deepEqual(read.ranked.map(hit => [hit.title, hit.scopeMatch]), [['취업규칙', null], ['문서규정', null], ['학생준칙', false]]);
+  assert.equal(read.ranked[2].order, 9 * 0.6);
+  const wise = rank('경주캠퍼스 대관 신청', candidates(), { method: 'hybrid', placeAgreementOf: reading });
+  assert.deepEqual(titles(wise), ['WISE캠퍼스 대관 규정', '취업규칙']);
+  assert(calls.length === 3 && calls.every(([, campuses]) => campuses === 'wise'));
+  // Bad readings leave every rule to its title.
+  for (const bad of [() => 0.5, () => 'yes', () => { throw new Error('x'); }, () => undefined, 'not a function']) {
+    assert.deepEqual(titles(rank('경주캠퍼스 대관 신청', candidates(), { method: 'hybrid', placeAgreementOf: bad })), ['WISE캠퍼스 대관 규정', '취업규칙']);
+  }
+  calls.length = 0;
+  rank('대관 신청', candidates(), { method: 'hybrid', placeAgreementOf: reading });
+  rank('경주캠퍼스 대관 신청', candidates(), { method: 'legacy', placeAgreementOf: reading });
+  assert.equal(calls.length, 0);
+  // rrf uses the same reading for its place tiers.
+  const fusedCandidates = () => [candidate('취업규칙', 10, { semanticRuleRank: 1 }), candidate('학생준칙', 9, { semanticRuleRank: 2 })];
+  const plain = rank('경주캠퍼스 직원 휴가', fusedCandidates(), { method: 'rrf', semantic: true });
+  const fused = rank('경주캠퍼스 직원 휴가', fusedCandidates(), { method: 'rrf', semantic: true, placeAgreementOf: member => member.title === '취업규칙' ? -1 : null });
+  assert.equal(fused.ranked.find(hit => hit.title === '취업규칙').scopeMatch, false);
+  assert(fused.ranked.find(hit => hit.title === '취업규칙').order < plain.ranked.find(hit => hit.title === '취업규칙').order);
 });
 
 console.log('대상');
