@@ -342,6 +342,14 @@ const deps = {
   check('R4 날짜만 둘러싼 잘못된 괄호도 확인필요', malformedDateWrapper.summary.verified === 0
     && malformedDateWrapper.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED');
 
+  for (const scope of ['부칙(제2020-1호, 2020.1.1.) 제1조', '부칙(2099.1.) 제1조',
+    '부칙(2020.1.1. 제1조', '2099.1.1. 시행 부칙 제1조']) {
+    const result = await verifyRuleCitations(`「검수규정」 ${scope}`, redteamDeps);
+    check(`미해석 날짜 표시는 입력 그대로: ${scope}`, result.citations.length === 1
+      && result.citations[0].article === scope && result.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED'
+      && result.summary.verified === 0, JSON.stringify(result.citations));
+  }
+
   const unknownAmongDated = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', {
     ...redteamDeps, getRuleMarkdown: async () => redteamBody + '\n\n## 부칙\n\n### 제1조(시행일)\n날짜 미상',
   });

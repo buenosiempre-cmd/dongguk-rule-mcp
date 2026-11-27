@@ -195,9 +195,10 @@ function extractRuleCitations(text) {
         unsupportedReasons.push('UNSUPPORTED_ARTICLE_NUMBER');
       }
       const selectorText = m[2] ? `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${m[2]}조${m[3] ? `의${m[3]}` : ''}` : null;
-      const selector = selectorText ? normalizeArticleSelector(selectorText) : null;
+      const selector = selectorText && !m.dateSyntaxUnverified ? normalizeArticleSelector(selectorText) : null;
       const selectorUnverified = inherited ? inherited.selectorUnverified : connectionUnverified || (!!m[1] && !selector);
-      const canonical = inherited ? inherited.article.canonical : (selector?.label || selectorText);
+      const originalSelector = m[2] ? `${m.sourcePrefix ?? (m[1] || '')}제${m[2]}조${m[3] ? `의${m[3]}` : ''}`.trim() : null;
+      const canonical = inherited ? inherited.article.canonical : (selector?.label || originalSelector);
       const article = inherited ? { ...inherited.article } : m[2]
         ? { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical }
         : null;

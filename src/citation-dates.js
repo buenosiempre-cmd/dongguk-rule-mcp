@@ -74,6 +74,8 @@ function preserveDatedAddendum(match, text, tokens, mentions, after) {
   const gap = text.slice(token.end, articleStart);
   if (/[.!?。！？]/.test(gap) || mentions.some(m => m.start < articleStart && m.end > token.start)) return false;
   match[0] = text.slice(token.start, match.index + match[0].length);
+  match.sourcePrefix = text.slice(token.start, articleStart);
+  match.dateSyntaxUnverified = token.syntaxUnverified;
   match[1] = token.text;
   match.index = token.start;
   return token.syntaxUnverified || !/^\s*(?:(?:의|중)\s*)?$/.test(gap);
