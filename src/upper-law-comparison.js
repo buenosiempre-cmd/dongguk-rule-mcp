@@ -67,7 +67,7 @@ const cell = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '
 function formatComparison(comparison, laws) {
   if (!comparison.requested) return '';
   const lines = ['### 조문 대조', `- 대조 본문 상태: ${comparison.status}${comparison.incompleteReasons.length ? ` (${comparison.incompleteReasons.join(', ')})` : ''}`,
-    '- 왼쪽은 인용을 추출한 HTML 규정 조문, 오른쪽은 조회 시점 현행 법령 조문입니다. 과거 규정 당시의 법령이나 업무 적용성을 확정하지 않습니다. 규정 별표·서식 전문은 get_rule_full_text로 확인하세요.'];
+    '- 왼쪽은 인용을 추출한 HTML 규정 조문이며, 오른쪽 본문은 목록과 본문의 시행일이 일치하는 경우에만 제시합니다. 시행일 미확인·조회 실패는 본문 미확보로 표시합니다. 과거 규정 당시의 법령이나 업무 적용성을 확정하지 않습니다. 규정 별표·서식 전문은 get_rule_full_text로 확인하세요.'];
   if (!comparison.pairs.length) lines.push('대조할 명시적 법령 인용 조문이 없습니다. 주제 후보를 대조 근거로 채우지 않습니다.');
   for (const rule of comparison.ruleArticles) {
     lines.push('', `#### 규정 ${rule.article || '본문'}${rule.supplementaryHeading ? ` — ${rule.supplementaryHeading}` : ''}`,

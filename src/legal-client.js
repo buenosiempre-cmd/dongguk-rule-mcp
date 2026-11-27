@@ -263,14 +263,18 @@ function annexSelector(value){
   const m=/^(?:별표\s*)?(\d{1,4})(?:\s*의\s*(\d{1,3}))?$/.exec(value.trim());
   return m&&Number(m[1])>0?`${Number(m[1])}${m[2]?`의${Number(m[2])}`:''}`:false;
 }
+function bodyVersionProblem(text,law){
+  const effective=compactDate(/^시행일:\s*(.+)$/m.exec(text)?.[1]);
+  return !effective||effective!==law.effectiveAt?'LEGAL_BODY_VERSION_UNVERIFIED':null;
+}
 function bodyProblem(response,law,selector){
   const text=textOf(response);
   if(responseFailed(response)||errorText(text)) return 'LEGAL_BODY_ERROR';
   if(!text.trim()) return 'LEGAL_EMPTY_BODY';
   const name=/^법령명:\s*(.+)$/m.exec(text)?.[1];
   if(!name||normalize(name)!==normalize(law.name)) return 'LEGAL_BODY_LAW_MISMATCH';
-  const effective=compactDate(/^시행일:\s*(.+)$/m.exec(text)?.[1]);
-  if(!effective||effective!==law.effectiveAt) return 'LEGAL_BODY_VERSION_UNVERIFIED';
+  const versionProblem=bodyVersionProblem(text,law);
+  if(versionProblem) return versionProblem;
   if(/^목차\s*\(총\s*\d+개 조문\)/m.test(text)) return 'LEGAL_TOC_ONLY';
   // A body line can open with another article ("제70조의2제1항에도 불구하고",
   // "제5조 및 제6조에 따른"); only a token followed by a title or line end is a header.
@@ -601,6 +605,8 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
         law.identity={status:'not_found',code:'LEGAL_EXACT_LAW_NOT_FOUND',similar:listed.slice(0,3).map(x=>x.name)};
         continue;
       }
+      // A [현행] label or a rename notice alone does not prove an effective version.
+      if(!compactDate(current.effectiveAt)||current.effectiveAt>todayCompact) throw failure('LEGAL_CURRENT_VERSION_UNVERIFIED');
       law.identity={status:renamed?'renamed':'current',name:current.name,lawId:current.lawId,mst:current.mst,kind:current.kind,
         promulgatedAt:isoOf(current.promulgatedAt),effectiveAt:isoOf(current.effectiveAt),url:current.url,retrievedAt:listedAt||new Date().toISOString(),
         ...(renamed?{renamedFrom:renamed.from}:{}),...(corrected?{matchedFromText:corrected}:{}),
@@ -613,22 +619,28 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
       if(articleBudget<=0){article.code='ARTICLE_LIMIT';continue;}
       articleBudget--;
       try{
-        const response=await call('get_law_text',{mst:current.mst,jo:selector});
+        const arguments_={mst:current.mst,efYd:current.effectiveAt,jo:selector};
+        const response=await call('get_law_text',arguments_);
         const text=textOf(response);
         const header=/^법령명:\s*(.+)$/m.exec(text)?.[1];
         if(!header||normalize(header)!==normalize(current.name)) throw failure(header?'LEGAL_BODY_LAW_MISMATCH':'LEGAL_BODY_ERROR');
+        const bodyEffective=compactDate(/^시행일:\s*(.+)$/m.exec(text)?.[1]);
+        const versionProblem=bodyVersionProblem(text,current);
+        Object.assign(article,{
+          versionCheck:versionProblem?'unverified':'matches_listing',
+          source:{provider:'Korean Law MCP',tool:'get_law_text',lawName:current.name,mst:current.mst,arguments:arguments_,
+            bodyEffectiveAt:isoOf(bodyEffective),retrievedAt:fetchedAt(response),url:current.url},
+        });
+        // Even an explicit absence/deletion is only evidence for the verified version.
+        if(versionProblem) throw failure(versionProblem);
         // "Missing" needs the law's own header plus the provider's explicit statement.
         if(/^\[NOT_FOUND\][^\r\n]*조문(?: 내용)?을 찾을 수 없습니다/m.test(text)){Object.assign(article,{status:'missing',code:'LEGAL_ARTICLE_MISSING'});continue;}
         if(responseFailed(response)||errorText(text)) throw failure('LEGAL_BODY_ERROR');
         const facts=articleFacts(text,selector);
         if(!facts) throw failure('LEGAL_ARTICLE_UNVERIFIED');
-        const bodyEffective=compactDate(/^시행일:\s*(.+)$/m.exec(text)?.[1]);
         const content=clipped(facts.body,maxTextChars);
         Object.assign(article,{status:facts.deleted?'deleted':'found',title:facts.title,amendedDates:facts.amendedDates,lastAmendedAt:facts.amendedDates.at(-1)||null,
-          text:content.text,truncated:content.truncated,
-          // The listing and the body can state different effective dates for one MST.
-          versionCheck:bodyEffective&&current.effectiveAt&&bodyEffective===current.effectiveAt?'matches_listing':'unverified',
-          source:{provider:'Korean Law MCP',tool:'get_law_text',lawName:current.name,mst:current.mst,bodyEffectiveAt:isoOf(bodyEffective),retrievedAt:fetchedAt(response),url:current.url}});
+          text:content.text,truncated:content.truncated});
       }catch(error){Object.assign(article,{status:'unavailable',code:codeOf(error)});}
     }
   }

@@ -20,7 +20,7 @@ const { createServer } = require('../src/index.js');
 const { createHttpServer } = require('../src/http-server.js');
 const { closeLegalClient, inspectLaws, articleFacts } = require('../src/legal-client.js');
 const { createResolver, extractReferences, summarizeExternalLaws } = require('../src/references.js');
-const { planLaws, signalsFor, topicCandidates, latestAnnotatedDate } = require('../src/upper-laws.js');
+const { buildUpperLaws, planLaws, signalsFor, topicCandidates, latestAnnotatedDate } = require('../src/upper-laws.js');
 const { titleInQuery, withoutRuleName } = require('../src/lookup.js');
 
 const dir = path.join(root, 'dongguk-rule-mcp', 'v2', 'public');
@@ -57,8 +57,15 @@ setRule(109, Array.from({length:5}, (_,i) => `### 제${i+1}조(장문)\n「사�
 setRule(110, '### 제1조(없는 조문)\n「사립학교법」 제99조를 따른다.');
 setRule(111, '### 제1조(기호)\n「사립학교법」 제29조를 따른다.\n항목 | 값\n<표> & 문구');
 
+// F1: same MST may return a future body unless efYd is pinned (synthetic prose).
+for (const [id, jo] of [[660,25],[661,26],[662,27]]) {
+  seed('history', String(id), [{historyId:3765,revisedAt:'2026.03.13'}]);
+  seed('content-v4', `${id}_3765`, {title:'안전보건관리규정',markdown:`### 제1조(목적)\n산업안전보건법 제${jo}조를 따른다.`});
+}
+
 // Synthetic law listing in the provider's format. Dates are fixture values, not real law data.
 const LAWS = {
+  산업안전보건법: {id:'001766',mst:'291447',promulgated:'20261027',effective:'20261027',kind:'법률',articles:{}},
   사립학교법: { id: '000888', mst: '9001', promulgated: '20240101', effective: '20240301', kind: '법률',
     articles: { 제29조: '제29조(회계의 구분)\n①학교법인의 회계는 구분한다. <개정 2020.3.24>', 제31조: '제31조 삭제 <2022.1.4>', '제32조의2': '제32조의2(적립금)\n①적립할 수 있다. <개정 2019.4.16>' } },
   '사학기관 재무ㆍ회계 규칙에 대한 특례규칙': { id: '007333', mst: '9002', promulgated: '20230531', effective: '20230601', kind: '교육부령',
@@ -96,6 +103,10 @@ function lawTool(name, a) {
   if (name === 'get_law_text') {
     const entry = Object.entries(LAWS).find(([, law]) => law.mst === String(a.mst));
     const head = `법령명: ${entry[0]}\n공포일: ${entry[1].promulgated}\n시행일: ${entry[1].effective}\n\n`;
+    if (entry[0] === '산업안전보건법') {
+      const effective = a.jo === '제27조' ? '' : a.efYd === '20261027' && a.jo === '제25조' ? '20261027' : '20270428';
+      return text(`법령명: 산업안전보건법\n시행일: ${effective}\n\n${a.jo}(합성 시험)\n${effective === '20261027' ? '현재 합성본문' : '시행예정 합성본문'}`);
+    }
     const body = entry[1].articles[a.jo];
     return body ? text(head + body + '\n') : text(`${head}[NOT_FOUND] 조문 내용을 찾을 수 없습니다.`, true);
   }
@@ -160,6 +171,52 @@ async function main() {
     assert.equal(deleted.status, 'deleted');
     assert.deepEqual([missing.status, missing.code], ['missing', 'LEGAL_ARTICLE_MISSING']);
     assert.deepEqual(articleFacts('법령명: X\n\n제15조 서류\n제15조(서류)\n①본문 <개정 1976.1.7, 2019.9.17>\n7. 삭제<1999.1.29>\n', '제15조').amendedDates, ['1976-01-07', '1999-01-29', '2019-09-17']);
+  });
+  await check('F1 같은 MST의 본문을 목록 시행일로 지정하고 정상 현행 본문은 유지', async () => {
+    lawCalls.length = 0;
+    const r = await inspectLaws([{name:'산업안전보건법',articles:['제25조']}], {client:injected,now:new Date('2026-11-27T03:00:00Z')});
+    assert.equal(r.status,'retrieved');
+    assert.equal(r.laws[0].articles[0].versionCheck,'matches_listing');
+    assert.match(r.laws[0].articles[0].text,/현재 합성본문/);
+    assert.deepEqual(lawCalls.find(x=>x.name==='get_law_text').args,{mst:'291447',efYd:'20261027',jo:'제25조'});
+  });
+  await check('F1 제공자가 시행일 지정을 무시하거나 날짜를 누락하면 본문을 확정하지 않음', async () => {
+    for (const date of ['20270428','20200101','','2026-02-30']) {
+      const client = {callTool:async request => request.name==='search_law' ? injected.callTool(request)
+        : {content:[{type:'text',text:`법령명: 산업안전보건법\n시행일: ${date}\n\n제25조(합성)\n미검증 합성본문`}]}};
+      const r = await inspectLaws([{name:'산업안전보건법',articles:['제25조']}],{client,now:new Date('2026-11-27T03:00:00Z')});
+      const a = r.laws[0].articles[0];
+      assert.deepEqual([r.status,a.status,a.code,a.versionCheck,a.text],['partial','unavailable','LEGAL_BODY_VERSION_UNVERIFIED','unverified',undefined],date);
+      assert.equal(a.source.arguments.efYd,'20261027');
+    }
+  });
+  await check('F1 다른 버전의 삭제·없음도 현행 삭제·없음으로 확정하지 않음', async () => {
+    for (const body of ['제25조 삭제 <2027.4.28>', '[NOT_FOUND] 조문 내용을 찾을 수 없습니다.']) {
+      const client = {callTool:async request => request.name==='search_law' ? injected.callTool(request)
+        : {content:[{type:'text',text:`법령명: 산업안전보건법\n시행일: 20270428\n\n${body}`}],isError:body.startsWith('[NOT_FOUND]')}};
+      const r=await inspectLaws([{name:'산업안전보건법',articles:['제25조']}],{client,now:new Date('2026-11-27T03:00:00Z')});
+      assert.equal(r.laws[0].articles[0].code,'LEGAL_BODY_VERSION_UNVERIFIED');
+      assert.equal(r.laws[0].articles[0].status,'unavailable');
+    }
+  });
+  await check('F1 미래 시행일 목록·시행일 없는 제명 변경 안내는 현행 근거가 아님', async () => {
+    for (const listingText of [listing(['산업안전보건법']).replace(/20261027/g,'20270428'),
+      '「옛합성법」은(는) 옛 법령명입니다 — 제명이 바뀌어 현행은 「산업안전보건법」(법령ID 001766, MST 291447)입니다.\n'+listing(['소득세법'])]) {
+      let bodies=0;
+      const client={callTool:async request=>{if(request.name==='get_law_text')bodies++;return {content:[{type:'text',text:listingText}]};}};
+      const r=await inspectLaws([{name:listingText.startsWith('「')?'옛합성법':'산업안전보건법',articles:['제25조']}],{client,now:new Date('2026-11-27T03:00:00Z')});
+      assert.equal(r.laws[0].identity.code,'LEGAL_CURRENT_VERSION_UNVERIFIED');
+      assert.equal(r.status,'unavailable');assert.equal(bodies,0);
+    }
+  });
+  await check('F1 검증 전 캐시 키는 재사용하지 않고 검증된 결과만 새 키에 저장', async () => {
+    const crypto=require('node:crypto'), day=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+    const oldKey=crypto.createHash('md5').update(['산업안전보건법','name','제25조',day].join('|')).digest('hex');
+    let checked=0;
+    const result=await buildUpperLaws({references:extractReferences('「산업안전보건법」 제25조',createResolver([])),title:'합성규정',includeText:true,
+      includeCandidates:false,configured:true,cached:async(category,key,ttl,fn)=>{assert.equal(category,'upper-law');assert.notEqual(key,oldKey);return fn();},
+      inspectLaws:async(requests,opts)=>{checked++;return inspectLaws(requests,{...opts,client:injected});}});
+    assert.equal(checked,1);assert.equal(result.lookup.status,'retrieved');assert.match(result.laws[0].articles[0].text,/현재 합성본문/);
   });
   await check('빈 응답·점검 페이지는 없음이 아니라 확인 실패', async () => {
     for (const broken of ['empty', 'maintenance']) {
@@ -257,6 +314,25 @@ async function main() {
   await new Promise((resolve, reject) => { http.once('error', reject); http.listen(0, '127.0.0.1', resolve); });
   Object.assign(process.env, { DONGGUK_LEGAL_MCP_ENABLED: '1', DONGGUK_LEGAL_MCP_TRANSPORT: 'streamable-http', DONGGUK_LEGAL_MCP_URL: `http://127.0.0.1:${http.address().port}/mcp`, DONGGUK_PUBLIC_LAW_LINK: '1' });
 
+  await check('F1 안전보건관리규정 재현 호출은 시행일 지정 후 현재 본문으로 완전 조회', async () => {
+    const raw=await client.callTool({name:'get_rule_upper_laws',arguments:{law_id:660,article:1,include_text:true}});
+    const d=raw.structuredContent.data;
+    assert.deepEqual([d.lookup.status,d.textCoverage.status,d.comparison.status,d.evidenceStatus],['retrieved','complete','complete','retrieved']);
+    assert.equal(d.laws[0].articles[0].source.bodyEffectiveAt,'2026-10-27');
+    assert.match(raw.content[0].text,/현재 합성본문/);assert.doesNotMatch(raw.content[0].text,/시행예정 합성본문/);
+  });
+  await check('F1 날짜 불일치·누락은 본문 대조와 최상위 상태에서도 미확인', async () => {
+    for (const law_id of [661,662]) {
+      const raw=await client.callTool({name:'get_rule_upper_laws',arguments:{law_id,article:1,include_text:true}});
+      const d=raw.structuredContent.data;
+      assert.deepEqual([d.lookup.status,d.textCoverage.status,d.comparison.status,d.evidenceStatus],['partial','unavailable','unavailable','partial']);
+      assert.equal(d.laws[0].articles[0].text,undefined);
+      assert.match(raw.content[0].text,/본문 시행일 미확인/);assert.match(raw.content[0].text,/LEGAL_BODY_VERSION_UNVERIFIED/);
+      assert.doesNotMatch(raw.content[0].text,/시행예정 합성본문|오른쪽은 조회 시점 현행 법령 조문입니다/);
+      const withoutText=(await call('get_rule_upper_laws',{law_id,article:1})).data;
+      assert.equal(withoutText.evidenceStatus,'partial');
+    }
+  });
   await check('규정 전체: 법령별 현행 여부와 점검 신호', async () => {
     const raw = await client.callTool({ name: 'get_rule_upper_laws', arguments: { law_id: 1, max_laws: 12 } });
     const data = raw.structuredContent.data;
