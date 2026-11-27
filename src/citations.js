@@ -9,7 +9,8 @@
 //  5) 유사 규정만 검색되면(포함관계 없음) 무관 규정을 근거로 판정하지 않음
 
 const { normalizeMiddots } = require('./aliases.js');
-const { listArticleBlocks } = require('./parsers.js');
+const { scanDatedAddenda, preserveDatedAddendum } = require('./citation-dates.js');
+const { listArticleBlocks, normalizeArticleSelector, supplementarySelector } = require('./parsers.js');
 const { searchVariants, selectRuleCandidate } = require('./lookup.js');
 
 const NAME_SUFFIX = '(?:시행세칙|규정|규칙|세칙|학칙|정관|지침|내규|요령|헌장)';
@@ -17,11 +18,12 @@ const STANDALONE_NAMES = new Set(['학칙', '정관', '헌장']);
 const DEMONSTRATIVES = ['같은', '해당', '당해', '아래', '우리', '이', '그', '본', '동', '위'];
 const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 
-// 제N조(의M)(제목)(제P항) — "제15조제1항", "제10조의2 (겸직)" 등 허용
+// Only an adjacent bracket group or date can extend a 부칙 prefix.
+// Prose such as "부칙에 따라 ... 제3조" must leave 제3조 in the main body.
+const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?(?:(?:의|중)\s*)?`;
 const ARTICLE_RE = new RegExp(
-  '(부\\s*칙\\s*)?제\\s*(\\d{1,3})\\s*조(?:\\s*의\\s*(\\d{1,2}))?' +
-  '(?:\\s*\\(([^)\\n]{1,40})\\))?' +
-  '(?:\\s*제\\s*(\\d{1,2})\\s*항)?',
+  String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d{1,3})\s*조(?:\s*의\s*(\d{1,2}))?` +
+  String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d{1,2})\s*항)?`,
   'g'
 );
 
@@ -138,9 +140,13 @@ function extractRuleCitations(text) {
     mentionsAll.push(...mentions.map(x => ({ ...x, offset: segment.offset })));
     const bound = new Set();
 
+    const datedAddenda = scanDatedAddenda(segment.text);
+    let previousArticleEnd = 0;
     ARTICLE_RE.lastIndex = 0;
     let m;
     while ((m = ARTICLE_RE.exec(segment.text)) !== null) {
+      const connectionUnverified = preserveDatedAddendum(m, segment.text, datedAddenda, mentions, previousArticleEnd);
+      previousArticleEnd = ARTICLE_RE.lastIndex;
       const supplementary = !!m[1];
       const number = parseInt(m[2], 10);
       const subNumber = m[3] ? parseInt(m[3], 10) : null;
@@ -148,7 +154,12 @@ function extractRuleCitations(text) {
       const citedTitle = rawParen && !isAnnotationParen(rawParen) ? rawParen : null;
       const hang = m[5] ? parseInt(m[5], 10) : null;
       if (!number) continue;
-      const canonical = `${supplementary ? '부칙 ' : ''}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      // Consume the complete addendum prefix before interpreting it. An invalid
+      // date/prefix must never fall through to a main-body article match.
+      const selectorText = `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      const selector = m.dateSyntaxUnverified ? null : normalizeArticleSelector(selectorText);
+      const originalSelector = `${m.sourcePrefix ?? (m[1] || '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      const canonical = selector?.label || originalSelector.trim();
       const raw = m[0].replace(/\s+/g, ' ').trim();
 
       // 같은 문단에서 이 조문 앞에 있는 가장 가까운 멘션에 결속
@@ -165,14 +176,15 @@ function extractRuleCitations(text) {
       owner.boundCount = (owner.boundCount || 0) + 1;
       bound.add(owner);
 
-      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || ''].join('|');
+      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || '', connectionUnverified].join('|');
       if (seen.has(key)) continue;
       seen.add(key);
       citations.push({
         raw: `${owner.kind === 'anaphora' ? owner.raw : owner.resolved} ${raw}`,
         ruleName: owner.resolved,
         anaphora: owner.kind === 'anaphora',
-        article: { number, subNumber, supplementary, canonical },
+        article: { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical },
+        selectorUnverified: connectionUnverified || !selector,
         hang, citedTitle,
       });
     }
@@ -277,6 +289,9 @@ function headingTitleOf(block) {
 
 // 인용 1건 판정
 function judgeCitation(citation, rec) {
+  if (citation.selectorUnverified) {
+    return { status: 'ARTICLE_SELECTOR_UNVERIFIED', symbol: '⚠', note: '부칙 날짜·조문 선택자를 해석할 수 없음 — 원문 위치 확인 필요' };
+  }
   if (!rec || rec.status === 'skipped') {
     return { status: 'RULE_SKIPPED', symbol: '⚠', note: '규정 수 상한 초과로 이번 호출에서는 검증 생략' };
   }
@@ -304,14 +319,20 @@ function judgeCitation(citation, rec) {
     return { status: 'RULE_EXISTS', symbol: '✓', note: `규정 실존 — ${rec.hit.title} (LAW_ID ${rec.hit.lawId})` };
   }
 
-  const { number, subNumber, supplementary, canonical } = citation.article;
+  const { number, subNumber, supplementary, supplementaryDate, canonical } = citation.article;
   if (!rec.blocks.length) {
     return { status: 'RULE_CONTENT_UNAVAILABLE', symbol: '⚠', note: '조문 구조를 확인할 수 없어 미존재 판정 불가 — 공식 원문 확인 필요' };
   }
+  const datedBlocks = supplementaryDate
+    ? rec.blocks.filter(b => normalizeArticleSelector(supplementarySelector(b))?.supplementaryDate === supplementaryDate)
+    : null;
   let matches = rec.blocks.filter(b => b.number === number && b.subNumber === subNumber);
   matches = supplementary
     ? matches.filter(b => b.supplementary)
     : (matches.some(b => !b.supplementary) ? matches.filter(b => !b.supplementary) : []);
+  if (supplementaryDate) {
+    matches = matches.filter(b => normalizeArticleSelector(supplementarySelector(b))?.supplementaryDate === supplementaryDate);
+  }
   const block = matches[0];
 
   if (matches.length > 1) {
@@ -319,8 +340,14 @@ function judgeCitation(citation, rec) {
   }
 
   if (!block) {
-    const rangeNote = supplementary
-      ? '부칙에 해당 조문 없음'
+    if (supplementaryDate && !datedBlocks.length && rec.blocks.some(b => b.supplementary && !supplementarySelector(b))) {
+      return { status: 'ARTICLE_SELECTOR_UNVERIFIED', symbol: '⚠', note: `${canonical} — 원문에 개정일을 확인할 수 없는 부칙이 있어 날짜·조문 실존은 미검증. 부칙 머리와 원문 위치 확인 필요` };
+    }
+    const rangeNote = supplementaryDate
+      ? (datedBlocks.length
+        ? `개정일 ${supplementaryDate}의 부칙은 있으나 해당 조문 없음`
+        : `개정일 ${supplementaryDate}의 부칙 조문 블록을 확인하지 못함 — 날짜·원문 확인 필요`)
+      : supplementary ? '부칙에 해당 조문 없음'
       : (rec.range ? `본칙 존재 범위: 제${rec.range.min}조~제${rec.range.max}조` : '조문 헤더를 찾을 수 없음');
     return { status: 'NOT_FOUND', symbol: '✗', note: `${canonical} 없음 (${rangeNote})` };
   }
