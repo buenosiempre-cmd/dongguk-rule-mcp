@@ -10,6 +10,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
+const { withGenerationLock, readPublished, trackGeneration, cleanGenerationsLocked, cleanupGenerations, generationStatus } = require('./semantic-generations.js');
 
 const SEMANTIC_VERSION = 1;
 // Changes whenever the text given to the model changes, so old vectors are not reused.
@@ -184,25 +185,34 @@ async function buildSemanticIndex({ corpus, directory, embedder, previous = null
 
 const vectorHash = vectors => crypto.createHash('sha256').update(Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)).digest('hex');
 
-function saveSemanticIndex(directory, { meta, vectors }) {
+function saveSemanticIndex(directory, { meta, vectors }, { now = Date.now } = {}) {
   if (!validMeta(meta) || vectors.length !== meta.rows * meta.dims || !vectors.every(Number.isFinite)
     || vectorHash(vectors) !== meta.vectorHash) throw new Error('Invalid semantic index');
   const folder = semanticDir(directory);
   fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
-  const suffix = `.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-  const files = [[path.join(folder, meta.vectorFile), Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)], [path.join(folder, META_FILE), JSON.stringify(meta)]];
-  // Publish immutable, content-addressed vectors before atomically switching the description.
-  // Readers holding the old description keep its vectors, including after a failed publish.
-  // Do not remove old generations here: a different process may still be reading them.
-  for (const [filename, data] of files) {
-    try {
-      fs.writeFileSync(filename + suffix, data, { mode: 0o600 });
-      fs.renameSync(filename + suffix, filename);
-    } finally {
-      // Cleanup must not turn a successful publish into a reported failure.
-      try { fs.unlinkSync(filename + suffix); } catch {}
-    }
-  }
+  return withGenerationLock(folder, check => {
+    const time = now();
+    if (!Number.isSafeInteger(time) || time < 0) throw new Error('Invalid semantic publication time');
+    const previous = readPublished(fs.realpathSync(folder), validMeta)?.value;
+    const suffix = `.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+    const publish = (filename, data) => {
+      try {
+        fs.writeFileSync(filename + suffix, data, { mode: 0o600 });
+        check();
+        fs.renameSync(filename + suffix, filename);
+      } finally { try { fs.unlinkSync(filename + suffix); } catch {} }
+    };
+    // Same PR #53 publication point: vector first, then one metadata rename.
+    publish(path.join(folder, meta.vectorFile), Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength));
+    const tracked = trackGeneration(folder, meta, previous, time);
+    publish(path.join(folder, META_FILE), JSON.stringify(tracked));
+    // Cleanup failure must never change a successful publication into a failure.
+    try { cleanGenerationsLocked(folder, validMeta, time, check); } catch {}
+  });
+}
+
+function cleanupSemanticGenerations(directory, { now = Date.now } = {}) {
+  return cleanupGenerations(semanticDir(directory), validMeta, now());
 }
 
 // === loading ===
@@ -235,7 +245,7 @@ function validMeta(meta) {
 }
 
 const loadedIndexes = new Map();
-function loadSemanticIndex(directory) {
+function loadSemanticIndex(directory, retried = false) {
   const metaFile = path.join(semanticDir(directory), META_FILE);
   let stamp, meta, vectorFile;
   try {
@@ -246,7 +256,10 @@ function loadSemanticIndex(directory) {
     vectorFile = path.join(semanticDir(directory), meta.vectorFile);
     const vectors = fs.statSync(vectorFile);
     stamp = `${description}:${vectors.mtimeMs}:${vectors.ctimeMs}:${vectors.size}`;
-  } catch { return null; }
+  } catch (error) {
+    // A reader paused beyond the retention grace may have an obsolete pointer.
+    return !retried && error.code === 'ENOENT' ? loadSemanticIndex(directory, true) : null;
+  }
   const memo = loadedIndexes.get(metaFile);
   if (memo && memo.stamp === stamp) return memo.index;
   let index = null;
@@ -259,7 +272,10 @@ function loadSemanticIndex(directory) {
       Buffer.from(vectors.buffer).set(buffer);
       if (vectors.every(Number.isFinite)) index = { meta, vectors };
     }
-  } catch { index = null; }
+  } catch (error) {
+    if (!retried && error.code === 'ENOENT') return loadSemanticIndex(directory, true);
+    index = null;
+  }
   loadedIndexes.set(metaFile, { stamp, index });
   return index;
 }
@@ -422,6 +438,7 @@ function semanticStatus(directory, corpus = null) {
   } catch { index = null; aligned = null; }
   return {
     setting, model: modelName(), indexAvailable: !!index,
+    storage: directory ? generationStatus(semanticDir(directory), validMeta) : null,
     ...(index ? { indexModel: index.meta.model, builtAt: index.meta.builtAt, articles: index.meta.articles, vectors: index.meta.rows, dims: index.meta.dims, modelMatches: index.meta.model === modelName() } : {}),
     ...(aligned ? { articlesMatchingIndex: aligned.matched } : {}),
     runtimeLoaded: !!state.embedder, waiting: state.waiting,
@@ -438,6 +455,6 @@ function setEmbedderForTests(embedder, { inferenceLimitMs = INFERENCE_LIMIT_MS }
 }
 
 module.exports = {
-  SEMANTIC_VERSION, MODELS, DEFAULT_MODEL, articleTexts, createEmbedder, buildSemanticIndex, saveSemanticIndex, loadSemanticIndex,
+  SEMANTIC_VERSION, MODELS, DEFAULT_MODEL, articleTexts, createEmbedder, buildSemanticIndex, saveSemanticIndex, loadSemanticIndex, cleanupSemanticGenerations,
   semanticScores, semanticStatus, warmSemantic, sharedEmbedder, semanticSetting, modelName, semanticDir, modelDir, setEmbedderForTests,
 };

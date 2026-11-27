@@ -214,7 +214,7 @@ dongguk-rule-mcp --build-semantic-index
 - 이 업데이트 후에는 `dongguk-rule-mcp --build-semantic-index`를 반드시 다시 실행하세요. 입력 버전 3으로 재생성하며 기본 추론은 조각 하나씩 수행합니다. 검토용으로 먼저 만든 입력 버전 3 벡터가 있으면 별도 빈 `XDG_CACHE_HOME`에 전문 색인부터 재생성해 이전 묶음 추론 벡터를 재사용하지 않도록 합니다.
 
 배포 필수 점검표(파서 변경 포함): 파서 업데이트 후 같은 계정·`XDG_CACHE_HOME`에서 `--build-index` → `--build-semantic-index` → HTTP `/status` 확인 순서로 진행합니다. `fullTextIndex.available`과 실패 규정 수, `semanticSearch.indexAvailable` 및 `articlesMatchingIndex`가 새 전문 색인의 본칙 조문 수와 일치하는지 확인합니다. 의미검색 미사용 설치는 벡터 단계를 생략하고 미사용 설정을 기록합니다. 자동 갱신이 켜져 있어도 이 점검을 생략하지 않습니다. 이후 기준선에 실행 커밋·corpus SHA-256·벡터 해시를 기록하고 비교 입력을 고정합니다. [파서 이행 상세](content-parser-repair.md)
-- HTTP 서버는 기동할 때 모델을 미리 불러오고, `/status`의 `semanticSearch`에 설정·모델·벡터 수·현재 색인과 맞는 조문 수·마지막 오류를 표시합니다.
+- HTTP 서버는 기동할 때 모델을 미리 불러오고, `/status`의 `semanticSearch`에 설정·모델·벡터 수·현재 색인과 맞는 조문 수·마지막 오류를 표시합니다. `semanticSearch.storage`에는 디스크 세대 수·바이트·보존/유예/유예 경과 후보·미추적 수와 현재 프로세스의 최근 정리 결과를 표시합니다. 상태 조회 자체는 파일을 변경하지 않습니다.
 - 한계: 벡터는 HTML 본문 조문으로 만들므로 별표·서식은 의미검색 범위 밖입니다(조회 때 읽는 HWP 원문의 별표는 기존 방식대로 발췌).
 
 ## 7. 장애 대응
