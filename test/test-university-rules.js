@@ -394,7 +394,7 @@ async function main() {
       assert.equal((await client.callTool({name:'get_service_info',arguments:{}})).structuredContent.data.integrations.universityComparison.configured,false);
       delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;
       seed('history','1',[{historyId:3,revisedAt:'2026.11.01'}]);
-      seed('content-v3','1_3',{title:'여 비 규 정',markdown:'### 제2조(여비)\n여비 출장 숙박 지급'});
+      seed('content-v4','1_3',{title:'여 비 규 정',markdown:'### 제2조(여비)\n여비 출장 숙박 지급'});
       const live=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['kaist']}})).structuredContent;
       assert.equal(live.data.columns[0].status,'retrieved');assert.equal(live.data.columns[0].articles[0].historyId,3);assert.equal(live.data.columns[0].articles[0].universityRule,'여비규정');
       assert.equal(live.data.columns[0].articles[0].revisedAt,'2026.11.01');

@@ -37,7 +37,7 @@ const CONTENT = {
   '4_50': { title: 'WISE캠퍼스 위임전결규정', markdown: '전결 사항은 총장이 따로 정한다.' },
 };
 seed('catalog', 'all', CATALOG);
-for (const [key, value] of Object.entries(CONTENT)) seed('content-v3', key, value);
+for (const [key, value] of Object.entries(CONTENT)) seed('content-v4', key, value);
 for (const rule of CATALOG) seed('history', String(rule.lawId), [{ historyId: rule.historyId, revisedAt: rule.revisedAt }]);
 
 let passed = 0;
@@ -121,7 +121,7 @@ async function main() {
 
     // The rule was revised after the index was built: the current text must be re-read.
     seed('catalog', 'all', CATALOG.map(r => r.lawId === 1 ? { ...r, historyId: 21, revisedAt: '2026.11.01' } : r));
-    seed('content-v3', '1_21', { title: '여비규정', markdown: '### 제2조(숙박비)\n국내 출장 숙박비는 실비로 한다.' });
+    seed('content-v4', '1_21', { title: '여비규정', markdown: '### 제2조(숙박비)\n국내 출장 숙박비는 실비로 한다.' });
     const refreshed = await call('search_rule_deep', { query: '출장 숙박비', top: 1 });
     check('색인 이후 개정된 규정은 현행 본문으로 교체', refreshed.data.documents[0].versionCheck === 'refetched' && refreshed.data.documents[0].historyId === 21 && refreshed.data.documents[0].articles[0].content.includes('실비'));
 

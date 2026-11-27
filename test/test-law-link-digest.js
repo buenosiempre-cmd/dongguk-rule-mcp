@@ -29,7 +29,7 @@ function seed(category, key, data) {
 }
 seed('catalog', 'all', Array.from({ length: 120 }, (_, i) => ({ lawId: i + 1, historyId: 20, title: i ? `합성규정${i}` : '여비규정', code: '', revisedAt: '2026.09.01' })));
 seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }]);
-seed('content-v3', '1_20', { title: '여비규정', markdown: [
+seed('content-v4', '1_20', { title: '여비규정', markdown: [
   '### 제1조(목적)', '이 규정은 여비를 정한다.',
   '### 제2조(비과세)', '숙박비의 비과세 범위는 「소득세법」 제12조와 「소득세법 시행령」 제12조, 「법인세법」 제19조, 「부가가치세법」 제10조를 따른다.',
   '### 제3조(준용)', '그 밖의 사항은 「사립학교법」을 따른다.',
