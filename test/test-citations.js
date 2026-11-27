@@ -149,7 +149,7 @@ const deps = {
     ['부칙(제2020-1호, 2020.1.1.) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
     ['부칙(미상) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
     ['부칙(2099.1.) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
-    ['부칙(2099.1.1. 제1조', 'NOT_FOUND', null],
+    ['부칙(2099.1.1. 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
   ]) {
     const result = await verifyRuleCitations(`「검수규정」 ${selector}`, redteamDeps);
     check(`I02 ${selector}: ${status}`, result.citations.length === 1
@@ -248,6 +248,30 @@ const deps = {
   const dateInEarlierSentence = await verifyRuleCitations('「검수규정」 2020.1.1.에 시행한다. 부칙 제1조', redteamDeps);
   check('다른 문장의 날짜를 날짜 없는 부칙에 붙이지 않음', dateInEarlierSentence.citations[0].article === '부칙 제1조'
     && dateInEarlierSentence.summary.verified === 1);
+
+  for (const date of ['2099.1.1.', '2020.1.1.']) {
+    for (const prefix of [`(${date}) 부칙`, `${date} 개정 부칙`, `개정 ${date} 부칙`, `${date}자 개정 부칙`, `부칙 (${date} 개정)`]) {
+      const direct = await verifyRuleCitations(`「검수규정」 ${prefix} 제1조`, redteamDeps);
+      check(`R4 날짜 토큰 정규화: ${prefix}`, direct.citations.length === 1
+        && direct.citations[0].article === `부칙(${date}) 제1조`
+        && direct.citations[0].status === (date.startsWith('2020') ? 'EXISTS' : 'NOT_FOUND')
+        && direct.citations[0].actualTitle === (date.startsWith('2020') ? '시행일' : null));
+      const unknown = await verifyRuleCitations(`「검수규정」 ${prefix} 새로운연결로 제1조`, redteamDeps);
+      check(`R4 미등록 연결도 날짜를 버리지 않음: ${prefix}`, unknown.summary.verified === 0
+        && unknown.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED');
+    }
+    for (const prefix of [`${date} 시행 부칙`, `${date} 확인되지않은수식 부칙`, `부칙(${date} 확인되지않은수식)`, `(${date}) 완전히새로운표현 부칙`]) {
+      const result = await verifyRuleCitations(`「검수규정」 ${prefix} 제1조`, redteamDeps);
+      check(`R4 미해석 수식어도 보존: ${prefix}`, result.summary.verified === 0
+        && result.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED');
+    }
+  }
+  const conflictingDates = await verifyRuleCitations('「검수규정」 2099.1.1. 부칙(2020.1.1.) 제1조', redteamDeps);
+  check('R4 한 선택자에 둘 이상의 날짜는 확인필요', conflictingDates.summary.verified === 0
+    && conflictingDates.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED');
+  const malformedDateWrapper = await verifyRuleCitations('「검수규정」 (2020.1.1.] 부칙 제1조', redteamDeps);
+  check('R4 날짜만 둘러싼 잘못된 괄호도 확인필요', malformedDateWrapper.summary.verified === 0
+    && malformedDateWrapper.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED');
 
   const unknownAmongDated = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', {
     ...redteamDeps, getRuleMarkdown: async () => redteamBody + '\n\n## 부칙\n\n### 제1조(시행일)\n날짜 미상',
