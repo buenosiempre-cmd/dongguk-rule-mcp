@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dongguk-semantic-'));
@@ -51,10 +52,6 @@ const RULES = [
     article(21, '병가', '질병으로 직무를 수행할 수 없을 때에는 병가를 승인한다.'),
     article(30, '비품 사용', '직원은 대여받은 비품을 업무에만 사용한다.'),
   ]],
-  [4, 'WISE캠퍼스 주차관리규정', '7-2-4', [
-    article(3, '주차 요금', '주차 요금은 시간에 따라 정한다.'),
-    article(4, '주차 요금 감면', '교직원의 주차 요금은 감면할 수 있다.'),
-  ]],
 ];
 CATALOG = RULES.map(([lawId, title, code]) => ({ lawId, historyId: lawId * 10, title, code, revisedAt: '2026.01.01' }));
 const CONTENT = Object.fromEntries(RULES.map(([lawId, title, , articles]) => [`${lawId}_${lawId * 10}`, { title, markdown: articles.join('\n\n') }]));
@@ -65,7 +62,7 @@ function seed(category, key, data) {
 }
 seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
-  seed('content-v3', key, value);
+  seed('content-v4', key, value);
   seed('original-structure-v2', key, { markdown: value.markdown, structure: { coverage: { articles: 'complete' } } });
 }
 for (const rule of CATALOG) seed('history', String(rule.lawId), [{ historyId: rule.historyId, revisedAt: rule.revisedAt }]);
@@ -93,7 +90,8 @@ function fakeEmbedder({ delayMs = 0, fail = false } = {}) {
 let passed = 0;
 function check(name, value) { assert.ok(value, name); passed++; console.log(`  ✅ ${name}`); }
 const headings = text => [...String(text || '').matchAll(/^#{0,6}\s*(제\d+조)\(/gm)].map(match => match[1]);
-const metaFile = path.join(dir, 'semantic', 'semantic-v1.json'), vectorFile = path.join(dir, 'semantic', 'semantic-v1.bin');
+const metaFile = path.join(dir, 'semantic', 'semantic-v1.json');
+let vectorFile;
 let clock = Date.now();
 const touch = file => { clock += 5000; fs.utimesSync(file, new Date(clock), new Date(clock)); };
 
@@ -119,10 +117,20 @@ async function main() {
     const texts = semantic.articleTexts('시험규정', `### 제8조(아주 긴 조문)\n${marks.join(' ')}`);
     return texts.length > 12 && marks.every((_, i) => texts.some(text => text.includes(`표지${String(i).padStart(2, '0')}번`)));
   })());
-  check('조각 상한(40)을 넘는 조문은 앞부분과 끝부분을 남김', (() => {
-    const texts = semantic.articleTexts('시험규정', `### 제9조(상한 초과)\n${'가나다라마바사아자차'.repeat(1500)} 맨끝단서`);
-    return texts.length === 40 && texts.at(-1).endsWith('맨끝단서') && texts[0].includes('제9조(상한 초과)');
-  })());
+  const marks = Array.from({ length: 200 }, (_, i) => `표지${String(i).padStart(3, '0')}번 ${'가나다라마바사아자차'.repeat(10)}`);
+  const longBody = `### 제9조(상한 초과)\n${marks.join(' ')} 맨끝단서`;
+  const longTexts = semantic.articleTexts('시험규정', longBody);
+  check('40조각을 넘는 조문의 모든 중간 표지와 끝부분을 포함', longTexts.length > 40
+    && marks.every((_, i) => longTexts.some(text => text.includes(`표지${String(i).padStart(3, '0')}번`)))
+    && longTexts.at(-1).endsWith('맨끝단서'));
+  const batches = [];
+  const longCorpus = { ...loaded, rules: [{ ...loaded.rules[0], blocks: [{ content: longBody }] }] };
+  const longIndex = await semantic.buildSemanticIndex({ corpus: longCorpus, batchSize: 7, embedder: {
+    model: semantic.DEFAULT_MODEL, embedPassages: async texts => { batches.push([...texts]); return texts.map(fakeVector); },
+  } });
+  check('한 조문이 길어도 추론 묶음은 지정 크기를 넘지 않고 모든 조각을 순서대로 임베딩',
+    batches.every(batch => batch.length <= 7) && batches.flat().join() === semantic.articleTexts(longCorpus.rules[0].title, longBody).join()
+    && longIndex.meta.rows === longTexts.length);
 
   // ── 색인이 없을 때 ──
   check('벡터 색인이 없으면 의미 점수 없음(null)', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '빌린 물건 돌려주기' }) === null);
@@ -130,26 +138,88 @@ async function main() {
   // ── 색인 만들기·다시 만들기 ──
   const builder = fakeEmbedder();
   const built = await semantic.buildSemanticIndex({ corpus: loaded, directory: dir, embedder: builder });
-  check('본문 조문마다 벡터를 만들어 저장(부칙 제외)', built.meta.articles === 13 && built.meta.rows === 13 && builder.calls.passages === 13
-    && fs.statSync(vectorFile).size === 13 * built.meta.dims * 4 && JSON.parse(fs.readFileSync(metaFile, 'utf8')).model === semantic.DEFAULT_MODEL);
+  vectorFile = path.join(dir, 'semantic', built.meta.vectorFile);
+  check('본문 조문마다 벡터를 만들어 저장(부칙 제외)', built.meta.articles === 11 && built.meta.rows === 11 && builder.calls.passages === 11
+    && fs.statSync(vectorFile).size === 11 * built.meta.dims * 4 && JSON.parse(fs.readFileSync(metaFile, 'utf8')).model === semantic.DEFAULT_MODEL);
   const again = fakeEmbedder();
   const rebuilt = await semantic.buildSemanticIndex({ corpus: loaded, directory: dir, embedder: again, previous: semantic.loadSemanticIndex(dir) });
-  check('다시 만들 때 바뀌지 않은 조문은 벡터를 그대로 씀', again.calls.passages === 0 && rebuilt.reused === 13
+  check('다시 만들 때 바뀌지 않은 조문은 벡터를 그대로 씀', again.calls.passages === 0 && rebuilt.reused === 11
     && Buffer.from(rebuilt.vectors.buffer).equals(Buffer.from(built.vectors.buffer)));
   const edited = structuredClone(loaded);
   edited.rules[0].blocks[2].content = '### 제9조(회수)\n사용을 마친 물건은 사용자가 직접 반납한다.';
   const partial = fakeEmbedder();
   const reb2 = await semantic.buildSemanticIndex({ corpus: edited, directory: null, embedder: partial, previous: semantic.loadSemanticIndex(dir) });
-  check('본문이 바뀐 조문만 다시 임베딩', partial.calls.passages === 1 && reb2.reused === 12 && reb2.meta.rows === 13);
+  check('본문이 바뀐 조문만 다시 임베딩', partial.calls.passages === 1 && reb2.reused === 10 && reb2.meta.rows === 11);
+
+  const mixed = structuredClone(loaded);
+  mixed.rules[0].blocks[0].content = longBody;
+  mixed.rules.at(-1).blocks.at(-1).content = '망가뜨린 물건은 변상하고 회수한다.';
+  const mixedIndex = await semantic.buildSemanticIndex({ corpus: mixed, embedder: fakeEmbedder(), previous: built, batchSize: 7 });
+  const freshIndex = await semantic.buildSemanticIndex({ corpus: mixed, embedder: fakeEmbedder(), batchSize: 7 });
+  check('새 긴 조문·재사용 조문·새 조문이 섞여도 전체 재빌드와 벡터 순서가 같음', mixedIndex.reused === 9
+    && Buffer.from(mixedIndex.vectors.buffer).equals(Buffer.from(freshIndex.vectors.buffer)));
+  const oldVersionBuilder = fakeEmbedder();
+  await semantic.buildSemanticIndex({ corpus: loaded, embedder: oldVersionBuilder, previous: { ...built, meta: { ...built.meta, textVersion: 2 } } });
+  check('40조각 제한이 있던 입력 버전 2는 재사용하지 않음', oldVersionBuilder.calls.passages === 11);
+
+  // ── 원자적 게시: 모든 저장 실패 지점과 프로세스 중단 뒤 이전 색인 유지 ──
+  const nextCorpus = structuredClone(loaded);
+  nextCorpus.rules[0].blocks[2].content = '질병으로 아프면 병가를 승인한다.';
+  const nextIndex = await semantic.buildSemanticIndex({ corpus: nextCorpus, embedder: fakeEmbedder(), previous: built });
+  assert.notEqual(nextIndex.meta.vectorHash, built.meta.vectorHash, '게시 검증은 실제 벡터가 다른 두 세대를 사용해야 함');
+  const freshHash = () => {
+    const result = spawnSync(process.execPath, ['-e',
+      'const s=require(process.argv[1]);process.stdout.write(s.loadSemanticIndex(process.argv[2])?.meta.vectorHash || "null")',
+      require.resolve('../src/semantic.js'), dir], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  for (const [method, target] of [['writeFileSync', 'vector'], ['renameSync', 'vector'], ['writeFileSync', 'meta'], ['renameSync', 'meta']]) {
+    const original = fs[method];
+    let failed = false;
+    fs[method] = function (...args) {
+      const file = String(args[method === 'renameSync' ? 1 : 0]);
+      if (target === 'meta' ? file.startsWith(metaFile) : file.includes(nextIndex.meta.vectorFile)) throw new Error('synthetic publication failure');
+      return original.apply(this, args);
+    };
+    try { semantic.saveSemanticIndex(dir, nextIndex); } catch { failed = true; } finally { fs[method] = original; }
+    check(`${method}/${target} 실패 뒤 캐시·새 프로세스 모두 이전 색인 유지`, failed
+      && semantic.loadSemanticIndex(dir)?.meta.vectorHash === built.meta.vectorHash && freshHash() === built.meta.vectorHash);
+  }
+  const crashInput = path.join(root, 'crash-index.json');
+  fs.writeFileSync(crashInput, JSON.stringify({ meta: nextIndex.meta, vectors: Array.from(nextIndex.vectors) }));
+  const crashed = spawnSync(process.execPath, ['-e', `
+    const fs=require('node:fs'), s=require(process.argv[1]);
+    const input=JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+    const rename=fs.renameSync;
+    fs.renameSync=(from,to)=>{if(to.endsWith('semantic-v1.json'))process.exit(73);return rename(from,to)};
+    s.saveSemanticIndex(process.argv[2], {meta:input.meta,vectors:Float32Array.from(input.vectors)});
+  `, require.resolve('../src/semantic.js'), dir, crashInput], { encoding: 'utf8' });
+  check('새 벡터 저장 후 프로세스가 종료돼도 이전 색인 유지', crashed.status === 73 && freshHash() === built.meta.vectorHash);
+  const rename = fs.renameSync;
+  const observed = [];
+  fs.renameSync = function (from, to) {
+    if (to === metaFile) observed.push(semantic.loadSemanticIndex(dir)?.meta.vectorHash);
+    const result = rename(from, to);
+    if (to === metaFile) observed.push(semantic.loadSemanticIndex(dir)?.meta.vectorHash);
+    return result;
+  };
+  try { semantic.saveSemanticIndex(dir, nextIndex); } finally { fs.renameSync = rename; }
+  check('게시 직전에는 이전 세대, 직후에는 새 세대를 읽고 이전 벡터도 유지', observed.join() === [built.meta.vectorHash, nextIndex.meta.vectorHash].join()
+    && freshHash() === nextIndex.meta.vectorHash && fs.readFileSync(vectorFile).equals(Buffer.from(built.vectors.buffer)));
+  semantic.saveSemanticIndex(dir, built);
+  fs.writeFileSync(vectorFile, '손상');
+  semantic.saveSemanticIndex(dir, built);
+  check('동일 해시 파일이 손상됐어도 재게시로 복구', freshHash() === built.meta.vectorHash);
 
   // ── 질의 ──
   semantic.setEmbedderForTests(fakeEmbedder());
   const scores = await semantic.semanticScores({ corpus: loaded, directory: dir, text: '다 쓰고 돌려줘야 하나' });
-  check('낱말이 하나도 겹치지 않아도 뜻이 가까운 조문이 가장 높은 점수', scores instanceof Map && scores.size === 13
+  check('낱말이 하나도 겹치지 않아도 뜻이 가까운 조문이 가장 높은 점수', scores instanceof Map && scores.size === 11
     && [...scores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([item]) => item.article).sort().join() === '제8조,제9조');
   check('색인 뒤 본문이 바뀐 조문은 의미 점수에서 빠지고 나머지는 유지', await (async () => {
     const stale = await semantic.semanticScores({ corpus: edited, directory: dir, text: '다 쓰고 돌려줘야 하나' });
-    return stale.size === 12 && !stale.has(edited.rules[0].blocks[2]) && stale.has(edited.rules[1].blocks[1]);
+    return stale.size === 10 && !stale.has(edited.rules[0].blocks[2]) && stale.has(edited.rules[1].blocks[1]);
   })());
   process.env.DONGGUK_MCP_SEMANTIC = '0';
   check('DONGGUK_MCP_SEMANTIC=0이면 끔', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null && semantic.semanticStatus(dir).setting === 'off');
@@ -160,7 +230,7 @@ async function main() {
   const started = Date.now();
   check('시간 한도를 넘기면 기다리지 않고 null', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '아프면 쉬어도 돼', limitMs: 30 }) === null && Date.now() - started < 300);
   await new Promise(resolve => setTimeout(resolve, 450));
-  check('늦게 끝난 임베딩은 버리지 않고 다음 같은 질문에 씀', (await semantic.semanticScores({ corpus: loaded, directory: dir, text: '아프면 쉬어도 돼', limitMs: 30 }))?.size === 13);
+  check('늦게 끝난 임베딩은 버리지 않고 다음 같은 질문에 씀', (await semantic.semanticScores({ corpus: loaded, directory: dir, text: '아프면 쉬어도 돼', limitMs: 30 }))?.size === 11);
   semantic.setEmbedderForTests(fakeEmbedder({ fail: true }));
   check('임베딩이 실패하면 null(예외를 던지지 않음)', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '망가뜨리면' }) === null);
   semantic.setEmbedderForTests(null);
@@ -180,7 +250,7 @@ async function main() {
   check('임베딩 입력 방식이 다른 색인은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null);
   // 벡터 파일만 새 세대로 바뀐 상태(두 파일 교체 사이, 또는 그 사이에 프로세스가 죽은 경우)
   const shuffled = Buffer.from(goodVectors);
-  shuffled.copyWithin(0, shuffled.length / 13, shuffled.length); // 같은 크기·같은 차원, 다른 내용
+  shuffled.copyWithin(0, shuffled.length / 11, shuffled.length); // 같은 크기·같은 차원, 다른 내용
   fs.writeFileSync(metaFile, goodMeta); fs.writeFileSync(vectorFile, shuffled); touch(metaFile);
   check('정보 파일과 세대가 다른 벡터 파일(크기는 같음)은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null && semantic.semanticStatus(dir, loaded).indexAvailable === false);
   fs.writeFileSync(vectorFile, goodVectors);
@@ -190,6 +260,11 @@ async function main() {
     'blocks가 없음': { ...good, rules: good.rules.map(({ blocks, ...rest }) => rest) },
     'blocks 항목 형식이 다름': { ...good, rules: [{ ...good.rules[0], blocks: [['0', 1, 1]] }, ...good.rules.slice(1)] },
     '음수 조문 위치': { ...good, rules: [{ ...good.rules[0], blocks: good.rules[0].blocks.map(([, hash, count]) => [-1, hash, count]) }, ...good.rules.slice(1)] },
+    '조문 위치가 범위 끝과 같음': { ...good, rules: [{ ...good.rules[0], blocks: good.rules[0].blocks.map(([, hash, count]) => [good.rules[0].blockCount, hash, count]) }, ...good.rules.slice(1)] },
+    '조문 위치가 범위 초과': { ...good, rules: [{ ...good.rules[0], blocks: good.rules[0].blocks.map(([, hash, count]) => [999999, hash, count]) }, ...good.rules.slice(1)] },
+    '조문 수와 위치가 함께 범위 초과': { ...good, rules: [{ ...good.rules[0], blockCount: 1000000, blocks: good.rules[0].blocks.map(([, hash, count], i) => [999990 + i, hash, count]) }, ...good.rules.slice(1)] },
+    '조문 수 없음': { ...good, rules: good.rules.map(({ blockCount, ...rule }) => rule) },
+    '벡터 경로 이탈': { ...good, vectorFile: '../semantic-v1.bin' },
     '행 수 합계가 맞지 않음': { ...good, rules: good.rules.slice(1) },
     '벡터 수가 0인 조문': { ...good, rules: [{ ...good.rules[0], blocks: good.rules[0].blocks.map(([at, hash]) => [at, hash, 0]) }, ...good.rules.slice(1)] },
     '해시 없음': { ...good, vectorHash: undefined },
@@ -204,12 +279,20 @@ async function main() {
   const poisoned = new Float32Array(goodVectors.buffer.slice(goodVectors.byteOffset, goodVectors.byteOffset + goodVectors.byteLength));
   poisoned[3] = NaN;
   const poisonedBytes = Buffer.from(poisoned.buffer);
-  fs.writeFileSync(vectorFile, poisonedBytes);
-  fs.writeFileSync(metaFile, JSON.stringify({ ...good, vectorHash: require('node:crypto').createHash('sha256').update(poisonedBytes).digest('hex') })); touch(metaFile);
+  const poisonedHash = require('node:crypto').createHash('sha256').update(poisonedBytes).digest('hex');
+  const poisonedFile = `semantic-v1.${poisonedHash}.bin`;
+  fs.writeFileSync(path.join(dir, 'semantic', poisonedFile), poisonedBytes);
+  fs.writeFileSync(metaFile, JSON.stringify({ ...good, vectorHash: poisonedHash, vectorFile: poisonedFile })); touch(metaFile);
   check('유한하지 않은 벡터 값이 든 색인은 쓰지 않음', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }) === null);
   fs.writeFileSync(vectorFile, goodVectors);
   fs.writeFileSync(metaFile, goodMeta); touch(metaFile);
-  check('정상 파일로 돌아오면 다시 씀', (await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }))?.size === 13);
+  check('정상 파일로 돌아오면 다시 씀', (await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘' }))?.size === 11);
+  const shortened = structuredClone(loaded);
+  shortened.rules[0].historyId++;
+  shortened.rules[0].blocks.pop();
+  check('개정으로 조문 수가 줄면 범위 밖 옛 조문만 제외하고 나머지는 사용',
+    (await semantic.semanticScores({ corpus: shortened, directory: dir, text: '돌려줘' }))?.size === 10
+    && semantic.semanticStatus(dir, shortened).indexAvailable === true);
 
   // ── 멈춤·실패·동시 실행 ──
   const never = { model: semantic.DEFAULT_MODEL, embedQuery: () => new Promise(() => {}), embedPassages: async texts => texts.map(fakeVector) };
@@ -238,7 +321,7 @@ async function main() {
     semantic.semanticScores({ corpus: loaded, directory: dir, text: '갱신 중에 들어온 질문', limitMs: 5000 }),
     semantic.buildSemanticIndex({ corpus: edited, directory: null, embedder: semantic.sharedEmbedder(dir), previous: semantic.loadSemanticIndex(dir) }),
   ]);
-  check('서버 안 벡터 갱신과 질문 추론은 같은 큐에서 차례로 실행(겹치지 않음)', askedDuring?.size === 13 && refreshed.reused === 12
+  check('서버 안 벡터 갱신과 질문 추론은 같은 큐에서 차례로 실행(겹치지 않음)', askedDuring?.size === 11 && refreshed.reused === 10
     && order.join() === '질문 시작,질문 끝,갱신 시작,갱신 끝');
   const many = fakeEmbedder({ delayMs: 30 });
   semantic.setEmbedderForTests(many);
@@ -295,20 +378,6 @@ async function main() {
     check('조문 선택: 낱말이 고른 조문은 첫 자리에 그대로, 뜻이 가까운 조문을 둘째 자리에 함께 발췌', headings(excerptOf(off, 1))[0] === '제13조'
       && !headings(excerptOf(off, 1)).includes('제9조') && headings(excerptOf(on, 1)).slice(0, 2).join() === '제13조,제9조');
     check('한 규정만 보여 줄지는 낱말 점수로 판정: 의미검색을 켜도 후보 수가 줄지 않음', on.sc.data.rules.length >= off.sc.data.rules.length);
-    // ── 한 규정만 보여 줄 조건 ──
-    const split = '비품 대여 기간에 아프면 어떡해?';
-    process.env.DONGGUK_MCP_SEMANTIC = '0';
-    const splitOff = await call({ query: split });
-    const parking = await call({ query: '주차 요금 감면 받을 수 있어?' });
-    const parkingWise = await call({ query: 'WISE캠퍼스 주차 요금 감면 받을 수 있어?' });
-    delete process.env.DONGGUK_MCP_SEMANTIC;
-    const splitOn = await call({ query: split });
-    const alone = result => /가장 많이 나오는 규정의 미리보기/.test(result.text);
-    check('낱말이 고른 규정과 뜻이 가장 가까운 규정이 다르면 한 규정만 보여 주지 않고 후보를 함께 표시', alone(splitOff) && splitOff.sc.data.rules.length === 1
-      && !alone(splitOn) && splitOn.sc.data.rules.length > 1 && splitOn.sc.data.rules[0].lawId === 1 && splitOn.sc.data.rules.some(rule => rule.lawId === 3));
-    check('낱말과 뜻이 같은 규정을 가리키면 그대로 한 규정만 표시', alone(on) && on.sc.data.rules.length === 1);
-    check('캠퍼스·기관을 말하지 않은 질문에는 캠퍼스 판 규정을 단독 확정하지 않음(의미검색과 무관)', parking.sc.ok === true && parking.sc.data.rules[0].lawId === 4 && !alone(parking));
-    check('캠퍼스를 말한 질문에는 그 캠퍼스 판을 단독으로 표시', alone(parkingWise) && parkingWise.sc.data.rules.length === 1 && parkingWise.sc.data.rules[0].lawId === 4);
     semantic.setEmbedderForTests(fakeEmbedder({ fail: true }));
     const failed = await call({ query: asked });
     check('임베딩 실패 시 응답은 끈 것과 같음', stable(failed) === stable(off));

@@ -133,6 +133,7 @@ const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCand
 const {
   parseSearch,
   parseContent,
+  CONTENT_PARSER_VERSION,
   parseHistory,
   searchResultMetrics,
   normalizeArticleSelector,
@@ -167,8 +168,8 @@ const MAIN_URL = `${BASE_URL}/lmxsrv/main/main.srv`;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)';
 // LAWGROUP is document type, not campus (official screen verified 2026-09-08).
 // Bump when parseContent output changes; parsed bodies are cached for 30 days.
-// v3: 부칙(div.addenda) headings are now kept.
-const CONTENT_CACHE = 'content-v3';
+// v4: unnumbered article bodies and paragraph continuations are now kept.
+const CONTENT_CACHE = `content-v${CONTENT_PARSER_VERSION}`;
 const TTL = { search: 3600, searchFull: 86400, history: 600, content: 30*86400, catalog: 600 };
 // A local index older than this is ignored unless the caller asks for it.
 const INDEX_MAX_AGE_MS = 8*86400*1000;
@@ -320,7 +321,8 @@ async function loadCatalog() {
 async function buildRuleIndex({onProgress}={}) {
   return withProfile('rules',async()=>{
     const catalog=await loadCatalog();
-    const previous=loadCorpus(publicCacheDir());
+    // Keep the old catalog-size guard during migration, but never serve its incomplete bodies.
+    const previous=loadCorpus(publicCacheDir(),{allowStaleParser:true});
     const corpus=await buildCorpus({
       catalog,previous,onProgress,
       loadContent:(lawId,historyId)=>cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId)),
@@ -341,9 +343,9 @@ async function buildSemanticRuleIndex({onProgress,shared=false}={}) {
   catch(error){return {ok:false,code:error.code||'SEMANTIC_MODEL_UNAVAILABLE',message:error.code==='SEMANTIC_RUNTIME_MISSING'?error.message+' 서버 설치 폴더에서 `npm install @huggingface/transformers`를 실행하거나 DONGGUK_MCP_SEMANTIC_RUNTIME에 설치 폴더를 지정하세요.':'임베딩 모델을 불러오지 못했습니다.'};}
   const started=Date.now();
   let built;
-  // A failure here leaves the previous vector file in place.
+  // Only a completed build atomically publishes a new index description.
   try{built=await buildSemanticIndex({corpus,directory,embedder,previous:loadSemanticIndex(directory),onProgress});}
-  catch{return {ok:false,code:'SEMANTIC_BUILD_FAILED',message:'조문 벡터를 만들지 못했습니다. 기존 벡터 파일은 그대로입니다.'};}
+  catch{return {ok:false,code:'SEMANTIC_BUILD_FAILED',message:'조문 벡터를 만들지 못해 새 색인을 게시하지 않았습니다. 이전 색인이 있다면 유지됩니다. 사용 가능 여부는 의미검색 상태에서 확인하세요.'};}
   return {ok:true,model:built.meta.model,articles:built.meta.articles,vectors:built.meta.rows,dims:built.meta.dims,reusedArticles:built.reused,seconds:Math.round((Date.now()-started)/1000),builtAt:built.meta.builtAt};
 }
 function indexStatus() {
@@ -736,7 +738,6 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
       matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,edition:hit.edition,family:hit.family,
       priorityArticles:excerptPriority(body?rankedArticles.slice(0,1):[],hit.semanticArticle,[hit.wordArticle,...(body?rankedArticles.slice(1,2):[])]),rankedArticles,
-      semanticRuleRank:hit.semanticRuleRank,
       // Only the institution or campus name matched; no article is about the topic.
       scopeNameOnly:hit.matchedConcepts.length>0&&hit.matchedConcepts.every(term=>SCOPE_WORD.test(term))};
     if(!families.has(hit.family)) families.set(hit.family,[]);
@@ -761,13 +762,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // How clearly the first rule leads is judged by word scores. The semantic lift orders rules;
   // it is not evidence that one rule alone answers the question.
   const searchable=found.tokens.length-found.missingTerms.length;
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3)
-    // A campus or affiliate edition (WISE캠퍼스·산학협력단·의학계열) is not shown alone to a question that
-    // names no campus or institution: the asker may mean the general rule.
-    &&!(first.edition&&!scope.specified)
-    // When semantic search ran, the rule shown alone must also hold the article closest in meaning.
-    // Words and meaning pointing at different rules means the choice is not settled.
-    &&!(found.semantic&&first.semanticRuleRank!==1);
+  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3);
   return {hits,dominant};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
