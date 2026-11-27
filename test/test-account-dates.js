@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {queryLegalReferences}=require('../src/legal-client.js');
-const {reviewFinanceCase}=require('../src/finance-desk.js');
+const {reviewFinanceCase,formatFinanceReview}=require('../src/finance-desk.js');
 const {findAccountCandidates}=require('../src/accounts.js');
 const {LAW,NOW,createClient}=require('./fixtures/account-dates.js');
 let passed=0;async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
@@ -14,8 +14,18 @@ async function evidence(options={}){return queryLegalReferences([{law_name:LAW,a
   const r=await reviewFinanceCase({query,facts:{...facts,...extra}},{searchHandbook:()=>({status:'ok',results:[]}),lookupRules:async()=>({status:'retrieved',results:[]}),queryLegalReferences:(requests,options)=>queryLegalReferences(requests,{...options,client,now:NOW})});
   assert.equal(r.accounts.status,'candidates_found');assert.equal(r.accounts.candidates.length,1);
   const c=r.accounts.candidates[0];assert.equal(c.code,'4223');assert.equal(c.name,'소모품비');assert.equal(c.decision_status,'candidate_requires_review');assert.equal(r.draft.fields.account_code,null);assert.equal(r.applicability,'requires_review');
-  if(extra.base_date){assert.equal(c.law.lawId,null);assert.equal(c.law.mst,'251375');assert.equal(c.date_status,'historical_version_retrieved');assert.equal(c.reference_only,false);assert(!client.calls.some(x=>x.name==='search_law'));}
-  else assert.equal(c.law.lawId,'007333');
+  if(extra.base_date){assert.equal(c.law.lawId,null);assert.equal(c.law.mst,'251375');assert.equal(c.date_status,'historical_version_retrieved');assert.equal(c.reference_only,true);assert.equal(c.application_status,'requires_review');assert.match(formatFinanceReview(r),/적용 회계연도는 부칙 확인 필요/);assert(!client.calls.some(x=>x.name==='search_law'));}
+  else {assert.equal(c.law.lawId,'007333');assert.equal(c.reference_only,true);assert.equal(c.application_status,'requires_review');assert.match(formatFinanceReview(r),/적용 회계연도는 부칙 확인 필요/);}
+ });
+ for(const [date,year,code] of [['2021-01-20','2021','4238'],['2025-02-15','2025','4999']])await check('시행 판본과 개정 별표 적용 회계연도를 구분: '+date,async()=>{
+  const resolutionNote=`적용례·경과조치 발췌 (기준일 사건에 영향 가능 — 반드시 확인)\n부칙 제2조: 별표 1의 개정규정은 ${year}회계연도의 예산을 편성하는 경우부터 적용한다.`;
+  const client=createClient({resolutionNote,account:{code,name:'회의비'}});
+  const r=await reviewFinanceCase({query:'회의비 계정을 검토해줘',facts:{...facts,base_date:date}},{searchHandbook:()=>({status:'ok',results:[]}),lookupRules:async()=>({status:'retrieved',results:[]}),queryLegalReferences:(requests,options)=>queryLegalReferences(requests,{...options,client,now:NOW})});
+  const c=r.accounts.candidates[0];assert.equal(c.code,code);assert.equal(c.date_status,'historical_version_retrieved');assert.equal(c.reference_only,true);assert.equal(c.application_status,'requires_review');assert.match(c.application_notice,/적용 회계연도는 부칙 확인 필요/);
+  assert(r.legal.results.some(x=>x.dateResolution?.text.includes(resolutionNote)));assert.match(formatFinanceReview(r),/적용 회계연도는 부칙 확인 필요/);assert.equal(r.draft.fields.account_code,null);assert.equal(r.applicability,'requires_review');
+ });
+ for(const [label,mutate] of [['판단 근거 누락',r=>{delete r.dateResolution;}],['판단 근거 잘림',r=>{r.dateResolution={text:'적용례·경과조치',truncated:true};}]])await check('적용례를 판단할 수 없어도 적용 확정 금지: '+label,async()=>{
+  const r=await evidence();mutate(r.results[0]);const c=findAccountCandidates(r,'복사용지','school').candidates[0];assert(c);assert.equal(c.reference_only,true);assert.equal(c.application_status,'requires_review');assert.equal(c.date_status,'historical_version_retrieved');
  });
  for(const proof of ['missing','mismatch'])await check('검증되지 않은 기준일 별표로 후보 생성 금지: '+proof,async()=>{const r=await evidence({proof});assert.equal(r.status,'partial');assert.equal(findAccountCandidates(r,'복사용지','school').candidates.length,0);});
  for(const [label,mutate] of [
