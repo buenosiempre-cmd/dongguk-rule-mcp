@@ -434,8 +434,8 @@ const deps = {
       const citation = result.citations[0];
       check(`R3 상세 인용 뒤 조사: ${scope}${particle}`, result.citations.length === 1
         && citation.status === 'UNSUPPORTED_CITATION' && result.summary.verified === 0
-        && result.summary.needsReview === 1 && citation.originalRange.text === scope
-        && input.slice(citation.originalRange.start, citation.originalRange.end) === scope
+        && result.summary.needsReview === 1 && citation.originalRange.text === scope + particle
+        && input.slice(citation.originalRange.start, citation.originalRange.end) === scope + particle
         && citation.unsupportedReasons.includes('UNSUPPORTED_DETAIL'), JSON.stringify(result.citations));
     }
     for (const noun of ['99호실', '다목적실']) {
@@ -443,6 +443,23 @@ const deps = {
       check(`R3 조사 붙은 일반 명사 보존: ${noun}${particle}`, result.citations.length === 1
         && result.citations[0].status === 'EXISTS' && result.summary.verified === 1 && result.summary.needsReview === 0);
     }
+  }
+
+  for (const scope of ['제1조 제1항 99호', '제1조제1항제99호가목', '제1조의2의3',
+    '제1조 제1항 [가]목', '제1조 제1항 제99호', '제1조 별표1']) {
+    for (const suffix of ['조차', '마저', '뿐만', '대로', '알수없는접미표현', '아직등록되지않은표현123']) {
+      const input = `「검수규정」 ${scope}${suffix} 적용한다.`;
+      const result = await verifyRuleCitations(input, suffixDeps);
+      check(`R4 미해석 상세 낱말 전체를 보존: ${scope}${suffix}`, result.citations.length === 1
+        && result.citations[0].status === 'UNSUPPORTED_CITATION'
+        && result.summary.verified === 0 && result.summary.exists === 0 && result.summary.needsReview === 1
+        && result.citations[0].originalRange.text === scope + suffix
+        && input.slice(result.citations[0].originalRange.start, result.citations[0].originalRange.end) === scope + suffix);
+    }
+  }
+  for (const noun of ['99호실', '다목적실', '목적', '목록', '가목재', '별표시']) {
+    const result = await verifyRuleCitations(`「검수규정」 제1조에 따라 ${noun}을 확인한다.`, suffixDeps);
+    check(`R4 일반 명사 대조군: ${noun}`, result.citations.length === 1 && result.summary.verified === 1 && result.summary.needsReview === 0);
   }
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

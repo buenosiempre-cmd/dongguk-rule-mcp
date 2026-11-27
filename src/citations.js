@@ -9,6 +9,7 @@
 //  5) 유사 규정만 검색되면(포함관계 없음) 무관 규정을 근거로 판정하지 않음
 
 const { normalizeMiddots } = require('./aliases.js');
+const { DETAIL_START_SOURCE, collectDetailRange } = require('./citation-scope.js');
 const { listArticleBlocks, normalizeArticleSelector, supplementarySelector } = require('./parsers.js');
 const { searchVariants, selectRuleCandidate } = require('./lookup.js');
 
@@ -20,25 +21,12 @@ const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 // Scan the full citation before deciding which part this verifier supports.
 // Unbounded digits plus numeric boundaries prevent matching only a number prefix.
 const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?(?:(?:의|중)\s*)?`;
-// Case/topic particles can follow a selector without whitespace. Keep the
-// final word boundary so nouns such as 호실 and 다목적실 are not split.
-const DETAIL_PARTICLE_SOURCE = String.raw`(?:에(?:게(?:서)?|서)?|으로|로|까지|부터|만|도|의|을|를|은|는|이|가|과|와)+`;
-const DETAIL_END = String.raw`(?=$|[^가-힣A-Za-z0-9]|${DETAIL_PARTICLE_SOURCE}(?=\s|$|[,.!?]))`;
-const DETAIL_NUMBER = String.raw`\s*(?:제\s*)?\d+(?:\s*호)?(?:\s*의\s*\d+)?`;
-const APPENDIX_SOURCE = String.raw`(?:별\s*표(?:${DETAIL_NUMBER})?|별\s*지(?:\s*서\s*식)?(?:${DETAIL_NUMBER})?(?:\s*서\s*식)?|서\s*식${DETAIL_NUMBER})${DETAIL_END}`;
-const ITEM_SOURCE = String.raw`(?:제\s*)?\d+\s*호(?:\s*의\s*\d+)?`;
-const MOK_SOURCE = String.raw`(?:["'“‘]\s*)?[가나다라마바사아자차카타파하](?:\s*["'”’])?\s*목`;
-// Apply the word boundary after the complete item/subitem chain. A joined
-// "제1호가목" is a citation; "99호실" and "다목적실" are ordinary words.
-const DETAIL_SOURCE = String.raw`(?:${APPENDIX_SOURCE}|${ITEM_SOURCE}(?:\s*${MOK_SOURCE})?${DETAIL_END}|${MOK_SOURCE}${DETAIL_END})`;
-// Extra numeric suffixes are part of the requested scope, never a valid prefix match.
-// Keep them out of the standalone scanner so ordinary possessive prose is not a citation.
-const SELECTOR_SUFFIX_SOURCE = String.raw`의\s*\d+(?:\s*의\s*\d+)*(?:\s*제\s*\d+\s*항(?:\s*의\s*\d+)*)?${DETAIL_END}`;
-const TAIL_SOURCE = String.raw`(?:${DETAIL_SOURCE}|${SELECTOR_SUFFIX_SOURCE})`;
+// The article parser only reads the supported prefix. A separate lexical pass
+// collects detail candidates before any existence/summary decision is made.
 const ARTICLE_RE = new RegExp(
   String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d+)(?!\d)\s*조(?:\s*의\s*(\d+)(?!\d))?` +
-  String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d+)(?!\d)\s*항)?` +
-  String.raw`((?:\s*${TAIL_SOURCE})+)?|(?<![가-힣A-Za-z0-9])(${DETAIL_SOURCE}|제\s*\d+\s*항)`,
+  String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d+)(?!\d)\s*항)?()` +
+  String.raw`|(?<![가-힣A-Za-z0-9])(${DETAIL_START_SOURCE}|제\s*\d+\s*항)`,
   'g'
 );
 
@@ -207,6 +195,18 @@ function extractRuleCitations(text) {
     let previousArticle = null;
     while ((m = ARTICLE_RE.exec(segment.text)) !== null) {
       if (overlaps(mentions, m.index, ARTICLE_RE.lastIndex)) continue;
+      const standaloneParagraph = m[7] && /^제\s*\d+\s*항$/.test(m[7]);
+      if (standaloneParagraph && /^(?:목|구)/.test(segment.text.slice(ARTICLE_RE.lastIndex))) continue;
+      const standaloneDetail = m[7] && !standaloneParagraph;
+      const scope = collectDetailRange(segment.text, standaloneDetail ? m.index : ARTICLE_RE.lastIndex,
+        { standalone: !!standaloneDetail });
+      if (standaloneDetail && !scope) continue; // a noun, not a detail candidate
+      if (scope) {
+        const end = scope.end;
+        if (!standaloneDetail) m[6] = segment.text.slice(ARTICLE_RE.lastIndex, end);
+        m[0] = segment.text.slice(m.index, end);
+        ARTICLE_RE.lastIndex = end;
+      }
       const connectionUnverified = !!m[2] && preserveDatedAddendum(m, segment.text, datedAddenda, mentions, previousArticleEnd);
       if (m[2]) previousArticleEnd = ARTICLE_RE.lastIndex;
       const owner = [...mentions].reverse().find(x => x.end <= m.index);
