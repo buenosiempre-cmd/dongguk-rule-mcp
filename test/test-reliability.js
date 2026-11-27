@@ -62,15 +62,6 @@ async function main() {
     check('실제로 최신 원문 사용', rule.excerpt.text.includes('최신 숙박비'));
     check('텍스트 전용 클라이언트도 원문 유형 확인', lookup.content[0].text.includes('(sourceType): '+rule.sourceType));
     check('텍스트 전용 클라이언트도 retrieved 상태 확인', rule.evidenceStatus==='retrieved' && lookup.content[0].text.includes('(evidenceStatus): '+rule.evidenceStatus));
-    const financePath=path.join(root,'finance-pack.json');
-    fs.writeFileSync(financePath,JSON.stringify({version:'test',workflows:[{id:'travel',title:'출장',keywords:['출장'],required_facts:[{key:'base_date',label:'기준일'},{key:'campus',label:'캠퍼스'}],source_notes:[],steps:['검토'],checks:[],completion_evidence:['확인'],rule_requests:[{keyword:'여비규정',terms:'숙박비',baseline_history_id:10}],legal_requests:[]}],cards:[]}));
-    process.env.DONGGUK_FINANCE_PACK_PATH=financePath;
-    const privateInput=await call('get_finance_context',{query:'출장 계좌번호: '+['000','0000','0000'].join('-')});
-    check('재무 도구가 계좌형 개인값 입력 차단',privateInput.structuredContent.error.code==='SENSITIVE_INPUT');
-    const historical=await call('get_finance_evidence',{query:'출장',facts:{base_date:'2024-02-01',campus:'서울'}});
-    check('재무 근거는 과거 기준일 개정본 후보 선택',historical.structuredContent.data.rules[0].structuredContent.data.rules[0].historyId===10);
-    check('개정 차이와 조항 변경을 구분',historical.structuredContent.data.freshness[0].status==='revision_changed');
-    check('근거 조회를 적용 판단으로 승격하지 않음',historical.structuredContent.data.applicability==='requires_review');
     const badHistory=await call('get_rule_content',{law_id:1,history_id:999});
     check('본문 조회도 소속이 다른 개정본 차단',badHistory.structuredContent.error.code==='HISTORY_NOT_FOUND');
     const foreign = await call('compare_rule_versions', { law_id: 1, from_history_id: 999, to_history_id: 20 });
@@ -88,8 +79,6 @@ async function main() {
     check('HWP 실패 시 HTML 대체와 경고', fallback.structuredContent.data.rules[0].warning.code === 'HWP_FALLBACK');
     check('텍스트 전용 클라이언트도 partial과 사유 확인', fallback.content[0].text.includes('(evidenceStatus): partial') && fallback.content[0].text.includes('(incompleteReasons): HWP_FALLBACK'));
     check('HTML 대체 시 텍스트 원문 유형도 일치', fallback.content[0].text.includes('(sourceType): HTML 본문'));
-    const incomplete=await call('get_finance_evidence',{query:'출장',facts:{base_date:'2026-09-05',campus:'서울'}});
-    check('재무 근거의 HWP 실패는 부분 조회로 표시',incomplete.structuredContent.data.evidence_status==='partial');
     check('대체 본문에 HWP 포함 완료를 단정하지 않음', !fallback.content[0].text.includes('원문 HWP의 관련 조문·별표가 포함되어 있습니다'));
     console.log(`📊 신뢰성 회귀 검증: ${passed}개 통과`);
   } finally {

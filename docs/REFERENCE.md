@@ -154,7 +154,7 @@ v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrie
 
 `get_rule_upper_laws({"law_id": LAW_ID, "article": "제9조", "include_text": true})`로 인용이 나온 **규정 조문 원문과 인용한 현행 국가 법령 조문 원문**을 2열로 읽을 수 있습니다. `article`을 생략하면 규정 전체에서 인용을 찾고, 과거 규정은 `history_id`로 고릅니다. 과거 규정을 골라도 오른쪽 법령은 조회 시점의 현행본입니다. 과거 당시 법령의 대조나 충돌·적용 여부 판정이 아닙니다. 점검 신호·CAVEAT는 그대로 제공합니다.
 
-규정 쪽은 인용 추출에 쓴 **HTML 조문 전체**이며 짧은 `citationText`만 보여 주지 않습니다. 별표·서식·그림을 포함한 규정 전문 조회는 `get_rule_full_text`를 사용하세요. 법령 쪽은 기존 korean-law 연동으로 확보한 본문을 재사용하며 새 API나 추가 법령 조회를 만들지 않습니다. `include_text:false`(기본)에서는 양쪽 본문과 대조 쌍을 반환하지 않습니다. 도구 수는 공개 15개·finance 19개 그대로입니다.
+규정 쪽은 인용 추출에 쓴 **HTML 조문 전체**이며 짧은 `citationText`만 보여 주지 않습니다. 별표·서식·그림을 포함한 규정 전문 조회는 `get_rule_full_text`를 사용하세요. 법령 쪽은 기존 korean-law 연동으로 확보한 본문을 재사용하며 새 API나 추가 법령 조회를 만들지 않습니다. `include_text:false`(기본)에서는 양쪽 본문과 대조 쌍을 반환하지 않습니다. 도구 수는 두 프로필 모두 15개입니다.
 
 구조화 응답의 기존 `laws`, `textCoverage`, `evidenceStatus`, `incompleteReasons`에 `comparison`을 추가했습니다.
 
@@ -256,7 +256,7 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 공용 서버는 개인이 운영하는 장비 한 대에서 돌아가며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **19개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+별도 자료팩에 의존하는 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`는 MCP 도구에서 제거했습니다. `rules`와 기존 `finance` 프로필 모두 규정·법령 연계 도구 15개를 제공합니다. 팩 경로를 설정해도 제거된 도구는 활성화되지 않습니다. 기존 `finance` 프로필의 인증 쿠키·캐시 분리는 유지합니다.
 
 ### 켜고 끄는 설정
 

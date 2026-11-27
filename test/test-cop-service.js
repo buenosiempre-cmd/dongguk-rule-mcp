@@ -50,16 +50,15 @@ async function main(){
 
   const pub=await connect('rules'),priv=await connect('finance');
   try{
+    // Even stale pack configuration must not restore removed MCP tools.
+    for(const key of ['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH']) process.env[key]='/nonexistent/removed-pack.json';
     const pubTools=(await pub.c.listTools()).tools,privTools=(await priv.c.listTools()).tools;
     check('15 public tools; finance hidden',()=>{assert.equal(pubTools.length,15);assert.ok(!pubTools.some(x=>x.name.startsWith('get_finance_')));});
-    check('19 opt-in finance tools',()=>assert.equal(privTools.length,19));
-    for(const tool of ['search_finance_handbook','review_finance_case']) {
-      check(`${tool} hidden in public profile`,()=>assert.ok(!pubTools.some(x=>x.name===tool)));
-      const blocked=await pub.call(tool,{query:'소모품비'});
-      check(`${tool} blocked in public profile`,()=>assert.equal(blocked.error?.code,'TOOL_NOT_AVAILABLE'));
+    check('both profiles expose the same 15 tools',()=>assert.deepEqual(privTools.map(x=>x.name),pubTools.map(x=>x.name)));
+    for(const connection of [pub,priv]) for(const tool of ['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']) {
+      const blocked=await connection.call(tool,{query:'출장'});
+      check(`${tool} cannot be invoked in either profile`,()=>assert.equal(blocked.error?.code,'TOOL_NOT_AVAILABLE'));
     }
-    const denied=await pub.call('get_finance_context',{query:'출장'});
-    check('hidden tools cannot be invoked by name',()=>assert.equal(denied.error.code,'TOOL_NOT_AVAILABLE'));
     const [publicContent,privateContent]=await Promise.all([pub.call('get_rule_content',{law_id:1}),priv.call('get_rule_content',{law_id:1})]);
     check('rules cache isolated from configured school cookie',()=>assert.match(publicContent.data.contentMarkdown,/공개 숙박비/));
     check('finance cookie cache retained',()=>assert.match(privateContent.data.contentMarkdown,/내부 쿠키 숙박비/));
@@ -70,6 +69,8 @@ async function main(){
       check(data.profile+' text-only service metadata matches structured content',()=>{
         for(const key of ['version','profile','toolCount','readOnly','source']) assert.ok(text.includes('- '+key+': '+data[key]));
         assert.equal(data.toolCount,listed.length);
+        assert.equal(data.privacy.privatePacksConfigured,false);
+        assert.deepEqual(data.integrations.jointWorkflows,[]);
         assert.ok(!text.includes('통합목록을 검색했습니다'));
       });
     }

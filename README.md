@@ -1,5 +1,8 @@
 <h1 align="center">동국 규정 MCP</h1>
 
+별도 자료팩에 의존하는 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`는 MCP 도구에서 제거했습니다. `rules`와 기존 `finance` 프로필 모두 규정·법령 연계 도구 15개를 제공합니다. 팩 경로를 설정해도 제거된 도구는 활성화되지 않습니다. 기존 `finance` 프로필의 인증 쿠키·캐시 분리는 유지합니다.
+
+
 <p align="center">
   <b>동국대 규정을 AI에게 물으면, 공식 원문에서 찾은 조문과 링크를 붙여 답합니다.</b><br>
   Claude·ChatGPT·Cursor·Codex 같은 AI 앱에 주소 한 줄만 더하면 됩니다. 설치도 로그인도 없습니다.
