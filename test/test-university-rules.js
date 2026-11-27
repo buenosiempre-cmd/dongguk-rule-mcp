@@ -426,6 +426,92 @@ async function main() {
     assert.equal(p.title,'교직원 여비 규정');assert.match(p.markdown,/### 제 2 조 \(여비의 종류\)/);
     assert(!p.markdown.includes('버튼'));assert.equal(latestAddendaEffective(p.markdown),'2026-11-01');
   });
+  await check('B2 이화 휴학: 제목 불일치 학칙·시행세칙 두 본문을 제한 탐색', async () => {
+    const list = [['1009','이화여자대학교 학칙'],['1010','이화여자대학교 학칙시행세칙'],['1011','대학원 학칙'],['1898','평생교육원 학칙']].map(([id,title]) => `<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=${id}">${title}</a>`).join('');
+    const calls=[];
+    const client={request:async(source,path)=>{ calls.push(path); return path.includes('view-rule') ? '<div class="fr-view"><p>제26조(휴학) 휴학하려는 학생은 승인을 받아야 한다.</p><p>제27조(복학) 복학 절차를 정한다.</p></div>' : list; }};
+    const data=await compareUniversityRules({topic:'휴학',universities:['ewha']},{loadDongguk:dongguk,client});
+    const col=data.columns.find(c=>c.university==='ewha');
+    assert.equal(col.status,'partial'); assert.equal(col.articles.length,2);
+    assert(col.articles.every(a=>a.article==='제26조'&&a.text.includes('승인')));
+    assert.equal(calls.length,3); assert(calls.slice(1).every(p=>/srRuleCd2=10(?:09|10)$/.test(p)));
+    assert.equal(col.coverage.titleMatches,0); assert.equal(col.coverage.academicFallbackRules,2);
+    assert.equal(col.coverage.discoveryScope,'titles_and_bounded_academic_rules');
+    assert.match(formatComparison(data),/학부 학칙·학칙시행세칙 최대 2개/);
+  });
+  await check('B2 제목 후보 우선·전체 5규정 상한·명시 titleOnly 유지', async () => {
+    const source=SOURCES.find(x=>x.key==='ewha'), spec=expandTopic('휴학');
+    const list=[...Array.from({length:6},(_,i)=>[String(2000+i),`휴학 처리 규정 ${i}`]),['1009','학칙'],['1010','학칙시행세칙']].map(([id,title])=>`<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=${id}">${title}</a>`).join('');
+    const calls=[];const client={request:async(s,path)=>{calls.push(path);return path.includes('view-rule')?'<div class="fr-view">제1조(휴학) 휴학을 허가한다.</div>':list;}};
+    const data=await loadExternal(source,'휴학',spec.terms,client,undefined,spec);
+    assert.equal(data.rules.length,5); assert.equal(calls.length,6); assert.equal(data.coverage.titleMatches,5);
+    assert.equal(data.coverage.academicFallbackRules,undefined); assert.equal(data.coverage.truncated,false);
+    const only={request:async()=>'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>'};
+    const watched=await loadExternal(source,'휴학',spec.terms,only,undefined,{...spec,titleOnly:true});
+    assert.equal(watched.rules.length,0); assert.equal(watched.coverage.discoveryScope,'titles_only');
+    const limited=await loadExternal(source,'휴학',spec.terms,client,undefined,{...spec,maxRules:1});
+    assert.equal(limited.rules.length,1); assert.equal(limited.coverage.academicFallbackRules,undefined);
+  });
+  await check('B2 미지원 주제·대학원 지정은 학부 학칙으로 확대하지 않고 제목 한계를 표시', async () => {
+    for(const topic of ['여비','겸직','대학원 휴학','없는주제']) {
+      let count=0;const client={request:async()=>{count++;return '<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">이화여자대학교 학칙</a>';}};
+      const data=await compareUniversityRules({topic,universities:['ewha']},{loadDongguk:dongguk,client});
+      const col=data.columns.find(c=>c.university==='ewha');
+      assert.equal(count,1); assert.equal(col.status,'no_match_in_scope');
+      assert.equal(col.coverage.discoveryScope,'titles_only'); assert.match(formatComparison(data),/제목에 주제어가 없는 규정의 본문은 빠질 수/);
+    }
+  });
+  await check('B2 학칙 후보 실패와 본문 미일치는 조회 실패·범위 내 미발견으로 구분', async () => {
+    const source=SOURCES.find(x=>x.key==='ewha'),spec=expandTopic('복학');
+    const list='<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>';
+    const failed={request:async(s,path)=>{if(path.includes('view-rule'))throw Object.assign(new Error('timeout'),{code:'UPSTREAM_TIMEOUT'});return list;}};
+    const data=await compareUniversityRules({topic:'복학',universities:['ewha']},{loadDongguk:dongguk,client:failed});
+    const col=data.columns.find(c=>c.university==='ewha');assert.equal(col.status,'unavailable');assert.equal(col.failures.length,1);
+    const other={request:async(s,path)=>path.includes('view-rule')?'<div class="fr-view">제1조(목적) 교육을 목적으로 한다.</div>':list};
+    const noMatch=await compareUniversityRules({topic:'복학',universities:['ewha']},{loadDongguk:dongguk,client:other});
+    assert.equal(noMatch.columns.find(c=>c.university==='ewha').status,'no_match_in_scope');
+  });
+  await check('PR80 P1 검수 원문: 전과정 조문은 정답 전과규정을 밀어내지 않음', async () => {
+    const fixture=require('./fixtures/ewha-academic-ranking.json');
+    for (const withTitle of [true,false]) {
+      const client={request:async(s,p)=>!p.includes('view-rule')?(withTitle?fixture.catalog:'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>'):p.endsWith('=10')?fixture.correct:fixture.unrelated};
+      const data=await compareUniversityRules({topic:'전과',universities:['ewha'],max_articles:3},{loadDongguk:dongguk,client});
+      const col=data.columns.find(c=>c.university==='ewha');
+      assert.deepEqual(col.articles.map(a=>a.lawId),withTitle?[10,10,10]:[]);
+      assert.equal(col.matchingArticles,withTitle?3:0);assert.equal(col.articlesTruncated,false);
+      assert.equal(col.status,withTitle?'partial':'no_match_in_scope');
+    }
+  });
+  await check('PR80 재검수: 제목 규정 1~4개가 있으면 학칙은 조회·발췌하지 않음', async () => {
+    for (let count=1;count<=4;count++) for(let limit=1;limit<=5;limit++) {
+      const titles=Array.from({length:count},(_,i)=>`<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=${10+i}">전과규정 ${i}</a>`).join('');
+      const client={request:async(s,p)=>!p.includes('view-rule')?titles+'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>':p.endsWith('=1009')?'<div class="fr-view"><p>제40조(전과신청)</p><p>전과신청서를 낸다.</p></div>':'<div class="fr-view"><p>제1조(신청)</p><p>전과를 신청한다.</p></div>'};
+      const data=await compareUniversityRules({topic:'전과',universities:['ewha'],max_articles:limit},{loadDongguk:dongguk,client});
+      const col=data.columns.find(c=>c.university==='ewha');
+      assert.deepEqual(col.articles.slice(0,Math.min(count,limit)).map(a=>a.lawId),Array.from({length:Math.min(count,limit)},(_,i)=>10+i));
+      assert.equal(col.articles.length,Math.min(count,limit));
+      assert.equal(col.coverage.academicFallbackRules,undefined);
+      assert(!JSON.stringify(col).includes('_academicFallback'));
+    }
+  });
+  await check('PR80 학사 주제의 어절·지원 복합어와 다른 낱말 부분일치를 구분', async () => {
+    for(const [topic,good,bad] of [['전과','전과신청서는 제출한다.','전과정의 이수를 인정한다.'],['학점','학점을 인정한다.','대학점검을 실시한다.'],['휴학','휴학하려는 학생은 신청한다.','휴학술회의를 개최한다.']]) {
+      for(const [text,expected] of [[good,1],[bad,0]]) {
+        const client={request:async(s,p)=>!p.includes('view-rule')?'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>':`<div class="fr-view"><p>제1조(기준)</p><p>${text}</p></div>`};
+        const data=await compareUniversityRules({topic,universities:['ewha']},{loadDongguk:dongguk,client});
+        assert.equal(data.columns.find(c=>c.university==='ewha').articles.length,expected,text);
+      }
+    }
+  });
+  await check('PR80 P2: 실패·미일치·일치 안내는 선정/시도/읽음만 진술', async () => {
+    for(const mode of ['fail','none','match']) {
+      const client={request:async(s,p)=>{if(!p.includes('view-rule'))return '<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>';if(mode==='fail')throw Object.assign(new Error('offline'),{code:'UPSTREAM_UNAVAILABLE'});return `<div class="fr-view"><p>제26조(기준)</p><p>${mode==='match'?'휴학을 허가한다.':'교육의 목적을 정한다.'}</p></div>`;}};
+      const data=await compareUniversityRules({topic:'휴학',universities:['ewha']},{loadDongguk:dongguk,client});const col=data.columns.find(c=>c.university==='ewha');
+      assert.equal(col.status,mode==='fail'?'unavailable':mode==='none'?'no_match_in_scope':'partial');
+      assert.equal(col.coverage.academicFallbackRules,1);assert.equal(col.coverage.academicFallbackAttemptedRules,1);assert.equal(col.coverage.academicFallbackReadRules,mode==='fail'?0:1);
+      assert(!formatComparison(data).includes('주제어를 찾았습니다'));assert.match(formatComparison(data),/본문 조회 시도 1개/);
+    }
+  });
   await check('고려대 공개 분류 목록: 페이지 넘김·제목 대조·공개 범위 표시', async () => {
     const listing=(total,rows)=>`<p>전체: ${total} 건&nbsp; 페이지:</p>`+rows.map(([id,h,t])=>`<a href="/lmxsrv/law/lawFullView.do?SEQ=${id}&amp;SEQ_HISTORY=${h}">${t}</a>`).join('');
     const parsed=parseFolderListing(listing(2,[[1,2,'3-4-5 장학금 지급 규정'],[3,4,'3-1-1 직제규정']]));

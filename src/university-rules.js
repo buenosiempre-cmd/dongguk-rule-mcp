@@ -272,6 +272,14 @@ async function loadSogang(source, topic, terms, client, signal, spec = {}) {
   return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
 }
 
+// Bounded academic discovery accepts the topic as a word or a supported academic
+// compound/inflection, not as an arbitrary substring (전과정, 대학점검, ...).
+function academicTopicMention(text, topic) {
+  const noun = '(?:신청서|신청|허가|기간|절차|요건|기준|시기|원서|예정자|예정|처리|취소|승인|제한|연장|대상자|대상|생|자|중|전|후)?';
+  const ending = '(?:으로부터|에게서|에서는|에서도|에서만|으로|에서|에게|까지|부터|은|는|이|가|을|를|의|에|도|만|와|과|한|하는|하여|하면|할|하려는|하고자)?';
+  return new RegExp(`(?:^|[^\\p{L}\\p{N}])${topic}${noun}${ending}(?=$|[^\\p{L}\\p{N}])`, 'u').test(String(text));
+}
+
 // 이화여대: 규정집 목록 HTML(view-rule 링크) + 규정별 view 페이지(.fr-view에 조문 전문).
 async function loadEwha(source, topic, terms, client, signal, spec = {}) {
   const maxRules = ruleLimit(spec);
@@ -289,16 +297,27 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
     items.push({ cd1: m[1], cd2: m[2], title });
   });
   if (!items.length) throw error('UPSTREAM_FORMAT_CHANGED');
-  const ranked = rankByTitle(items, topic, terms, hints).slice(0, maxRules);
+  const titleHits = rankByTitle(items, topic, terms, hints);
+  // Enter fallback only when the catalog has no title matches at all.
+  // Even failed/empty title results retain the existing main path and response.
+  const academicTopic = titleHits.length === 0 && !spec.titleOnly && /^(?:휴학|복학|재입학|전과|졸업|수료|학점|수강신청|제적|자퇴)$/.test(compact(topic));
+  const academicHits = academicTopic ? items.filter(hit =>
+    /^(?:이화여자대학교)?학칙(?:시행세칙)?$/.test(compact(hit.title)) && !titleHits.includes(hit))
+    .sort((a, b) => compact(a.title).length - compact(b.title).length).slice(0, 2) : [];
+  const fallback = academicHits.slice(0, Math.max(0, maxRules - titleHits.length));
+  const ranked = [...titleHits.slice(0, maxRules), ...fallback];
   const rules = [], failures = [];
+  let fallbackAttempted = 0, fallbackRead = 0;
   for (const hit of ranked) {
     try {
+      if (fallback.includes(hit)) fallbackAttempted++;
       const html = await client.request(source, `/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`, undefined, 15000, signal);
       const body = cheerio.load(html)('.fr-view').html() || '';
       const markdown = htmlToArticleMarkdown(body);
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
       const effectiveAt = latestAddendaEffective(markdown);
-      rules.push({ title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
+      if (fallback.includes(hit)) fallbackRead++;
+      rules.push({ ...(fallback.includes(hit) ? { academicTopic: compact(topic), academicFallback: true } : {}), title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
         url: `${source.origin}/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`,
         revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
     } catch (e) {
@@ -306,7 +325,14 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
       if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
-  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
+  // Preserve main's exact coverage contract whenever a title candidate exists.
+  if (titleHits.length) return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
+  return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: titleHits.length,
+    academicFallbackRules: fallback.length, academicFallbackAttemptedRules: fallbackAttempted, academicFallbackReadRules: fallbackRead, academicFallbackTitles: fallback.map(hit => hit.title),
+    discoveryScope: fallback.length ? 'titles_and_bounded_academic_rules' : 'titles_only',
+    notice: fallback.length ? `학부 학칙·학칙시행세칙 최대 2개 중 ${fallback.length}개를 추가 후보로 선정했습니다. 본문 조회 시도 ${fallbackAttempted}개, 읽음 ${fallbackRead}개이며 일치 여부는 반환 조문과 상태를 확인하세요. 대학원·다른 기관 규정이나 전체 규정 전문을 검색한 결과는 아닙니다.` : '규정 목록의 제목으로 후보를 골랐습니다. 제목에 주제어가 없는 규정의 본문은 빠질 수 있습니다.',
+    truncated: titleHits.length + academicHits.length > ranked.length, complete: false } };
+
 }
 
 // 서울대(국립): 국가법령정보센터 DRF 공개 API의 학칙 채널. 운영자가 law.go.kr에서
@@ -727,6 +753,7 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
     const entry = { universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId, url: rule.url, slots: new Set(), titleScore };
     for (const block of listArticleBlocks(rule.markdown)) {
       if (block.supplementary) continue;
+      if (rule.academicFallback && !academicTopicMention(block.content, rule.academicTopic)) continue;
       const matchedTerms = terms.filter(t => block.content.includes(t));
       if (!matchedTerms.length) continue;
       // 조문 제목(첫 줄)에 주제어가 있으면 그 조문이 주제를 직접 다룬다고 보고 앞에 둔다.
@@ -862,6 +889,7 @@ function formatComparison(data) {
   for (const c of data.columns) if (c.notice && c.status === 'unavailable') lines.push('', `- ${c.name || c.university}: ${c.notice}`);
   // 본문을 읽지 못한 조문과 현행본을 확인하지 못한 규정은 건수만이 아니라 무엇인지 적는다.
   for (const c of data.columns) {
+    if (c.coverage?.discoveryScope && c.coverage.notice) lines.push('', `- ${c.name || c.university}: ${c.coverage.notice}`);
     const unread = (c.failures || []).filter(f => f.code === 'ARTICLE_TEXT_UNAVAILABLE' && f.article);
     if (unread.length) lines.push('', `- ${c.name || c.university}: 본문을 읽지 못해 비교에서 뺀 조문 ${unread.length}건 — ${unread.map(f => `${f.article}(${f.reason === 'image_only' ? '본문이 그림뿐' : '본문 없음'})`).join(', ')}. 제목만으로 내용을 확인한 것이 아니므로 원문에서 확인하세요.`);
     const stale = (c.failures || []).filter(f => f.stage === 'revision_confirmation');
