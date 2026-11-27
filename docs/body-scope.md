@@ -1,5 +1,7 @@
 # 본문 적용범위 판별 실험
 
+**1회 측정 완료:** 제외 전용은 hybrid 대비 엄격/top3/1위 신규오답0·개선0으로 박스 비교 조건에 인계한다. [전체 결과](body-scope-exclude-results.md). scope22는 정답표 검증 전 잠정치이며 생산 효과를 확정하지 않는다.
+
 기본은 `legacy`다. 실험은 `DONGGUK_MCP_RANKING=hybrid`에서 측정용 환경변수 `DONGGUK_MCP_MEASURE_SCOPE`로 고른다. 생략/알 수 없는 값은 제목 기반 hybrid 그대로다. 운영 기본값 변경은 없다.
 
 | 값 | 동작 |
