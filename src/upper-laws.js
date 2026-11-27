@@ -136,7 +136,7 @@ async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandida
       const remaining = deadline - Date.now();
       if (remaining < 1000) { law.identity = { status: 'unavailable', code: 'LEGAL_TOTAL_TIMEOUT' }; continue; }
       // Do not reuse pre-validation entries; leave the old cache files untouched.
-      const key = crypto.createHash('md5').update(['effective-date-v2', normalizeName(law.lawName), law.nameGuessed ? 'guess' : 'name', articles.join(','), law.nameCandidate || '', today()].join('|')).digest('hex');
+      const key = crypto.createHash('md5').update(['body-evidence-v3', normalizeName(law.lawName), law.nameGuessed ? 'guess' : 'name', articles.join(','), law.nameCandidate || '', today()].join('|')).digest('hex');
       let found;
       try {
         found = await cached('upper-law', key, CACHE_SECONDS, async () => {
