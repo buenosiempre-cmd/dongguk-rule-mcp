@@ -52,7 +52,7 @@ function validHost(value) {
 function validPort(value) { return /^\d+$/.test(String(value)) && Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 65535; }
 function parseCliArguments(argv) {
   const valued = new Set(['--profile','--port','--host','--token','--token-file','--print-config']);
-  const flags = new Set(['--http','--doctor','--json','--live','--help','-h','--version','-v','--build-index']);
+  const flags = new Set(['--http','--doctor','--json','--live','--help','-h','--version','-v','--build-index','--build-semantic-index']);
   const values = new Map();
   for (let i = 0; i < argv.length; i++) {
     const name = argv[i];
@@ -87,6 +87,7 @@ if (require.main === module && (ARGV.includes('--help') || ARGV.includes('-h')))
   dongguk-rule-mcp --doctor --json 설치 자체 점검 (--live: 실제 원문 조회 추가)
   dongguk-rule-mcp --print-config codex  설치 경로에 맞는 설정 출력 (claude/cursor 지원)
   dongguk-rule-mcp --build-index   전체 공개 규정의 전문 색인 생성·갱신 (약 5분, 바뀐 규정만 다시 읽음)
+  dongguk-rule-mcp --build-semantic-index  의미검색용 조문 임베딩 색인 생성·갱신 (선택 기능, @huggingface/transformers 별도 설치 필요)
   --profile rules|finance         기본 rules, 내부 재무 기능은 finance 선택
 
 HTTP 옵션:
@@ -153,6 +154,7 @@ const {
   TOOL_OUTPUT_SCHEMA,
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
+const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
 const { normalizeName, createResolver, extractReferences, summarizeExternalLaws } = require('./references.js');
 
@@ -331,6 +333,22 @@ async function buildRuleIndex({onProgress}={}) {
     const coverage=corpusCoverage(corpus);
     return {ok:corpus.failed.length<=corpus.catalogTotal*0.05,file:filename,...coverage,reusedRules:corpus.reused,failed:corpus.failed.slice(0,20)};
   });
+}
+// Article vectors for semantic search, made from the full-text index. The model is downloaded
+// by the build command (never while answering a question) and unchanged articles keep their vectors.
+// A running server refreshing its own vectors reuses the model it already holds.
+async function buildSemanticRuleIndex({onProgress,shared=false}={}) {
+  const directory=publicCacheDir(), corpus=loadCorpus(directory);
+  if(!corpus) return {ok:false,code:'INDEX_UNAVAILABLE',message:'전문 색인이 없습니다. 먼저 --build-index를 실행하세요.'};
+  let embedder;
+  try{embedder=shared?sharedEmbedder(directory):await createEmbedder({directory,download:true});}
+  catch(error){return {ok:false,code:error.code||'SEMANTIC_MODEL_UNAVAILABLE',message:error.code==='SEMANTIC_RUNTIME_MISSING'?error.message+' 서버 설치 폴더에서 `npm install @huggingface/transformers`를 실행하거나 DONGGUK_MCP_SEMANTIC_RUNTIME에 설치 폴더를 지정하세요.':'임베딩 모델을 불러오지 못했습니다.'};}
+  const started=Date.now();
+  let built;
+  // Only a completed build atomically publishes a new index description.
+  try{built=await buildSemanticIndex({corpus,directory,embedder,previous:loadSemanticIndex(directory),onProgress});}
+  catch{return {ok:false,code:'SEMANTIC_BUILD_FAILED',message:'조문 벡터를 만들지 못해 새 색인을 게시하지 않았습니다. 이전 색인이 있다면 유지됩니다. 사용 가능 여부는 의미검색 상태에서 확인하세요.'};}
+  return {ok:true,model:built.meta.model,articles:built.meta.articles,vectors:built.meta.rows,dims:built.meta.dims,reusedArticles:built.reused,seconds:Math.round((Date.now()-started)/1000),builtAt:built.meta.builtAt};
 }
 function indexStatus() {
   const corpus=loadCorpus(publicCacheDir());
@@ -707,6 +725,14 @@ const INDEX_PREVIEW_RULES=3;
 const KEYWORDS_MAX_CHARS=200;
 // Scope words name where a rule applies, not what the question is about.
 const SCOPE_WORD=/^(?:WISE|WISE캠퍼스|경주|경주캠퍼스|서울캠퍼스|캠퍼스|산학협력단|산단|의학계열|의과대학|병원|대학원)$/i;
+// Articles to excerpt first: the one the ranking chose, then the one closest in meaning to the
+// question (when semantic search ran), then the one holding the most question words. The semantic
+// article is added beside the word choices and never replaces the first.
+function excerptPriority(first,semanticArticle,rest){
+  const base=[...new Set([...first,...rest].filter(Boolean))];
+  if(!semanticArticle||base.includes(semanticArticle)) return base;
+  return [...base.slice(0,1),semanticArticle,...base.slice(1)];
+}
 function rankIndexHits(found,{top,campus,scopeQuery}){
   const families=new Map();
   for(const hit of found.hits){
@@ -714,8 +740,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
     const rankedArticles=hit.articles.filter(item=>item.article&&!item.supplementary).map(item=>item.article);
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
       matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,edition:hit.edition,family:hit.family,
-      // Articles to excerpt first: the one the ranking chose, then the one holding the most question words.
-      priorityArticles:[...new Set([...(body?rankedArticles.slice(0,1):[]),hit.wordArticle,...(body?rankedArticles.slice(1,2):[])].filter(Boolean))],rankedArticles,
+      priorityArticles:excerptPriority(body?rankedArticles.slice(0,1):[],hit.semanticArticle,[hit.wordArticle,...(body?rankedArticles.slice(1,2):[])]),rankedArticles,
       // Only the institution or campus name matched; no article is about the topic.
       scopeNameOnly:hit.matchedConcepts.length>0&&hit.matchedConcepts.every(term=>SCOPE_WORD.test(term))};
     if(!families.has(hit.family)) families.set(hit.family,[]);
@@ -737,17 +762,33 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   for(const extra of anchored.slice(0,1)) if(!leading.includes(extra)) leading.splice(INDEX_PREVIEW_RULES-1,1,extra);
   const hits=[...leading,...ranked.filter(x=>!leading.includes(x))].slice(0,top);
   const [first,second]=hits;
+  // Without semantic scores the first rule leads when it clearly outscores the second, as before.
+  // With them the lift orders rules but is not evidence that one rule alone answers the question:
+  // the first rule must then lead every other candidate by its word score.
+  const wordScore=new Map(found.hits.map(hit=>[hit.lawId,hit.wordScore]));
   const searchable=found.tokens.length-found.missingTerms.length;
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.score>=second.score*1.3);
+  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||(found.semantic?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
-function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES}={}){
+// Semantic scores for a question, and for the question with its keywords. Null when semantic
+// search is unavailable; the word index then answers alone. The vectors describe the current
+// revision, so a lookup of a past revision does not use them.
+async function questionSemantics(question,keywordPhrases,{asOf=null}={}){
+  if(asOf||requestCookie()||!validStr(question)) return null;
+  const directory=publicCacheDir(), corpus=loadCorpus(directory);
+  if(!corpus) return null;
+  const asked=await semanticScores({corpus,directory,text:question});
+  if(!asked) return null;
+  const keyed=keywordPhrases?.length?await semanticScores({corpus,directory,text:`${question} ${keywordPhrases.map(phrase=>phrase.join(' ')).join(', ')}`}):null;
+  return {question:asked,keyed:keyed||asked};
+}
+function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES,semantic=null}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
   // Scope selection must see editions beyond the unscoped score cutoff.
-  const found=searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords});
+  const found=searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords,semantic:keywords?.length?semantic?.keyed:semantic?.question});
   if(!found.hits.length) return null;
   // Campus and institution are read from the question, never from the keywords.
   let {hits,dominant}=rankIndexHits(found,{top,campus,scopeQuery});
@@ -756,7 +797,7 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
   let keywordInfo=null;
   if(keywords?.length){
     keywordInfo={...found.keywords,applied:found.keywordMode,questionRuleKept:null};
-    const alone=found.keywordMode?searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1}):null;
+    const alone=found.keywordMode?searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1,semantic:semantic?.question}):null;
     if(alone?.hits.length){
       const question=rankIndexHits(alone,{top:corpus.rules.length,campus,scopeQuery});
       const byId=new Map(question.hits.map(hit=>[hit.lawId,hit]));
@@ -777,30 +818,31 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
       if(hits[0].lawId!==chosen.lawId||!question.dominant) dominant=false;
     }
   }
-  return {total:hits.length,hits,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
+  return {total:hits.length,hits,semantic:found.semantic,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
     ...(keywordInfo?{keywordInfo}:{}),
     indexedAt:corpus.builtAt,stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
 }
 // A question that names its rule ("연구비로 출장 갈 때도 여비규정 따라야 돼?"). The rest of the
 // question is everyday wording, so the excerpt is chosen with the same vocabulary and intent
 // reading as the index search, inside that one rule. Null when the index cannot help.
-function focusWithinRule(lawId,question,keywords=null){
+function focusWithinRule(lawId,question,keywords=null,semantic=null){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
   const within=options=>{
-    const found=searchCorpus(corpus,question,{top:corpus.rules.length,perDoc:1,...options});
+    const found=searchCorpus(corpus,question,{top:corpus.rules.length,perDoc:1,...options,semantic:options.keywords?semantic?.keyed:semantic?.question});
     const hit=found.hits.find(x=>x.lawId===lawId);
     if(!hit) return null;
     const top=hit.articles[0];
-    return {searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null,wordArticle:hit.wordArticle,keywordInfo:found.keywords?{...found.keywords,applied:found.keywordMode}:null};
+    return {searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null,wordArticle:hit.wordArticle,semanticArticle:hit.semanticArticle,semantic:found.semantic,keywordInfo:found.keywords?{...found.keywords,applied:found.keywordMode}:null};
   };
+  // The article the words chose stays first; the article closest in meaning follows it.
   const alone=validStr(question)?within({}):null;
-  if(!keywords?.length) return alone&&{...alone,priorityArticles:[alone.topArticle].filter(Boolean)};
+  if(!keywords?.length) return alone&&{...alone,priorityArticles:excerptPriority([alone.topArticle],alone.semanticArticle,[])};
   // Keywords that this rule does not contain fall back to the question's own words.
   const keyed=within({keywords});
-  if(!keyed) return alone&&{...alone,priorityArticles:[alone.topArticle].filter(Boolean),keywordInfo:{used:[],missing:[],rewritten:{},applied:false}};
-  return {...keyed,priorityArticles:[...new Set([keyed.topArticle,alone?.topArticle,keyed.wordArticle].filter(Boolean))]};
+  if(!keyed) return alone&&{...alone,priorityArticles:excerptPriority([alone.topArticle],alone.semanticArticle,[]),keywordInfo:{used:[],missing:[],rewritten:{},applied:false}};
+  return {...keyed,priorityArticles:excerptPriority([keyed.topArticle],keyed.semanticArticle,[alone?.topArticle,keyed.wordArticle])};
 }
 const describeRewrites=map=>Object.keys(map||{}).length?Object.entries(map).map(([from,to])=>`${from}→${to}`).join(', '):'';
 
@@ -933,6 +975,7 @@ async function hLookup(rawKeyword, {
     searchMode=catalogRule?'현행 목록 제목':'LAW_ID';
   }
   const candidateHits=new Map();
+  let semantic=null;
   const questionTerms=queryContentTokens(keyword);
   for(const fullText of (result?[]:[false,true])){
     // A multi-word question rarely appears verbatim; searchByTerms below
@@ -963,7 +1006,8 @@ async function hLookup(rawKeyword, {
   const exactTitle=candidateHits.size>0&&selectRuleCandidate([...candidateHits.values()],keyword).matchType==='exact';
   // One content word with no title candidate ("책 연체하면 어떻게 돼") is still a question for the index.
   if(!explicitLawId&&!exactTitle&&(questionTerms.length>1||(questionTerms.length===1&&!candidateHits.size)||keywordPhrases.length)){
-    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery,keywords:keywordPhrases,previewLimit:maxRules===1?INDEX_PREVIEW_RULES:maxRules});
+    semantic=await questionSemantics(keyword,keywordPhrases,{asOf});
+    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery,keywords:keywordPhrases,previewLimit:maxRules===1?INDEX_PREVIEW_RULES:maxRules,semantic});
     if(indexed){result=indexed;queryUsed=indexed.tokens.join(' ');searchMode='핵심어 색인';}
   }
   if(!result){
@@ -1020,7 +1064,8 @@ async function hLookup(rawKeyword, {
   const namedRule=selection.status==='unique'&&autoTerms&&validStr(rawTerms)&&hits.length===1&&rawTerms!==keyword;
   // Keywords also choose the articles of a rule picked by its name or its law_id.
   const keyedRule=!indexMode&&autoTerms&&keywordPhrases.length>0&&hits.length===1;
-  const focus=namedRule||keyedRule?focusWithinRule(hits[0].lawId,namedRule?rawTerms:scopeQuery,keywordPhrases):null;
+  const focusQuestion=namedRule?rawTerms:scopeQuery;
+  const focus=namedRule||keyedRule?focusWithinRule(hits[0].lawId,focusQuestion,keywordPhrases,await questionSemantics(focusQuestion,keywordPhrases,{asOf})):null;
   const keywordInfo=keywordPhrases.length?(indexMode?result.keywordInfo:focus?.keywordInfo)||{used:[],missing:[],rewritten:{},applied:false}:null;
   const keywordSelectors=keywordPhrases.length?[...articleSelectors(String(keywords)),...appendixSelectors(String(keywords))]:[];
   // The question's own words stay (an appendix may hold words the index lacks); rule vocabulary is added.
@@ -1034,7 +1079,7 @@ async function hLookup(rawKeyword, {
     : rawTerms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
-    `- 검색 방식: ${searchMode}\n` +
+    `- 검색 방식: ${searchMode}${result.semantic||focus?.semantic?' + 의미검색(조문 임베딩)':''}\n` +
     (queryUsed!==keyword?`- 정규화 검색어: ${queryUsed}\n`:``) +
     `- 원문 집계 / 고유 후보: ${result.total}건 / ${metrics.uniqueRows}건\n` +
     `- 선택 규정: ${hits.length}건\n`+
@@ -1142,7 +1187,8 @@ async function hLookup(rawKeyword, {
   return success(out,{
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
-      ...(indexMode?{selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
+      ...(focus?.semantic?{semantic:true}:{}),
+      ...(indexMode?{semantic:!!result.semantic,selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
         otherCandidates:result.hits.slice(hits.length,hits.length+3).map(x=>({lawId:x.lawId,title:x.title,matchedTerms:x.matchedTerms,topArticle:x.topArticle}))}:{})},
     rules,
     evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',
@@ -1705,6 +1751,7 @@ function startHttp() {
   server.getStatus=()=>({...baseStatus(),cacheWarmup:warmer?.getStatus()||{enabled:false,ruleCount:0}});
   server.listen(HTTP_PORT,HTTP_HOST,()=>{
     console.error(`dongguk-rule-mcp v${VERSION} HTTP 시작 (${PROFILE}, ${HTTP_HOST}:${HTTP_PORT})`);
+    if(!noCache()&&warmSemantic(publicCacheDir())) console.error('의미검색: 임베딩 모델을 불러오는 중입니다. 준비 전 질문은 낱말 색인만으로 답합니다.');
     warmer=startWarmup({
       rules:warmRules,
       isBusy:()=>{const s=baseStatus();return s.status!=='ok'||s.activeRequests>0||s.queuedRequests>0;},
@@ -1717,7 +1764,13 @@ function startHttp() {
     const refresh=async()=>{
       if(indexRunning) return;
       indexRunning=true;
-      try{const r=await buildRuleIndex();indexLast={ok:r.ok,at:new Date().toISOString(),indexedRules:r.indexedRules,failedRules:r.failedRules};}
+      try{
+        const r=await buildRuleIndex();indexLast={ok:r.ok,at:new Date().toISOString(),indexedRules:r.indexedRules,failedRules:r.failedRules};
+        // Vectors follow the refreshed index only where an operator has already built them.
+        if(r.ok&&semanticStatus(publicCacheDir()).indexAvailable&&semanticStatus(publicCacheDir()).setting!=='off'){
+          const v=await buildSemanticRuleIndex({shared:true});indexLast.semantic=v.ok?{ok:true,articles:v.articles,reusedArticles:v.reusedArticles}:{ok:false,code:v.code};
+        }
+      }
       catch(e){indexLast={ok:false,at:new Date().toISOString(),error:'INDEX_BUILD_FAILED'};}
       finally{indexRunning=false;}
     };
@@ -1726,7 +1779,8 @@ function startHttp() {
     server.once('listening',()=>{void refresh();});
   }
   const withWarmStatus=server.getStatus;
-  server.getStatus=()=>({...withWarmStatus(),fullTextIndex:{...indexStatus(),autoRefreshHours:indexTimer?refreshHours:0,running:indexRunning,lastRefresh:indexLast}});
+  server.getStatus=()=>({...withWarmStatus(),fullTextIndex:{...indexStatus(),autoRefreshHours:indexTimer?refreshHours:0,running:indexRunning,lastRefresh:indexLast},
+    semanticSearch:semanticStatus(publicCacheDir(),loadCorpus(publicCacheDir()))});
   server.once('close',()=>{warmer?.stop();clearInterval(indexTimer);});
   server.on('error',()=>{console.error('HTTP 기동 실패: 바인드 주소·포트·인증 설정을 확인하세요.');process.exitCode=1;});
   const shutdown=()=>{warmer?.stop();return server.shutdown().finally(()=>process.exit(0));};
@@ -1750,9 +1804,15 @@ if (require.main === module) {
       console.log(JSON.stringify(result,null,2));
       if(!result.ok)process.exitCode=1;return;
     }
+    if(ARGV.includes('--build-semantic-index')){
+      let last=0;
+      const result=await buildSemanticRuleIndex({onProgress:p=>{if(p.done-last>=500||p.done===p.total){last=p.done;console.error(`임베딩 ${p.done}/${p.total} (재사용 ${p.reused})`);}}});
+      console.log(JSON.stringify(result,null,2));
+      if(!result.ok)process.exitCode=1;return;
+    }
     if(MODE_HTTP){startHttp();return;}
     const server=createServer({profile:PROFILE});await server.connect(new StdioServerTransport());
     console.error(`dongguk-rule-mcp v${VERSION} 시작됨 (${PROFILE}, stdio, Node ${process.version})`);
   })().catch(e=>{console.error('서버 시작 실패:',e.message);process.exitCode=1;});
 }
-module.exports={createServer,buildRuleIndex};
+module.exports={createServer,buildRuleIndex,buildSemanticRuleIndex};

@@ -182,11 +182,45 @@ dongguk-rule-mcp --build-index
 - 파일 위치는 `~/.cache/dongguk-rule-mcp/v2/public/corpus/`입니다(`XDG_CACHE_HOME`을 지정하면 그 아래). 서버와 색인 명령이 같은 계정·같은 캐시 경로를 써야 합니다.
 - 로그인 쿠키 없이 공개 규정만 색인합니다. 쿠키를 쓰는 `finance` 요청은 색인을 쓰지 않고 공식 사이트를 검색합니다.
 - 공개용과 토큰용 프로세스는 같은 공개 캐시 폴더의 색인을 함께 읽습니다. 자동 갱신은 한 프로세스에만 지정합니다.
-- 공용 HTTP 서버는 `DONGGUK_MCP_INDEX_REFRESH_HOURS=24`를 지정하면 HTTP 수신 시작 직후 비동기로 한 번, 이후 24시간마다 스스로 갱신합니다. 첫 갱신이 실패해도 서버는 응답하며 다음 주기에 재시도합니다. `/status`의 `fullTextIndex`에서 마지막 갱신 결과를 확인합니다.
+- 공용 HTTP 서버는 `DONGGUK_MCP_INDEX_REFRESH_HOURS=24`를 지정하면 HTTP 수신 시작 직후 비동기로 한 번, 이후 24시간마다 스스로 갱신합니다. 첫 갱신이 실패해도 서버는 응답하며 다음 주기에 재시도합니다. `/status`의 `fullTextIndex`에서 진행 여부와 마지막 갱신 결과를 확인합니다.
 - 규정 목록이 이전 색인보다 20% 넘게 줄면 색인을 덮어쓰지 않고 실패합니다. 일부 규정의 본문 조회가 실패하면 그 규정을 누락으로 기록하고 `complete:false`로 표시합니다.
 - 색인이 8일을 넘기면 `search_rule_deep`은 공식 사이트 검색으로 돌아갑니다. `get_service_info`의 `fullTextIndex.stale`로 확인합니다. `lookup_dongguk_rule`은 오래된 색인도 후보를 찾는 데 쓰되 본문은 항상 현행 개정본을 다시 읽고, 결과에 색인 기준일과 "8일 초과"를 표시합니다.
 - stdio로 쓰는 개인 설치(Claude Code·Claude Desktop 등)에는 자동 갱신이 없습니다. launchd 또는 cron으로 `dongguk-rule-mcp --build-index`를 주 1~2회 실행합니다. 예: `~/Library/LaunchAgents/com.dongguk-rule-mcp.build-index.plist`에 `ProgramArguments`로 `node <설치경로>/src/index.js --build-index`, `StartCalendarInterval`로 `Weekday 1, Hour 6`를 두고 `launchctl bootstrap gui/$(id -u) <plist>`로 등록합니다. 서버가 쓰는 계정·`XDG_CACHE_HOME`과 같아야 하며, 색인은 공개 규정만 담으므로 로그인 쿠키는 필요하지 않습니다.
 - 본문 파서 변경 후에는 같은 계정·`XDG_CACHE_HOME`에서 `--build-index`를 실행하고 `/status`의 `fullTextIndex.available`·실패 규정 수를 확인합니다. 구 파서 색인은 검색과 동일 연혁 재사용에서 제외됩니다. [content-v4 계약·이행 절차](content-parser-repair.md)를 따르세요.
+
+### 의미검색 운영 (선택 기능)
+
+`lookup_dongguk_rule`의 자연어 질문 조회에 조문 단위 의미검색을 더하는 선택 기능입니다. 전문 색인의 본문 조문마다 로컬 임베딩 모델로 벡터를 만들어 두고, 질문을 한 번 임베딩해 메모리 안에서 비교합니다. 외부 임베딩 API를 쓰지 않으며, 설치하지 않으면 기존 낱말 색인만으로 동작합니다.
+
+```bash
+# 1) 런타임 설치(패키지 의존성에 없음, 약 480MB). 서버 설치 폴더 또는 별도 폴더에 설치
+npm install @huggingface/transformers
+# 별도 폴더에 설치했다면 그 폴더(안에 node_modules가 있는 곳)를 알려 줌
+export DONGGUK_MCP_SEMANTIC_RUNTIME=/path/to/folder
+# 2) 전문 색인이 있는 상태에서 조문 벡터 생성. 모델(약 145MB)은 이때만 내려받음
+dongguk-rule-mcp --build-semantic-index
+```
+
+- 쓰는 곳: 규정 순위(뜻이 가장 가까운 조문을 가진 규정 상위 10개의 점수를 최대 2배까지 올림)와 발췌(낱말이 고른 조문 다음 자리에 뜻이 가장 가까운 조문을 추가). 낱말이 하나도 맞지 않는 규정을 새로 후보에 넣지는 않고, 한 규정만 미리보기로 보여 줄지는 낱말 점수로만 판정합니다. 규정명·`law_id`를 지정한 자연어 조회에도 의미 조문을 발췌에 더합니다. 조문·별표 번호를 명시한 조회와 과거 기준일 조회에는 적용하지 않습니다.
+- 켜고 끄기: 벡터 파일과 런타임이 모두 있으면 켜집니다. `DONGGUK_MCP_SEMANTIC=0`이면 끕니다. 설치물을 미리 올려 두되 켜지 않으려면 `DONGGUK_MCP_SEMANTIC=0`을 명시해 두세요. 응답의 `search.semantic`과 "검색 방식" 줄(`+ 의미검색`)로 실제 사용 여부를 확인합니다.
+- 꺼진 상태의 응답: 끄거나 설치하지 않은 서버는 이 기능이 없던 때와 같은 규정·순위·발췌로 답합니다. 달라지는 것은 색인 조회 응답에 `search.semantic: false`가 붙는 것뿐입니다.
+- 폴백: 런타임·모델·벡터 파일이 없거나 손상됐을 때, 모델이 다를 때, 질문 임베딩이 `DONGGUK_MCP_SEMANTIC_TIMEOUT_MS`(기본 1500)를 넘길 때는 낱말 색인만으로 답합니다. 질문을 답하는 동안에는 네트워크로 모델을 내려받지 않습니다.
+- 파일 검증·교체: 새 벡터를 SHA-256 해시 이름의 파일로 먼저 저장하고, 그 파일을 가리키는 정보 파일 하나만 원자적으로 교체합니다. 저장 실패나 게시 전 프로세스 종료 시 이전 정보 파일·벡터를 계속 쓸 수 있습니다. 해시·구조·행 수 합계·조문 위치 범위가 틀리거나 벡터에 유한하지 않은 값이 있으면 색인을 쓰지 않습니다. 동일 연혁의 규정은 저장된 조문 수와 실제 전문 색인의 조문 수도 대조합니다. 손상된 색인은 `--build-semantic-index`를 다시 실행해 복구합니다.
+- 추론 대기열: 질문 임베딩과 서버 안 벡터 갱신은 한 번에 하나씩 실행합니다. 질문은 8건까지만 줄을 서고 나머지는 바로 낱말 색인으로 답합니다. 추론이 20초 넘게 멈추면 그 모델을 버리고 10분 뒤 다시 불러오며, 모델 불러오기가 60초 넘게 끝나지 않아도 포기하고(`SEMANTIC_MODEL_LOAD_STALLED`) 10분 뒤 다시 시도합니다. 추론이 실패하면 1분, 모델 불러오기가 실패하면 10분 동안 낱말 색인만으로 답합니다. 사유와 재시도 시각은 `/status`의 `semanticSearch.lastError`·`pausedUntil`에 나옵니다. 멈춘 추론 자체는 중단할 수 없어 그 스레드와 메모리는 프로세스를 재시작해야 돌아옵니다.
+- 긴 조문: 400자씩 100자 겹쳐 조문 전체를 임베딩합니다. 40조각을 넘어도 중간을 생략하지 않으며, 추론 호출은 기본 조각 하나씩 수행합니다.
+- 신뢰 범위: `DONGGUK_MCP_SEMANTIC_RUNTIME`이 가리키는 폴더의 패키지는 서버 권한으로 실행됩니다. 그 폴더와 모델·벡터 폴더는 서버 계정만 쓸 수 있게 두세요.
+- 모델: 기본 `Xenova/multilingual-e5-small`(q8). `DONGGUK_MCP_SEMANTIC_MODEL`로 `Xenova/multilingual-e5-base`, `Xenova/bge-m3`를 고를 수 있으나 공개 문항 측정에서 더 낫지 않았습니다. 모델을 바꾸면 벡터를 다시 만들어야 하며, 다른 모델로 만든 벡터 파일은 쓰지 않습니다.
+- 파일 위치: 벡터는 공개 캐시의 `semantic/semantic-v1.<SHA-256>.bin`, 정보 파일은 `semantic/semantic-v1.json`입니다(513개 규정 기준 벡터 한 세대 약 17MB). 모델은 `semantic/models/`(`DONGGUK_MCP_SEMANTIC_MODEL_DIR`로 변경)에 둡니다. 게시 성공 후 이 버전의 빌더가 생성 기록을 남긴 벡터만 정리합니다. 현재와 직전의 서로 다른 성공 세대를 항상 보존하고, 나머지는 퇴역 후 1시간이 지나면 다음 게시 때 정리합니다. 수정 시각이 아닌 퇴역 시각을 사용합니다. 생성 기록 없는 예전 세대·`semantic-v1.bin`·게시 실패로 남은 파일은 자동삭제하지 않고 `/status`에 미추적 세대로 표시합니다. 자세한 소유권 검증·동시 실행 조건은 [벡터 세대 보존·정리](semantic-retention.md)를 따릅니다.
+- 자원(2026-11-26, Apple M5 Max 실측): 벡터 생성 9,790개 조문 약 130초·최대 메모리 약 1.3GB(여러 코어를 모두 사용하므로 공용 서버에서는 한가한 시간에 실행), 서버 프로세스 메모리 약 640MB 증가, 질문당 지연 약 10ms 증가(핵심어와 함께면 약 20ms), 첫 질문은 모델 불러오기로 약 0.5초. 공용 맥미니 수치는 설치 후 `/status`와 실측으로 확인합니다.
+- 갱신: `--build-semantic-index`를 다시 실행하면 본문이 바뀐 조문만 다시 임베딩합니다. `DONGGUK_MCP_INDEX_REFRESH_HOURS`로 전문 색인을 자동 갱신하는 HTTP 서버는 벡터 파일이 이미 있을 때 벡터도 함께 갱신합니다. 색인 뒤 본문이 바뀐 조문은 다시 만들기 전까지 의미 점수에서만 빠집니다.
+- 설치 상황별 할 일:
+  - 처음 설치: 위 두 단계(런타임 설치, `--build-semantic-index`)를 한 번 실행합니다.
+  - 이 기능의 시험판 벡터(입력 버전 2 이하, 또는 묶음 추론으로 만든 입력 버전 3)가 있는 곳: `--build-semantic-index`를 다시 실행합니다. 입력 버전이 다른 벡터는 쓰지 않으며, 다시 만들기 전에는 낱말 색인으로 답합니다. 묶음 추론으로 만든 입력 버전 3 벡터는 재사용되지 않도록 정보 파일 `semantic/semantic-v1.json`을 다른 이름으로 옮긴 뒤 실행합니다.
+  - 의미검색을 쓰지 않는 곳: 할 일이 없습니다.
+
+배포 점검표(의미검색을 쓰는 설치): 본문 파서가 바뀐 업데이트 뒤에는 같은 계정·`XDG_CACHE_HOME`에서 `--build-index` → `--build-semantic-index` → HTTP `/status` 확인 순서로 진행합니다. `fullTextIndex.available`과 실패 규정 수, `semanticSearch.indexAvailable` 및 `articlesMatchingIndex`가 새 전문 색인의 본칙 조문 수와 일치하는지 확인합니다. 의미검색 미사용 설치는 벡터 단계를 생략하고 미사용 설정을 기록합니다. 자동 갱신이 켜져 있어도 이 점검을 생략하지 않습니다. 이후 기준선에 실행 커밋·corpus SHA-256·벡터 해시를 기록하고 비교 입력을 고정합니다. [파서 이행 상세](content-parser-repair.md)
+- HTTP 서버는 기동할 때 모델을 미리 불러오고, `/status`의 `semanticSearch`에 설정·모델·벡터 수·현재 색인과 맞는 조문 수·마지막 오류를 표시합니다. `semanticSearch.storage`에는 디스크 세대 수·바이트·보존/유예/유예 경과 후보·미추적 수와 현재 프로세스의 최근 정리 결과를 표시합니다. 상태 조회 자체는 파일을 변경하지 않습니다.
+- 한계: 벡터는 HTML 본문 조문으로 만들므로 별표·서식은 의미검색 범위 밖입니다(조회 때 읽는 HWP 원문의 별표는 기존 방식대로 발췌).
 
 ## 7. 장애 대응
 
