@@ -86,12 +86,13 @@ const byFamily = candidates => {
 // scope:    the place the question asks for as read before this module (lookup.requestedRuleScope).
 // query, campus: the question and the caller's campus argument, for the ontology's reading of place.
 // facets:   createFacetSignal(...) of the ontology, or null.
-// Returns { method, ranked } where each ranked rule carries scopeMatch, scopeAmbiguous,
-// editions, and `order` (larger is earlier). `method` is the one actually used.
+// Returns { method, ranked } where each ranked rule carries scopeMatch, scopeAmbiguous and
+// editions; under hybrid also `order`, the value it was sorted by (larger is earlier).
+// `method` is the one actually used.
 function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, method = rankingMethod() }) {
   const used = METHODS.includes(method) ? method : DEFAULT_METHOD;
   if (used === 'legacy') {
-    let ranked = byFamily(candidates).flatMap(members => legacyEditions(members, scope)).map(hit => ({ ...hit, order: hit.score }))
+    let ranked = byFamily(candidates).flatMap(members => legacyEditions(members, scope))
       .sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.lawId - b.lawId);
     // A specified, available scope must not be padded with unrelated editions.
     if (scope.specified && !scope.ambiguous && ranked.some(hit => hit.scopeMatch)) ranked = ranked.filter(hit => hit.scopeMatch);

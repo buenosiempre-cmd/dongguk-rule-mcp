@@ -754,7 +754,8 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const requested=rankingMethod();
   const {method,ranked:fused}=rankRules({candidates:[...families.values()].flat(),scope:requestedRuleScope(scopeQuery,campus),query:scopeQuery,campus,
     facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),method:requested});
-  let ranked=fused;
+  // `order` is fusion's sort value; the response keeps the fields it had before.
+  let ranked=fused.map(({order,...hit})=>hit);
   // A rule that shares only the institution's name with the question comes after every rule
   // with a matching topic. It stays a candidate: its answer may sit in an appendix the index lacks.
   if(ranked.some(hit=>!hit.scopeNameOnly)) ranked=[...ranked.filter(hit=>!hit.scopeNameOnly),...ranked.filter(hit=>hit.scopeNameOnly)];
