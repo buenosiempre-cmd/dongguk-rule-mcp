@@ -7,6 +7,8 @@
 //
 //   node scripts/measure-natural-language.js --cache <dir> --questions a.json,b.json \
 //     [--ranking legacy|hybrid|rrf] [--keywords keywords.json] [--out report.json] [--compare earlier.json] [--online]
+//     [--query-only]                       ignore arguments stored in question rows
+//     [--no-standing] [--graph down|all]   comparison switches, see docs/ranking.md
 //
 // <dir> is used as XDG_CACHE_HOME and must hold dongguk-rule-mcp/v2/public/corpus/corpus-v1.json.
 // The run refreshes file times in it so cached bodies are not refetched: give it a copy, not a
@@ -25,6 +27,11 @@ function parseArgs(args) {
     else if (name === '--out') options.out = value();
     else if (name === '--compare') options.compare = value();
     else if (name === '--online') options.offline = false;
+    // Send the question alone, ignoring arguments a question row carries (its author's keywords).
+    else if (name === '--query-only') options.queryOnly = true;
+    // Comparison switches: score rules without the preference for much-cited rules; pass graph relations (where the graph module is present).
+    else if (name === '--no-standing') options.standing = false;
+    else if (name === '--graph') options.graph = value();
     else throw new Error(`UNKNOWN_OPTION ${name}`);
   }
   if (!options.cache || !options.questions.length) throw new Error('USAGE --cache <dir> --questions <file[,file]>');
@@ -81,7 +88,7 @@ function compareReports(before, after) {
 function formatSummary(report) {
   const line = (name, g) => `| ${name} | ${g.questions} | ${g.answered} (${g.answeredShare}%) | ${g.ruleInTop3} (${g.ruleInTop3Share}%) | ${g.articleGivenRule}/${g.ruleInTop3} (${g.articleGivenRuleShare}%) | ${g.singleRule} (맞는 규정 ${g.singleRuleRight}, 정답 조문 ${g.singleRuleAnswered}) | ${g.medianMs} / ${g.p95Ms} |`;
   return [
-    `순위 방식: ${report.ranking} · 핵심어: ${report.keywords ? '있음' : '없음'} · 의미검색을 실제로 쓴 문항: ${report.summary.total.semanticUsed}/${report.summary.total.questions} · 오류: ${report.summary.total.errors} · RSS ${report.rssMb}MB`,
+    `순위 방식: ${report.ranking}${report.standing === false ? ' · 큰 규정 가점 끔' : ''}${report.graph && report.graph !== 'off' ? ` · 그래프 ${report.graph}` : ''} · 핵심어: ${report.keywords ? '있음' : '없음'} · 의미검색을 실제로 쓴 문항: ${report.summary.total.semanticUsed}/${report.summary.total.questions} · 오류: ${report.summary.total.errors} · RSS ${report.rssMb}MB`,
     '', '| 세트 | 문항 | 정답 조문 포함(엄격) | 정답 규정 상위 3 | 규정이 맞을 때 조문 포함 | 한 규정만 보여 줌 | 지연 중앙값 / p95 (ms) |', '|---|---:|---:|---:|---:|---:|---:|',
     ...Object.entries(report.summary.sets).map(([name, g]) => line(name, g)), line('합계', report.summary.total),
   ].join('\n');
@@ -138,6 +145,8 @@ async function connect({ cache, offline }) {
 async function main(args = process.argv.slice(2)) {
   const options = parseArgs(args);
   if (options.ranking) process.env.DONGGUK_MCP_RANKING = options.ranking;
+  if (options.standing === false) process.env.DONGGUK_MCP_MEASURE_STANDING = 'off';
+  if (options.graph) process.env.DONGGUK_MCP_MEASURE_GRAPH = options.graph;
   const { scoreResponse, validateQuestions } = require('./benchmark-natural-language.js');
   const { rankingMethod } = require('../src/fusion.js');
   const keywords = options.keywords ? JSON.parse(fs.readFileSync(options.keywords, 'utf8')) : null;
@@ -147,7 +156,7 @@ async function main(args = process.argv.slice(2)) {
     const set = path.basename(file).replace(/\.json$/, '');
     const questions = validateQuestions(JSON.parse(fs.readFileSync(file, 'utf8')));
     for (const [index, question] of questions.entries()) {
-      const given = keywords ? keywords[question.id] : question.args;
+      const given = options.queryOnly ? null : keywords ? keywords[question.id] : question.args;
       const extra = typeof given === 'string' ? (given ? { keywords: given } : {}) : (given || {});
       const started = performance.now();
       const response = await client.callTool({ name: 'lookup_dongguk_rule', arguments: { query: question.q, ...extra } });
@@ -157,7 +166,7 @@ async function main(args = process.argv.slice(2)) {
         shown: score.rules.map(rule => rule.lawId), ...(score.error ? { error: score.error } : {}) });
     }
   }
-  const report = { ranking: rankingMethod(), keywords: !!keywords, offline: options.offline, liveFetches: state.liveFetches,
+  const report = { ranking: rankingMethod(), keywords: !!keywords && !options.queryOnly, standing: options.standing !== false, graph: options.graph || 'off', offline: options.offline, liveFetches: state.liveFetches,
     rssMb: Math.round(process.memoryUsage().rss / 1048576), summary: summarize(rows), rows };
   console.log(formatSummary(report));
   if (options.compare) {
