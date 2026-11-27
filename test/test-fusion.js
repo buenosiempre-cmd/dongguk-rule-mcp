@@ -27,7 +27,7 @@ check('방식 이름: 기본은 legacy, 모르는 값도 legacy', () => {
   assert.equal(rankingMethod(''), 'legacy');
   assert.equal(rankingMethod('  RRF '), 'rrf');
   assert.equal(rankingMethod('nonsense'), 'legacy');
-  assert.deepEqual(METHODS, ['legacy', 'hybrid', 'rrf', 'jev']);
+  assert.deepEqual(METHODS, ['legacy', 'hybrid', 'rrf', 'jev', 'hybrid-scope']);
 });
 
 console.log('캠퍼스·기관');

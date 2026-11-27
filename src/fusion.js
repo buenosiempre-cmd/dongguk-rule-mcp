@@ -16,7 +16,7 @@
 // - jev     a relevance probability per rule, when the caller supplies one; hybrid otherwise.
 const { placeRequest, placeAgreement } = require('./ontology');
 
-const METHODS = ['legacy', 'hybrid', 'rrf', 'jev'];
+const METHODS = ['legacy', 'hybrid', 'rrf', 'jev', 'hybrid-scope'];
 const DEFAULT_METHOD = 'legacy';
 function rankingMethod(value = process.env.DONGGUK_MCP_RANKING) {
   const name = String(value || '').trim().toLowerCase();
@@ -82,8 +82,8 @@ function legacyEditions(members, scope) {
 // ("WISE캠퍼스 구매규정" for a WISE question). A family with no such edition keeps its
 // university-wide rule, which still applies there; only an edition for a place the question
 // leaves out is set aside.
-function placedEditions(members, place) {
-  const agreement = new Map(members.map(member => [member, placeAgreement(member.title, place)]));
+function placedEditions(members, place, agreementFor = null) {
+  const agreement = new Map(members.map(member => [member, agreementFor ? agreementFor(member, place) : placeAgreement(member.title, place)]));
   const best = Math.max(...agreement.values());
   const selected = best > 0 ? members.filter(member => agreement.get(member) === best)
     : members.some(member => agreement.get(member) === 0) ? members.filter(member => agreement.get(member) === 0) : members;
@@ -131,7 +131,7 @@ const scoresOf = signal => signal instanceof Map ? signal : null;
 // graph, probability: Map(lawId → score) from a caller that has them, or null.
 // Returns { method, ranked } where each ranked rule carries scopeMatch, scopeAmbiguous,
 // editions, and `order` (larger is earlier). `method` is the one actually used.
-function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, method = rankingMethod() }) {
+function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, method = rankingMethod(), scopeCorpus }) {
   let used = METHODS.includes(method) ? method : DEFAULT_METHOD;
   if (used === 'jev' && !scoresOf(probability)) used = 'hybrid';
   if (used === 'legacy') {
@@ -142,7 +142,9 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
     return { method: used, ranked };
   }
   const place = placeRequest(query, campus);
-  const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place));
+  // Optional evidence provider only; the edition-selection algorithm remains owned here.
+  const scopeSignal = used === 'hybrid-scope' ? require('./scope').createScopeSignal({ corpus: scopeCorpus }) : null;
+  const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place, scopeSignal?.agreement));
   const lifted = hit => hit.score * placeShare(hit) * audienceShare(hit, facets);
   let order;
   if (used === 'jev') {
