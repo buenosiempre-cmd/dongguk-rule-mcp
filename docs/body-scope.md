@@ -1,6 +1,6 @@
 # 목적·적용범위 본문에 의한 판 보강 실험
 
-상태: 최종 공통 캐시 전환 후 비교 완료. **생산 도입 비권고**: 개선0, 신규오답은 의미검색 on의 Z137·off의 K02. [표준 하네스 결과](body-scope-standard-results.md)에 조건별 전수 변경을 기록했다. 기본은 `legacy`이며 기존 `hybrid` 동작도 유지한다. `DONGGUK_MCP_RANKING=hybrid-scope`만 본문 근거를 사용한다. 법적 적용을 확정하는 기능이 아니다.
+상태: 최종 공통 캐시 전환 후 비교 완료. **생산 도입 비권고**: 개선0, 현재 유효 신규오답은 의미검색 on의 Z137이다. scope12v2 정정으로 off K02 신규오답 판단은 철회했다. [정답표 v2 재집계](body-scope-scope12v2.md)에 조건별 전수 변경을 기록했다. 기본은 `legacy`이며 기존 `hybrid` 동작도 유지한다. `DONGGUK_MCP_RANKING=hybrid-scope`만 본문 근거를 사용한다. 법적 적용을 확정하는 기능이 아니다.
 
 ## 모듈과 훅
 
@@ -37,3 +37,5 @@ node scripts/measure-body-scope.js --cache <자체 사본 루트> \
 최신 PR60 `7d13345`와의 충돌은 merge `702dbce`로 해소했고, 같은 규칙으로 최종 공통 캐시에서 다시 비교했다. 본문 판정513개와 모듈 해시는 merge 전후 동일하다. 현재 결과는 [최신 하네스 보고](body-scope-results.md), 지정 f0b355f 기준의 이전 결과는 [별도 기록](body-scope-results-f0b355f.md)으로 구분한다.
 
 평가 표준화 후 인계733파일과 보조 캐시673파일을 대조해 `harness-d1.js`+`run2.sh` 원본 그대로 8조건을 다시 측정했다. [표준 하네스 보고](body-scope-standard-results.md)를 우선 참조한다. 자체 하네스 기록은 하네스 내부 전후 비교 보조자료로만 남긴다.
+
+정답표 scope12v2 적용 결과: on/off 모두 hybrid=hybrid-scope10/11, 개선0·악화0. K02는 양쪽 모두 취업규칙 제100조 포함. Z137 on 악화가 남아 생산 도입 비권고 유지. 규칙 재조정 없이 동결 재생의 같은 응답에 구/신 정답표를 적용했으며, 원응답 전문 미보존 한계를 [v2 보고](body-scope-scope12v2.md)에 명시했다.
