@@ -248,7 +248,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:18px}
       <div class="box pu">
         <h4>재무 경로 <span class="tag p">토큰 필요</span></h4>
         <div class="url">https://dgu.kr-univ-rules.com/mcp</div>
-        <ul><li><code>finance</code> 프로필 · 규정 15개 + 재무 4개 = <b>19개</b></li><li>구성원별 Bearer 토큰, 토큰 보유자는 IP 한도 대신 명부로 관리</li></ul>
+        <ul><li><code>finance</code> 프로필 · 규정·법령 도구 <b>15개</b></li><li>구성원별 Bearer 토큰, 토큰 보유자는 IP 한도 대신 명부로 관리</li></ul>
       </div>
       <div class="note" style="margin:0">토큰을 설정한 프로세스는 MCP 경로와 <code>/status</code>에 인증을 요구하므로, 인증 없는 공개 경로는 토큰 없는 별도 <code>rules</code> 프로세스로 띄웁니다. 안내 페이지는 <code>/</code>·<code>/guide</code>, 상태 확인은 <code>/health</code>·<code>/ready</code>입니다.</div>
     </div>
@@ -394,7 +394,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:18px}
     <div class="tg">
       <h4><i style="background:#6b7280">상</i>상태</h4>
       <div class="tool"><code>get_service_info</code><span>버전·프로필·도구 수·켜진 기능·법령 호출 집계</span></div>
-      <p class="note" style="margin-top:10px">재무 경로(토큰)에서만: <code>get_finance_context</code> <code>get_finance_evidence</code> <code>search_finance_handbook</code> <code>review_finance_case</code>. 내부 자료는 저장소에 없습니다.</p>
+      <p class="note">별도 자료팩을 사용하는 재무 도구 4개는 제거했습니다. 두 프로필 모두 동일한 15개 도구를 제공합니다.</p>
     </div>
   </div>
 </section>
@@ -592,7 +592,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:18px}
     </div>
     <div class="box pu">
       <h4>② 재무 주소 <span class="tag p">토큰</span></h4>
-      <p style="margin:0;font-size:12.5px">재무 도구 4개 포함 19개. 운영자에게 받은 구성원 토큰을 앱의 인증 헤더에만 넣습니다.</p>
+      <p style="margin:0;font-size:12.5px">규정·법령 도구 15개. 운영자에게 받은 구성원 토큰을 앱의 인증 헤더에만 넣습니다.</p>
       <pre>https://dgu.kr-univ-rules.com/mcp
 Authorization: Bearer &lt;발급받은 토큰&gt;</pre>
     </div>

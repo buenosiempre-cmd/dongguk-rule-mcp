@@ -22,9 +22,6 @@ const QUERY_FIELDS = Object.freeze({
   search_rule_deep: ['query'],
   applicable_rule: ['query', 'rule_keyword'],
   compare_university_rules: ['topic'],
-  search_finance_handbook: ['query'],
-  get_finance_context: ['query'],
-  get_finance_evidence: ['query'],
 });
 const ENDPOINTS = new Set(['/mcp', '/mcp/rules']);
 

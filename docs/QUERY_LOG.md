@@ -19,9 +19,8 @@
 | `search_rule_deep` | `query` |
 | `applicable_rule` | `query`, 없으면 `rule_keyword` |
 | `compare_university_rules` | `topic` |
-| `search_finance_handbook`, `get_finance_context`, `get_finance_evidence` (회원 `/mcp`만) | `query` |
 
-`review_finance_case`(기안문 `text`·`facts`), `get_rule_content`의 `grep`, `verify_rule_citations`의 `text`와 그 밖의 도구는 저장하지 않습니다.
+`get_rule_content`의 `grep`, `verify_rule_citations`의 `text`와 그 밖의 도구는 저장하지 않습니다.
 
 JSONL 한 줄(`queries-YYYY-MM.jsonl`, 디렉터리 0700·파일 0600):
 

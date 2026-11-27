@@ -88,7 +88,7 @@ if (require.main === module && (ARGV.includes('--help') || ARGV.includes('-h')))
   dongguk-rule-mcp --print-config codex  설치 경로에 맞는 설정 출력 (claude/cursor 지원)
   dongguk-rule-mcp --build-index   전체 공개 규정의 전문 색인 생성·갱신 (약 5분, 바뀐 규정만 다시 읽음)
   dongguk-rule-mcp --build-semantic-index  의미검색용 조문 임베딩 색인 생성·갱신 (선택 기능, @huggingface/transformers 별도 설치 필요)
-  --profile rules|finance         기본 rules, 내부 재무 기능은 finance 선택
+  --profile rules|finance         기본 rules, 기존 finance 설정 호환(동일한 15개 도구)
 
 HTTP 옵션:
   --port <n>    포트 (기본 3845, env: DONGGUK_MCP_PORT)
@@ -110,17 +110,13 @@ const HTTP_PORT = Number(argOf('--port') || process.env.DONGGUK_MCP_PORT || 3845
 const HTTP_HOST = argOf('--host') || process.env.DONGGUK_MCP_HOST || '127.0.0.1';
 const AUTH_TOKEN = (argOf('--token') || process.env.DONGGUK_MCP_TOKEN || '').trim();
 
-const { loadFinancePack, routeFinance, getFinanceContext, hasSensitiveInput } = require('./finance.js');
-const {searchHandbook}=require('./handbook.js');
-const {selectPractice}=require('./practice.js');
-const {reviewFinanceCase,formatFinanceReview}=require('./finance-desk.js');
+const { hasSensitiveInput } = require('./finance.js');
 const { compareUniversityRules, comparisonEnabled, formatComparison, validateArguments: validateComparison, safeCode: comparisonErrorCode } = require('./university-rules');
-const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
+const REMOVED_PACK_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
 const { queryLegalReferences, inspectLaws, legalServerState, setLegalCallCache, legalCallStats } = require('./legal-client.js');
 const { buildUpperLaws, formatUpperLaws, latestAnnotatedDate, CAVEAT: UPPER_LAW_CAVEAT } = require('./upper-laws.js');
 const { lawLinkConfigured, lawLinkGuide, fetchCitedLaws, formatCitedLaws } = require('./law-link.js');
-const { summarizeRuleCoverage, lawTextCoverage } = require('./evidence-status.js');
-const { formatLegalEvidence } = require('./legal-format.js');
+const { lawTextCoverage } = require('./evidence-status.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
@@ -1376,69 +1372,6 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
   });
 }
 
-async function lookupFinanceRules(requests,context){
-  const results=[];
-  for(const request of requests.slice(0,8)){
-    try{
-      let response;
-      if(request.article&&context.base_date) response=serializeOutcome('applicable_rule',await hApplicableRule({rule_keyword:request.keyword,date:context.base_date,article:request.article,compare_with_current:false}));
-      else {
-        response=serializeOutcome('lookup_dongguk_rule',await hLookup(request.keyword,{terms:request.terms,maxChars:7000,asOf:context.base_date||undefined,campus:context.campus||'all'}));
-        if(request.article&&response.structuredContent.ok){
-          const matched=response.structuredContent.data?.rules||[];
-          if(matched.length===1)response=serializeOutcome('get_rule_content',await hContent(matched[0].lawId,matched[0].historyId,{article:request.article}));
-          else response=serializeOutcome('get_rule_content',failure('AMBIGUOUS_RULE','요청한 규정 조문의 대상을 하나로 정할 수 없습니다.'));
-        }
-      }
-      response.requested_reference=request;
-      results.push(response);
-    }
-    catch(error){results.push(serializeException('lookup_dongguk_rule',error));}
-  }
-  // A child lookup that is itself partial keeps the batch partial.
-  return summarizeRuleCoverage(results,requests,8);
-}
-
-async function hReviewFinanceCase(args){
-  const result=await reviewFinanceCase(args,{searchHandbook,selectPractice,queryLegalReferences,lookupRules:lookupFinanceRules,
-    verifyCitations:async(text,campus)=>serializeOutcome('verify_rule_citations',await hVerifyCitations(text,{campus})),
-  });
-  if(result.error)return failure(result.error,result.message);
-  return success(formatFinanceReview(result),result);
-}
-
-async function hFinanceEvidence(args){
-  const pack=loadFinancePack();
-  if(!pack) return failure('FINANCE_PACK_NOT_CONFIGURED','재무지식 팩을 연결하세요.');
-  const context=routeFinance(pack,args.query,args.facts||{},args.workflow_id);
-  if(context.error) return failure(context.error,context.message);
-  if(context.missing_facts.length || !context.base_date || !context.campus) {
-    return success(`# ${context.workflow.title} 근거 조회에 필요한 사실\n\n`+
-      context.missing_facts.map(x=>`- ${x.label}`).join('\n')+
-      '\n\n기준일·캠퍼스와 필수 조건을 확인한 뒤 근거를 조회하세요.', {
-      context,rules:[],legal:{status:'not_requested',results:[]},freshness:[],
-      evidence_status:'needs_input',applicability:'not_determined',
-    });
-  }
-  const [ruleCoverage,legal]=await Promise.all([
-    lookupFinanceRules(context.rule_requests,context),
-    context.legal_requests.length ? queryLegalReferences(context.legal_requests,{baseDate:context.base_date})
-      .catch(()=>({status:'unavailable',code:'LEGAL_LOOKUP_FAILED',results:[]}))
-      : Promise.resolve({status:'not_required',results:[]}),
-  ]);
-  const rules=ruleCoverage.results;
-  const freshness=rules.flatMap((x,i)=>(x.structuredContent.data?.rules||[]).map(r=>({
-    law_id:r.lawId,baseline_history_id:context.rule_requests[i]?.baseline_history_id||null,
-    latest_history_id:r.latestHistoryId,selected_history_id:r.historyId,
-    status:context.rule_requests[i]?.baseline_history_id ? (context.rule_requests[i].baseline_history_id===r.latestHistoryId?'unchanged':'revision_changed'):'baseline_missing',
-    meaning:'개정본 식별자 비교입니다. 해당 업무 조항의 실질 변경을 의미하지 않습니다.'
-  })));
-  const partial=ruleCoverage.status!=='retrieved'||legal.status==='unavailable'||legal.status==='partial';
-  return success(`# ${context.workflow.title} 근거 확인\n\n조회상태: ${partial?'일부 확인 필요':'조회됨'}\n\n${context.notice}\n\n## 교내 규정 근거\n\n${rules.map(r=>r.content[0].text).join('\n\n')}\n\n${formatLegalEvidence(legal)}`,{
-    context,rules,rule_coverage:ruleCoverage,legal,freshness,legal_date_scope:legal.scope||'거래 기준일에 따른 조회 상태를 출처별로 확인하세요.',evidence_status:partial?'partial':'retrieved',applicability:'requires_review',retrieved_at:new Date().toISOString(),
-  });
-}
-
 function normalizeLookupArguments(args={},catalog=null) {
   const query=validStr(args.query) || '';
   const explicitKeyword=validStr(args.rule_keyword) || '';
@@ -1465,10 +1398,6 @@ const server = new Server({ name:'dongguk-rule-mcp', version:VERSION }, { capabi
 
 server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
   {name:'get_service_info', title:'동국 규정 MCP 서비스 정보',description:'동국 규정 MCP 버전·공통/내부 기능 범위·캠퍼스 검색 한계·입력 안내를 확인합니다.',inputSchema:{type:'object',properties:{}},outputSchema:TOOL_OUTPUT_SCHEMA,annotations:{readOnlyHint:true}},
-  {name:'get_finance_context', title:'재무 업무 검토 안내',description:'재무팀 출장·강사료·소득정정 질문을 판단카드·필수 사실·법령/규정 조회 경로·처리절차·완료증빙으로 연결합니다. 실제 신고·지급은 수행하지 않습니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
-  {name:'get_finance_evidence', title:'재무 업무 근거 조회',description:'재무지식 팩이 지정한 교내 규정과 국가 법령 식별자를 실조회해 사전검토용 근거 묶음을 반환합니다. 각 출처의 조회 성공과 적용 판단은 구분합니다.',inputSchema:{type:'object',properties:{query:{type:'string'},facts:{type:'object'},workflow_id:{type:'string'}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
-  {name:'search_finance_handbook', title:'재무 해설서 검색',description:'특례규칙 해설서의 계정과목·회계 개념·사례를 짧은 질문으로 검색합니다. 판본·원문 위치·추출 품질을 반환합니다. 법적 적용과 분개표 원문 검증은 별도입니다.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200},limit:{type:'integer',minimum:1,maximum:5}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
-  {name:'review_finance_case', title:'재무 사례 공동 검토',description:'출장비·외부 강사료의 교내 규정과 한국법령을 자동 연계하는 기본 도구. 확인한 기준일·캠퍼스·회계·대상 조건을 facts로 전달하세요. 필요한 사실이 없으면 먼저 질문하며 지원 범위 밖 급여·연금·국외 강연·비거주자 업무는 별도 조회가 필요합니다. 일반 교비 비용·계정·증빙·기안문 검토도 지원합니다. 부분 조회·적용 미확인을 지급 가능이나 소득구분 확정으로 해석하지 마세요.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:2000},text:{type:'string',maxLength:20000,description:'검토할 기안문 본문. 개인번호·계좌·인증정보 제외.'},facts:{type:'object',additionalProperties:false,properties:Object.fromEntries(Object.entries(require('./finance-desk.js').FACT_LABELS).map(([key,label])=>[key,{type:'string',maxLength:120,description:label}]))}},required:['query']},annotations:{readOnlyHint:true},outputSchema:TOOL_OUTPUT_SCHEMA},
   { name:'lookup_dongguk_rule', title:'동국 규정 통합 조회', description:'동국대학교 규정 질문의 기본·우선 도구. 규정 검색→최신 원문 HWP→관련 조문·원문 내 별표(금액표·주석 포함)를 한 번에 반환합니다. 보통은 query와 keywords 두 가지만 넣으세요. query에는 사용자의 질문을 그대로, keywords에는 그 질문을 규정 문장에 쓰이는 명사로 바꾼 핵심어를 넣습니다(예: 질문 "빌린 장비 잃어버리면 물어내야 해?" → keywords "물품, 분실, 변상"). keywords를 함께 넣으면 규정 용어로 더 정확히 찾습니다. 확신이 없으면 비워 두세요(query만으로도 찾습니다). rule_keyword는 규정의 정확한 이름을 알 때만, terms는 조문·별표 번호를 알 때만 쓰고, 주제어는 모두 keywords에 넣으세요. 별도 첨부 자동 조회·OCR은 미지원입니다. 근거가 충분하면 중복 조회를 생략하세요. partial이면 사유를 확인하고, 발췌 한도인 경우 max_sections·max_chars를 늘려 조회하세요. 모호한 후보·적용범위는 추가 확인이 필요합니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'선택 LAW_ID. 모호한 후보를 선택한 후 직접 원문·별표 조회'},
@@ -1601,7 +1530,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-].filter(t=>profile==='finance'||!FINANCE_TOOLS.has(t.name))}));
+]}));
 
 server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile,async()=>{
   const name = req.params.name;
@@ -1614,7 +1543,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     if(['query','keyword','rule_keyword','terms','keywords','text','grep','topic'].some(key=>typeof a[key]==='string'&&hasSensitiveInput(a[key]))) return serializeOutcome(name,failure('SENSITIVE_INPUT','개인번호·계좌·인증정보를 제거한 업무 질문만 입력하세요.'));
     for(const [key,min,max] of [['limit',1,50],['offset',0,500],['top',1,10],['per_doc',1,100],['head',1,10000]]){if(a[key]!==undefined&&(!Number.isInteger(a[key])||a[key]<min||a[key]>max))return serializeOutcome(name,failure('INVALID_ARGUMENT',`${key}는 ${min}~${max} 범위 정수여야 합니다.`));}
     if(a.include_appendices!==undefined&&typeof a.include_appendices!=='boolean')return serializeOutcome(name,failure('INVALID_ARGUMENT','include_appendices는 boolean이어야 합니다.'));
-    if(profile!=='finance' && FINANCE_TOOLS.has(name)) return serializeOutcome(name,failure('TOOL_NOT_AVAILABLE','공통 규정 프로필에서는 내부 재무 기능을 제공하지 않습니다.'));
+    if(REMOVED_PACK_TOOLS.has(name)) return serializeOutcome(name,failure('TOOL_NOT_AVAILABLE','별도 자료팩을 사용하는 재무 도구는 이 서버에서 제거되었습니다.'));
     for(const [key,value] of Object.entries(a)) {
       if(typeof value==='string' && value.length>(key==='text'?20000:2000)) return serializeOutcome(name,failure('INVALID_ARGUMENT',`${key} 입력이 너무 깁니다.`));
     }
@@ -1628,15 +1557,15 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     let r;
     switch(name){
       case 'get_service_info': {
-        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?15:19,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
+        const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:15,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:false,authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
         const legalServer=legalServerState(),lawGuide=lawLinkGuide(profile);
-        data.integrations={koreanLaw:{configured:profile==='finance'&&legalServer.state==='ready',transport:profile==='finance'?legalServer.transport:null},legalCalls:{quota:legalServer.quota,cache:noCache()?'off':'on',...legalCallStats()},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
+        data.integrations={koreanLaw:{configured:!lawGuide,transport:!lawGuide?legalServer.transport:null},legalCalls:{quota:legalServer.quota,cache:noCache()?'off':'on',...legalCallStats()},jointWorkflows:[]};
         data.fullText={tool:'get_rule_full_text',defaultMaxChars:30000,maxChars:60000,continuation:'textCoverage.nextArguments',source:'HWP first; HTML fallback is partial',images:'no OCR'};
         data.fullTextIndex=indexStatus();
         data.integrations.universityComparison={configured:comparisonEnabled(),defaultEnabled:true,optOutEnv:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0',snuKeyConfigured:Boolean((process.env.DONGGUK_LAWGO_OC||'').trim()),snuKeyEnv:'DONGGUK_LAWGO_OC',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
         data.integrations.lawLink={configured:!lawGuide,state:lawGuide?lawGuide.state:'ready',defaultEnabled:true,...(lawGuide?{setup:{env:lawGuide.env,ocApplyUrl:lawGuide.ocApplyUrl},notice:lawGuide.message}:{}),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
         data.privacy.queryLog=require('./query-log').queryLogInfo();
-        data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
+        data.privacy.privatePacksConfigured=false;
         r=success([
           '동국 규정 MCP 서비스 정보',
           '',
@@ -1647,7 +1576,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- 상위법령 조문 대조: get_rule_upper_laws(include_text=true), comparison에 규정 원문과 현행 법령 조문 연결 제공',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
-          '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (재무 공동 검토용 법령 조회. 설정 여부이며 실제 연결 검증은 별도)',
+          '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (규정·법령 연계용 조회. 설정 여부이며 실제 연결 검증은 별도)',
           '- 법령 호출: '+({own_key:'운영자 법제처 키 사용',local_operator_key:'같은 컴퓨터의 로컬 법령 서버(운영자 법제처 키) 사용',shared_keyless:'호스팅 법령 서버의 공용(무키) 한도 사용 — DONGGUK_LEGAL_MCP_API_KEY로 운영자 키를 넘기면 공용 한도를 타지 않습니다'}[data.integrations.legalCalls.quota]||'연결 안 됨')+' / 법령 응답 캐시 '+data.integrations.legalCalls.cache+' (적중 '+data.integrations.legalCalls.cacheHits+', 실제 호출 '+data.integrations.legalCalls.upstreamCalls+', 한도 재시도 '+data.integrations.legalCalls.retries+')',
           '- 법령 연결(get_rule_references include_law_text, get_rule_upper_laws): '+(lawGuide?({missing:'연결 정보 없음',invalid:'설정 오류'}[lawGuide.state]||'운영자가 끔')+' — '+lawGuide.message:'켜짐'),
           '- 타대학 비교(compare_university_rules): '+(data.integrations.universityComparison.configured?'켜짐':'운영자가 끔(DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0)')+' / 서울대 조회 키(DONGGUK_LAWGO_OC): '+(data.integrations.universityComparison.snuKeyConfigured?'있음':'없음(서울대만 건너뜀, https://open.law.go.kr 에서 신청)'),
@@ -1662,10 +1591,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         ].join('\n'),data);
         break;
       }
-      case 'get_finance_context': r=getFinanceContext(a.query,a.facts,a.workflow_id); break;
-      case 'get_finance_evidence': r=await hFinanceEvidence(a); break;
-      case 'search_finance_handbook': {const result=searchHandbook(a.query,{limit:a.limit});r=['ok','no_match'].includes(result.status)?success(result.results.map(x=>`${x.heading}\n${x.excerpt}`).join('\n\n')||'해당 해설을 찾지 못했습니다.',result):failure('HANDBOOK_'+result.status.toUpperCase(),result.notice||'해설서 조회를 완료하지 못했습니다.');break;}
-      case 'review_finance_case': r=await hReviewFinanceCase(a); break;
       case 'lookup_dongguk_rule': {
         let catalog=null, input=a, topicAsRuleKeyword=null;
         // A rule_keyword sent with a question must be a rule's name. A topic word there ("병가") would be

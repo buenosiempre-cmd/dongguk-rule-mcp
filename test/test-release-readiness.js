@@ -29,12 +29,6 @@ seed('history', '1', [{ historyId: 20, revisedAt: '2026.09.01' }, { historyId: 1
 seed('content-v4', '1_10', { markdown: '### 제1조(숙박비)\n과거 숙박비' });
 seed('content-v4', '1_20', { markdown: '### 제1조(숙박비)\n최신 숙박비' });
 seed('original-structure-v2', '1_20', { markdown: '제1조(숙박비)\n최신 숙박비' });
-const packPath = path.join(root, 'pack.json');
-fs.writeFileSync(packPath, JSON.stringify({ version: 'synthetic', workflows: [{
-  id: 'travel', title: '출장', keywords: ['출장'], required_facts: [{ key: 'base_date', label: '기준일' }, { key: 'campus', label: '캠퍼스' }],
-  steps: [], completion_evidence: [], source_notes: [], checks: [], rule_requests: [{ keyword: '여비규정', terms: '숙박비' }], legal_requests: [],
-}], cards: [] }));
-process.env.DONGGUK_FINANCE_PACK_PATH = packPath;
 let passed = 0, failed = 0;
 function check(name, fn) { try { fn(); passed++; console.log(`PASS ${name}`); } catch (e) { failed++; console.error(`FAIL ${name}: ${e.message}`); } }
 async function main() {
@@ -48,22 +42,6 @@ async function main() {
     check('deep search selects latest history', () => assert.equal(deep.historyId, 20));
     check('deep search metadata matches selected history', () => assert.equal(deep.revisedAt, '2026.09.01'));
     check('deep search actually reads latest content', () => assert.match(deep.articles[0].content, /최신 숙박비/));
-    for (const facts of [{}, { base_date: '2026-09-08' }, { campus: '서울' }]) {
-      const before = networkCalls;
-      const response = await call('get_finance_evidence', { query: '출장', facts });
-      check(`missing facts do not claim retrieved: ${JSON.stringify(facts)}`, () => {
-        assert.equal(response.data?.evidence_status, 'needs_input');
-        assert.deepEqual(response.data.rules, []); assert.equal(networkCalls, before);
-      });
-    }
-    for (const campus of ['unknown-campus', '__proto__', 'constructor']) {
-      const invalid = await call('get_finance_evidence', { query: '출장', facts: { base_date: '2026-09-08', campus } });
-      check(`unknown campus rejected: ${campus}`, () => assert.equal(invalid.error?.code, 'INVALID_ARGUMENT'));
-    }
-    for (const campus of ['wise', ' WISE ', '경주']) {
-      const response = await call('get_finance_evidence', { query: '출장', facts: { base_date: '2026-09-08', campus } });
-      check(`campus normalized: ${campus}`, () => assert.equal(response.data?.rules[0]?.structuredContent.data.query.campus, 'wise'));
-    }
     const toc = await call('get_rule_toc', { law_id: 1, history_id: 999 });
     check('TOC rejects foreign history', () => assert.equal(toc.error?.code, 'HISTORY_NOT_FOUND'));
     check('seeded requests made no external calls', () => assert.equal(networkCalls, 0));
