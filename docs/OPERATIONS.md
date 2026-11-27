@@ -1,6 +1,6 @@
 # 동국 규정 MCP — 공동 이용 운영 가이드
 
-대상 버전: v0.15.8. 기본 배포는 공개 규정 조회용 `rules` 프로필입니다. 이 문서는 운영자가 반복할 절차이며, 기관 승인·담당자 배정·전교 사용자 실증·가용성 SLA의 완료 증빙은 아닙니다.
+대상 버전: v0.15.10. 기본 배포는 공개 규정 조회용 `rules` 프로필입니다. 이 문서는 운영자가 반복할 절차이며, 기관 승인·담당자 배정·전교 사용자 실증·가용성 SLA의 완료 증빙은 아닙니다.
 
 ## 1. 프로필과 접속 경계
 
@@ -60,7 +60,7 @@ node src/index.js --doctor --json
 태그 고정 설치 예시:
 
 ```bash
-npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz --version
+npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.10/dongguk-rule-mcp-0.15.10.tgz --version
 ```
 
 `latest`나 개발 브랜치가 자동으로 운영에 반영되도록 구성하기보다 검증한 릴리스 단위를 설치합니다. 기존 프로세스는 패키지 파일을 교체해도 구버전을 계속 사용할 수 있으므로 재시작 후 버전을 다시 확인합니다.
@@ -221,7 +221,7 @@ dongguk-rule-mcp --build-index
 
 `get_rule_references`에 `include_law_text=true`를 주면 규정이 인용한 국가 법령 조문의 현행 원문을 한국법령 MCP에서 함께 가져옵니다. `get_rule_upper_laws`의 법령 대조도 같은 연결을 씁니다. **법령 서버 주소나 키가 있으면 기본으로 켜집니다.** 공개 `rules` 프로필과 `finance` 프로필 모두 같습니다.
 
-> 아래 표와 "타대학 비교" 절은 저장소의 현재 코드(v0.15.8 이후 미배포 변경) 기준입니다. 배포본 v0.15.8은 공개 프로필의 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`이 필요하며, 원격 방식은 `DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`와 `DONGGUK_LEGAL_MCP_URL`을, 로컬 방식은 `LAW_OC`와 서버에 설치된 `korean-law-mcp`를 씁니다(`DONGGUK_LEGAL_MCP_TRANSPORT`는 생략하거나 `stdio`). 타대학 비교에는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`이 필요합니다. 바뀌는 내용은 [변경 기록](../CHANGELOG.md)의 미배포 항목에 있습니다.
+> 아래 표와 "타대학 비교" 절은 v0.15.10 기준입니다. v0.15.8 이하 설치본은 공개 프로필의 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`이 필요하며, 원격 방식은 `DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`와 `DONGGUK_LEGAL_MCP_URL`을, 로컬 방식은 `LAW_OC`와 서버에 설치된 `korean-law-mcp`를 씁니다(`DONGGUK_LEGAL_MCP_TRANSPORT`는 생략하거나 `stdio`). 타대학 비교에는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`이 필요합니다. 바뀐 내용은 [변경 기록](../CHANGELOG.md)의 v0.15.10 항목에 있습니다.
 
 | 환경 변수 | 값 |
 |---|---|
@@ -229,15 +229,19 @@ dongguk-rule-mcp --build-index
 | `LAW_OC` | 주소 대신 쓰는 방식. 법제처 Open API 인증키(OC)이며, 서버에 `korean-law-mcp`가 설치되어 있어야 합니다(stdio) |
 | `DONGGUK_LEGAL_MCP_TRANSPORT` | 생략하면 주소가 있을 때 `streamable-http`, 없으면 `stdio`. 직접 지정할 수도 있습니다 |
 | `DONGGUK_LEGAL_MCP_BEARER_TOKEN` | 법령 서버가 인증을 요구할 때만. 접근제한 설정으로 주입합니다 |
+| `DONGGUK_LEGAL_MCP_API_KEY` | 호스팅 한국법령 MCP(예: `mcp.gomdori.app/law`)에 운영자의 법제처 OC를 `apikey` 헤더로 넘깁니다. 없으면 그 서버의 공용(무키) 한도를 씁니다. 응답·로그에 값을 내보내지 않습니다 |
 | `DONGGUK_LEGAL_MCP_ENABLED` | 생략하면 켜짐. `0`이면 모든 프로필에서 법령 연결을 끕니다 |
 | `DONGGUK_PUBLIC_LAW_LINK` | 생략하면 켜짐. `0`이면 공개 `rules` 프로필과 `/mcp/rules`에서만 법령 연결을 끕니다 |
 
 - 주소와 키가 모두 없으면 오류를 내지 않습니다. `lawTexts.status`(또는 `lookup.status`)가 `not_configured`로 나오고, `notice`와 `setup`에 무엇이 없는지·어떤 환경변수를 넣으면 되는지·OC 신청처(open.law.go.kr)를 담아 돌려줍니다. 규정 인용 결과는 그대로 반환합니다.
 - 기본 법령 서버 주소는 코드에 들어 있지 않습니다. 운영자가 쓸 주소를 직접 넣습니다.
 - 이전 버전에서 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`을 넣어 둔 서버는 그대로 동작합니다. 두 값을 넣지 않고 주소나 `LAW_OC`만 있던 서버는 이번 버전부터 법령 연결이 켜지므로, 끄려면 `0`을 넣습니다.
-- 조문이 특정된 인용만, 한 번에 3개 조문·조문당 6,000자까지 가져옵니다. 전체 35초 안에 끝나지 않으면 가져온 것만 반환합니다.
-- 같은 날 같은 조문은 6시간 동안 디스크 캐시에서 반환해 법령 서버 호출을 줄입니다. 실패한 조회는 캐시하지 않습니다.
-- 법령 서버는 외부 운영입니다. 공개 주소의 IP별 호출 제한이 법령 서버로 가는 요청 수의 상한이 됩니다. 법령 서버 운영자가 정한 이용 한도를 넘지 않는지 확인합니다.
+- 조문이 특정된 인용만, 한 번에 8개 조문·조문당 6,000자까지 가져옵니다. 전체 35초 안에 끝나지 않으면 가져온 것만 반환합니다.
+- `get_rule_upper_laws`는 한 번에 법령 `max_laws`개(최대 12)까지 확인하고, 남은 법령은 버리지 않고 `page.nextOffset`을 `law_offset`에 넣어 이어서 확인합니다.
+- **법령 응답 캐시:** 법령 서버의 성공 응답을 도구 구분 없이 디스크에 공유 저장합니다. 현행 법령 목록(`search_law`)·별표는 같은 날(한국 시간) 6시간, MST로 고정된 조문 본문(`get_law_text`)은 30일, 과거 기준일 판정(`legal_analysis`)은 7일입니다. MST는 공포된 한 버전을 가리키므로 법령이 개정되면 목록의 MST가 바뀌어 새 본문을 받습니다. 오류·빈 응답·점검 화면·"없음" 응답은 캐시하지 않습니다. `DONGGUK_MCP_NO_CACHE=1`이면 끕니다.
+- **한도 초과 재시도:** 법령 서버가 429(요청 한도 초과)를 돌려주면 `Retry-After`(최대 5초) 또는 0.5초·1초 간격으로 두 번까지 다시 시도하고, 그래도 막히면 `LEGAL_UPSTREAM_RATE_LIMITED`로 표시합니다. 전체 제한 시간을 넘겨 기다리지 않습니다.
+- **이용 한도:** 공개 주소의 IP별 제한(분당 60·하루 1,000)이 이 서버로 들어오는 요청의 상한입니다. 호스팅 한국법령 MCP를 키 없이 쓰면 그 서버의 공용 한도(접속 IP마다 분당 60회, 키 없는 사용자 전체가 나눠 쓰는 전역 한도)를 탑니다. 공용 서버는 모든 사용자의 법령 조회가 한 IP로 나가므로 `DONGGUK_LEGAL_MCP_API_KEY`로 운영자 OC를 넘기거나, `LAW_OC`로 서버에 설치한 `korean-law-mcp`(stdio)를 써서 운영자 키 한도로 조회하는 편이 안전합니다. 법제처 Open API 쪽 한도는 [국가법령정보 공동활용](https://open.law.go.kr)의 신청 정보에서 확인합니다.
+- `get_service_info`의 `integrations.legalCalls`가 `quota`(`own_key`: 이 서버가 운영자 키를 넘김, `local_operator_key`: 같은 컴퓨터(loopback 주소)에서 운영자 `LAW_OC`로 띄운 `korean-law-mcp` 사용, `shared_keyless`: 원격 호스팅 서버의 공용 무키 한도), 캐시 적중·실제 호출·재시도 횟수(프로세스 시작 이후)를 보여 줍니다. 키 값은 나오지 않습니다.
 - `get_service_info`의 `integrations.lawLink`로 상태를 확인합니다. `state`는 `ready`(켜짐), `missing`(주소·키 없음), `invalid`(값 오류), `disabled`·`disabled_public`(운영자가 끔)입니다.
 
 ### 타대학 비교

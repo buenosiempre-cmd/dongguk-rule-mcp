@@ -1,6 +1,6 @@
 'use strict';
 
-const { expandAliases, middotVariants, normalizeMiddots } = require('./aliases.js');
+const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
@@ -258,14 +258,26 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     };
   }
 
+  let outsideBody = false;
+  // Each priority article is taken once, from the main body, in the order given.
+  const priorityOrder = (options.priorityArticles || []).slice(0, maxBlocks);
+  const priorityAssigned = new Set();
   const scored = blocks
     .map((block, index) => {
+      // Supplementary provisions restart article numbering. Once their boundary
+      // (or an attachment) is reached, the same number is not a main article.
+      if (block.split('\n').some(line => isBodyBoundary(line) === 'supplementary' || appendixHeading(line))) outsideBody = true;
       const context = index > 0 ? blocks[index - 1] : '';
-      const result = scoreBlock(block, tokens, context);
-      return result ? { block, index, ...result } : null;
+      const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)[ \t]*[(（]([^)）]+)[)）]/.exec(block);
+      const article = heading?.[1].replace(/[ \t]/g, '');
+      const genericHeading = heading && /^(?:목적|정의|용어의정의)$/.test(heading[2].replace(/\s/g, ''));
+      const priority = !outsideBody && !genericHeading && priorityOrder.includes(article) && !priorityAssigned.has(article);
+      const result = scoreBlock(block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
+      if (priority) priorityAssigned.add(article);
+      return result ? { block, index, ...result, priority: !!priority, priorityRank: priority ? priorityOrder.indexOf(article) : Infinity } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => b.score - a.score || a.index - b.index);
+    .sort((a, b) => a.priorityRank - b.priorityRank || b.score - a.score || a.index - b.index);
 
   if (!scored.length) {
     return { text: '', matchedTerms: [], blockCount: 0, truncated: false, omittedBlockCount: 0, blocksTruncated: false, charactersTruncated: false, missingAppendices };
@@ -284,8 +296,34 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     if (articleContext) articleContext.push(index);
     return articleContext;
   });
-  const selectedIndexes = new Set(scored.slice(0, maxBlocks).map(x => x.index));
-  for (const item of scored.slice(0, maxBlocks)) {
+  // A priority article and its paragraphs consume one slot, never one slot
+  // per paragraph. Fill remaining slots using the original keyword ranking.
+  const priorityIndexes = new Set();
+  for (const item of scored.filter(item => item.priority).slice(0, maxBlocks)) {
+    for (const index of articleContexts[item.index] || []) if (index !== item.index) priorityIndexes.add(index);
+  }
+  const selectedMatches = scored.filter(item => !priorityIndexes.has(item.index)).slice(0, maxBlocks);
+  // Preserve previously selected annex evidence when a new priority article
+  // would displace it. Replace a lower-ranked ordinary match, within the limit;
+  // when priority articles fill every slot, the last of them gives way once.
+  if (scored[0]?.priority) {
+    const originalMatches = scored.filter(item => item.matched.length)
+      .sort((a, b) => b.score - a.score || a.index - b.index).slice(0, maxBlocks);
+    const isAnnex = item => !!appendixHeading(item.block.split('\n', 1)[0]);
+    let priorityGaveWay = false;
+    for (const annex of originalMatches.filter(isAnnex)) {
+      if (selectedMatches.includes(annex)) continue;
+      let replaceAt = selectedMatches.findLastIndex(item => !item.priority && !isAnnex(item));
+      if (replaceAt < 0 && !priorityGaveWay && !selectedMatches.some(item => !item.priority)) {
+        replaceAt = selectedMatches.findLastIndex((item, at) => at > 0 && item.priority);
+        priorityGaveWay = replaceAt >= 0;
+      }
+      if (replaceAt >= 0) selectedMatches[replaceAt] = annex;
+    }
+    selectedMatches.sort((a, b) => a.priorityRank - b.priorityRank || b.score - a.score || a.index - b.index);
+  }
+  const selectedIndexes = new Set(selectedMatches.map(x => x.index));
+  for (const item of selectedMatches) {
     for (const index of articleContexts[item.index] || []) selectedIndexes.add(index);
     if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0])) {
       if (item.index > 0) selectedIndexes.add(item.index - 1);
@@ -303,7 +341,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   // best-matching article first, so the length limit cuts the weaker ones.
   const rankOf = new Map();
   if (options.order === 'relevance') {
-    scored.slice(0, maxBlocks).forEach((item, rank) => {
+    selectedMatches.forEach((item, rank) => {
       for (const index of [item.index, ...(articleContexts[item.index] || [])]) if (!rankOf.has(index)) rankOf.set(index, rank);
     });
   }
@@ -311,7 +349,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const orderedIndexes = [...selectedIndexes].sort((a, b) => rank(a) - rank(b) || a - b);
   const selected = orderedIndexes.map(index => blocks[index]).join('\n\n');
   const matchedTerms = [...new Set(
-    scored.slice(0, maxBlocks).flatMap(x => x.matched)
+    selectedMatches.flatMap(x => x.matched)
   )];
   const clipped = truncateText(selected, maxChars);
   // Table context can recover a lower-ranked matching block. Only count
@@ -339,34 +377,54 @@ const QUESTION_STOPWORDS = new Set([
   '동국대', '동국대학교', '우리', '학교', '얼마', '얼마야', '얼마인가요', '가능', '가능한가요', '여부',
   // Question words and verb remnants carry no rule vocabulary; left in, their
   // rarity outweighs the nouns ("받아" once outranked "일비").
-  '누가', '누구', '누구에게', '언제', '어디', '어디서', '무슨', '몇', '얼마나', '필요', '필요한', '있어', '있는', '없는',
+  '누가', '누구', '누구에게', '언제', '언제까지', '언제부터', '어디', '어디서', '무슨', '몇', '며칠', '몇일', '얼마나', '필요', '필요한', '있어', '있는', '없는',
   '있나', '없나', '있을', '없을', '받아', '받나', '받는', '받을', '하려면', '하면', '해야', '하는', '하나', '되는', '됩니까',
   '싶어', '싶은', '궁금', '궁금해', '어느', '무엇인가요', '뭐가', '뭘', '이런', '그런', '어떠한',
+  // Everyday verbs and adverbs around the topic words ("출장 가서", "먼저 발주", "다른 걸로").
+  '가는', '가서', '가면', '가도', '타고', '나면', '나와', '나오나', '걸리면',
+  '누구한테', '누구한테서', '어디에', '어디로', '뭐해', '해도',
+  '있어야', '없으면', '들어', '받기', '받으면', '받아도', '되나', '되면', '돼요', '싶은데',
+  '전에', '후에', '먼저', '나중에', '대신', '다른', '걸로', '자기', '사람', '하루', '관련된', '때도', '그냥', '혹시', '아니면',
+  '원래', '말고', '받은', '남는', '거야', '건가요', '때문에', '다시', '것들', '무슨', '일을',
 ]);
 const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
 // "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
-const VERB_ENDING = /(?:하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
+const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|할|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
 // Nouns that end in 해; not "noun + 해".
+// Nouns that end in 할; not "noun + 할" (역할, 분할).
+const NOUN_ENDING_HAL = /(?:역할|분할|관할)$/;
 const NOUN_ENDING_HAE = /(?:피해|손해|재해|이해|방해|침해|상해|견해|화해|양해|오해|저해|유해|무해)$/;
+// Nouns that end in 도; not "noun + 도" (회계연도, 한도, 제도).
+const NOUN_ENDING_DO = /(?:연도|년도|제도|한도|용도|양도|빈도|정도|지도|태도|속도|온도|강도|난이도)$/;
 // Two-syllable nouns before the subject particle 가 (교수가 → 교수). Other
 // three-syllable words ending in 가 (전문가, 낙찰가) are nouns themselves.
 const SUBJECTS_BEFORE_GA = new Set(['교수', '강사', '조교', '부서', '학교', '이사', '감사', '회계', '근로자']);
 
+// One-syllable nouns that carry the topic of a question ("책 연체", "상 받을 때").
+const ONE_SYLLABLE_NOUNS = new Set(['책', '상', '돈']);
+// A counter with its particle ("시부터야", "년이", "명까지") is not a topic word.
+const COUNTER_REMNANT = /^(?:시|분|일|년|월|주|번|회|명|개|살|점|원|배)(?:부터|까지|동안|이나|씩|마다|이내|안에)?(?:이|야|이야|이에요|예요|인가요|이죠|인지)?$/;
 function contentToken(raw) {
   let token = String(raw || '').trim();
   if (!token || /^제?\d+조?$/.test(token)) return null;
-  const verbStem = NOUN_ENDING_HAE.test(token) ? token : token.replace(VERB_ENDING, '');
+  const bare = token.replace(/(?:은|는|이|을|를|도)$/, '');
+  if (ONE_SYLLABLE_NOUNS.has(bare) && token.length <= 2) return bare;
+  if (knownTerm(token)) return token;
+  // "며칠이야", "몇 년이에요": the copula is not part of the word.
+  token = token.replace(/(?:이에요|이예요|예요|이야|인가요|인가|이죠|인지|입니까|이니)$/, '');
+  if (knownTerm(token)) return token;
+  const verbStem = NOUN_ENDING_HAE.test(token) || NOUN_ENDING_HAL.test(token) ? token : token.replace(VERB_ENDING, '');
   if (verbStem !== token) {
     // A bare verb ("받아", "해야") leaves nothing to search for.
     if (verbStem.length < 2) return null;
     token = verbStem;
   } else {
-    const stripped = token.replace(PARTICLE_SUFFIX, '');
+    const stripped = NOUN_ENDING_DO.test(token) ? token : token.replace(PARTICLE_SUFFIX, '');
     // "년까지", "곳에서": a counter or pronoun before a long particle is not a search word.
     if (stripped.length < 2 && token.length - stripped.length >= 2) return null;
     if (stripped.length >= 2 && (!(token.length === 3 && token.endsWith('가')) || SUBJECTS_BEFORE_GA.has(stripped))) token = stripped;
   }
-  if (token.length < 2 || QUESTION_STOPWORDS.has(token)) return null;
+  if (token.length < 2 || QUESTION_STOPWORDS.has(token) || COUNTER_REMNANT.test(token)) return null;
   return token;
 }
 
@@ -384,41 +442,71 @@ function queryContentTokens(value, maxTokens = 4) {
 // Everyday words for what the rules call something else. Each entry lists the
 // rule vocabulary to try alongside the question word; only forms that occur in
 // the indexed rules are used, so an entry cannot invent a match.
-const RULE_VOCABULARY = new Map(Object.entries({
-  해외출장: ['국외출장', '국외여비', '국외 출장', '국외'], 해외여비: ['국외여비', '국외'], 해외: ['국외'],
-  국내출장: ['국내출장', '국내여비', '국내 출장', '출장'], 출장비: ['여비', '출장'], 출장: ['여비'],
-  퇴직금: ['퇴직급여', '퇴직급여금'], 퇴직급여: ['퇴직금'],
-  경조사비: ['경조금', '경조사'], 경조비: ['경조금', '경조사'], 조의금: ['경조금', '경조사'], 축의금: ['경조금', '경조사'],
-  강사료: ['강의료'], 특강료: ['강의료', '특강'], 강의료: ['강사료'],
-  환불: ['반환'], 반환: ['환불'],
-  중복수혜: ['이중수혜'], 이중수혜: ['중복수혜'],
-  안식년: ['연구년'], 사외이사: ['겸직'], 겸임: ['겸직'],
-  월급: ['보수', '급여'], 봉급: ['보수', '급여'], 임금: ['보수', '급여'], 연봉: ['보수'],
-  야근: ['시간외근무', '초과근무'], 초과근무: ['시간외근무'], 시간외수당: ['시간외근무'],
-  연차: ['연차휴가', '휴가'], 출산휴가: ['출산전후휴가'],
-  교수: ['교원'], 학부생: ['학생'], 대학원생: ['대학원'],
-  퍼센트: ['100분의', '비율'], 한도: ['상한', '범위'], 상한: ['한도'], 계산: ['산정'],
-  카드: ['법인카드'], 클린카드: ['법인카드'],
-}));
+
 
 // Search concepts of a question: each content word with the rule vocabulary
 // that may stand for it, plus adjacent words joined the way rules write them
 // ("이중 수혜" → 이중수혜, "예산 전용" → 예산전용).
 function queryConcepts(value, maxConcepts = 6) {
-  const ordered = [];
+  const ordered = [], written = new Map();
   for (const raw of String(value || '').split(/[\s,;|/·?!.()（）"'「」]+/)) {
     const token = contentToken(raw);
-    if (token && !ordered.includes(token)) ordered.push(token);
+    // One syllable was read as a particle ("출산휴가" → 출산휴). The index decides later
+    // whether the word as written is the real one.
+    if (token && raw.length === token.length + 1 && raw.startsWith(token)) written.set(token, raw);
+    // "월급날" asks about two things, 보수 and its 지급일; each is its own concept.
+    for (const part of token ? compoundParts(token) : []) if (!ordered.includes(part)) ordered.push(part);
   }
   const kept = new Set([...ordered].sort((a, b) => b.length - a.length).slice(0, maxConcepts));
   const tokens = ordered.filter(token => kept.has(token));
-  const concepts = tokens.map(term => ({ term, alternatives: [term, ...(RULE_VOCABULARY.get(term) || [])] }));
+  const concepts = tokens.map(term => ({ term, alternatives: businessTerms(term), ...(written.has(term) ? { written: written.get(term) } : {}) }));
+  // "없을 때" → 부재: a phrase adds the rule word as a concept of its own, not joined with its neighbours.
+  for (const term of phraseConcepts(value)) if (!tokens.includes(term)) concepts.push({ term, alternatives: businessTerms(term) });
   for (let i = 0; i + 1 < tokens.length; i++) {
     const joined = tokens[i] + tokens[i + 1];
-    const concept = { term: joined, alternatives: [joined, ...(RULE_VOCABULARY.get(joined) || [])], joinedFrom: [tokens[i], tokens[i + 1]] };
+    const concept = { term: joined, alternatives: businessTerms(joined, { verbs: false }), joinedFrom: [tokens[i], tokens[i + 1]] };
     concepts.push(concept);
   }
   return { tokens, concepts };
+}
+
+// Rule vocabulary the caller supplies next to the question ("분실, 변상, 계약 해지").
+// One phrase per comma; the words are nouns as written, so no particle or verb
+// ending is stripped. Words that carry no rule vocabulary are dropped.
+const MAX_KEYWORDS = 8;
+const KEYWORD_STOPWORDS = new Set(['규정', '규칙', '동국대', '동국대학교', '학교', '관련', '내용', '여부', '경우', '대한', '관한']);
+function parseKeywords(value) {
+  let source = normalizeMiddots(Array.isArray(value) ? value.join(',') : String(value || ''));
+  const separator = /[,，、;；|/\nㆍ]+/;
+  // Three or more words with no separator at all are a list written with spaces, not one phrase.
+  if (!separator.test(source) && source.trim().split(/\s+/).length >= 3) source = source.trim().split(/\s+/).join(',');
+  const phrases = [], seen = new Set();
+  for (const part of source.split(separator)) {
+    const words = part.replace(/[^가-힣A-Za-z0-9\s]/g, ' ').split(/\s+/)
+      // Article and appendix numbers ("제10조", "별표1") are excerpt selectors, not vocabulary.
+      .filter(word => word.length >= 2 && !KEYWORD_STOPWORDS.has(word) && !/^(?:\d+|제?\d+조(?:의\d+)?|별표\d*)$/.test(word));
+    const key = words.join(' ');
+    if (!words.length || seen.has(key)) continue;
+    seen.add(key);
+    phrases.push(words);
+  }
+  return phrases.slice(0, MAX_KEYWORDS);
+}
+
+// Keyword phrases as search concepts: each word with the rule vocabulary that
+// may stand for it, and the words of one phrase joined the way rules may write
+// them ("계약 해지" → 계약해지).
+function keywordConcepts(phrases) {
+  const concepts = [], terms = new Set();
+  const add = concept => { if (!terms.has(concept.term)) { terms.add(concept.term); concepts.push(concept); } };
+  (phrases || []).forEach((words, phrase) => {
+    for (const term of words) add({ term, alternatives: businessTerms(term), keyword: true, phrase });
+    for (let i = 0; i + 1 < words.length; i++) {
+      const joined = words[i] + words[i + 1];
+      add({ term: joined, alternatives: businessTerms(joined, { verbs: false }), joinedFrom: [words[i], words[i + 1]], keyword: true, phrase });
+    }
+  });
+  return concepts;
 }
 
 // Campus and affiliate editions of one rule ("WISE캠퍼스 구매규정", "산학협력단
@@ -435,9 +523,10 @@ function ruleFamily(title) {
 function requestedRuleScope(query, campus = 'all') {
   const text = String(query || '').replace(/\s+/g, '');
   const campuses = new Set(campus === 'all' ? [] : [campus]);
-  if (/WISE|경주캠퍼스/i.test(text)) campuses.add('wise');
+  const namedScope = questionScope(text);
+  if (namedScope.wise) campuses.add('wise');
   if (/서울캠퍼스/.test(text)) campuses.add('seoul');
-  const institutions = ['산학협력단', '의학계열'].filter(name => text.includes(name));
+  const institutions = [namedScope.industry && '산학협력단', namedScope.medical && '의학계열'].filter(Boolean);
   return { campuses: [...campuses], institutions, specified: campuses.size > 0 || institutions.length > 0,
     ambiguous: campuses.size > 1 || institutions.length > 1 };
 }
@@ -476,6 +565,9 @@ module.exports = {
   extractRelevantBlocks,
   queryContentTokens,
   queryConcepts,
+  parseKeywords,
+  keywordConcepts,
+  MAX_KEYWORDS,
   ruleFamily,
   appendixSelectors,
   articleSelectors,

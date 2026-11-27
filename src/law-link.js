@@ -7,7 +7,9 @@ const { legalServerState, legalSetupGuide } = require('./legal-client.js');
 // Text of the national-law articles a rule cites, fetched from a Korean Law
 // MCP server. The rule lookup never depends on it: when the law server is not
 // configured, slow or down, the citations are still returned without text.
-const MAX_LAW_ARTICLES = 3;
+// Law answers are cached per article (legal-client.js), so a repeat costs no
+// provider call; 8 matches get_rule_upper_laws' article budget.
+const MAX_LAW_ARTICLES = 8;
 const MAX_TEXT_CHARS = 6000;
 const CALL_TIMEOUT_MS = 15000;
 const TOTAL_TIMEOUT_MS = 35000;

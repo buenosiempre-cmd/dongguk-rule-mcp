@@ -3,11 +3,20 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const fetch = require('node-fetch');
-const { SOURCES, createPublicClient, loadExternal, safeCode } = require('./university-rules');
+const { SOURCES, createPublicClient, loadExternal, safeCode, titleMatchesTopic } = require('./university-rules');
 const { listArticleBlocks } = require('./parsers');
 const { extractPdfText } = require('./pdf-text');
 const { kst } = require('./usage-log');
 const UNIVERSITIES = SOURCES.filter(s => s.key !== 'dongguk');
+// 여비 전담 규정 제목에 '여비' 대신 '출장'·'출장비'가 쓰인 대학(서강·가천·서울시립 등)을 놓치지 않는다.
+const TRAVEL_TITLE_ALIASES = ['여비', '출장', '출장비'];
+const TRAVEL_WATCH_SPEC = {
+  searchTerms: ['여비', '출장'],
+  titleHints: TRAVEL_TITLE_ALIASES,
+  titleQueries: TRAVEL_TITLE_ALIASES,
+  maxRules: 1,
+  titleOnly: true,
+};
 const HASH_SCOPE = 'article-prefix-8192-v1';
 const timeout = () => Object.assign(new Error('TOTAL_TIMEOUT'), { code: 'TOTAL_TIMEOUT' });
 function aborted(promise, signal) {
@@ -53,7 +62,7 @@ function compareSnapshot(row, previous) {
     else if (old?.success) row.lastSuccess = { checkedAt: old.checkedAt, rules: old.rules };
   }
   for (const code of row.failureCodes) if (['UPSTREAM_FORMAT_CHANGED','PDF_REVISION_UNVERIFIED'].includes(code)) changes.push(code);
-  if (row.rules.some(r => !r.title.replace(/\s/g, '').includes(row.topic || '여비'))) changes.push('TOPIC_TITLE_NOT_MATCHED');
+  if (row.rules.some(r => !titleMatchesTopic(r.title, row.topic || '여비', TRAVEL_TITLE_ALIASES))) changes.push('TOPIC_TITLE_NOT_MATCHED');
   row.changes = [...new Set(changes)];
   return row;
 }
@@ -83,18 +92,18 @@ async function runWatch({ previous, totalTimeoutMs = 60000, universityTimeoutMs 
       if (signal.aborted) throw timeout();
       const underlying = clientFactory(signal);
       const client = { request: (...args) => { if (signal.aborted) throw timeout(); requests++; return underlying.request(...args); } };
-      // One fixed query and representative document. No Dongguk, no fallback crawl.
+      // 여비 사안 한 건, 대표 문서 하나. 동국대와 본문 우회 크롤은 하지 않는다.
       result = await aborted(loader(source, '여비', ['여비'], client, signal,
-        { searchTerms: ['여비'], titleHints: ['여비'], maxRules: 1 }, { extractPdf, maxRules: 1 }), signal);
+        { ...TRAVEL_WATCH_SPEC }, { extractPdf, maxRules: 1 }), signal);
     } catch (e) { failure = safeCode(e); }
     finally { clearTimeout(deadline); local.abort(); }
     const rules = (result?.rules || []).slice(0, 1).map(fingerprint).filter(Boolean);
     const failureCodes = [...new Set([failure, ...(result?.failures || []).map(f => safeCode(f))].filter(Boolean))];
     if (result?.coverage?.currentRevisionUnverified && !failureCodes.length) failureCodes.push('PDF_REVISION_UNVERIFIED');
-    if (!rules.length && !failureCodes.length) failureCodes.push('NO_MATCH_IN_SCOPE');
+    if (!rules.length && !failureCodes.length) failureCodes.push(result?.coverage?.publicOnly ? 'NOT_PUBLIC' : 'NO_MATCH_IN_SCOPE');
     const success = rules.length > 0 && failureCodes.length === 0;
     const row = { key: source.key, name: source.name, checkedAt: kst(at), topic: '여비', success,
-      status: rules.length ? 'partial' : failureCodes.includes('NO_MATCH_IN_SCOPE') ? 'no_match_in_scope' : 'unavailable',
+      status: rules.length ? 'partial' : failureCodes.includes('NOT_PUBLIC') ? 'not_public' : failureCodes.includes('NO_MATCH_IN_SCOPE') ? 'no_match_in_scope' : 'unavailable',
       failureCodes, rules, durationMs: Math.max(0, now() - at), requests };
     return compareSnapshot(row, previous?.universities?.find(r => r.key === source.key));
   }
@@ -142,4 +151,4 @@ function formatWatch(report, format = 'markdown') {
   }
   return lines.join('\n');
 }
-module.exports = { runWatch, fingerprint, compareSnapshot, readSnapshot, saveSnapshot, formatWatch, UNIVERSITIES };
+module.exports = { runWatch, fingerprint, compareSnapshot, readSnapshot, saveSnapshot, formatWatch, UNIVERSITIES, TRAVEL_WATCH_SPEC, TRAVEL_TITLE_ALIASES };

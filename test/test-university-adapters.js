@@ -383,6 +383,14 @@ async function main() {
     // 제목 검색으로 정해진 후보는 재확인 대상이 아니므로 단계 표시를 붙이지 않는다.
     const titleOnly = await load('skku', network([['mode=download', Buffer.from('%PDF-1.4 damaged')], ['mode=list', skkuPage([['여비 규정', '2026.03.01', 2, 20]])]]).client);
     assert.deepEqual([titleOnly.failures, titleOnly.coverage.currentRevisionConfirmedByTitle, titleOnly.coverage.currentRevisionUnverified], [[{ lawId: 2, code: 'PDF_PARSE_FAILED' }], false, undefined]);
+    const watchNet = network([
+      ['srSearchKey=article_title', skkuPage([], 0, true)],
+      ['srSearchKey=article_text', () => { throw new Error('watch titleOnly should not search article_text'); }],
+    ]);
+    const watchOnly = await loadExternal(source('skku'), '여비', ['여비'], watchNet.client, undefined,
+      { searchTerms: ['여비', '출장'], titleHints: ['여비', '출장', '출장비'], titleOnly: true, maxRules: 1 }, { now: NOW });
+    assert.deepEqual(watchOnly.rules, []);
+    assert(!watchNet.calls.some(c => c.target.includes('article_text')), '감시는 본문 검색으로 복무규정을 고르지 않는다');
   });
 
   await check('R1: 캐시 한도는 글자 수가 아니라 바이트 기준', async () => {

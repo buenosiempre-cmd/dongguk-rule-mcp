@@ -125,6 +125,14 @@ async function main() {
     assert.deepEqual(expandTopic('학부졸업유예').terms,['학부졸업유예','졸업유예']);assert.deepEqual(expandTopic('학부졸업유예').searchTerms,['졸업유예','학부졸업유예']);
     assert.deepEqual(expandTopic('등록금 반환').terms,['등록금','반환','환불']);assert.deepEqual(expandTopic('교원 겸직').terms,['겸직','겸업']);assert.equal(expandTopic('교원 겸직').frame.id,'external_concurrent_office');assert.deepEqual(expandTopic('교원 복무').terms,['교원','복무']);
   });
+  await check('강사료 비교는 동국 강의료 원문을 포함하고 넓은 주제는 확장하지 않음', async () => {
+    const d=await compareUniversityRules({topic:'강사료',universities:['korea']},{loadExternal:async()=>({rules:[],coverage:{complete:true},failures:[]}),loadDongguk:async(topic,terms,options)=>{
+      assert(terms.includes('강의료'));assert(options.searchTerms.includes('강의료'));
+      return {rules:[{lawId:9001,title:'강의료지급규정',markdown:'### 제4조(지급기일)\n강의료 지급일은 매월 말일이다.'}],coverage:{complete:true},failures:[]};
+    }});
+    assert.equal(d.columns[0].status,'retrieved');assert(d.columns[0].articles.some(a=>a.text.includes('강의료')));
+    assert.deepEqual(expandTopic('학점').terms,['학점']);
+  });
   await check('목록 제목의 스크립트 제거와 시행일자 추출', () => {
     const t=cleanListTitle(`if(chekFutureDate('20261015')){document.write("<span style='color: red;'>[시행예정]</span>");} 3-1-47 포상규정 newIcon('20261015');`);
     assert.deepEqual(t,{title:'3-1-47 포상규정',effectiveAt:'2026-10-15'});
@@ -274,6 +282,16 @@ async function main() {
     assert.equal(sgRes.rules[0].title,'출장비 지급 규정');assert.equal(sgRes.rules[0].revisedAt,'2024.04.15');assert.equal(sgRes.rules[0].effectiveAt,'2024-04-15');
     assert.match(sgRes.rules[0].markdown,/### 제1조\(목적\)/);assert.match(sgRes.rules[0].markdown,/### 제2조\(여비의 종류\)/);
     assert.match(sgRes.rules[0].url,/\/ko\/regulation\/home$/);
+    // 같은 '출장' 단서라도 전교 출장비 지급 규정을 산학협력단·연구과제 내규보다 먼저 고른다.
+    const mixed=JSON.stringify({data:{list:[
+      {pkid:555,title:'산학협력단 직원 국내출장비 지급 내규',content:'제1조(목적) 산학협력단 출장비.&nbsp;부칙 이 내규는 2023년 2월 1일부터 시행한다.'},
+      {pkid:554,title:'산학협력단 직원 국외 출장비 지급 내규',content:'제1조(목적) 국외 출장비.&nbsp;부칙 이 내규는 2023년 2월 1일부터 시행한다.'},
+      {pkid:546,title:'연구과제 출장비 지급에 관한 세부지침',content:'제1조(목적) 연구과제 출장비.&nbsp;부칙 이 지침은 2024년 6월 7일부터 시행한다.'},
+      {pkid:279,title:'출장비 지급 규정',content:'제1조(목적) 공무 출장 여비.&nbsp;부칙 이 규정은 2024년 4월 15일부터 시행한다.'}
+    ]}});
+    const mixedClient={request:async(s,path)=>{assert(path.includes('title='));return mixed;}};
+    const mixedRes=await loadExternal(byKey.sogang,'여비',['여비'],mixedClient,undefined,{searchTerms:['여비','출장'],titleHints:['여비','출장','출장비'],maxRules:1});
+    assert.equal(mixedRes.rules.length,1);assert.equal(mixedRes.rules[0].title,'출장비 지급 규정');
     // 이화 어댑터: 목록 HTML(view-rule 링크) → 규정별 view의 .fr-view 조문. 개정일은
     // 부칙 헤딩(…개정)에서, 시행일은 마지막 부칙 '…부터 시행'에서.
     const ewhaList='<a href="?mode=view-rule&amp;srRuleCd1=996&amp;srRuleCd2=1871">여비 규정</a><a href="?mode=view-rule&amp;srRuleCd1=993&amp;srRuleCd2=1000">정관</a>';
