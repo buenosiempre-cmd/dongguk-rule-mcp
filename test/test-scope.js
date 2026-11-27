@@ -39,4 +39,8 @@ assert.deepEqual(rankRules({...options,method:'hybrid-scope',scopeCorpus:null}).
 assert.deepEqual(inferRuleScope(rule('산학협력단이 중앙관리하는 연구과제의 연구책임자에게 적용한다.','표본 규정','적용범위')).institution.values,[]);
 assert.deepEqual(inferRuleScope(rule('산학협력단 소속 직원에게 적용한다.','표본 규정','적용범위')).institution.values,['industry']);
 assert.deepEqual(inferRuleScope(rule('동국대학교 산학협력단의 연구비 감사에 필요한 사항을 정한다.')).institution.values,[]);
+const {parseExpected}=require('../scripts/measure-body-scope');
+assert.throws(()=>parseExpected([]),/ANNOUNCED_COMMON_HASHES_REQUIRED/);
+assert.throws(()=>parseExpected(['--expected-corpus-sha','short']),/FULL_HASH_REQUIRED/);
+assert.deepEqual(parseExpected(['--expected-corpus-sha','a'.repeat(64),'--expected-vector-sha','b'.repeat(64),'--query-only']).args,['--query-only']);
 console.log('✅ scope: direct purpose/application, citation/location/negative guards, multi-campus neutral, title conflict, institution, stale/missing corpus fallback');
