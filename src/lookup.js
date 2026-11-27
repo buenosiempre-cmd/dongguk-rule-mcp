@@ -2,6 +2,7 @@
 
 const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
+const { excerptPolicy, articleUnits, articleScoreText } = require('./excerpt-policy.js');
 
 function clampNumber(value, fallback, min, max) {
   const n = Number(value);
@@ -221,7 +222,8 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const source = String(markdown || '').replace(/\r\n?/g, '\n');
   const lines = source.split('\n');
   const blocks = [];
-  const appendBlocks = text => blocks.push(...text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean));
+  const policy = excerptPolicy(options.policy);
+  const appendBlocks = text => blocks.push(...(policy.article ? articleUnits(text) : text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean)));
   let cursor = 0;
   // A table's following notes can span many HWP paragraphs. Rank and return
   // the entire appendix, stopping at the next appendix or body boundary.
@@ -267,12 +269,13 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
       // Supplementary provisions restart article numbering. Once their boundary
       // (or an attachment) is reached, the same number is not a main article.
       if (block.split('\n').some(line => isBodyBoundary(line) === 'supplementary' || appendixHeading(line))) outsideBody = true;
-      const context = index > 0 ? blocks[index - 1] : '';
+      const wholeArticle = policy.article && isBodyBoundary(block.split('\n', 1)[0]) === 'article';
+      const context = index > 0 && !wholeArticle ? blocks[index - 1] : '';
       const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)[ \t]*[(（]([^)）]+)[)）]/.exec(block);
       const article = heading?.[1].replace(/[ \t]/g, '');
       const genericHeading = heading && /^(?:목적|정의|용어의정의)$/.test(heading[2].replace(/\s/g, ''));
       const priority = !outsideBody && !genericHeading && priorityOrder.includes(article) && !priorityAssigned.has(article);
-      const result = scoreBlock(block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
+      const result = scoreBlock(wholeArticle ? articleScoreText(block) : block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
       if (priority) priorityAssigned.add(article);
       return result ? { block, index, ...result, priority: !!priority, priorityRank: priority ? priorityOrder.indexOf(article) : Infinity } : null;
     })
@@ -325,7 +328,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const selectedIndexes = new Set(selectedMatches.map(x => x.index));
   for (const item of selectedMatches) {
     for (const index of articleContexts[item.index] || []) selectedIndexes.add(index);
-    if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0])) {
+    if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0]) && !(policy.article && isBodyBoundary(item.block.split('\n', 1)[0]) === 'article')) {
       if (item.index > 0) selectedIndexes.add(item.index - 1);
       if (item.index + 1 < blocks.length) {
         const next = blocks[item.index + 1];
@@ -387,7 +390,8 @@ const QUESTION_STOPWORDS = new Set([
   '전에', '후에', '먼저', '나중에', '대신', '다른', '걸로', '자기', '사람', '하루', '관련된', '때도', '그냥', '혹시', '아니면',
   '원래', '말고', '받은', '남는', '거야', '건가요', '때문에', '다시', '것들', '무슨', '일을',
 ]);
-const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
+// Two particles together come first ("센터에는", "직원에게도"), so the noun is left whole.
+const PARTICLE_SUFFIX = /(?:에서는|에서도|에게는|에게도|한테는|한테도|으로는|으로도|까지는|부터는|에는|에도|에서|으로|에게|한테|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
 // "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
 const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|할|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
 // Nouns that end in 해; not "noun + 해".
