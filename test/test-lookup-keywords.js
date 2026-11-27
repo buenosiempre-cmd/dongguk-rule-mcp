@@ -89,7 +89,7 @@ function seed(category, key, data) {
 }
 seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
-  seed('content-v3', key, value);
+  seed('content-v4', key, value);
   seed('original-structure-v2', key, { markdown: value.markdown, structure: { coverage: { articles: 'complete' } } });
 }
 for (const rule of CATALOG) seed('history', String(rule.lawId), [{ historyId: rule.historyId, revisedAt: rule.revisedAt }]);
