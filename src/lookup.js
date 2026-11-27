@@ -1,6 +1,6 @@
 'use strict';
 
-const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope } = require('./aliases.js');
+const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope, labelsEnabled } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
@@ -387,8 +387,10 @@ const QUESTION_STOPWORDS = new Set([
   '전에', '후에', '먼저', '나중에', '대신', '다른', '걸로', '자기', '사람', '하루', '관련된', '때도', '그냥', '혹시', '아니면',
   '원래', '말고', '받은', '남는', '거야', '건가요', '때문에', '다시', '것들', '무슨', '일을',
 ]);
-// Two particles together come first ("센터에는", "직원에게도"), so the noun is left whole.
-const PARTICLE_SUFFIX = /(?:에서는|에서도|에게는|에게도|한테는|한테도|으로는|으로도|까지는|부터는|에는|에도|에서|으로|에게|한테|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
+const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
+// With the names dictionary on: two particles together come first ("센터에는", "직원에게도"),
+// so the noun is left whole.
+const PARTICLE_SUFFIX_PAIRED = /(?:에서는|에서도|에게는|에게도|한테는|한테도|으로는|으로도|까지는|부터는|에는|에도|에서|으로|에게|한테|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
 // "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
 const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|할|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
 // Nouns that end in 해; not "noun + 해".
@@ -420,7 +422,7 @@ function contentToken(raw) {
     if (verbStem.length < 2) return null;
     token = verbStem;
   } else {
-    const stripped = NOUN_ENDING_DO.test(token) ? token : token.replace(PARTICLE_SUFFIX, '');
+    const stripped = NOUN_ENDING_DO.test(token) ? token : token.replace(labelsEnabled() ? PARTICLE_SUFFIX_PAIRED : PARTICLE_SUFFIX, '');
     // "년까지", "곳에서": a counter or pronoun before a long particle is not a search word.
     if (stripped.length < 2 && token.length - stripped.length >= 2) return null;
     if (stripped.length >= 2 && (!(token.length === 3 && token.endsWith('가')) || SUBJECTS_BEFORE_GA.has(stripped))) token = stripped;

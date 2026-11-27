@@ -156,6 +156,7 @@ const {
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
 const { rankRules, rankingMethod } = require('./fusion.js');
 const { createFacetSignal } = require('./ontology.js');
+const { labelsEnabled } = require('./aliases.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
 const { normalizeName, createResolver, extractReferences, summarizeExternalLaws } = require('./references.js');
@@ -741,7 +742,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
     const body=hit.articles[0]&&!hit.articles[0].supplementary;
     const rankedArticles=hit.articles.filter(item=>item.article&&!item.supplementary).map(item=>item.article);
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
-      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,semanticRuleRank:hit.semanticRuleRank,edition:hit.edition,family:hit.family,
+      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,edition:hit.edition,family:hit.family,
       priorityArticles:excerptPriority(body?rankedArticles.slice(0,1):[],hit.semanticArticle,[hit.wordArticle,...(body?rankedArticles.slice(1,2):[])]),rankedArticles,
       // Only the institution or campus name matched; no article is about the topic.
       scopeNameOnly:hit.matchedConcepts.length>0&&hit.matchedConcepts.every(term=>SCOPE_WORD.test(term))};
@@ -752,7 +753,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const corpus=loadCorpus(publicCacheDir());
   const requested=rankingMethod();
   const {method,ranked:fused}=rankRules({candidates:[...families.values()].flat(),scope:requestedRuleScope(scopeQuery,campus),query:scopeQuery,campus,
-    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),semantic:found.semantic,method:requested});
+    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),method:requested});
   let ranked=fused;
   // A rule that shares only the institution's name with the question comes after every rule
   // with a matching topic. It stays a candidate: its answer may sit in an appendix the index lacks.
@@ -1191,7 +1192,7 @@ async function hLookup(rawKeyword, {
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
-      ...(indexMode?{semantic:!!result.semantic,ranking:result.ranking,selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
+      ...(indexMode?{semantic:!!result.semantic,...(result.ranking&&result.ranking!=='legacy'?{ranking:result.ranking}:{}),...(labelsEnabled()?{labels:true}:{}),selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
         otherCandidates:result.hits.slice(hits.length,hits.length+3).map(x=>({lawId:x.lawId,title:x.title,matchedTerms:x.matchedTerms,topArticle:x.topArticle}))}:{})},
     rules,
     evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',

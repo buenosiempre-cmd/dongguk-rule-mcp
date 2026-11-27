@@ -1,9 +1,7 @@
 'use strict';
 
-// The one place where the signals of a question are combined into an order of rule candidates:
-// words (the full-text index), meaning (article embeddings), place and audience (the ontology),
-// and, when a caller supplies them, graph relations or a relevance probability. Every signal
-// except the words is optional; a missing one is left out of the combination.
+// The one place where rule candidates of a question are put in order and where the campus or
+// institution edition of a rule is chosen.
 //
 // Methods (DONGGUK_MCP_RANKING):
 // - legacy  the order used before this module: word score lifted by meaning, rules written for
@@ -12,53 +10,13 @@
 //           counts for more, one for another place for less, and a university-wide rule is kept.
 //           A rule whose articles are about another class of people than the question counts
 //           for less.
-//           Graph relations, when a caller passes them, lift a related rule a little.
-// - rrf     reciprocal rank fusion of the word, meaning, place and graph rankings.
-// - jev     a relevance probability per rule, when the caller supplies one; hybrid otherwise.
-// A caller may also supply its own reading of where a rule applies (`placeAgreementOf`), for
-// experiments that read a rule's place from more than its title; the choice of editions and the
-// weights stay here.
 const { placeRequest, placeAgreement } = require('./ontology');
 
-const METHODS = ['legacy', 'hybrid', 'rrf', 'jev'];
+const METHODS = ['legacy', 'hybrid'];
 const DEFAULT_METHOD = 'legacy';
 function rankingMethod(value = process.env.DONGGUK_MCP_RANKING) {
   const name = String(value || '').trim().toLowerCase();
   return METHODS.includes(name) ? name : DEFAULT_METHOD;
-}
-
-// Reciprocal rank fusion: sum over rankings of weight / (k + rank). Only ranks are used, so a
-// word score and a cosine similarity never have to share a scale. A larger k flattens the
-// difference between neighbouring ranks.
-const RRF_K = 10;
-const RRF_WEIGHTS = { words: 1, meaning: 0.6, place: 1, graph: 0.5 };
-// Place has three tiers, not a ranking: the asked place, university-wide, another place.
-const RRF_PLACE_TIER = 1;
-
-// Ranks (1 = best) from scores, larger first. Equal scores share a rank.
-function ranksOf(scores) {
-  const ordered = [...scores].filter(([, score]) => Number.isFinite(score)).sort((a, b) => b[1] - a[1]);
-  const ranks = new Map();
-  let rank = 0, previous = null;
-  ordered.forEach(([key, score], index) => {
-    if (score !== previous) { rank = index + 1; previous = score; }
-    ranks.set(key, rank);
-  });
-  return ranks;
-}
-
-// channels: [{ ranks: Map(key → rank), weight }] → Map(key → fused score) over every key that
-// some channel ranks. A key a channel does not hold adds nothing for that channel.
-function reciprocalRankFusion(channels, { k = RRF_K } = {}) {
-  const fused = new Map();
-  for (const { ranks, weight = 1 } of channels) {
-    if (!ranks || !(weight > 0)) continue;
-    for (const [key, rank] of ranks) {
-      if (!(rank >= 1)) continue;
-      fused.set(key, (fused.get(key) || 0) + weight / (k + rank));
-    }
-  }
-  return fused;
 }
 
 // ── 판 선택 ────────────────────────────────────────────────────
@@ -86,19 +44,8 @@ function legacyEditions(members, scope) {
 // ("WISE캠퍼스 구매규정" for a WISE question). A family with no such edition keeps its
 // university-wide rule, which still applies there; only an edition for a place the question
 // leaves out is set aside.
-// The caller's reading of a rule's place, when it gives one; the title otherwise. A reading that
-// throws or is not an integer is ignored for that rule.
-function agreementOf(member, place, placeAgreementOf) {
-  if (typeof placeAgreementOf === 'function') {
-    try {
-      const value = placeAgreementOf(member, place);
-      if (Number.isInteger(value)) return value;
-    } catch { /* the title decides */ }
-  }
-  return placeAgreement(member.title, place);
-}
-function placedEditions(members, place, placeAgreementOf = null) {
-  const agreement = new Map(members.map(member => [member, agreementOf(member, place, placeAgreementOf)]));
+function placedEditions(members, place) {
+  const agreement = new Map(members.map(member => [member, placeAgreement(member.title, place)]));
   const best = Math.max(...agreement.values());
   const selected = best > 0 ? members.filter(member => agreement.get(member) === best)
     : members.some(member => agreement.get(member) === 0) ? members.filter(member => agreement.get(member) === 0) : members;
@@ -118,9 +65,6 @@ const PLACE_MISMATCH_SHARE = 0.6;
 // A rule whose articles keep naming another class of people (취업규칙 for a 교수 question).
 // Rules that name the class in their title are already weighed by the word index.
 const BODY_AUDIENCE_SHARE = 0.8;
-// Comparison only: no caller passes graph relations by default.
-const GRAPH_SHARE = 0.3;
-
 const placeShare = hit => hit.scopeMatch === true ? PLACE_MATCH_SHARE : hit.scopeMatch === false ? PLACE_MISMATCH_SHARE : 1;
 function audienceShare(hit, facets) {
   const asked = facets?.question?.subjects;
@@ -136,26 +80,16 @@ const byFamily = candidates => {
   }
   return [...families.values()];
 };
-const scoresOf = signal => signal instanceof Map ? signal : null;
-
 // Rule candidates of one question, in order.
 // candidates: rules the word index found, each with { lawId, title, family, edition, score
-//   (word score lifted by meaning), wordScore, semanticRuleRank }.
+//   (word score lifted by meaning) }.
 // scope:    the place the question asks for as read before this module (lookup.requestedRuleScope).
 // query, campus: the question and the caller's campus argument, for the ontology's reading of place.
 // facets:   createFacetSignal(...) of the ontology, or null.
-// semantic: true when meaning ranks are present.
-// graph, probability: Map(lawId → score) from a caller that has them, or null.
-// placeAgreementOf: (candidate, place) → integer or null, or omitted. `place` is
-//   ontology.placeRequest(query, campus). Positive: the rule is for a place the question names;
-//   negative: for a place the question leaves out; 0: university-wide. null (or anything that
-//   is not an integer) leaves that rule to its title. Not called for legacy, nor when the
-//   question names no place.
 // Returns { method, ranked } where each ranked rule carries scopeMatch, scopeAmbiguous,
 // editions, and `order` (larger is earlier). `method` is the one actually used.
-function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, placeAgreementOf = null, method = rankingMethod() }) {
-  let used = METHODS.includes(method) ? method : DEFAULT_METHOD;
-  if (used === 'jev' && !scoresOf(probability)) used = 'hybrid';
+function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, method = rankingMethod() }) {
+  const used = METHODS.includes(method) ? method : DEFAULT_METHOD;
   if (used === 'legacy') {
     let ranked = byFamily(candidates).flatMap(members => legacyEditions(members, scope)).map(hit => ({ ...hit, order: hit.score }))
       .sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.lawId - b.lawId);
@@ -164,32 +98,10 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
     return { method: used, ranked };
   }
   const place = placeRequest(query, campus);
-  const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place, place.specified ? placeAgreementOf : null));
-  // Graph relations (when a caller supplies them) lift a related rule by up to GRAPH_SHARE,
-  // in proportion to the strongest relation among the candidates.
-  const relations = scoresOf(graph);
-  const strongest = relations ? Math.max(0, ...ranked.map(hit => relations.get(hit.lawId) || 0)) : 0;
-  const graphShare = hit => strongest > 0 ? 1 + GRAPH_SHARE * (relations.get(hit.lawId) || 0) / strongest : 1;
-  const lifted = hit => hit.score * placeShare(hit) * audienceShare(hit, facets) * graphShare(hit);
-  let order;
-  if (used === 'jev') {
-    const known = scoresOf(probability);
-    order = hit => (known.has(hit.lawId) ? known.get(hit.lawId) : 0) * placeShare(hit);
-  } else if (used === 'rrf' && semantic) {
-    const tier = hit => hit.scopeMatch === true ? 1 : hit.scopeMatch === false ? 1 + 2 * RRF_PLACE_TIER : 1 + RRF_PLACE_TIER;
-    const fused = reciprocalRankFusion([
-      { ranks: ranksOf(ranked.map(hit => [hit, hit.wordScore * audienceShare(hit, facets)])), weight: RRF_WEIGHTS.words },
-      { ranks: new Map(ranked.filter(hit => hit.semanticRuleRank).map(hit => [hit, hit.semanticRuleRank])), weight: RRF_WEIGHTS.meaning },
-      { ranks: new Map(ranked.map(hit => [hit, tier(hit)])), weight: RRF_WEIGHTS.place },
-      ...(relations ? [{ ranks: ranksOf(ranked.filter(hit => relations.get(hit.lawId) > 0).map(hit => [hit, relations.get(hit.lawId)])), weight: RRF_WEIGHTS.graph }] : []),
-    ]);
-    order = hit => fused.get(hit) || 0;
-  } else {
-    // hybrid, and rrf without meaning ranks (one ranking has nothing to fuse with).
-    if (used === 'rrf') used = 'hybrid';
-    order = lifted;
-  }
-  return { method: used, ranked: ranked.map(hit => ({ ...hit, order: order(hit) })).sort((a, b) => b.order - a.order || a.lawId - b.lawId) };
+  const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place))
+    .map(hit => ({ ...hit, order: hit.score * placeShare(hit) * audienceShare(hit, facets) }))
+    .sort((a, b) => b.order - a.order || a.lawId - b.lawId);
+  return { method: used, ranked };
 }
 
-module.exports = { METHODS, DEFAULT_METHOD, RRF_K, rankingMethod, ranksOf, reciprocalRankFusion, rankRules };
+module.exports = { METHODS, DEFAULT_METHOD, rankingMethod, rankRules };
