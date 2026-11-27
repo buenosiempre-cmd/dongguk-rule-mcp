@@ -17,11 +17,12 @@ const STANDALONE_NAMES = new Set(['학칙', '정관', '헌장']);
 const DEMONSTRATIVES = ['같은', '해당', '당해', '아래', '우리', '이', '그', '본', '동', '위'];
 const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 
-// 제N조(의M)(제목)(제P항) — "제15조제1항", "제10조의2 (겸직)" 등 허용
+// Only an adjacent bracket group or date can extend a 부칙 prefix.
+// Prose such as "부칙에 따라 ... 제3조" must leave 제3조 in the main body.
+const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?`;
 const ARTICLE_RE = new RegExp(
-  '(부\\s*칙(?:(?!제\\s*\\d+\\s*조|[「」])[\\s\\S])*)?제\\s*(\\d{1,3})\\s*조(?:\\s*의\\s*(\\d{1,2}))?' +
-  '(?:\\s*\\(([^)\\n]{1,40})\\))?' +
-  '(?:\\s*제\\s*(\\d{1,2})\\s*항)?',
+  String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d{1,3})\s*조(?:\s*의\s*(\d{1,2}))?` +
+  String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d{1,2})\s*항)?`,
   'g'
 );
 
@@ -333,6 +334,9 @@ function judgeCitation(citation, rec) {
   }
 
   if (!block) {
+    if (supplementaryDate && !datedBlocks.length && rec.blocks.some(b => b.supplementary && !supplementarySelector(b))) {
+      return { status: 'ARTICLE_SELECTOR_UNVERIFIED', symbol: '⚠', note: `${canonical} — 원문에 개정일을 확인할 수 없는 부칙이 있어 날짜·조문 실존은 미검증. 부칙 머리와 원문 위치 확인 필요` };
+    }
     const rangeNote = supplementaryDate
       ? (datedBlocks.length
         ? `개정일 ${supplementaryDate}의 부칙은 있으나 해당 조문 없음`

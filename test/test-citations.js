@@ -169,7 +169,21 @@ const deps = {
   const noDate = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제1조', {
     ...redteamDeps, getRuleMarkdown: async () => redteamBody.replace('부칙(2020.1.1.)', '부칙'),
   });
-  check('I02 원문에 날짜가 없으면 날짜 지정 인용을 통과시키지 않음', noDate.summary.verified === 0 && noDate.citations[0].status === 'NOT_FOUND');
+  check('I02 원문에 날짜가 없으면 날짜 지정 인용을 통과시키지 않음', noDate.summary.verified === 0 && noDate.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED' && noDate.summary.needsReview === 1);
+
+  for (const text of [
+    '「검수규정」 부칙에 따라 시행하며, 제3조를 준용한다.',
+    '「검수규정」 부칙은 2020년 1월 1일부터 시행한다. 다만 제1조는 그러하지 아니하다.',
+  ]) {
+    const result = await verifyRuleCitations(text, { ...redteamDeps, getRuleMarkdown: async () => '### 제3조(준용)\n본칙\n\n' + redteamBody });
+    check('일반 문장의 부칙 낱말은 뒤 본칙 조문을 삼키지 않음', result.citations.length === 1
+      && result.citations[0].status === 'EXISTS' && !result.citations[0].article.startsWith('부칙'), JSON.stringify(result.citations));
+  }
+  const unknownAmongDated = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', {
+    ...redteamDeps, getRuleMarkdown: async () => redteamBody + '\n\n## 부칙\n\n### 제1조(시행일)\n날짜 미상',
+  });
+  check('일치 날짜가 없고 날짜 미상 부칙이 섞이면 확인필요', unknownAmongDated.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED'
+    && unknownAmongDated.summary.verified === 0 && unknownAmongDated.summary.needsReview === 1 && unknownAmongDated.summary.notFound === 0);
 
   const empty = await verifyRuleCitations('규정 인용이 전혀 없는 평문입니다.', deps);
   check('인용 없음 처리', empty.citations.length === 0 && empty.summary.total === 0);
