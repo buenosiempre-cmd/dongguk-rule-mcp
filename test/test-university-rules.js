@@ -182,6 +182,7 @@ async function main() {
         const exception = `${subject} 2024.1.1.부터 ${verb}.`;
         assert.equal(latestAddendaEffective(`## 부칙\n${general} 다만 ${exception}`), '2023-05-26', exception);
         assert.equal(latestAddendaEffective(`## 부칙\n${exception} ${general}`), '2023-05-26', exception);
+        assert.equal(latestAddendaEffective(htmlToArticleMarkdown(`부칙\n${general} 다만 ${exception}`)), '2023-05-26', exception);
       }
     }
   });

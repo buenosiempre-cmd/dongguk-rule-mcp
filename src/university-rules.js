@@ -130,9 +130,9 @@ function latestAddendaEffective(markdown) {
     // Strip completed preceding sentences and structural labels, never arbitrary
     // text before a date. An unrecognised subject must not become a general date.
     const clause = match[1].replace(/^[\s\S]*(?:한다|함)[.。]/, '')
-      .replace(/\s+/g, '').replace(/^[.。,]+/, '').replace(/^#{1,3}/, '')
-      .replace(/^[①-⑳]/, '').replace(/^(?:제\d+조)?[（(]시행일[）)]/, '')
-      .replace(/^다만[,，]?/, '');
+      .replace(/\s+/g, '').replace(/^[.。,]+/, '').replace(/^다만[,，]?/, '')
+      .replace(/^#{1,3}/, '').replace(/^[①-⑳]/, '')
+      .replace(/^(?:제\d+조)?[（(]시행일[）)]/, '');
     const scoped = provisionSubject.exec(clause);
     if (scoped) {
       if (!datePattern.test(clause.slice(scoped[0].length))) return null;
