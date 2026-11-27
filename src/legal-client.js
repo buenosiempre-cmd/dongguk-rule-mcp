@@ -241,6 +241,19 @@ function exactCurrentLaw(response,name){
   }
   return null;
 }
+// A conjunction-crossing candidate never replaces the original name unless a
+// full official listing name matches it. Prefer a match within the old boundary.
+function boundedNameCandidate(value,name){
+  return typeof value==='string'&&value.length<=200&&!/[\r\n\0]/.test(value)&&normalize(value).endsWith(normalize(name))?value:null;
+}
+function matchGuessedLaw(listed,name,candidate){
+  for(const source of [name,boundedNameCandidate(candidate,name)].filter(Boolean)){
+    const law=listed.filter(x=>normalize(source).endsWith(normalize(x.name)))
+      .sort((a,b)=>normalize(b.name).length-normalize(a.name).length)[0];
+    if(law)return {law,matchedFromText:source};
+  }
+  return null;
+}
 function historicalVersion(response,name,baseDate){
   const text=textOf(response);
   if(responseFailed(response)||errorText(text)) return null;
@@ -402,13 +415,14 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   };
   const currentLookups=new Map(),historicalLookups=new Map();
   let historicalTool;
-  const currentLaw=(name,suffixMatch=false,allowRename=false)=>{
-    const key=`${normalize(name)}|${suffixMatch}|${allowRename}`;
+  const currentLaw=(name,suffixMatch=false,allowRename=false,nameCandidate)=>{
+    const candidate=suffixMatch?boundedNameCandidate(nameCandidate,name):null;
+    const key=stable([normalize(name),suffixMatch,allowRename,candidate]);
     if(!currentLookups.has(key)) currentLookups.set(key,(async()=>{
       // Only parser-widened names may use bounded suffix queries; a complete
       // official name must still be contained at the end of the candidate.
       const words=name.split(/\s+/);
-      const queries=suffixMatch?[...new Set([words.slice(-3).join(' '),words.slice(-2).join(' '),words.slice(-1)[0]])]:[name];
+      const queries=suffixMatch?[...new Set([name,words.slice(-3).join(' '),words.slice(-2).join(' ')])]:[name];
       let law=null,response,renamed=null,matchedFromText=null;
       for(const query of queries){
         response=await call('search_law',{query,display:100});
@@ -417,9 +431,8 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
         if((responseFailed(response)||errorText(text))&&!noResult) throw failure('LEGAL_LOOKUP_FAILED');
         law=exactCurrentLaw(response,name);
         if(!law&&suffixMatch&&!noResult){
-          const matched=listedLaws(text).filter(x=>normalize(name).endsWith(normalize(x.name)))
-            .sort((a,b)=>normalize(b.name).length-normalize(a.name).length)[0];
-          if(matched){law={...matched,sourceUrl:matched.url};matchedFromText=name;}
+          const matched=matchGuessedLaw(listedLaws(text),name,candidate);
+          if(matched){law={...matched.law,sourceUrl:matched.law.url};matchedFromText=matched.matchedFromText;}
         }
         // Current article references accept an explicit provider rename notice.
         // Historical resolution and annex identity retain their exact-name rules.
@@ -466,7 +479,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
       const article={selector:selector||null,status:'unavailable',bodyRetrieved:false,dateStatus:result.dateStatus,referenceOnly:historical,source:null};
       result.articles.push(article);
       try{
-        const resolved=await(historical?atDate(lawName):currentLaw(lawName,result.request.suffixMatch===true,true));
+        const resolved=await(historical?atDate(lawName):currentLaw(lawName,result.request.suffixMatch===true,true,result.request.nameCandidate));
         const law=resolved.law;
         result.law=law;
         if(resolved.matchedFromText) result.matchedFromText=resolved.matchedFromText;
@@ -616,9 +629,9 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
     let current=null;
     try{
       // The provider ANDs the words of a query. A name read from unquoted text may
-      // start with words that are not part of the law's name, so shorten it from the left.
+      // start with prose. Try the original boundary first, then at most two shorter queries.
       const words=name.split(/\s+/);
-      const queries=law.request.suffixMatch?[...new Set([words.slice(-3).join(' '),words.slice(-2).join(' '),words.slice(-1)[0]])]:[name];
+      const queries=law.request.suffixMatch?[...new Set([name,words.slice(-3).join(' '),words.slice(-2).join(' ')])]:[name];
       let text='',listed=[],listedAt=null;
       for(const query of queries){
         const response=await call('search_law',{query,display:100});
@@ -629,13 +642,14 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
         if(responseFailed(response)&&!noResult) throw failure('LEGAL_LOOKUP_FAILED');
         listed=noResult?[]:listedLaws(text);
         if(!noResult&&!listed.length) throw failure('LEGAL_LISTING_UNVERIFIED');
-        if(listed.some(x=>normalize(name).endsWith(normalize(x.name)))) break;
+        if(matchGuessedLaw(listed,name,law.request.suffixMatch?law.request.nameCandidate:null)) break;
       }
       current=listed.find(x=>normalize(x.name)===normalize(name));
       let renamed=null,corrected=null;
       if(!current&&law.request.suffixMatch){
-        current=listed.filter(x=>normalize(name).endsWith(normalize(x.name))).sort((a,b)=>normalize(b.name).length-normalize(a.name).length)[0]||null;
-        if(current) corrected=name;
+        const matched=matchGuessedLaw(listed,name,law.request.nameCandidate);
+        current=matched?.law||null;
+        if(current) corrected=matched.matchedFromText;
       }
       if(!current){
         renamed=renameNotice(text,name);

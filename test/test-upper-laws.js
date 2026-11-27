@@ -162,13 +162,14 @@ async function main() {
     }
     const name = '교원의 노동조합설립 및 운영 등에 관한 법률';
     const found = extractReferences(`${name} 제5조의 규정에 의하여 노동조합 전임자로 종사하게 된 때`, resolver);
-    assert.deepEqual(found.map(x => [x.name, x.article, x.nameExtended]), [[name, '제5조', true]]);
+    assert.deepEqual(found.map(x => [x.name, x.article, x.nameExtended]), [['운영 등에 관한 법률', '제5조', true]]);
+    assert.equal(found[0].nameCandidate, name);
     assert.equal(summarizeExternalLaws(found)[0].nameGuessed, true);
     assert.deepEqual(refs('운영 및 소득세법 제12조'), ['external_law|소득세법|제12조|name_heuristic']);
     assert.deepEqual(refs('이 경우 및 국가를 당사자로 하는 계약에 관한 법률 제7조'), ['external_law|국가를 당사자로 하는 계약에 관한 법률|제7조|name_heuristic']);
     const bounded = extractReferences('가 '.repeat(80) + name + ' 제5조', resolver)[0];
-    assert(bounded.name.length <= 125);
-    assert(bounded.name.split(/\s+/).length <= 9);
+    assert(bounded.nameCandidate.length <= 125);
+    assert(bounded.nameCandidate.split(/\s+/).length <= 9);
     assert.deepEqual(refs('평가방법(이하 \"방법\"이라 한다) 제5조'), []);
   });
 

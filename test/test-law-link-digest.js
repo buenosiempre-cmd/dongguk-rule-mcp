@@ -49,7 +49,11 @@ function lawFixture() {
     if (lawDown) throw new Error('fixture down');
     if (name === 'search_law') {
       const mst = String(12345 + lawNames.size);
-      lawNames.set(mst, a.query === oldLaw ? newLaw : a.query);
+      if(a.query==='운영 등에 관한 법률') return text('[NOT_FOUND] 법령 검색 결과가 없습니다.');
+      const candidateNames={'계약에 관한 법률':'국가를 당사자로 하는 계약에 관한 법률','등에 관한 법률':'교원의 노동조합 설립 및 운영 등에 관한 법률'};
+      const official=candidateNames[a.query];
+      lawNames.set(mst, a.query === oldLaw ? newLaw : official || a.query);
+      if(official) return text(`1. ${official} [현행]\n   - 법령ID: 001234\n   - MST: ${mst}\n   - 공포일: 20250101 / 시행일: 20250101\n`);
       if (a.query === oldLaw) return text(`「${oldLaw}」은(는) 옛 법령명입니다. 현행은 「${newLaw}」(법령ID 001827, MST ${mst})\n1. ${newLaw} [현행]\n   - 법령ID: 001827\n   - MST: ${mst}\n   - 공포일: 20250101 / 시행일: 20250101\n`);
       return text(`1. ${a.query} [현행]\n   - 법령ID: 001565\n   - MST: ${mst}\n   - 공포일: 20250101 / 시행일: 20250101\n`);
     }
@@ -192,6 +196,27 @@ async function main() {
     assert.match(raw.content[0].text, /같은 번호 조문/);
     const warm = await call('get_rule_references', {law_id: 2, article: 3, include_law_text: true});
     assert.deepEqual(warm.data.lawTexts.laws[0].warnings, law.warnings);
+  });
+
+  await check('I1 MCP: 문장 접속사와 같은 법·동법이 기존 두 조문 조회를 깨뜨리지 않음', async () => {
+    const official='국가를 당사자로 하는 계약에 관한 법률';
+    seed('history','3',[{historyId:20,revisedAt:'2026.09.01'}]);
+    seed('content-v4','3_20',{title:'합성규정2',markdown:[
+      '### 제1조(계약)',`계약절차는 내부지침 및 ${official} 제7조 및 같은 법 제8조에 따른다.`,
+      '### 제2조(노조)','교원의 노동조합설립 및 운영 등에 관한 법률 제5조 및 동법 제6조에 따른다.',
+    ].join('\n')});
+    for(const [article,name] of [[1,official],[2,'운영 등에 관한 법률']]){
+      const cold=await call('get_rule_references',{law_id:3,article,include_law_text:true});
+      const d=cold.data;
+      assert.deepEqual([d.evidenceStatus,d.lawTexts.status],['retrieved','retrieved']);
+      assert.equal(d.externalLaws[0].lawName,name);assert.equal(d.externalLaws[0].nameGuessed,true);
+      assert(d.references.every(x=>x.name===name&&x.nameExtended));
+      assert.equal(d.lawTexts.laws.length,2);
+      assert(d.lawTexts.laws.every(x=>x.status==='retrieved'&&x.source.lawName===(article===1?official:'교원의 노동조합 설립 및 운영 등에 관한 법률')));
+      const calls=lawCalls.length;
+      const warm=await call('get_rule_references',{law_id:3,article,include_law_text:true});
+      assert.equal(warm.data.lawTexts.status,'retrieved');assert.equal(lawCalls.length,calls);
+    }
   });
 
   await check('서비스 정보에 연계 상태', async () => {

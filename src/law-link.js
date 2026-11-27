@@ -39,7 +39,7 @@ function planRequests(externalLaws) {
     if (!law.confirmedLawName) { skipped.push({ lawName: law.lawName, reason: 'LAW_NAME_UNCONFIRMED' }); continue; }
     if (!law.articles.length) { skipped.push({ lawName: law.lawName, reason: 'NO_ARTICLE_CITED' }); continue; }
     for (const article of law.articles) {
-      if (requests.length < MAX_LAW_ARTICLES) requests.push({ law_name: law.lawName, article, ...(law.nameGuessed ? { suffixMatch: true } : {}) });
+      if (requests.length < MAX_LAW_ARTICLES) requests.push({ law_name: law.lawName, article, ...(law.nameGuessed ? { suffixMatch: true, ...(law.nameCandidate ? { nameCandidate: law.nameCandidate } : {}) } : {}) });
       else skipped.push({ lawName: law.lawName, article, reason: 'LIMIT' });
     }
   }
@@ -64,7 +64,7 @@ async function fetchCitedLaws(externalLaws, { profile, cached, queryLegalReferen
     laws.push(entry);
     const remaining = deadline - Date.now();
     if (remaining < 1000) { entry.code = 'LEGAL_TOTAL_TIMEOUT'; continue; }
-    const key = crypto.createHash('md5').update(['identity-v2', normalizeName(request.law_name), request.suffixMatch === true, request.article, today()].join('|')).digest('hex');
+    const key = crypto.createHash('md5').update(['identity-v3', normalizeName(request.law_name), request.suffixMatch === true, request.nameCandidate || '', request.article, today()].join('|')).digest('hex');
     let result;
     try {
       result = await cached('law-link', key, CACHE_SECONDS, async () => {
