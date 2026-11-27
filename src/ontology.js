@@ -179,9 +179,15 @@ function placeOf(title) {
 // the question names, negative when it is written for a place the question leaves out, and 0
 // for a university-wide rule (취업규칙 still answers a WISE question when no WISE edition
 // exists) or when the question names no place.
+// A rule for another campus, or for another institution than the one asked, is negative
+// whatever else agrees: "WISE캠퍼스 산학협력단 취업규칙" is not a neutral rule for a question
+// about 서울캠퍼스 산학협력단.
 function placeAgreement(title, request) {
   if (!request?.specified) return 0;
   const rule = placeOf(title);
+  const clash = (named, asked) => named.length > 0 && asked.length > 0 && !named.some(id => asked.includes(id));
+  const clashes = Number(clash(rule.campus, request.campuses)) + Number(clash(rule.institution, request.institutions));
+  if (clashes) return -clashes;
   let agreement = 0;
   for (const campus of rule.campus) {
     if (request.campuses.includes(campus)) agreement += 1;

@@ -97,6 +97,27 @@ check('hybrid: 서울캠퍼스를 물으면 WISE 규정은 뒤로', () => {
   assert.deepEqual(titles(other), ['대관 규정', 'WISE캠퍼스 공동묘지 관리규정']);
   assert.equal(other.ranked[1].scopeMatch, false);
 });
+check('hybrid: 다른 캠퍼스·다른 기관의 규정은 다른 축이 맞아도 불일치(레드팀 I04)', () => {
+  const place = question => ontology.placeRequest(question);
+  // Campus differs, institution agrees: was 0 (neutral) while the two cancelled.
+  assert.equal(ontology.placeAgreement('WISE캠퍼스 산학협력단 취업규칙', place('서울캠퍼스 산학협력단 직원 병가')), -1);
+  // Campus agrees, another institution than the asked one.
+  assert.equal(ontology.placeAgreement('WISE캠퍼스 의료원 취업규칙', place('WISE캠퍼스 산학협력단 직원 병가')), -1);
+  assert.equal(ontology.placeAgreement('의료원 취업규칙', place('서울캠퍼스 산학협력단 직원 병가')), -1);
+  assert.equal(ontology.placeAgreement('WISE캠퍼스 의료원 취업규칙', place('서울캠퍼스 산학협력단 직원 병가')), -2);
+  // Unchanged readings.
+  assert.equal(ontology.placeAgreement('WISE캠퍼스 산학협력단 취업규칙', place('WISE캠퍼스 산학협력단 직원 병가')), 2);
+  assert.equal(ontology.placeAgreement('산학협력단 취업규칙', place('서울캠퍼스 산학협력단 직원 병가')), 1);
+  assert.equal(ontology.placeAgreement('WISE캠퍼스 산학협력단 취업규칙', place('경주캠퍼스 직원 병가')), 0);
+  assert.equal(ontology.placeAgreement('취업규칙', place('서울캠퍼스 산학협력단 직원 병가')), 0);
+  assert.equal(ontology.placeAgreement('WISE캠퍼스 산학협력단 취업규칙', place('직원 병가')), 0);
+  // The red team's candidates: the Seoul question no longer keeps the WISE edition as neutral.
+  const result = rank('서울캠퍼스 산학협력단 직원 병가', [candidate('WISE캠퍼스 산학협력단 취업규칙', 10), candidate('취업규칙', 9)], { method: 'hybrid' });
+  assert.deepEqual(result.ranked.map(hit => [hit.title, hit.scopeMatch]), [['취업규칙', null]]);
+  // With no other edition in the family it stays a candidate, marked and weighed as another place's rule.
+  const alone = rank('서울캠퍼스 산학협력단 직원 병가', [candidate('WISE캠퍼스 산학협력단 취업규칙', 10), candidate('복무규정', 7)], { method: 'hybrid' });
+  assert.deepEqual(alone.ranked.map(hit => [hit.title, hit.scopeMatch, hit.order]), [['복무규정', null, 7], ['WISE캠퍼스 산학협력단 취업규칙', false, 6]]);
+});
 check('hybrid: 도구의 campus 인수도 범위로 읽음', () => {
   assert.deepEqual(titles(rank('구매 계약', purchasing(), { method: 'hybrid', campus: 'wise' })), ['WISE캠퍼스 구매규정', '취업규칙', 'WISE캠퍼스 대관 규정']);
 });
