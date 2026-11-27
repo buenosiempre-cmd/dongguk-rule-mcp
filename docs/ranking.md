@@ -67,4 +67,4 @@ node scripts/measure-natural-language.js --cache <캐시 사본> --questions 문
 
 ## 본문 판 보강 실험
 
-`hybrid-scope`는 기존 판 선택에 `scope.js`의 선택적 agreement 콜백만 넘긴다. 알고리즘·배수·기본 legacy·기존 hybrid는 유지한다. 목적/적용범위의 명시적 캠퍼스·기관 근거를 보강하되 판정이 없으면 제목 기반으로 폴백한다. 자세한 추출 규칙·실험 제한·재현은 [body-scope.md](body-scope.md). 공통 캐시 전환 전에는 개발 판정표만 만들며 검색 효과는 미측정이다.
+방식은 `hybrid`로 두고 측정용 `DONGGUK_MCP_MEASURE_SCOPE=body|exclude`로 index.js 호출부에서 `createScopeSignal({corpus,mode}).agreement`를 `placeAgreementOf`에 연결한다. `body`는 기존 판정, `exclude`는 본문 단일 캠퍼스의 명시적 불일치에만 음수를 내고 나머지는 null로 제목 판독에 맡긴다. 추출·판정표는 같고 fusion 알고리즘·배수·기본 legacy는 유지한다. 기존 `hybrid-scope` 방식 이름은 제거했다.

@@ -74,17 +74,28 @@ function scopeAgreement(scope, request, title) {
   else if(institutions.length===1)score+=request.institutions.includes(institutions[0])?1:-1;
   return score;
 }
-function createScopeSignal({corpus}={}) {
+// Exclude-only: only an explicit BODY campus mismatch supplies a penalty.
+// Matching/unknown scopes fall back to the title, preserving its existing signal.
+function excludeScopeAgreement(scope, request, title) {
+  if(!scope||!request?.specified||request.ambiguous||!request.campuses.length)return null;
+  if(scope.campus.source!=='body'||scope.campus.values.length!==1)return null;
+  if(request.campuses.includes(scope.campus.values[0]))return null;
+  return Math.min(-1,placeAgreement(title,request));
+}
+function createScopeSignal({corpus,mode='body'}={}) {
   try {
+    if(!['body','exclude'].includes(mode))return null;
     if(corpus===undefined)corpus=loadCorpus(path.join(process.env.XDG_CACHE_HOME||path.join(os.homedir(),'.cache'),'dongguk-rule-mcp/v2/public'));
     if(!corpus||!Array.isArray(corpus.rules))return null;
     let rows=memo.get(corpus);
     if(!rows){rows=new Map(corpus.rules.map(rule=>[rule.lawId,inferRuleScope(rule)]));memo.set(corpus,rows);}
     return {rows:()=>[...rows.values()],of:lawId=>rows.get(lawId)||null,agreement(member,request){
       const row=rows.get(member.lawId);
-      if(!row||row.title!==member.title||(member.historyId&&row.historyId!==member.historyId))return placeAgreement(member.title,request);
+      if(!row||row.title!==member.title||(member.historyId&&row.historyId!==member.historyId))return null;
+      if(mode==='exclude')return excludeScopeAgreement(row,request,member.title);
+      if(!['campus','institution'].some(axis=>row[axis].source==='body'))return null;
       return scopeAgreement(row,request,member.title);
     }};
   } catch {return null;}
 }
-module.exports={inferRuleScope,scopeAgreement,createScopeSignal};
+module.exports={inferRuleScope,scopeAgreement,excludeScopeAgreement,createScopeSignal};

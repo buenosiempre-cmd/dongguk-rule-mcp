@@ -16,7 +16,7 @@ function parseExpected(argv){
 }
 async function main(argv=process.argv.slice(2)){
   const {args,expected}=parseExpected(argv),measure=require('./measure-natural-language'),options=measure.parseArgs(args);
-  if(!['hybrid','hybrid-scope'].includes(options.ranking)||!options.out||fs.existsSync(options.out))throw new Error('NEW_OUTPUT_AND_COMPARISON_METHOD_REQUIRED');
+  if(options.ranking!=='hybrid'||!options.out||fs.existsSync(options.out))throw new Error('NEW_OUTPUT_AND_COMPARISON_METHOD_REQUIRED');
   const publicDir=path.join(path.resolve(options.cache),'dongguk-rule-mcp/v2/public'),corpusFile=path.join(publicDir,'corpus/corpus-v1.json');
   const bytes=fs.readFileSync(corpusFile),corpus=JSON.parse(bytes),corpusHash=sha(bytes);
   if(corpusHash!==expected['--expected-corpus-sha'])throw new Error('COMMON_CORPUS_MISMATCH');
@@ -31,7 +31,7 @@ async function main(argv=process.argv.slice(2)){
   if(sha(fs.readFileSync(corpusFile))!==corpusHash)throw new Error('CORPUS_CHANGED');
   for(const source of sources)if(sha(fs.readFileSync(source.file))!==source.sha256)throw new Error('QUESTIONS_CHANGED');
   const {inferRuleScope}=require('../src/scope');
-  Object.assign(report,{provenance:{gitHead:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),corpusHash,vectorHash:meta.vectorHash,vectorFile:meta.vectorFile,textVersion:meta.textVersion,sources,queryOnly:options.queryOnly,
+  Object.assign(report,{provenance:{scopeMode:process.env.DONGGUK_MCP_MEASURE_SCOPE||null,gitHead:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),corpusHash,vectorHash:meta.vectorHash,vectorFile:meta.vectorFile,textVersion:meta.textVersion,sources,queryOnly:options.queryOnly,
     sourceHashes:Object.fromEntries(['src/scope.js','src/fusion.js','src/ontology.js','src/data/ontology.json','src/index.js','src/corpus.js'].map(f=>[f,sha(fs.readFileSync(path.join(__dirname,'..',f)))]))},scopeDecisions:corpus.rules.map(inferRuleScope)});
   fs.writeFileSync(options.out,JSON.stringify(report)+'\n');
 }
