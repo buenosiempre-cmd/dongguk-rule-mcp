@@ -2554,6 +2554,17 @@
       "id": "label-002",
       "kind": "subject",
       "everyday": [
+        "계약직"
+      ],
+      "rule": [
+        "한시계약직",
+        "계약직"
+      ]
+    },
+    {
+      "id": "label-003",
+      "kind": "subject",
+      "everyday": [
         "무기직",
         "공무직"
       ],
@@ -2562,7 +2573,7 @@
       ]
     },
     {
-      "id": "label-003",
+      "id": "label-004",
       "kind": "subject",
       "everyday": [
         "포닥",
@@ -2573,7 +2584,7 @@
       ]
     },
     {
-      "id": "label-004",
+      "id": "label-005",
       "kind": "subject",
       "everyday": [
         "임상교수"
@@ -2583,9 +2594,23 @@
       ]
     },
     {
-      "id": "label-005",
+      "id": "label-006",
       "kind": "subject",
       "everyday": [
+        "겸임교수",
+        "초빙교수",
+        "객원교수",
+        "석좌교수"
+      ],
+      "rule": [
+        "비전임교원"
+      ]
+    },
+    {
+      "id": "label-007",
+      "kind": "subject",
+      "everyday": [
+        "유학생",
         "외국인학생"
       ],
       "rule": [
@@ -2594,7 +2619,7 @@
       ]
     },
     {
-      "id": "label-006",
+      "id": "label-008",
       "kind": "subject",
       "everyday": [
         "새내기"
@@ -2604,7 +2629,7 @@
       ]
     },
     {
-      "id": "label-007",
+      "id": "label-009",
       "kind": "subject",
       "everyday": [
         "의대생"
@@ -2614,7 +2639,7 @@
       ]
     },
     {
-      "id": "label-008",
+      "id": "label-010",
       "kind": "subject",
       "everyday": [
         "기숙사생"
@@ -2624,9 +2649,10 @@
       ]
     },
     {
-      "id": "label-009",
+      "id": "label-011",
       "kind": "subject",
       "everyday": [
+        "운동부",
         "운동선수"
       ],
       "rule": [
@@ -2635,7 +2661,17 @@
       ]
     },
     {
-      "id": "label-010",
+      "id": "label-012",
+      "kind": "body",
+      "everyday": [
+        "의대"
+      ],
+      "rule": [
+        "의과대학"
+      ]
+    },
+    {
+      "id": "label-013",
       "kind": "body",
       "everyday": [
         "한의대"
@@ -2645,7 +2681,7 @@
       ]
     },
     {
-      "id": "label-011",
+      "id": "label-014",
       "kind": "body",
       "everyday": [
         "의전원"
@@ -2655,7 +2691,20 @@
       ]
     },
     {
-      "id": "label-012",
+      "id": "label-015",
+      "kind": "body",
+      "everyday": [
+        "상담센터",
+        "심리상담"
+      ],
+      "rule": [
+        "카운슬링센터",
+        "학생상담센터",
+        "상담"
+      ]
+    },
+    {
+      "id": "label-016",
       "kind": "body",
       "everyday": [
         "보건소",
@@ -2668,9 +2717,10 @@
       ]
     },
     {
-      "id": "label-013",
+      "id": "label-017",
       "kind": "body",
       "everyday": [
+        "학군단",
         "ROTC"
       ],
       "rule": [
@@ -2678,7 +2728,7 @@
       ]
     },
     {
-      "id": "label-014",
+      "id": "label-018",
       "kind": "body",
       "everyday": [
         "노조"
@@ -2688,7 +2738,17 @@
       ]
     },
     {
-      "id": "label-015",
+      "id": "label-019",
+      "kind": "body",
+      "everyday": [
+        "총학"
+      ],
+      "rule": [
+        "총학생회"
+      ]
+    },
+    {
+      "id": "label-020",
       "kind": "body",
       "everyday": [
         "어학당",
@@ -2699,7 +2759,7 @@
       ]
     },
     {
-      "id": "label-016",
+      "id": "label-021",
       "kind": "body",
       "everyday": [
         "영재원"
@@ -2709,7 +2769,7 @@
       ]
     },
     {
-      "id": "label-017",
+      "id": "label-022",
       "kind": "body",
       "everyday": [
         "법당"
@@ -2719,7 +2779,7 @@
       ]
     },
     {
-      "id": "label-018",
+      "id": "label-023",
       "kind": "thing",
       "everyday": [
         "킥보드",
@@ -2734,7 +2794,7 @@
       ]
     },
     {
-      "id": "label-019",
+      "id": "label-024",
       "kind": "thing",
       "everyday": [
         "헬멧",
@@ -2745,7 +2805,17 @@
       ]
     },
     {
-      "id": "label-020",
+      "id": "label-025",
+      "kind": "thing",
+      "everyday": [
+        "술"
+      ],
+      "rule": [
+        "음주"
+      ]
+    },
+    {
+      "id": "label-026",
       "kind": "thing",
       "everyday": [
         "담배"
@@ -2755,7 +2825,19 @@
       ]
     },
     {
-      "id": "label-021",
+      "id": "label-027",
+      "kind": "thing",
+      "everyday": [
+        "전염병",
+        "감염병"
+      ],
+      "rule": [
+        "전염성",
+        "감염병"
+      ]
+    },
+    {
+      "id": "label-028",
       "kind": "thing",
       "everyday": [
         "온라인수업",
@@ -2772,7 +2854,7 @@
       ]
     },
     {
-      "id": "label-022",
+      "id": "label-029",
       "kind": "thing",
       "everyday": [
         "졸업작품"
@@ -2782,7 +2864,20 @@
       ]
     },
     {
-      "id": "label-023",
+      "id": "label-030",
+      "kind": "thing",
+      "everyday": [
+        "특허",
+        "저작권"
+      ],
+      "rule": [
+        "지식재산권",
+        "산업재산권",
+        "직무발명"
+      ]
+    },
+    {
+      "id": "label-031",
       "kind": "thing",
       "everyday": [
         "자기표절",
@@ -2793,7 +2888,7 @@
       ]
     },
     {
-      "id": "label-024",
+      "id": "label-032",
       "kind": "thing",
       "everyday": [
         "명퇴",
@@ -2804,7 +2899,7 @@
       ]
     },
     {
-      "id": "label-025",
+      "id": "label-033",
       "kind": "thing",
       "everyday": [
         "마이크로디그리",
@@ -2816,7 +2911,7 @@
       ]
     },
     {
-      "id": "label-026",
+      "id": "label-034",
       "kind": "thing",
       "everyday": [
         "복사",
@@ -2827,7 +2922,7 @@
       ]
     },
     {
-      "id": "label-027",
+      "id": "label-035",
       "kind": "thing",
       "everyday": [
         "카드키"
@@ -2837,7 +2932,7 @@
       ]
     },
     {
-      "id": "label-028",
+      "id": "label-036",
       "kind": "thing",
       "everyday": [
         "차점자",
@@ -2849,7 +2944,7 @@
       ]
     },
     {
-      "id": "label-029",
+      "id": "label-037",
       "kind": "thing",
       "everyday": [
         "방사능"
