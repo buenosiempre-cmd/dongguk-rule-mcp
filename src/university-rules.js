@@ -119,11 +119,25 @@ function latestAddendaEffective(markdown) {
   const heads = [...source.matchAll(/^#{0,3}\s*부\s*칙.*$/gm)];
   if (!heads.length) return null;
   const last = source.slice(heads[heads.length - 1].index);
-  const re = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*시행/;
-  const m = re.exec(last);
-  if (!m) return null;
-  const found = extractEnforcementDates(m[0]);
-  return found.length ? found[0].iso : null;
+  const datePattern = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*(?:개정\s*)?시행/g;
+  const dates = new Set();
+  let previousEnd = 0;
+  for (const match of last.matchAll(datePattern)) {
+    const prefix = last.slice(previousEnd, match.index).replace(/\s+/g, '');
+    previousEnd = match.index + match[0].length;
+    // A separate date for an explicitly named provision is not the rule's date.
+    // Keep the existing general date + "다만 제7조는 ..." behavior.
+    if (/제\d+조(?:의\d+)?(?:제\d+항)?(?:의규정)?(?:은|는)$/.test(prefix)) continue;
+    const found = extractEnforcementDates(match[0].replace(/개정\s*시행$/, '시행'));
+    if (found.length !== 1) return null;
+    dates.add(found[0].iso);
+  }
+  // A later undated commencement must not silently reuse an earlier dated one.
+  const generalClauses = last.match(/(?:이|본)\s*(?:개정\s*)?(?:규정|지침|규칙|세칙|내규|학칙|규약|요령|기준)\s*(?:은|는)[\s\S]*?시행(?:한다|함)/g) || [];
+  if (generalClauses.some(clause => !new RegExp(datePattern.source).test(clause))) return null;
+  // Several general commencement dates in one addendum do not establish which
+  // revision is current. Do not guess by picking the first, last or maximum.
+  return dates.size === 1 ? [...dates][0] : null;
 }
 
 function ruleTitleScore(title, terms, hints) {
