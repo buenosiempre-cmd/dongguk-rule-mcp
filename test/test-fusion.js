@@ -146,13 +146,14 @@ check('jev: 확률이 오면 확률 순서, 없으면 hybrid', () => {
 console.log('측정 요약');
 check('요약: 규정 선택과 조문 선택을 나눠 세고 세트별로 냄', () => {
   const rows = [
-    { id: 'A1', set: 'a', answered: true, ruleInTop3: true, ruleFirst: true, rulesShown: 1, ms: 10 },
+    { id: 'A1', set: 'a', answered: true, ruleInTop3: true, ruleFirst: true, rulesShown: 1, semantic: true, ms: 10 },
     { id: 'A2', set: 'a', answered: false, ruleInTop3: true, ruleFirst: false, rulesShown: 3, ms: 30 },
-    { id: 'B1', set: 'b', answered: false, ruleInTop3: false, ruleFirst: false, rulesShown: 1, ms: 20 },
+    { id: 'B1', set: 'b', answered: false, ruleInTop3: false, ruleFirst: false, rulesShown: 1, error: 'NOT_FOUND', ms: 20 },
   ];
   const { total, sets } = summarize(rows);
   assert.deepEqual([total.questions, total.answered, total.ruleInTop3, total.articleGivenRule, total.singleRule, total.singleRuleRight, total.singleRuleAnswered], [3, 1, 2, 1, 2, 1, 1]);
   assert.equal(total.answeredShare, 33.3);
+  assert.deepEqual([total.semanticUsed, total.errors, sets.a.semanticUsed, sets.b.errors], [1, 1, 1, 1]);
   assert.equal(total.articleGivenRuleShare, 50);
   assert.deepEqual([total.medianMs, total.p95Ms], [20, 30]);
   assert.equal(sets.a.questions, 2);
@@ -177,7 +178,9 @@ const aliases = require('../src/aliases');
 const { queryContentTokens } = require('../src/lookup');
 check('이름 사전: 대상·기관·사물의 일상어가 규정 용어로 이어지고 기존 사전 묶음은 그대로', () => {
   assert(aliases.businessTerms('미화원').includes('미화직'));
-  assert(aliases.businessTerms('상담센터').includes('카운슬링센터'));
+  assert(aliases.businessTerms('한의대').includes('한의과대학'));
+  // Words the rule book itself uses are not given extra forms.
+  assert.deepEqual(aliases.businessTerms('특허'), ['특허']);
   assert(aliases.businessTerms('킥보드').includes('개인형 이동장치'));
   assert.deepEqual(aliases.businessTerms('월급'), ['월급', '보수', '급여']);
   assert.equal(aliases.CONCEPT_GROUPS.length, ontology.data.concepts.length);
@@ -195,10 +198,9 @@ check('이름 사전 자료가 잘못되면 내장 기본값으로', () => {
   assert.throws(() => ontology.validateData({ ...ontology.data, scopes: ontology.data.scopes.map(item => item.id === 'medical' ? { ...item, place: { ask: '[', title: 'x' } } : item) }));
   assert.throws(() => ontology.validateData({ ...ontology.data, bodySubject: { ...ontology.data.bodySubject, terms: { 없는대상: 'x' } } }));
 });
-check('조사 둘이 겹친 낱말에서 명사만 남기고, 한 글자 명사 술을 읽음', () => {
+check('조사 둘이 겹친 낱말에서 명사만 남김', () => {
   assert(queryContentTokens('교수학습혁신센터에는 어떤 사람들이 일해').includes('교수학습혁신센터'));
   assert(queryContentTokens('직원에게도 수당을 줘').includes('직원'));
-  assert(queryContentTokens('기숙사 방에서 술 마셔도 돼').includes('술'));
 });
 check('뭐 하는 곳인지 묻는 질문은 기능·직능 조문, 뽑힐 수 없는 사람은 결격사유', () => {
   assert(aliases.headingCueStrength('산학기획위원회는 뭐 하는 곳이야', '기능') > 0);

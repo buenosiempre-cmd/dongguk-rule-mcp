@@ -209,8 +209,9 @@ function containsTerm(text, term) {
   return other ? text.replace(other, '').includes(term) : true;
 }
 // Everyday names of people, bodies and things that rules call something else (미화원 → 미화직,
-// 상담센터 → 카운슬링센터, 킥보드 → 개인형 이동장치). Kept apart from the concept groups above:
-// each entry names a class of the ontology, and every rule term occurs in the rule book.
+// 한의대 → 한의과대학, 킥보드 → 개인형 이동장치). Kept apart from the concept groups above: each
+// entry names a class of the ontology, the everyday name is one the rule book hardly uses, and
+// every rule term occurs in the rule book.
 const LABEL_VOCABULARY = new Map();
 for (const { everyday, rule } of ontologyData.labels || []) {
   for (const word of everyday) LABEL_VOCABULARY.set(word, [...new Set([...(LABEL_VOCABULARY.get(word) || []), ...rule.filter(term => term !== word)])]);

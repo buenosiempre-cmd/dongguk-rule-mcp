@@ -402,7 +402,7 @@ const NOUN_ENDING_DO = /(?:연도|년도|제도|한도|용도|양도|빈도|정�
 const SUBJECTS_BEFORE_GA = new Set(['교수', '강사', '조교', '부서', '학교', '이사', '감사', '회계', '근로자']);
 
 // One-syllable nouns that carry the topic of a question ("책 연체", "상 받을 때").
-const ONE_SYLLABLE_NOUNS = new Set(['책', '상', '돈', '술']);
+const ONE_SYLLABLE_NOUNS = new Set(['책', '상', '돈']);
 // A counter with its particle ("시부터야", "년이", "명까지") is not a topic word.
 const COUNTER_REMNANT = /^(?:시|분|일|년|월|주|번|회|명|개|살|점|원|배)(?:부터|까지|동안|이나|씩|마다|이내|안에)?(?:이|야|이야|이에요|예요|인가요|이죠|인지)?$/;
 function contentToken(raw) {
