@@ -9,7 +9,7 @@
 //  5) 유사 규정만 검색되면(포함관계 없음) 무관 규정을 근거로 판정하지 않음
 
 const { normalizeMiddots } = require('./aliases.js');
-const { listArticleBlocks } = require('./parsers.js');
+const { listArticleBlocks, normalizeArticleSelector, supplementarySelector } = require('./parsers.js');
 const { searchVariants, selectRuleCandidate } = require('./lookup.js');
 
 const NAME_SUFFIX = '(?:시행세칙|규정|규칙|세칙|학칙|정관|지침|내규|요령|헌장)';
@@ -19,7 +19,7 @@ const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 
 // 제N조(의M)(제목)(제P항) — "제15조제1항", "제10조의2 (겸직)" 등 허용
 const ARTICLE_RE = new RegExp(
-  '(부\\s*칙\\s*)?제\\s*(\\d{1,3})\\s*조(?:\\s*의\\s*(\\d{1,2}))?' +
+  '(부\\s*칙(?:(?!제\\s*\\d+\\s*조|[「」])[\\s\\S])*)?제\\s*(\\d{1,3})\\s*조(?:\\s*의\\s*(\\d{1,2}))?' +
   '(?:\\s*\\(([^)\\n]{1,40})\\))?' +
   '(?:\\s*제\\s*(\\d{1,2})\\s*항)?',
   'g'
@@ -148,7 +148,11 @@ function extractRuleCitations(text) {
       const citedTitle = rawParen && !isAnnotationParen(rawParen) ? rawParen : null;
       const hang = m[5] ? parseInt(m[5], 10) : null;
       if (!number) continue;
-      const canonical = `${supplementary ? '부칙 ' : ''}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      // Consume the complete addendum prefix before interpreting it. An invalid
+      // date/prefix must never fall through to a main-body article match.
+      const selectorText = `${m[1] || ''}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      const selector = normalizeArticleSelector(selectorText);
+      const canonical = selector?.label || selectorText.trim();
       const raw = m[0].replace(/\s+/g, ' ').trim();
 
       // 같은 문단에서 이 조문 앞에 있는 가장 가까운 멘션에 결속
@@ -172,7 +176,8 @@ function extractRuleCitations(text) {
         raw: `${owner.kind === 'anaphora' ? owner.raw : owner.resolved} ${raw}`,
         ruleName: owner.resolved,
         anaphora: owner.kind === 'anaphora',
-        article: { number, subNumber, supplementary, canonical },
+        article: { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical },
+        selectorUnverified: !selector,
         hang, citedTitle,
       });
     }
@@ -277,6 +282,9 @@ function headingTitleOf(block) {
 
 // 인용 1건 판정
 function judgeCitation(citation, rec) {
+  if (citation.selectorUnverified) {
+    return { status: 'ARTICLE_SELECTOR_UNVERIFIED', symbol: '⚠', note: '부칙 날짜·조문 선택자를 해석할 수 없음 — 원문 위치 확인 필요' };
+  }
   if (!rec || rec.status === 'skipped') {
     return { status: 'RULE_SKIPPED', symbol: '⚠', note: '규정 수 상한 초과로 이번 호출에서는 검증 생략' };
   }
@@ -304,7 +312,7 @@ function judgeCitation(citation, rec) {
     return { status: 'RULE_EXISTS', symbol: '✓', note: `규정 실존 — ${rec.hit.title} (LAW_ID ${rec.hit.lawId})` };
   }
 
-  const { number, subNumber, supplementary, canonical } = citation.article;
+  const { number, subNumber, supplementary, supplementaryDate, canonical } = citation.article;
   if (!rec.blocks.length) {
     return { status: 'RULE_CONTENT_UNAVAILABLE', symbol: '⚠', note: '조문 구조를 확인할 수 없어 미존재 판정 불가 — 공식 원문 확인 필요' };
   }
@@ -312,6 +320,9 @@ function judgeCitation(citation, rec) {
   matches = supplementary
     ? matches.filter(b => b.supplementary)
     : (matches.some(b => !b.supplementary) ? matches.filter(b => !b.supplementary) : []);
+  if (supplementaryDate) {
+    matches = matches.filter(b => normalizeArticleSelector(supplementarySelector(b))?.supplementaryDate === supplementaryDate);
+  }
   const block = matches[0];
 
   if (matches.length > 1) {
