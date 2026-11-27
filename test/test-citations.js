@@ -388,6 +388,25 @@ const deps = {
     }
   }
 
+  for (const particle of ['만', '도', '은', '는', '을', '를', '의', '에', '까지', '부터', '에서', '으로',
+    '에는', '에서도', '에서만', '까지만', '까지도', '부터는', '만은', '만을', '만의', '만으로', '에게도', '으로만']) {
+    for (const scope of ['제1조 제1항 99호', '제1조제1항제1호가목', '제1조 제1항 "가"목', '제1조 제1항 제1호 가목']) {
+      const input = `「검수규정」 ${scope}${particle} 적용한다.`;
+      const result = await verifyRuleCitations(input, suffixDeps);
+      const citation = result.citations[0];
+      check(`R3 상세 인용 뒤 조사: ${scope}${particle}`, result.citations.length === 1
+        && citation.status === 'UNSUPPORTED_CITATION' && result.summary.verified === 0
+        && result.summary.needsReview === 1 && citation.originalRange.text === scope
+        && input.slice(citation.originalRange.start, citation.originalRange.end) === scope
+        && citation.unsupportedReasons.includes('UNSUPPORTED_DETAIL'), JSON.stringify(result.citations));
+    }
+    for (const noun of ['99호실', '다목적실']) {
+      const result = await verifyRuleCitations(`「검수규정」 제1조 제1항에 따라 ${noun}${particle} 사용한다.`, suffixDeps);
+      check(`R3 조사 붙은 일반 명사 보존: ${noun}${particle}`, result.citations.length === 1
+        && result.citations[0].status === 'EXISTS' && result.summary.verified === 1 && result.summary.needsReview === 0);
+    }
+  }
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📊 인용 검증: ${pass}개 통과 / ${fail}개 실패`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
