@@ -1,0 +1,789 @@
+{
+  "baselineCommit": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+  "experimentCommit": "c47b3f5c52d13fafedcd1294b0afc88d214f6fee",
+  "corpusSha256": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+  "vectorFile": "semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin",
+  "vectorSha256": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e",
+  "textVersion": 3,
+  "sourceUnchanged": true,
+  "sourceHashes": {
+    "/Users/bueno/Documents/Codex/d1-artifacts-20261127/rebuilt/dongguk-rule-mcp/v2/public/corpus/corpus-v1.json": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+    "/Users/bueno/Documents/Codex/d1-artifacts-20261127/rebuilt/dongguk-rule-mcp/v2/public/semantic/semantic-v1.json": "c90991991401d6f1f08f2b62006cbb5648ecb41b3a0e549a543ceb7b1a22e983",
+    "/Users/bueno/Documents/Codex/d1-artifacts-20261127/rebuilt/dongguk-rule-mcp/v2/public/semantic/semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e"
+  },
+  "artifacts": {
+    "public-off": {
+      "jsonSha256": "1d5672431c5cd652e3b2d5be1919ff9226af0122a1f23fa71df4fed96393b6a5",
+      "gzipSha256": "77cfa4f61a3d90227b89cb8248cd2fc046a9ba51df1157df646c1eed70dbd5ae",
+      "bytes": 1421485,
+      "gzipBytes": 291593
+    },
+    "public-on": {
+      "jsonSha256": "da48e9667fa0cfd325b7e3bdc7dc3e53543d15854f29fd6fbf5f773ca07a707b",
+      "gzipSha256": "e21500e1b488ce0e56ed306c2e1839a5e608b4496cafad13069b5ca42bf0ae33",
+      "bytes": 1499210,
+      "gzipBytes": 310887
+    },
+    "dense-signals": {
+      "jsonSha256": "65210888e7eb2952095edafb1d19ada94edcfd7b08f2c29386773ad6e37dde1f",
+      "gzipSha256": "45ac321207a578e43d2af1a733df0b5ddd76f3fe70f0e4556fe07f1c398b16cd",
+      "bytes": 3472609,
+      "gzipBytes": 311428
+    }
+  },
+  "production": {
+    "public-off": {
+      "beforeCommit": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+      "afterCommit": "39956e2bb66e1d18859eb83adcc83bc231fd118f",
+      "before": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 6,
+          "meanRules": 2.352112676056338,
+          "meanCharacters": 3978.225352112676
+        },
+        "total": 71,
+        "scored": 71,
+        "bodyIncluded": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top3": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top1": {
+          "hits": 62,
+          "total": 71,
+          "rate": 0.8732394366197183
+        },
+        "medianMs": 33.645166000000245,
+        "p95Ms": 1003.3000420000003,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "articleGivenTop3": {
+          "hits": 70,
+          "total": 70,
+          "rate": 1
+        }
+      },
+      "after": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 6,
+          "meanRules": 2.352112676056338,
+          "meanCharacters": 3978.225352112676
+        },
+        "total": 71,
+        "scored": 71,
+        "bodyIncluded": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top3": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top1": {
+          "hits": 62,
+          "total": 71,
+          "rate": 0.8732394366197183
+        },
+        "medianMs": 33.92829199999687,
+        "p95Ms": 1007.1872089999997,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "articleGivenTop3": {
+          "hits": 70,
+          "total": 70,
+          "rate": 1
+        }
+      },
+      "splits": {
+        "train": {
+          "excerptQuality": {
+            "enforcementHeadingRules": 0,
+            "enforcementHeadingQuestions": 0,
+            "shortExpectedRules": 4,
+            "meanRules": 2.391304347826087,
+            "meanCharacters": 3569.891304347826
+          },
+          "total": 46,
+          "scored": 46,
+          "bodyIncluded": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          },
+          "top3": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          },
+          "top1": {
+            "hits": 40,
+            "total": 46,
+            "rate": 0.8695652173913043
+          },
+          "medianMs": 30.666354000000865,
+          "p95Ms": 1007.1872089999997,
+          "errors": {},
+          "choiceOnly": 0,
+          "strict": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          },
+          "articleGivenTop3": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          }
+        },
+        "dev": {
+          "excerptQuality": {
+            "enforcementHeadingRules": 0,
+            "enforcementHeadingQuestions": 0,
+            "shortExpectedRules": 2,
+            "meanRules": 2.28,
+            "meanCharacters": 4729.56
+          },
+          "total": 25,
+          "scored": 25,
+          "bodyIncluded": {
+            "hits": 24,
+            "total": 25,
+            "rate": 0.96
+          },
+          "top3": {
+            "hits": 24,
+            "total": 25,
+            "rate": 0.96
+          },
+          "top1": {
+            "hits": 22,
+            "total": 25,
+            "rate": 0.88
+          },
+          "medianMs": 375.5445000000036,
+          "p95Ms": 1003.5066670000015,
+          "errors": {},
+          "choiceOnly": 0,
+          "strict": {
+            "hits": 24,
+            "total": 25,
+            "rate": 0.96
+          },
+          "articleGivenTop3": {
+            "hits": 24,
+            "total": 24,
+            "rate": 1
+          }
+        }
+      },
+      "diff": {
+        "strict": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "bodyIncluded": {
+          "newWrong": [],
+          "fixed": []
+        }
+      },
+      "semanticUsedQuestions": 0,
+      "misses": [
+        "H21"
+      ],
+      "referenceV3Hash": "f6e0e75dab20fbb0d6db202f71ee6fe91233785b6368f7b04fc0b6c9f525f18f",
+      "v3OutcomeDifferences": [],
+      "blockedNetworkAttempts": 41,
+      "snapshotFailures": {
+        "OFFLINE_CACHE_MISS": 41
+      }
+    },
+    "public-on": {
+      "beforeCommit": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+      "afterCommit": "39956e2bb66e1d18859eb83adcc83bc231fd118f",
+      "before": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 6,
+          "meanRules": 2.380281690140845,
+          "meanCharacters": 4197.183098591549
+        },
+        "total": 71,
+        "scored": 71,
+        "bodyIncluded": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top3": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top1": {
+          "hits": 61,
+          "total": 71,
+          "rate": 0.8591549295774648
+        },
+        "medianMs": 40.413000000000466,
+        "p95Ms": 1002.9305000000004,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "articleGivenTop3": {
+          "hits": 70,
+          "total": 70,
+          "rate": 1
+        }
+      },
+      "after": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 6,
+          "meanRules": 2.380281690140845,
+          "meanCharacters": 4197.183098591549
+        },
+        "total": 71,
+        "scored": 71,
+        "bodyIncluded": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top3": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "top1": {
+          "hits": 61,
+          "total": 71,
+          "rate": 0.8591549295774648
+        },
+        "medianMs": 41.661958999997296,
+        "p95Ms": 1009.5430830000041,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 70,
+          "total": 71,
+          "rate": 0.9859154929577465
+        },
+        "articleGivenTop3": {
+          "hits": 70,
+          "total": 70,
+          "rate": 1
+        }
+      },
+      "splits": {
+        "train": {
+          "excerptQuality": {
+            "enforcementHeadingRules": 0,
+            "enforcementHeadingQuestions": 0,
+            "shortExpectedRules": 3,
+            "meanRules": 2.391304347826087,
+            "meanCharacters": 3797.804347826087
+          },
+          "total": 46,
+          "scored": 46,
+          "bodyIncluded": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          },
+          "top3": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          },
+          "top1": {
+            "hits": 40,
+            "total": 46,
+            "rate": 0.8695652173913043
+          },
+          "medianMs": 38.14483350000046,
+          "p95Ms": 1003.2689170000012,
+          "errors": {},
+          "choiceOnly": 0,
+          "strict": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          },
+          "articleGivenTop3": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1
+          }
+        },
+        "dev": {
+          "excerptQuality": {
+            "enforcementHeadingRules": 0,
+            "enforcementHeadingQuestions": 0,
+            "shortExpectedRules": 3,
+            "meanRules": 2.36,
+            "meanCharacters": 4932.04
+          },
+          "total": 25,
+          "scored": 25,
+          "bodyIncluded": {
+            "hits": 24,
+            "total": 25,
+            "rate": 0.96
+          },
+          "top3": {
+            "hits": 24,
+            "total": 25,
+            "rate": 0.96
+          },
+          "top1": {
+            "hits": 21,
+            "total": 25,
+            "rate": 0.84
+          },
+          "medianMs": 45.09779199999684,
+          "p95Ms": 1009.5430830000041,
+          "errors": {},
+          "choiceOnly": 0,
+          "strict": {
+            "hits": 24,
+            "total": 25,
+            "rate": 0.96
+          },
+          "articleGivenTop3": {
+            "hits": 24,
+            "total": 24,
+            "rate": 1
+          }
+        }
+      },
+      "diff": {
+        "strict": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "bodyIncluded": {
+          "newWrong": [],
+          "fixed": []
+        }
+      },
+      "semanticUsedQuestions": 71,
+      "misses": [
+        "H21"
+      ],
+      "referenceV3Hash": "8442d6af8e679ff63949f36c2f3dadfe2d967d64095683079e7ebd18ade0642f",
+      "v3OutcomeDifferences": [],
+      "blockedNetworkAttempts": 37,
+      "snapshotFailures": {
+        "OFFLINE_CACHE_MISS": 37
+      }
+    }
+  },
+  "signals": {
+    "scope": "D1 전체 corpus의 dense 후보 신호 실험. 실제 MCP strict70/71 기준선 및 운영 fusion과 다른 지표.",
+    "policy": "동일 query vector 1회, 조문별 max cosine, 규정별 max cosine 상위3, 규정별 증거 상위3; 가중치 조정 없음.",
+    "counts": {
+      "rules": 513,
+      "articles": 9790,
+      "vectors": 11422,
+      "coordinates": 24,
+      "kordoc": 43,
+      "graphNodes": 47,
+      "graphEdges": 46
+    },
+    "summary": {
+      "train": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 46,
+            "top3": 43,
+            "strict": 42,
+            "articleGivenTop3": {
+              "hits": 42,
+              "total": 43
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Coordinates": {
+            "questions": 46,
+            "top3": 43,
+            "strict": 42,
+            "articleGivenTop3": {
+              "hits": 42,
+              "total": 43
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Kordoc": {
+            "questions": 46,
+            "top3": 43,
+            "strict": 41,
+            "articleGivenTop3": {
+              "hits": 41,
+              "total": 43
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [
+              "A02"
+            ],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [
+              "A02"
+            ],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        }
+      },
+      "dev": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 25,
+            "top3": 19,
+            "strict": 17,
+            "articleGivenTop3": {
+              "hits": 17,
+              "total": 19
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Coordinates": {
+            "questions": 25,
+            "top3": 19,
+            "strict": 16,
+            "articleGivenTop3": {
+              "hits": 16,
+              "total": 19
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Kordoc": {
+            "questions": 25,
+            "top3": 19,
+            "strict": 17,
+            "articleGivenTop3": {
+              "hits": 17,
+              "total": 19
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": [
+              "H23"
+            ]
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [
+              "H23"
+            ],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        }
+      },
+      "new-dev": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 14,
+            "top3": 9,
+            "strict": 0,
+            "articleGivenTop3": {
+              "hits": 0,
+              "total": 9
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 14
+            }
+          },
+          "d1Coordinates": {
+            "questions": 14,
+            "top3": 14,
+            "strict": 6,
+            "articleGivenTop3": {
+              "hits": 6,
+              "total": 14
+            },
+            "rowEvidence": {
+              "hits": 3,
+              "total": 14
+            }
+          },
+          "d1Kordoc": {
+            "questions": 14,
+            "top3": 14,
+            "strict": 9,
+            "articleGivenTop3": {
+              "hits": 9,
+              "total": 14
+            },
+            "rowEvidence": {
+              "hits": 8,
+              "total": 14
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": [
+              "N04",
+              "N08",
+              "N10",
+              "N12",
+              "N13"
+            ]
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": [
+              "N01",
+              "N02",
+              "N03",
+              "N04",
+              "N10",
+              "N11",
+              "N12",
+              "N13",
+              "N14"
+            ]
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": [
+              "N01",
+              "N02",
+              "N04",
+              "N10",
+              "N11",
+              "N12",
+              "N13",
+              "N14"
+            ]
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": [
+              "N01",
+              "N02",
+              "N03"
+            ]
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": [
+              "N01",
+              "N02",
+              "N11",
+              "N12",
+              "N14"
+            ]
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": [
+              "N04",
+              "N08",
+              "N10",
+              "N12",
+              "N13"
+            ]
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": [
+              "N04",
+              "N10",
+              "N11",
+              "N12",
+              "N13",
+              "N14"
+            ]
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": [
+              "N04",
+              "N10",
+              "N13"
+            ]
+          }
+        }
+      }
+    },
+    "timing": {
+      "embeddedMs": {
+        "median": 2.513332999999875,
+        "p95": 4.664209000000028
+      },
+      "denseMs": {
+        "median": 3.582499999999982,
+        "p95": 5.1439580000001115
+      },
+      "sideMs": {
+        "median": 1.883874999999989,
+        "p95": 2.9604170000000067
+      }
+    },
+    "modelLoadMs": 526.966041,
+    "addedBuildMs": 1213.273459,
+    "rssBytes": 1007960064,
+    "questionFiles": [
+      {
+        "split": "train",
+        "file": "test/fixtures/natural-language-benchmark.train.json",
+        "sha256": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+        "count": 46
+      },
+      {
+        "split": "dev",
+        "file": "test/fixtures/natural-language-benchmark.dev.json",
+        "sha256": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+        "count": 25
+      },
+      {
+        "split": "new-dev",
+        "file": "experiments/appendix/fixtures/questions.dev.json",
+        "sha256": "21c5d69a96b941410387008cf942d30b889dec1db2d4f70371c6b9b005b2df17",
+        "count": 14
+      }
+    ],
+    "codeHashes": {
+      "scripts/evaluate-appendix-d1.js": "e4d4e683d7e1b32a50da1d349425088d8009e7f8651b958bc4e9502a6e0da600",
+      "src/appendix-kordoc.js": "796e8d3915ab464a44ff75e34cd26912e54ac7e57fe4a87915f05500072221f9",
+      "src/appendix-index.js": "efacfdb009e514fdd64f6e7a916ec371f004e341d01583f416fa8203882a5dad",
+      "src/semantic.js": "36be79667af34cd76032008b90975acbf726bdbcccccae6fc46d956707ccf9bb"
+    }
+  }
+}
