@@ -1,0 +1,4 @@
+input/
+results/*.index.json
+results/report.json
+results/final.json
