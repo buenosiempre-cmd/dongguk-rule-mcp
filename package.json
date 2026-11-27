@@ -18,6 +18,7 @@
     "docs/",
     "!docs/assets/*.gif",
     "!docs/assets/*.mp4",
+    "!docs/assets/*.webp",
     "!docs/assets/intro/narration/",
     "examples/",
     "scripts/",
