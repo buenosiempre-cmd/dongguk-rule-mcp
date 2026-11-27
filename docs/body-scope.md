@@ -1,6 +1,6 @@
 # 본문 적용범위 판별 실험
 
-**1회 측정 완료:** 제외 전용은 hybrid 대비 엄격/top3/1위 신규오답0·개선0으로 박스 비교 조건에 인계한다. [전체 결과](body-scope-exclude-results.md). scope22는 정답표 검증 전 잠정치이며 생산 효과를 확정하지 않는다.
+**1회 측정 완료:** 제외 전용은 hybrid 대비 엄격/top3/1위 신규오답0·개선0으로 박스 비교 조건에 인계한다. [전체 결과](body-scope-exclude-results.md). 범위22 v2 검증이 완료됐다. 같은 원응답 재집계에서 제외 전용은 on/off 모두 baseline과19/21 동률이며 body의 Z137 on 실제 악화가 확인됐다. [v2 정정 보고](body-scope-scope22v2.md).
 
 기본은 `legacy`다. 실험은 `DONGGUK_MCP_RANKING=hybrid`에서 측정용 환경변수 `DONGGUK_MCP_MEASURE_SCOPE`로 고른다. 생략/알 수 없는 값은 제목 기반 hybrid 그대로다. 운영 기본값 변경은 없다.
 
@@ -15,7 +15,7 @@
 
 0954df2의 `fusion.js`를 그대로 사용한다. `index.js`의 `rankIndexHits`에서 opt-in hybrid일 때만 `placeAgreementOf: signal.agreement`를 넘긴다. 판 선택·1.5/0.6 배수는 fusion 소유다. legacy·장소 미언급 질문에서 콜백을 호출하지 않는 계약을 테스트했다. 옛 `hybrid-scope` 방식 이름, fusion의 scope 직접 import, scopeCorpus 인수는 제거했다.
 
-## 제외 전용 후속 1회 고정 계획
+## 제외 전용 후속 1회 고정 계획 (측정 당시 v1, 아래 내용 보존)
 
 결과를 보기 전에 baseline(환경변수 없음)·body·exclude의 세 조건을 고정한다. 표준 harness-d1.js+run2.sh와 최종 공통 캐시(인계733+보조673)를 독립 사본으로 쓴다.
 
@@ -27,3 +27,7 @@
 - 엄격/top3/조건부 조문/1위·변경 문항 전수를 저장한다. 오류/semantic 사용·캐시 무결성·표준하네스 불변을 대조한다. 신규오답0이면 박스 비교 조건에 인계하되 효과 판정은 박스 담당에게 맡긴다.
 
 이전 [scope12v2 재집계](body-scope-scope12v2.md)와 [표준 v1 기록](body-scope-standard-results.md)은 당시 코드/조건의 기록으로 보존한다. 이전 `hybrid-scope`를 재현하려면 해당 측정 커밋을 사용해야 한다.
+
+## 범위22 v2 정정 반영
+
+Z126 삭제·Z141 대체 정답 추가로 현행 범위 세트는 `scope22v2` 21문항이다. 원응답126건만 재채점하고 검색/재실험은 하지 않았다. Z137은 실제 검색 악화로 확인됐고, exclude는 신규오답0·개선0으로 박스 비교 인계를 유지한다. 옛340문항 실행 계획과 원자료는 보존하며 현재339문항 합산은 [v2 보고](body-scope-scope22v2.md)를 사용한다.
