@@ -140,6 +140,9 @@ const deps = {
     ['부칙 2020-01-01 제1조', 'EXISTS', '시행일'],
     ['부칙 [2020/1/1] 제1조', 'EXISTS', '시행일'],
     ['부칙〈2020년 1월 1일 개정〉 제1조', 'EXISTS', '시행일'],
+    ['부칙(2020. 1. 1.) 제1조', 'EXISTS', '시행일'],
+    ['부칙<2020.1.1.> 제1조', 'EXISTS', '시행일'],
+    ['부칙(제2020-1호, 2020.1.1.) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
     ['부칙(미상) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
     ['부칙(2099.1.) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
     ['부칙(2099.1.1. 제1조', 'NOT_FOUND', null],
@@ -149,6 +152,12 @@ const deps = {
       && result.citations[0].status === status && result.citations[0].actualTitle === title
       && result.summary.verified === (status === 'EXISTS' ? 1 : 0), JSON.stringify(result.citations));
   }
+  const missingDate = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', redteamDeps);
+  const missingArticle = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제9조', redteamDeps);
+  check('I02 날짜 미확인과 그 날짜 부칙 내 조문 부재 안내 구분',
+    /2099.1.1.*부칙 조문 블록을 확인하지 못함/.test(missingDate.citations[0].note)
+    && /2020.1.1.*부칙은 있으나 해당 조문 없음/.test(missingArticle.citations[0].note)
+    && missingDate.summary.verified === 0 && missingArticle.summary.verified === 0);
   const differentDates = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제1조 및 부칙(2099.1.1.) 제1조', redteamDeps);
   check('I02 날짜가 다른 부칙 인용을 중복 제거하지 않음', differentDates.citations.length === 2
     && differentDates.summary.verified === 1 && differentDates.summary.notFound === 1);

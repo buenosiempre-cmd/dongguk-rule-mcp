@@ -2,7 +2,7 @@
 
 `부칙(2099.1.1.) 제1조`를 본칙 제1조로 축소해 성공 처리하던 문제를 수정한다. 부칙 접두부를 먼저 전부 소비하고 `normalizeArticleSelector`로 해석하며, 본문 부칙 날짜도 같은 선택자로 대조한다. 해석 불가 접두부는 `ARTICLE_SELECTOR_UNVERIFIED`, 일치하는 날짜·조문 부재는 `NOT_FOUND`, 복수 부칙은 `ARTICLE_AMBIGUOUS`다. 날짜는 개정 부칙의 식별자이며 시행일의 법적 판단은 하지 않는다.
 
-## 검증 결과 (2026-11-27)
+## 최초 PR 검증 결과 (2026-11-27)
 
 기준: 원격 main `d08ef02c10ae33c237a83c335afeccdeaf993a64`에서 독립 worktree 생성.
 
@@ -36,3 +36,11 @@ node scripts/reproduce-citations.cjs /tmp/i02-citation-repros.json
 `prepare.py`는 지정 인계 core/aux와 공개 문항 해시를 검증하고 새 폴더에 사본을 만든다. 기존 결과를 덮어쓰지 않도록 새 디렉터리에서 실행한다. `run.sh`의 worktree 경로를 측정 checkout으로 지정하고 `zsh run.sh i02`를 실행한다. `NL_SETS=train,dev,probe1,...,probe9,dev_open,scope12v2,scope22v2`, `NL_OFFLINE=1`, 빈 `query-only.json`, `DONGGUK_MCP_RANKING=legacy`, `DONGGUK_MCP_SEMANTIC=auto`이며 main은 의미검색 미구현이다.
 
 근거 파일: `main-npm-test.log`, `i02-npm-test-final.log`, `main-results.json`, `i02-results.json`, `main-repros.json`, `i02-final-repros.json`. 공유 캐시를 수정하거나 v4→v3 호환 복사를 하지 않았다. 기존 main의 캐시 호환 오류 48건을 포함한 엄격 원측정과 비교했다.
+
+
+## 보충 검토
+
+상태 이름의 정의 주체·반영 순서·충돌 해소 조건은 [공통 반영 계약](citation-integration-order.md)을 따른다. I02 #68 다음 I03 #70 순서다.
+
+
+보충 후 `npm test`: **963 통과 / 0 실패**(기존 PR 959/0, main 942/0). 인용 테스트는 58/0이다. 표준 하네스는 250/339, train/dev 68/71이며 기존 main의 문항별 결과와 모두 같다. 재현 스크립트는 기존 10입력에 `제1234조`·규정명만 쓴 대조군을 더한 12입력을 실행한다. 최신 증거는 `p1-citations-validation-20261127/supplement/`의 `i02-npm-test.log`, `i02-results.json`, `i02-repros.json`이다.

@@ -316,6 +316,9 @@ function judgeCitation(citation, rec) {
   if (!rec.blocks.length) {
     return { status: 'RULE_CONTENT_UNAVAILABLE', symbol: '⚠', note: '조문 구조를 확인할 수 없어 미존재 판정 불가 — 공식 원문 확인 필요' };
   }
+  const datedBlocks = supplementaryDate
+    ? rec.blocks.filter(b => normalizeArticleSelector(supplementarySelector(b))?.supplementaryDate === supplementaryDate)
+    : null;
   let matches = rec.blocks.filter(b => b.number === number && b.subNumber === subNumber);
   matches = supplementary
     ? matches.filter(b => b.supplementary)
@@ -330,8 +333,11 @@ function judgeCitation(citation, rec) {
   }
 
   if (!block) {
-    const rangeNote = supplementary
-      ? '부칙에 해당 조문 없음'
+    const rangeNote = supplementaryDate
+      ? (datedBlocks.length
+        ? `개정일 ${supplementaryDate}의 부칙은 있으나 해당 조문 없음`
+        : `개정일 ${supplementaryDate}의 부칙 조문 블록을 확인하지 못함 — 날짜·원문 확인 필요`)
+      : supplementary ? '부칙에 해당 조문 없음'
       : (rec.range ? `본칙 존재 범위: 제${rec.range.min}조~제${rec.range.max}조` : '조문 헤더를 찾을 수 없음');
     return { status: 'NOT_FOUND', symbol: '✗', note: `${canonical} 없음 (${rangeNote})` };
   }
