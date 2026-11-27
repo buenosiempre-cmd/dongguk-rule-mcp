@@ -6,10 +6,19 @@ const { execFileSync } = require('node:child_process');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const { loadCorpus, corpusPath, searchCorpus } = require('../src/corpus');
-const { headingPattern } = require('./benchmark-natural-language');
+const { headingPattern, validateQuestions } = require('./benchmark-natural-language');
 const { loadSemanticIndex, createEmbedder } = require('../src/semantic');
 const { createRetriever, FEATURE_NAMES, experimentFingerprint } = require('../src/jev');
 const sha = data => crypto.createHash('sha256').update(data).digest('hex');
+const DEV_OPEN_SHA = '4ac646c4c649bb00c37bdb28cb78e557a2c418ae98f3fef09c627ad276ffded3';
+function readPublicSources(devOpen) {
+  const sources = devOpen ? [{ split: 'dev_open', file: devOpen }] : ['train', 'dev'].map(split => ({ split, file: path.join(__dirname, `../test/fixtures/natural-language-benchmark.${split}.json`) }));
+  return sources.map(({ split, file }) => {
+    const bytes = fs.readFileSync(file), hash = sha(bytes);
+    if (devOpen && hash !== DEV_OPEN_SHA) throw new Error('UNAPPROVED_DEV_OPEN_HASH');
+    return { split, file: path.relative(path.join(__dirname, '..'), file), sha256: hash, rows: validateQuestions(JSON.parse(bytes)) };
+  });
+}
 
 function assertFullVectorCoverage(retriever) {
   const { articles, vectorArticles } = retriever.coverage;
@@ -21,18 +30,16 @@ function assertFullVectorCoverage(retriever) {
 async function main(argv = process.argv.slice(2)) {
   const options = {};
   for (let i = 0; i < argv.length; i += 2) {
-    if (!['--corpus-dir', '--vector-dir', '--output', '--key-encoding'].includes(argv[i]) || !argv[i + 1]) throw new Error('INVALID_OPTIONS');
+    if (!['--corpus-dir', '--vector-dir', '--output', '--key-encoding', '--dev-open'].includes(argv[i]) || !argv[i + 1]) throw new Error('INVALID_OPTIONS');
     options[argv[i].slice(2)] = argv[i] === '--key-encoding' ? argv[i + 1] : path.resolve(argv[i + 1]);
   }
   if (!options['corpus-dir'] || !options['vector-dir'] || !options.output) throw new Error('REQUIRED_OPTIONS');
   const keyEncoding = options['key-encoding'] || 'full';
   if (!['full', 'single'].includes(keyEncoding)) throw new Error('INVALID_KEY_ENCODING');
   if (fs.existsSync(options.output)) throw new Error('OUTPUT_EXISTS');
-  // Deliberate allowlist: no arbitrary question path, external DB or held-out set.
-  const sources = ['train', 'dev'].map(split => {
-    const file = path.join(__dirname, `../test/fixtures/natural-language-benchmark.${split}.json`), bytes = fs.readFileSync(file);
-    return { split, file: path.relative(path.join(__dirname, '..'), file), sha256: sha(bytes), rows: JSON.parse(bytes) };
-  });
+  // Only the public fixtures or the explicitly approved, hash-pinned 20 questions.
+  const sources = readPublicSources(options['dev-open']);
+  const total = sources.reduce((n, s) => n + s.rows.length, 0);
   const corpusBytes = fs.readFileSync(corpusPath(options['corpus-dir']));
   const corpus = loadCorpus(options['corpus-dir']), index = loadSemanticIndex(options['vector-dir']);
   if (!index) throw new Error('SEMANTIC_INDEX_MISSING');
@@ -66,7 +73,7 @@ async function main(argv = process.argv.slice(2)) {
       production[mode] = { elapsedMs, rules, top3, selectedArticleHit: rules.some(r => r.articles.some(a => a.label)) };
     }
     records.push({ ...question, split: source.split, ...ev, production });
-    console.log(`${records.length}/71 ${question.id} candidates=${ev.candidates.length} rrf=${ev.rrfMs.toFixed(1)}ms jev=${ev.jevMs.toFixed(1)}ms`);
+    console.log(`${records.length}/${total} ${question.id} candidates=${ev.candidates.length} rrf=${ev.rrfMs.toFixed(1)}ms jev=${ev.jevMs.toFixed(1)}ms`);
   }
   const corpusHash = sha(corpusBytes), vectorHash = index.meta.vectorHash;
   if (sha(fs.readFileSync(corpusPath(options['corpus-dir']))) !== corpusHash) throw new Error('CORPUS_CHANGED');
@@ -82,4 +89,4 @@ async function main(argv = process.argv.slice(2)) {
   fs.writeFileSync(options.output, JSON.stringify(report) + '\n', { flag: 'wx' });
 }
 if (require.main === module) main().catch(e => { console.error(e.message); process.exitCode = 1; });
-module.exports = { main, assertFullVectorCoverage };
+module.exports = { main, assertFullVectorCoverage, readPublicSources, DEV_OPEN_SHA };
