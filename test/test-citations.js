@@ -136,7 +136,6 @@ const deps = {
     '제1조 제1항 제999호', '제1조 제1항 가목', '제1조 별표999',
     '제1조(목적) 제999항', '제999항', '제999호',
     '제999999999999999999999조', '제1조의999999999999999999999',
-    '부칙(2099.1.1.) 제1조',
   ]) {
     const text = `「검수규정」 ${scope}`;
     const result = await verifyRuleCitations(text, redteamDeps);
@@ -180,6 +179,116 @@ const deps = {
   for (const kind of ['searchRule', 'resolveLatest', 'getRuleMarkdown']) {
     const unavailable = await verifyRuleCitations('「검수규정」 제1조', { ...redteamDeps, [kind]: async () => { throw Error('synthetic outage'); } });
     check(`I03 레드팀 장애 ${kind}: 성공 제외`, unavailable.summary.verified === 0 && unavailable.summary.needsReview === 1);
+  }
+
+  {
+  // I02 red-team fixture: the same article number exists in main and addenda.
+  const redteamBody = '### 제1조(목적)\n본칙\n\n### 제1조의12(특례)\n가지조문\n\n## 부칙(2020.1.1.)\n\n### 제1조(시행일)\n시행일';
+  const redteamDeps = {
+    searchRule: async () => ({ hits: [{ lawId: 1, historyId: 2, title: '검수규정' }] }),
+    resolveLatest: async () => ({ historyId: 2, revisedAt: '2026.01.01' }),
+    getRuleMarkdown: async () => redteamBody,
+  };
+  for (const [selector, status, title] of [
+    ['제1조', 'EXISTS', '목적'],
+    ['제1조의12', 'EXISTS', '특례'],
+    ['부칙 제1조', 'EXISTS', '시행일'],
+    ['부칙(2099.1.1.) 제1조', 'NOT_FOUND', null],
+    ['부칙(2020.1.1.) 제1조', 'EXISTS', '시행일'],
+    ['부칙(2020.1.1.)\n제1조', 'EXISTS', '시행일'],
+    ['부 칙 （2020.01.01.） 제1조', 'EXISTS', '시행일'],
+    ['부칙 2020-01-01 제1조', 'EXISTS', '시행일'],
+    ['부칙 [2020/1/1] 제1조', 'EXISTS', '시행일'],
+    ['부칙〈2020년 1월 1일 개정〉 제1조', 'EXISTS', '시행일'],
+    ['부칙(2020. 1. 1.) 제1조', 'EXISTS', '시행일'],
+    ['부칙<2020.1.1.> 제1조', 'EXISTS', '시행일'],
+    ['부칙(제2020-1호, 2020.1.1.) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
+    ['부칙(미상) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
+    ['부칙(2099.1.) 제1조', 'ARTICLE_SELECTOR_UNVERIFIED', null],
+    ['부칙(2099.1.1. 제1조', 'NOT_FOUND', null],
+  ]) {
+    const result = await verifyRuleCitations(`「검수규정」 ${selector}`, redteamDeps);
+    check(`I02 ${selector}: ${status}`, result.citations.length === 1
+      && result.citations[0].status === status && result.citations[0].actualTitle === title
+      && result.summary.verified === (status === 'EXISTS' ? 1 : 0), JSON.stringify(result.citations));
+  }
+  const missingDate = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', redteamDeps);
+  const missingArticle = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제9조', redteamDeps);
+  check('I02 날짜 미확인과 그 날짜 부칙 내 조문 부재 안내 구분',
+    /2099.1.1.*부칙 조문 블록을 확인하지 못함/.test(missingDate.citations[0].note)
+    && /2020.1.1.*부칙은 있으나 해당 조문 없음/.test(missingArticle.citations[0].note)
+    && missingDate.summary.verified === 0 && missingArticle.summary.verified === 0);
+  const differentDates = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제1조 및 부칙(2099.1.1.) 제1조', redteamDeps);
+  check('I02 날짜가 다른 부칙 인용을 중복 제거하지 않음', differentDates.citations.length === 2
+    && differentDates.summary.verified === 1 && differentDates.summary.notFound === 1);
+  const manyAddenda = { ...redteamDeps, getRuleMarkdown: async () => redteamBody + '\n\n## 부칙(2021.2.3.)\n\n### 제1조(경과조치)\n별도 부칙' };
+  const selected = await verifyRuleCitations('「검수규정」 부칙(2021.2.3.) 제1조', manyAddenda);
+  check('I02 개정일로 여러 부칙 중 하나를 특정', selected.summary.verified === 1 && selected.citations[0].actualTitle === '경과조치');
+  const ambiguous = await verifyRuleCitations('「검수규정」 부칙 제1조', manyAddenda);
+  check('I02 날짜 없는 복수 부칙은 확인필요', ambiguous.citations[0].status === 'ARTICLE_AMBIGUOUS' && ambiguous.summary.verified === 0);
+  const noDate = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제1조', {
+    ...redteamDeps, getRuleMarkdown: async () => redteamBody.replace('부칙(2020.1.1.)', '부칙'),
+  });
+  check('I02 원문에 날짜가 없으면 날짜 지정 인용을 통과시키지 않음', noDate.summary.verified === 0 && noDate.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED' && noDate.summary.needsReview === 1);
+
+  for (const text of [
+    '「검수규정」 부칙에 따라 시행하며, 제3조를 준용한다.',
+    '「검수규정」 부칙은 2020년 1월 1일부터 시행한다. 다만 제1조는 그러하지 아니하다.',
+  ]) {
+    const result = await verifyRuleCitations(text, { ...redteamDeps, getRuleMarkdown: async () => '### 제3조(준용)\n본칙\n\n' + redteamBody });
+    check('일반 문장의 부칙 낱말은 뒤 본칙 조문을 삼키지 않음', result.citations.length === 1
+      && result.citations[0].status === 'EXISTS' && !result.citations[0].article.startsWith('부칙'), JSON.stringify(result.citations));
+  }
+  const unknownAmongDated = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', {
+    ...redteamDeps, getRuleMarkdown: async () => redteamBody + '\n\n## 부칙\n\n### 제1조(시행일)\n날짜 미상',
+  });
+  check('일치 날짜가 없고 날짜 미상 부칙이 섞이면 확인필요', unknownAmongDated.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED'
+    && unknownAmongDated.summary.verified === 0 && unknownAmongDated.summary.needsReview === 1 && unknownAmongDated.summary.notFound === 0);
+
+  }
+
+  for (const text of [
+    '「검수규정」 제1조에 따라 다목적실을 사용한다.',
+    '「검수규정」 제1조의 서식을 따른다.',
+    '「검수규정」 제1조에서 별표시를 확인한다.',
+  ]) {
+    const result = await verifyRuleCitations(text, redteamDeps);
+    check('일반 낱말을 목·서식 인용으로 오인하지 않음', result.citations.length === 1
+      && result.summary.verified === 1 && result.summary.needsReview === 0, JSON.stringify(result.citations));
+  }
+  const paragraphDeps = { ...redteamDeps, getRuleMarkdown: async () => redteamBody.replace('㊿ 마지막 항', '② 둘째 항\n㊿ 마지막 항') };
+  for (const text of [
+    '「검수규정」 제1조제1항 및 제2항',
+    '「검수규정」 제1조제1항 및 같은 조 제2항',
+    '「검수규정」 제1조제1항, 같은 조 제2항',
+  ]) {
+    const result = await verifyRuleCitations(text, paragraphDeps);
+    check('나열된 항은 바로 앞 조문을 이어 검증', result.citations.length === 2 && result.summary.verified === 2
+      && result.citations.every(c => c.article === '제1조' && c.status === 'EXISTS')
+      && result.citations[1].hang === 2 && result.citations[1].inheritedArticle === true, JSON.stringify(result.citations));
+    check('이어받은 항의 원문 범위는 실제 입력 그대로', result.citations[1].originalRange.text === '제2항'
+      && text.slice(result.citations[1].originalRange.start, result.citations[1].originalRange.end) === '제2항');
+  }
+  const missingParagraph = await verifyRuleCitations('「검수규정」 제1조제1항 및 제2항 및 제3항', paragraphDeps);
+  check('나열된 미존재 항을 실제 조문의 항 목록과 대조', missingParagraph.summary.verified === 2
+    && missingParagraph.citations[2].status === 'HANG_NOT_FOUND' && missingParagraph.citations[2].hang === 3);
+  for (const text of [
+    '「검수규정」 제2항',
+    '「검수규정」 제1조제1항을 적용한다. 제2항도 본다.',
+    '「검수규정」 제1조제1항. 「검수규정」 제2항',
+    '「검수규정」 제1조제1항\n\n「검수규정」 제2항',
+  ]) {
+    const result = await verifyRuleCitations(text, paragraphDeps);
+    const last = result.citations.at(-1);
+    check('문장·규정 멘션·문단을 넘어 항을 승계하지 않음', last.status === 'UNSUPPORTED_CITATION'
+      && last.hang === 2 && last.unsupportedReasons.includes('UNBOUND_PARAGRAPH'), JSON.stringify(result.citations));
+  }
+  const compactRaw = await verifyRuleCitations('「검수규정」 제1조제1항 및 제2항에 따라 처리하고, 예외는 제1조의12', paragraphDeps);
+  check('raw는 앞 문장을 반복하지 않는 규정명+인용 표기 유지', compactRaw.citations.at(-1).raw === '검수규정 제1조의12'
+    && compactRaw.citations[1].raw === '검수규정 제1조 제2항');
+  for (const scope of ['제1조 제1항 가목에 따른다', '서식999를 따른다', '별지 서식', '제1조제1항제3호']) {
+    const result = await verifyRuleCitations('「검수규정」 '+scope, paragraphDeps);
+    check('명시적 상세 인용은 조사·붙여쓰기에도 확인필요', result.summary.needsReview === 1 && result.summary.verified === 0, JSON.stringify(result.citations));
   }
 
   const empty = await verifyRuleCitations('규정 인용이 전혀 없는 평문입니다.', deps);

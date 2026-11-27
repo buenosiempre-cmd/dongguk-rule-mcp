@@ -384,33 +384,33 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 
 ## `verify_rule_citations` 구조화 요약 계약
 
-`data.citations`는 규정명과 인용 범위를 함께 판정한다. 규정만 인용한 `「검수규정」`의 `RULE_EXISTS`와, `「검수규정」 별표999`를 구별한다. 후자는 별표 본체를 검증하지 않으므로 `UNSUPPORTED_CITATION` / `⚠`이며 성공으로 집계하지 않는다. `ok:true`는 도구 호출 성공이지 모든 인용의 검증 성공이 아니다.
+규정명만 쓴 인용은 `RULE_EXISTS`로 검증한다. 조문·항·상세 선택자가 있으면 그 범위를 함께 판정한다. `ok:true`는 도구 호출의 성공이며 모든 인용의 검증 성공을 뜻하지 않는다.
 
 | 필드 | 의미 |
 |---|---|
-| `raw` | 해당 규정명 멘션부터 인용 끝까지의 원문. 중간의 다른 인용·연결어가 포함될 수 있다. |
-| `originalRange` | 요청한 조문·항·별표 등 선택자의 원문 `{start,end,text}`. 규정명만 요청하면 규정명 멘션 범위다. |
-| `parsedRange` | 지원 문법으로 파싱한 연속 접두 범위 `{start,end,text}`, 또는 `null`. 파싱은 실존 검증 성공을 뜻하지 않는다. |
-| `unsupportedReasons` | 미지원 범위 사유 목록. `UNSUPPORTED_DETAIL`, `UNSUPPORTED_ARTICLE_NUMBER`, `UNSUPPORTED_PARAGRAPH_NUMBER`, `UNSUPPORTED_ADDENDUM_SELECTOR`. |
-| `status` | 인용 전체에 대한 판정. 일부 범위가 미지원이면 `UNSUPPORTED_CITATION`이다. |
+| `raw` | 기존과 같은 짧은 규정명 + 인용 표기. 앞 문장을 반복하지 않는다. |
+| `originalRange` | 실제 입력에서 선택자가 차지하는 `{start,end,text}`. 규정명만 쓴 인용은 그 멘션 범위다. |
+| `parsedRange` | 지원 문법으로 파싱한 연속 범위 또는 `null`. 파싱은 실존 확인을 뜻하지 않는다. |
+| `inheritedArticle` | `및 제2항`, `같은 조 제2항`이 바로 앞 조문을 이어받았으면 `true`. 실제 원문 범위는 여전히 `제2항`이다. |
+| `unsupportedReasons` | 미지원 사유. `UNSUPPORTED_DETAIL`, `UNSUPPORTED_ARTICLE_NUMBER`, `UNSUPPORTED_PARAGRAPH_NUMBER`, `UNBOUND_PARAGRAPH`. |
 
-범위는 입력 문자열의 0부터 시작하는 UTF-16 오프셋이며 `end`는 제외한다. `input.slice(start,end) === text`가 성립한다. 문단의 빈 줄·공백과 원래 숫자는 보존한다. 결과는 동일 규정·동일 인용을 중복 제거하므로 모든 출현 위치를 나열하는 API는 아니다.
+범위는 0부터 시작하는 UTF-16 오프셋이고 `end`는 제외한다. `input.slice(start,end) === text`다. 결과는 동일 인용을 중복 제거하므로 모든 출현 위치를 나열하지 않는다.
 
-- 본칙·날짜 없는 부칙 제1~999조, 가지번호 1~99, 원문자 ①~㊿로 확인할 수 있는 항 1~50을 지원한다. 번호는 전체 숫자를 소비한 뒤 지원 여부를 판정한다. 따라서 `제1조의123`은 `제1조의12`로 바뀌지 않는다.
-- 별표·별지·서식·호·목과 범위 밖 번호는 `UNSUPPORTED_CITATION`이다. 예: `제1조 제999항`은 `originalRange.text="제1조 제999항"`, `parsedRange.text="제1조"`로 남으며 성공은 0건이다.
-- 이 독립 I03 브랜치에서 날짜 부칙 선택자는 미지원으로 보존한다. 날짜를 실제 부칙과 대조하는 I02(#68)를 함께 적용할 때는 그 선택자 해석·날짜 필터를 유지해야 한다. 미지원 범위 보존 때문에 날짜를 버리고 본칙으로 판정해서는 안 된다.
-- 지원되는 항이라도 원문 항 표기를 확인하지 못하면 `HANG_UNVERIFIED`; 확인한 항 목록에 없으면 `HANG_NOT_FOUND`다. 존재 여부와 실제 사안의 적용 적합성은 별개다.
+조 번호 1~999, 가지번호 1~99, 원문자 ①~㊿로 확인할 수 있는 항 1~50을 지원한다. 숫자를 끝까지 읽은 뒤 지원 여부를 판정한다. 별표·별지·번호 붙은 서식·호·목과 범위 밖 번호는 `UNSUPPORTED_CITATION`(⚠)이다. `다목적실`이나 일반 명사 `서식`은 상세 인용으로 취급하지 않는다.
+
+나열된 항은 같은 규정 멘션과 같은 문장에서 바로 앞 조문을 이어받는다. 이어받을 조문이 없으면 항 번호를 보존하고 `UNBOUND_PARAGRAPH` 사유로 확인필요 처리한다. 문장·문단·규정 멘션을 넘어 승계하지 않는다. 지원되는 항이라도 원문 항 표기가 없으면 `HANG_UNVERIFIED`, 확인된 항 목록에 없으면 `HANG_NOT_FOUND`다.
+
+날짜 부칙은 본문 파서와 같은 선택자로 부칙 머리의 개정일을 대조한다. 날짜 표기를 해석할 수 없거나, 일치 날짜를 찾지 못한 상태에서 원문에 날짜 미상 부칙이 있으면 `ARTICLE_SELECTOR_UNVERIFIED`(⚠)다. 날짜가 확인되는 부칙만 있고 해당 날짜·조문이 없으면 `NOT_FOUND`다. 날짜 없는 인용이 여러 부칙 조문에 대응하면 `ARTICLE_AMBIGUOUS`다. 부칙 개정일을 시행일로 판정하지 않는다.
 
 | 요약 | 집계 계약 |
 |---|---|
-| `summary.verified` | 미지원 범위가 없고 `EXISTS` 또는 `RULE_EXISTS`인 인용 수. `UNSUPPORTED_CITATION`은 항상 제외한다. |
-| `summary.exists` | `EXISTS`, `RULE_EXISTS`, `CONTENT_MISMATCH`, `TITLE_SIMILAR`, `TITLE_UNVERIFIED`, `HANG_UNVERIFIED` 수. 일부만 확인된 결과도 포함하므로 전체 검증 수가 아니다. |
-| `summary.notFound` | `NOT_FOUND`, `HANG_NOT_FOUND` 수. |
-| `summary.needsReview` | `⚠` 결과 수. 미지원 인용·검색 실패·최신본 미확인·제목/항 미검증 등을 포함한다. |
-| `summary.total` | 이번 호출에서 반환한 중복 제거 인용 수. 상한으로 생략한 인용은 `truncated`에 별도 표시한다. |
-| `summary.floating` | 같은 문단에 규정명을 확정하지 못한 선택자 수. `floating`에 사유와 범위를 반환하며 `verified`에 넣지 않는다. |
+| `verified` | 미지원 범위가 없고 `EXISTS` 또는 `RULE_EXISTS`인 반환 인용 수 |
+| `exists` | `EXISTS`, `RULE_EXISTS`, `CONTENT_MISMATCH`, `TITLE_SIMILAR`, `TITLE_UNVERIFIED`, `HANG_UNVERIFIED` 수. 전체 검증 성공 수와 다르다. |
+| `notFound` | `NOT_FOUND`, `HANG_NOT_FOUND` 수 |
+| `needsReview` | ⚠ 결과 수. `ARTICLE_SELECTOR_UNVERIFIED`와 `UNSUPPORTED_CITATION`을 포함한다. |
+| `total` | 이번 호출에서 반환한 중복 제거 인용 수 |
+| `floating` | 같은 문단에서 규정명을 확정하지 못한 선택자 수 |
 
-`exists`와 `needsReview`는 중복될 수 있다. 검토 게이트는 `verified`뿐 아니라 `needsReview`, `notFound`, `floating`, `truncated`를 함께 확인해야 한다. 별표 본체·서식·호·목을 확인하지 않은 결과를 규정명 실존만으로 승인 근거로 사용하지 않는다.
+`exists`와 `needsReview`는 중복될 수 있다. 새 확인필요 상태는 `verified`·`exists`에 넣지 않는다. 검토할 때는 `notFound`, `needsReview`, `floating`, `truncated`도 함께 확인한다.
 
-
-범위(`제3조 내지 제5조`, `제3조~제5조`)·나열(`제3조·제4조`)은 적힌 조문 각각을 추출한다. 범위 사이 생략 조문은 검증하지 않는다. 따라서 `verified`는 반환된 개별 인용의 성공 수이며 범위 전체의 실존을 보장하지 않는다. 상태 정의 주체와 I02 선행 반영 조건은 [공통 반영 계약](citation-integration-order.md)을 따른다.
+범위(`제3조 내지 제5조`, `제3조~제5조`)와 나열(`제3조·제4조`)은 적힌 조문 각각을 추출한다. 범위 사이 생략된 조문은 검증하지 않으므로 `verified`를 범위 전체의 실존 확인으로 해석하지 않는다. 인용 실존은 해당 사안의 법적 적용 적합성을 보장하지 않는다.
