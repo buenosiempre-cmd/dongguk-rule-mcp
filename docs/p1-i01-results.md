@@ -80,14 +80,14 @@ main 대비 회귀와 구분한다. 아래 차이는 의미검색 유무 등을 
 - 공유 core733파일·aux673파일 및 manifest 전후해시 불변. 각 조건의 core 복사본도733파일 전수일치. 전후 캐시에 content-v3 디렉터리가 없는 것을 확인했다. box-kit 읽기·쓰기 없음.
 - 전후678응답과 참고339응답, 총1017원응답 재채점 일치. 실제 인자 전부 질문만, 의미검색 사용 전후0건. 기존 main 원측정339응답과 전 조건 재현 동일.
 
-재현(공유 캐시 대신 새 산출물 폴더 사용):
+재현(아래 작업 폴더들의 공통 상위 폴더에서 시작하며, 공유 캐시 대신 새 산출물 폴더 사용):
 
 ```sh
-cd /Users/bueno/Documents/Codex/dongguk-rule-main-d08ef02
+cd ./dongguk-rule-main-d08ef02
 npm test
-cd /Users/bueno/Documents/Codex/dongguk-rule-p1-i01
+cd ../dongguk-rule-p1-i01
 npm test
-cd /Users/bueno/Documents/Codex/p1-i01-artifacts-20261127
+cd ../p1-i01-artifacts-20261127
 python3 prepare.py
 zsh run.sh before
 zsh run.sh after
@@ -96,7 +96,7 @@ node compare.js
 
 이미 실행한 결과는 덮어쓰지 않는다. 재현할 때 prepare.py/preload.js/run.sh/compare.js를 새 빈 산출물 폴더에 복사해 실행한다. prepare.py는 승인733+보조catalog/search를 두 조건에 복사하며 기존 준비 폴더가 있으면 중단한다. run.sh는 원본 run2.sh에 NL_SETS 전체 공개셋, NL_KW 빈 객체, 오프라인·고정 캐시 경로를 전달한다. 모델 환경값은 참고와 조건을 통일하려 남겨 두었으나 전후 제품에는 의미검색 모듈 자체가 없다.
 
-근거 파일은 `/Users/bueno/Documents/Codex/p1-i01-artifacts-20261127/`에 있다: npm-before/after.log·json, i01-repro-before-after.json, before/after-results.json(원응답), comparison.json(셋별·문항별 전수), input-manifest.json, scope-audit.json.
+근거 파일은 로컬 증거 폴더에 있다: npm-before/after.log·json, i01-repro-before-after.json, before/after-results.json(원응답), comparison.json(셋별·문항별 전수), input-manifest.json, scope-audit.json.
 
 ## 남은 한계
 
