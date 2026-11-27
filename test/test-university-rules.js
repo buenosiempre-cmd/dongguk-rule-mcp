@@ -228,6 +228,34 @@ async function main() {
     assert.match(formatComparison(data), /시행일 미확인/);
     assert(!formatComparison(data).includes('시행일 2007-09-01'));
   });
+  await check('B1 경과조치·위임사항의 명사 시행은 정상 일반 시행일을 무효화하지 않음', () => {
+    const general = '제1조(시행일) 이 규정은 2023.5.26.부터 시행한다.';
+    for (const note of ['제2조(경과조치) 이 규정 시행 전에 지급한 여비는 종전 규정에 따른다.', '이 규정 시행 후에 신청하는 경우부터 적용한다.', '이 규정 시행 이후 최초로 신청하는 경우부터 적용한다.', '이 규정의 시행에 필요한 사항은 따로 정한다.', '제2조(시행에 필요한 사항) 세부사항은 따로 정한다.', '종전 규정에 따라 지급한 여비는 반환하지 아니한다.']) {
+      for (const body of [`${general}\n${note}`, `${note}\n${general}`]) {
+        assert.equal(latestAddendaEffective(`## 부칙\n${body}`), '2023-05-26', body);
+        assert.equal(latestAddendaEffective(htmlToArticleMarkdown(`<p>부칙</p><p>${body}</p>`)), '2023-05-26', body);
+      }
+    }
+  });
+  await check('B1 경과조치 뒤 실제 후속 시행문·미지원 선언·조문 날짜는 여전히 보수적 처리', () => {
+    const general = '이 규정은 2023.5.26.부터 시행한다.';
+    const note = '이 규정 시행 전에 신청한 사항은 종전 규정에 따른다.';
+    for (const declaration of ['이 규정은 2024.1.1.부터 시행하도록 한다.', '이 규정은 공포한 날부터 시행한다.', '이 규정은 2024.1.1.부터 시행한다.']) {
+      assert.equal(latestAddendaEffective(`## 부칙\n${general} ${note} ${declaration}`), null);
+      assert.equal(latestAddendaEffective(`## 부칙\n${declaration} ${note} ${general}`), null);
+    }
+    assert.equal(latestAddendaEffective(`## 부칙\n제7조의 개정규정은 2024.1.1.부터 개정 시행한다. ${note}`), null);
+    assert.equal(latestAddendaEffective(`## 부칙\n${general} 이 규정은 2024.1.1.부터 시행 후 적용한다.`), null);
+  });
+  await check('B1 서강 로더→비교→표시: 경과조치는 보존하고 일반 시행일 복구', async () => {
+    const content = '<p>제6조(간접비) 연구비 중앙관리에 필요한 경비에 간접비를 사용한다.</p><p>부칙</p><p>제1조(시행일) 이 규정은 2023.5.26.부터 시행한다.</p><p>제2조(경과조치) 이 규정 시행 전에 지급한 연구비는 종전 규정에 따른다.</p>';
+    const client = { request: async () => JSON.stringify({data:{list:[{pkid:548,title:'연구 간접비 운영에 관한 지침',content}]}}) };
+    const data = await compareUniversityRules({topic:'연구비',universities:['sogang']}, {loadDongguk:dongguk,client});
+    const article = data.columns.find(c => c.university === 'sogang').articles[0];
+    assert.equal(article.article,'제6조'); assert.equal(article.effectiveAt,'2023-05-26');
+    assert.equal(article.effectiveSource,'addenda'); assert.match(formatComparison(data),/시행일 2023-05-26/);
+    assert.match(htmlToArticleMarkdown(content),/시행 전에 지급한 연구비/);
+  });
   await check('트리 모드: 전체 규정 제목 대조, 트리 없으면 최근 목록', async () => {
     const nodes=[{folder:'1',id:1,hseq:0,name:'규정'},...Array.from({length:25},(_,i)=>({folder:'0',id:100+i,hseq:900+i,name:`3-5-${i} 기타규정`})),{folder:'0',id:382,hseq:3766,name:'3-5-1 장학규정'}];
     const tree=`<script>var zNodes = ${JSON.stringify(nodes)};</script>`;
