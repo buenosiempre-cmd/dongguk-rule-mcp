@@ -1,6 +1,6 @@
 # 동국 규정 MCP — 공동 이용 운영 가이드
 
-대상 버전: v0.15.10. 기본 배포는 공개 규정 조회용 `rules` 프로필입니다. 이 문서는 운영자가 반복할 절차이며, 기관 승인·담당자 배정·전교 사용자 실증·가용성 SLA의 완료 증빙은 아닙니다.
+대상 버전: v0.15.11. 기본 배포는 공개 규정 조회용 `rules` 프로필입니다. 이 문서는 운영자가 반복할 절차이며, 기관 승인·담당자 배정·전교 사용자 실증·가용성 SLA의 완료 증빙은 아닙니다.
 
 ## 1. 프로필과 접속 경계
 
@@ -60,7 +60,7 @@ node src/index.js --doctor --json
 태그 고정 설치 예시:
 
 ```bash
-npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.10/dongguk-rule-mcp-0.15.10.tgz --version
+npx -y https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.11/dongguk-rule-mcp-0.15.11.tgz --version
 ```
 
 `latest`나 개발 브랜치가 자동으로 운영에 반영되도록 구성하기보다 검증한 릴리스 단위를 설치합니다. 기존 프로세스는 패키지 파일을 교체해도 구버전을 계속 사용할 수 있으므로 재시작 후 버전을 다시 확인합니다.
@@ -222,7 +222,7 @@ dongguk-rule-mcp --build-index
 
 `get_rule_references`에 `include_law_text=true`를 주면 규정이 인용한 국가 법령 조문의 현행 원문을 한국법령 MCP에서 함께 가져옵니다. `get_rule_upper_laws`의 법령 대조도 같은 연결을 씁니다. **법령 서버 주소나 키가 있으면 기본으로 켜집니다.** 공개 `rules` 프로필과 `finance` 프로필 모두 같습니다.
 
-> 아래 표와 "타대학 비교" 절은 v0.15.10 기준입니다. v0.15.8 이하 설치본은 공개 프로필의 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`이 필요하며, 원격 방식은 `DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`와 `DONGGUK_LEGAL_MCP_URL`을, 로컬 방식은 `LAW_OC`와 서버에 설치된 `korean-law-mcp`를 씁니다(`DONGGUK_LEGAL_MCP_TRANSPORT`는 생략하거나 `stdio`). 타대학 비교에는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`이 필요합니다. 바뀐 내용은 [변경 기록](../CHANGELOG.md)의 v0.15.10 항목에 있습니다.
+> 아래 표와 "타대학 비교" 절은 v0.15.11 기준입니다. v0.15.8 이하 설치본은 공개 프로필의 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`이 필요하며, 원격 방식은 `DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`와 `DONGGUK_LEGAL_MCP_URL`을, 로컬 방식은 `LAW_OC`와 서버에 설치된 `korean-law-mcp`를 씁니다(`DONGGUK_LEGAL_MCP_TRANSPORT`는 생략하거나 `stdio`). 타대학 비교에는 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`이 필요합니다. 바뀐 내용은 [변경 기록](../CHANGELOG.md)의 v0.15.11 항목에 있습니다.
 
 | 환경 변수 | 값 |
 |---|---|
