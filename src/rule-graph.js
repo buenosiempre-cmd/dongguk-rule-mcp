@@ -6,8 +6,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createResolver, extractReferences, normalizeName } = require('./references.js');
 
-const GRAPH_VERSION = 1;
-const GRAPH_FILE = 'rule-graph-v1.json';
+const GRAPH_VERSION = 2;
+const GRAPH_FILE = `rule-graph-v${GRAPH_VERSION}.json`;
 const WEIGHTS = { cites: 0.65, applies: 0.85, implements: 1, appendix: 0.4, revises: 0 };
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const ruleKey = id => `r:${id}`;
@@ -18,11 +18,15 @@ const canonical = text => {
 };
 const validId = id => Number.isSafeInteger(id) && id > 0;
 const referenceType = text => /준용/.test(text) && !/준용[^.!?。]{0,20}(?:아니|않|없|배제|제외|금지)/.test(text) ? 'applies' : 'cites';
-function completeNameReference(sentence, name) {
-  const escaped = [...normalizeName(name)].map(char => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*');
-  // A preceding institution can be separated by whitespace. Accept unquoted
-  // names only at sentence start (optionally after a paragraph marker).
-  return new RegExp(`^\\s*[①-⑳]?\\s*${escaped}\\s*(?:의\\s*)?제\\s*\\d+\\s*조`).test(sentence);
+function completeNamePrefix(prefix, name) {
+  const escaped = [...normalizeName(name)].map(char => char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s·ㆍ‧•・.]*');
+  const match = new RegExp(`${escaped}\\s*$`).exec(prefix);
+  if (!match) return false;
+  const before = prefix.slice(0, match.index);
+  // Whitespace alone is not a name boundary: "WISE캠퍼스 시험규정" must
+  // not resolve to "시험규정". Accept explicit grammatical boundaries.
+  return /^\s*[①-⑳]?\s*$/.test(before) || /[,;:!?。]\s*$/.test(before) ||
+    /(?:^|[\s,;:])(?:[가-힣A-Za-z0-9·ㆍ]+(?:은|는|에는|에서는)|및|또는|위하여|따라|의하여|의거하여|근거하여)\s+$/.test(before);
 }
 
 function validCorpus(corpus) {
@@ -79,14 +83,29 @@ function buildRuleGraph(corpus, { histories = {} } = {}) {
       // Keep a whole sentence for scope; an unknown or external name suppresses
       // unqualified same-rule references in that sentence rather than guessing.
       for (const sentence of body.split(/(?<=[.!?。])\s+/).filter(Boolean)) {
-        const refs = extractReferences(sentence, resolver);
+        const acceptedNames = new Set();
+        let namedContext = false;
+        // Validate the exact occurrence before the shared extractor deduplicates
+        // names. An allowed later citation must not validate an earlier qualified
+        // name, or steal its article number/evidence.
+        const refs = extractReferences(sentence, { ...resolver, titleEndingAt(prefix) {
+          const title = resolver.titleEndingAt(prefix);
+          if (!title) return null;
+          namedContext = true;
+          if (!completeNamePrefix(prefix, title)) {
+            missing(rule, blockIndex, resolver.ruleByKey(title)?.title || title, 'incomplete_title_match');
+            return null;
+          }
+          acceptedNames.add(title);
+          return title;
+        } });
         for (const ref of refs) {
           if (!['same_rule', 'dongguk_rule'].includes(ref.scope)) {
             missing(rule, blockIndex, ref.name, ref.resolutionStatus);
             continue;
           }
           const targetId = ref.target.lawId;
-          if (ref.resolutionStatus === 'name_heuristic' && !completeNameReference(sentence, ref.name)) {
+          if (ref.resolutionStatus === 'name_heuristic' && !acceptedNames.has(normalizeName(ref.name))) {
             missing(rule, blockIndex, ref.name, 'incomplete_title_match');
             continue;
           }
@@ -99,14 +118,14 @@ function buildRuleGraph(corpus, { histories = {} } = {}) {
           // Direction: implementing rule -> named parent. A mere citation does
           // not prove hierarchy; require an explicit purpose/delegation clause.
           if (targetId !== rule.lawId && refs.length === 1 &&
-              /(?:따라|의하여|근거하여)/.test(sentence) &&
+              /(?:따라|의하여|의거하여|근거하여)/.test(sentence) &&
               /(?:시행에\s*필요한|위임[된한]?\s*사항|세부\s*사항|세부사항)/.test(sentence)) {
             addEdge(ruleKey(rule.lawId), ruleKey(targetId), 'implements', evidence);
           }
         }
         // Do not turn foreign references (including unknown unquoted names and
         // anaphora) into same-numbered articles of this rule.
-        const foreignContext = refs.length || /[「『]|(?:법|법률|규정|규칙|학칙|정관|내규|세칙)\s*(?:의\s*)?제\s*\d+\s*조|(?:동법|같은\s*(?:법|규정))/.test(sentence);
+        const foreignContext = namedContext || refs.length || /[「『]|(?:법|법률|규정|규칙|학칙|정관|내규|세칙)\s*(?:의\s*)?제\s*\d+\s*조|(?:동법|같은\s*(?:법|규정))/.test(sentence);
         if (!foreignContext) {
           for (const m of sentence.matchAll(/제\s*\d+\s*조(?:\s*의\s*\d+)?/g)) {
             const label = canonical(m[0]);

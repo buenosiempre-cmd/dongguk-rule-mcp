@@ -92,6 +92,41 @@ check('완전한 무인용부호 이름은 연결하고 부정 준용은 단순 
   const g = buildRuleGraph({ rules: [rule(1, '원천규정', [block(1, '시험규정 제2조를 준용하지 아니한다.')]), rule(2, '시험규정', [block(2, '내용')])] });
   assert.equal(g.edges.length, 1); assert.equal(g.edges[0].type, 'cites');
 });
+check('의거하여: 낫표 유무와 무관하게 명시적 위계를 연결', () => {
+  for (const name of ['시험규정', '「시험규정」']) {
+    const g = buildRuleGraph({ rules: [rule(1, '시행세칙', [block(1, `이 규정은 ${name} 제2조에 의거하여 세부사항을 정한다.`)]), rule(2, '시험규정', [block(2, '내용')])] });
+    assert(g.edges.some(e => e.from === 'r:1' && e.to === 'r:2' && e.type === 'implements'));
+    assert(g.edges.some(e => e.to === 'a:2:0' && e.evidence.text.includes('의거하여')));
+  }
+});
+check('주어·접속어·문장부호 뒤 무낫표 이름을 연결', () => {
+  for (const prefix of ['이 규정은 ', '이 내규는 ', '본 시행세칙은\n', '담당자는 ', '직원은 ', '업무처리에는 ', '심의하기 위하여 ', '기준 및 ', '기준 또는 ', '적용 근거: ', '선택 사항; ', '가, ', '① 이 규정은 ']) {
+    const g = buildRuleGraph({ rules: [rule(1, '원천규정', [block(1, `${prefix}시험규정 제2조를 따른다.`)]), rule(2, '시험규정', [block(2, '내용')])] });
+    assert.equal(g.edges.filter(e => e.to === 'a:2:0').length, 1, prefix);
+  }
+});
+check('문장 중간에서도 기관·캠퍼스 한정자와 붙어 쓴 접속어를 보존', () => {
+  for (const prefix of ['이 규정은 WISE캠퍼스 ', '이 내규는 외부기관\n', '기준 및 WISE캠퍼스 ', '근거: 외부기관 ', '기관및 ', '외부기관시험규정 및 WISE캠퍼스 ']) {
+    const g = buildRuleGraph({ rules: [rule(1, '원천규정', [block(1, `${prefix}시험규정 제2조에 의거하여 세부사항을 정한다.`)]), rule(2, '시험규정', [block(2, '내용')])] });
+    assert.equal(g.edges.length, 0, prefix);
+  }
+});
+check('같은 문장의 유효 인용이 앞선 기관 한정 인용을 대신 정당화하지 않음', () => {
+  const g = buildRuleGraph({ rules: [rule(1, '원천규정', [block(1, 'WISE캠퍼스 시험규정 제2조 및 시험규정 제3조를 따른다.')]), rule(2, '시험규정', [block(2, '가'), block(3, '나')])] });
+  assert.deepEqual(g.edges.filter(e => e.type === 'cites').map(e => e.to), ['a:2:1']);
+  assert(g.unresolved.some(item => item.reason === 'incomplete_title_match'));
+});
+check('완전한 기관 한정 규정명이 목록에 있으면 그 규정만 연결', () => {
+  const g = buildRuleGraph({ rules: [rule(1, '원천규정', [block(1, '이 규정은 WISE캠퍼스 시험규정 제2조를 따른다.')]), rule(2, '시험규정', [block(2, '가')]), rule(3, 'WISE캠퍼스 시험규정', [block(2, '나')])] });
+  assert.deepEqual(g.edges.map(e => e.to), ['a:3:0']);
+});
+check('거부한 외부 이름은 지침·요령 등 명칭과 무관하게 자체 조문으로 재해석하지 않음', () => {
+  for (const name of ['시험지침', '시험요령', '시험기준']) {
+    const g = buildRuleGraph({ rules: [rule(1, '원천규정', [block(1, `WISE캠퍼스 ${name} 제2조에 따른다.`), block(2, '자체 조문')]), rule(2, name, [block(2, '대상 조문')])] });
+    assert.equal(g.edges.length, 0, name);
+    assert(g.unresolved.some(item => item.reason === 'incomplete_title_match'));
+  }
+});
 check('같은 규정의 복수 seed 조문을 모두 확장', () => {
   const g = buildRuleGraph({ rules: [rule(1, '복수규정', [block(1, '제2조를 따른다.'), block(2, '가'), block(3, '제4조를 따른다.'), block(4, '나')])] });
   assert.deepEqual(getRelatedArticles(g, [{ lawId: 1, article: '제1조' }, { lawId: 1, article: '제3조' }]).map(hit => hit.article), ['제2조', '제4조']);
@@ -140,6 +175,24 @@ try {
     const checksum = crypto.createHash('sha256').update(JSON.stringify(broken)).digest('hex');
     fs.writeFileSync(file, JSON.stringify({ checksum, graph: broken }));
     assert.equal(loadRuleGraph(folder, corpus), null);
+  });
+  check('이전 추출 규칙으로 만든 v1 그래프를 재사용하지 않음', () => {
+    const file = saveRuleGraph(folder, graph);
+    const old = { ...graph, version: 1 };
+    const checksum = crypto.createHash('sha256').update(JSON.stringify(old)).digest('hex');
+    fs.writeFileSync(file, JSON.stringify({ checksum, graph: old }));
+    assert.equal(loadRuleGraph(folder, corpus), null);
+    assert.deepEqual(rankRelatedRules(old, [1]), []);
+  });
+  check('구조 측정 CLI는 본문 해시와 원본 대비 규정·조문 수를 보고', () => {
+    const { spawnSync } = require('node:child_process');
+    const input = path.join(folder, 'corpus.json');
+    const result = spawnSync(process.execPath, [path.join(__dirname, '../scripts/measure-rule-graph.js'), input], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.sourceRules, report.graphRules);
+    assert.equal(report.sourceMainBlocks, report.graphArticles);
+    assert.match(report.corpusSHA256, /^[a-f0-9]{64}$/);
   });
 } finally { fs.rmSync(folder, { recursive: true, force: true }); }
 console.log(`\n규칙 그래프 ${passed}개 검사 통과`);
