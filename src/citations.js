@@ -23,7 +23,11 @@ const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s
 const DETAIL_END = String.raw`(?=$|[^가-힣A-Za-z0-9]|(?:에(?:서|는|도)?|의|을|를|은|는|이|가|과|와|으로|까지|부터)(?=\s|$|[,.!?]))`;
 const DETAIL_NUMBER = String.raw`\s*(?:제\s*)?\d+(?:\s*호)?(?:\s*의\s*\d+)?`;
 const APPENDIX_SOURCE = String.raw`(?:별\s*표(?:${DETAIL_NUMBER})?|별\s*지(?:\s*서\s*식)?(?:${DETAIL_NUMBER})?(?:\s*서\s*식)?|서\s*식${DETAIL_NUMBER})${DETAIL_END}`;
-const DETAIL_SOURCE = String.raw`(?:${APPENDIX_SOURCE}|(?:제\s*)?\d+\s*호(?:\s*의\s*\d+)?${DETAIL_END}|(?:["'“‘]\s*)?[가나다라마바사아자차카타파하](?:\s*["'”’])?\s*목${DETAIL_END})`;
+const ITEM_SOURCE = String.raw`(?:제\s*)?\d+\s*호(?:\s*의\s*\d+)?`;
+const MOK_SOURCE = String.raw`(?:["'“‘]\s*)?[가나다라마바사아자차카타파하](?:\s*["'”’])?\s*목`;
+// Apply the word boundary after the complete item/subitem chain. A joined
+// "제1호가목" is a citation; "99호실" and "다목적실" are ordinary words.
+const DETAIL_SOURCE = String.raw`(?:${APPENDIX_SOURCE}|${ITEM_SOURCE}(?:\s*${MOK_SOURCE})?${DETAIL_END}|${MOK_SOURCE}${DETAIL_END})`;
 // Extra numeric suffixes are part of the requested scope, never a valid prefix match.
 // Keep them out of the standalone scanner so ordinary possessive prose is not a citation.
 const SELECTOR_SUFFIX_SOURCE = String.raw`의\s*\d+(?:\s*의\s*\d+)*(?:\s*제\s*\d+\s*항(?:\s*의\s*\d+)*)?${DETAIL_END}`;

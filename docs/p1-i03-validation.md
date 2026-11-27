@@ -23,3 +23,7 @@ node scripts/reproduce-citation-review.cjs . citation-review-repros.json
 제를 생략한 호·따옴표가 있는 목·중첩 숫자 접미부는 전체 인용 범위를 보존해 확인필요 처리한다. `제1조 내지 제3조`는 제1조와 제3조를 모두 판정하고 제2조는 검증하지 않는다. 추가 재현: `node scripts/reproduce-citation-suffixes.cjs . citation-suffixes.json`.
 
 최신 실행 수치와 검증한 commit은 PR 본문에서 관리한다.
+
+붙여 쓴 `제1조제1항제1호가목`도 전체 인용을 보존해 확인필요로 처리한다. 호·목 전체 뒤에서 낱말 경계를 검사하므로 `다목적실`·`99호실` 등의 일반 명사는 계속 구분한다. 붙임/띄움·제 생략·따옴표 조합 128개와 날짜 연결·정상 대조군은 `node scripts/reproduce-citation-r2.cjs . citation-r2.json`으로 재현한다.
+
+남은 한계: `제1조의 2가지 목적` 같은 수량 표현을 가지조문으로 오인하는 기존 동작은 별도 개선 대상이다.

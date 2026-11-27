@@ -335,6 +335,24 @@ const deps = {
   const empty = await verifyRuleCitations('규정 인용이 전혀 없는 평문입니다.', deps);
   check('인용 없음 처리', empty.citations.length === 0 && empty.summary.total === 0);
 
+  for (const a of ['', ' ']) for (const b of ['', ' ']) for (const c of ['', ' ']) {
+    for (const prefix of ['', '제']) for (const mok of ['가목', '"가"목', "'가'목", '“가”목']) {
+      for (const inside of ['', ' ']) {
+        const selector = `제1조${a}제1항${b}${prefix}${inside}1${inside}호${c}${mok}`;
+        const input = `「검수규정」 ${selector}`;
+        const result = await verifyRuleCitations(input, suffixDeps);
+        const citation = result.citations[0];
+        check(`R2 붙임·공백 호목 전체 보존: ${selector}`, result.citations.length === 1
+          && citation.status === 'UNSUPPORTED_CITATION' && result.summary.verified === 0
+          && result.summary.exists === 0 && result.summary.needsReview === 1
+          && citation.originalRange.text === selector
+          && input.slice(citation.originalRange.start, citation.originalRange.end) === selector
+          && citation.parsedRange.text === `제1조${a}제1항`
+          && citation.unsupportedReasons.includes('UNSUPPORTED_DETAIL'), JSON.stringify(result.citations));
+      }
+    }
+  }
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📊 인용 검증: ${pass}개 통과 / ${fail}개 실패`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
