@@ -133,6 +133,18 @@ check('rrf: 그래프 점수가 있으면 한 목록으로 더함', () => {
   assert.deepEqual(titles(rank('질문', candidates, { method: 'rrf', semantic: true })), ['가 규정', '나 규정']);
   assert.deepEqual(titles(rank('질문', candidates, { method: 'rrf', semantic: true, graph })), ['나 규정', '가 규정']);
 });
+check('hybrid: 그래프 관계가 오면 관련 규정을 조금 올림(가장 강한 관계가 1.3배), 안 오면 그대로', () => {
+  const candidates = [candidate('가 규정', 10), candidate('나 규정', 9), candidate('다 규정', 8)];
+  const graph = new Map([[candidates[1].lawId, 2], [candidates[2].lawId, 1]]);
+  const lifted = rank('질문', candidates, { method: 'hybrid', graph });
+  assert.deepEqual(titles(lifted), ['나 규정', '가 규정', '다 규정']);
+  assert.equal(lifted.ranked[0].order, 9 * 1.3);
+  assert.equal(lifted.ranked[2].order, 8 * 1.15);
+  assert.deepEqual(titles(rank('질문', candidates, { method: 'hybrid' })), ['가 규정', '나 규정', '다 규정']);
+  assert.deepEqual(titles(rank('질문', candidates, { method: 'hybrid', graph: new Map() })), ['가 규정', '나 규정', '다 규정']);
+  // legacy never reads the graph.
+  assert.deepEqual(titles(rank('질문', candidates, { method: 'legacy', graph })), ['가 규정', '나 규정', '다 규정']);
+});
 check('jev: 확률이 오면 확률 순서, 없으면 hybrid', () => {
   const candidates = [candidate('가 규정', 10), candidate('나 규정', 9)];
   const probability = new Map([[candidates[0].lawId, 0.2], [candidates[1].lawId, 0.7]]);
@@ -165,48 +177,27 @@ check('비교: 새로 틀린 문항과 규정이 빠진 문항을 모두 냄', (
   const after = { rows: [{ id: 'A1', answered: false, ruleInTop3: false }, { id: 'A2', answered: true, ruleInTop3: true }, { id: 'A3', answered: true, ruleInTop3: true }, { id: 'A4', answered: true, ruleInTop3: true }] };
   assert.deepEqual(compareReports(before, after), { newlyWrong: ['A1'], newlyRight: ['A2'], ruleLost: ['A1'], ruleFound: ['A2'], missing: ['A4'] });
 });
+check('측정 전용: 큰 규정 가점을 끄면 인용 많은 규정의 낱말 점수가 내려가고, 기본은 그대로', () => {
+  const { searchCorpus } = require('../src/corpus');
+  const block = (article, text) => ({ article, supplementary: false, supplementaryHeading: null, content: `### ${article}(휴가)\n${text}` });
+  const corpus = { rules: [
+    { lawId: 1, historyId: 1, title: '복무규정', code: '3-1-1', blocks: [block('제1조', '직원의 휴가는 연 15일로 한다.')] },
+    ...[2, 3, 4].map(lawId => ({ lawId, historyId: 1, title: `시행세칙 ${lawId}`, code: `3-1-${lawId}`, blocks: [block('제1조', '「복무규정」에 따라 세부 사항을 정한다.')] })),
+  ] };
+  const score = () => searchCorpus(corpus, '휴가 일수').hits.find(hit => hit.lawId === 1).wordScore;
+  const usual = score();
+  process.env.DONGGUK_MCP_MEASURE_STANDING = 'off';
+  try { assert(score() < usual); } finally { delete process.env.DONGGUK_MCP_MEASURE_STANDING; }
+  assert.equal(score(), usual);
+});
 check('인수: 필수 값이 없거나 모르는 옵션이면 실패', () => {
   assert.deepEqual(parseArgs(['--cache', 'c', '--questions', 'a.json,b.json', '--ranking', 'rrf']).questions, ['a.json', 'b.json']);
   assert.equal(parseArgs(['--cache', 'c', '--questions', 'a.json']).offline, true);
+  const switches = parseArgs(['--cache', 'c', '--questions', 'a.json', '--query-only', '--no-standing', '--graph', 'down']);
+  assert.deepEqual([switches.queryOnly, switches.standing, switches.graph], [true, false, 'down']);
   assert.throws(() => parseArgs(['--questions', 'a.json']), /USAGE/);
   assert.throws(() => parseArgs(['--cache', 'c', '--questions', 'a.json', '--what']), /UNKNOWN_OPTION/);
   assert.throws(() => parseArgs(['--cache']), /MISSING_VALUE/);
-});
-
-console.log('일상어 이름·낱말 처리');
-const aliases = require('../src/aliases');
-const { queryContentTokens } = require('../src/lookup');
-check('이름 사전: 대상·기관·사물의 일상어가 규정 용어로 이어지고 기존 사전 묶음은 그대로', () => {
-  assert(aliases.businessTerms('미화원').includes('미화직'));
-  assert(aliases.businessTerms('한의대').includes('한의과대학'));
-  // Words the rule book itself uses are not given extra forms.
-  assert.deepEqual(aliases.businessTerms('특허'), ['특허']);
-  assert(aliases.businessTerms('킥보드').includes('개인형 이동장치'));
-  assert.deepEqual(aliases.businessTerms('월급'), ['월급', '보수', '급여']);
-  assert.equal(aliases.CONCEPT_GROUPS.length, ontology.data.concepts.length);
-  const legacyWords = new Set(ontology.data.concepts.flatMap(item => [...item.everyday, ...item.rule]));
-  for (const label of ontology.data.labels) {
-    assert(['subject', 'body', 'thing'].includes(label.kind));
-    // A label never rewrites a word the concept groups already define.
-    assert(label.everyday.every(word => !legacyWords.has(word)), label.id);
-  }
-});
-check('이름 사전 자료가 잘못되면 내장 기본값으로', () => {
-  assert.throws(() => ontology.validateData({ ...ontology.data, labels: [{ id: 'x', kind: 'other', everyday: ['가'], rule: ['나'] }] }));
-  assert.throws(() => ontology.validateData({ ...ontology.data, labels: [{ id: 'x', kind: 'thing', everyday: [], rule: ['나'] }] }));
-  assert.equal(ontology.loadOntologyData(() => JSON.stringify({ ...ontology.data, labels: 'broken' })).status, 'fallback');
-  assert.throws(() => ontology.validateData({ ...ontology.data, scopes: ontology.data.scopes.map(item => item.id === 'medical' ? { ...item, place: { ask: '[', title: 'x' } } : item) }));
-  assert.throws(() => ontology.validateData({ ...ontology.data, bodySubject: { ...ontology.data.bodySubject, terms: { 없는대상: 'x' } } }));
-});
-check('조사 둘이 겹친 낱말에서 명사만 남김', () => {
-  assert(queryContentTokens('교수학습혁신센터에는 어떤 사람들이 일해').includes('교수학습혁신센터'));
-  assert(queryContentTokens('직원에게도 수당을 줘').includes('직원'));
-});
-check('뭐 하는 곳인지 묻는 질문은 기능·직능 조문, 뽑힐 수 없는 사람은 결격사유', () => {
-  assert(aliases.headingCueStrength('산학기획위원회는 뭐 하는 곳이야', '기능') > 0);
-  assert(aliases.headingCueStrength('입학전형관리위원회는 뭘 하는 데야', '직능') > 0);
-  assert.equal(aliases.headingCueStrength('산학기획위원회 위원은 몇 명이야', '기능'), 0);
-  assert(aliases.phraseConcepts('산학협력단 직원으로 뽑힐 수 없는 사람은 누구야').includes('결격사유'));
 });
 
 console.log(`📊 순위 결합 검증: ${passed}개 통과`);

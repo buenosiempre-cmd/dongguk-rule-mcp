@@ -12,6 +12,7 @@
 //           counts for more, one for another place for less, and a university-wide rule is kept.
 //           A rule whose articles are about another class of people than the question counts
 //           for less.
+//           Graph relations, when a caller passes them, lift a related rule a little.
 // - rrf     reciprocal rank fusion of the word, meaning, place and graph rankings.
 // - jev     a relevance probability per rule, when the caller supplies one; hybrid otherwise.
 const { placeRequest, placeAgreement } = require('./ontology');
@@ -103,6 +104,8 @@ const PLACE_MISMATCH_SHARE = 0.6;
 // A rule whose articles keep naming another class of people (취업규칙 for a 교수 question).
 // Rules that name the class in their title are already weighed by the word index.
 const BODY_AUDIENCE_SHARE = 0.8;
+// Comparison only: no caller passes graph relations by default.
+const GRAPH_SHARE = 0.3;
 
 const placeShare = hit => hit.scopeMatch === true ? PLACE_MATCH_SHARE : hit.scopeMatch === false ? PLACE_MISMATCH_SHARE : 1;
 function audienceShare(hit, facets) {
@@ -145,14 +148,18 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
   // Optional evidence provider only; the edition-selection algorithm remains owned here.
   const scopeSignal = used === 'hybrid-scope' ? require('./scope').createScopeSignal({ corpus: scopeCorpus }) : null;
   const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place, scopeSignal?.agreement));
-  const lifted = hit => hit.score * placeShare(hit) * audienceShare(hit, facets);
+  // Graph relations (when a caller supplies them) lift a related rule by up to GRAPH_SHARE,
+  // in proportion to the strongest relation among the candidates.
+  const relations = scoresOf(graph);
+  const strongest = relations ? Math.max(0, ...ranked.map(hit => relations.get(hit.lawId) || 0)) : 0;
+  const graphShare = hit => strongest > 0 ? 1 + GRAPH_SHARE * (relations.get(hit.lawId) || 0) / strongest : 1;
+  const lifted = hit => hit.score * placeShare(hit) * audienceShare(hit, facets) * graphShare(hit);
   let order;
   if (used === 'jev') {
     const known = scoresOf(probability);
     order = hit => (known.has(hit.lawId) ? known.get(hit.lawId) : 0) * placeShare(hit);
   } else if (used === 'rrf' && semantic) {
     const tier = hit => hit.scopeMatch === true ? 1 : hit.scopeMatch === false ? 1 + 2 * RRF_PLACE_TIER : 1 + RRF_PLACE_TIER;
-    const relations = scoresOf(graph);
     const fused = reciprocalRankFusion([
       { ranks: ranksOf(ranked.map(hit => [hit, hit.wordScore * audienceShare(hit, facets)])), weight: RRF_WEIGHTS.words },
       { ranks: new Map(ranked.filter(hit => hit.semanticRuleRank).map(hit => [hit, hit.semanticRuleRank])), weight: RRF_WEIGHTS.meaning },

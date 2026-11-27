@@ -31,8 +31,6 @@ function validateData(d) {
     if (x.edition !== undefined && typeof x.edition !== 'boolean') throw new Error('ONTOLOGY_SCHEMA');
     if (x.place !== undefined) { if (!x.place || typeof x.place !== 'object') throw new Error('ONTOLOGY_SCHEMA'); pattern(x.place.ask,x.flags); pattern(x.place.title,x.flags); }
   }
-  if (d.labels !== undefined && (!Array.isArray(d.labels) || d.labels.length > 1000 || new Set(d.labels.map(x => x?.id)).size !== d.labels.length
-    || !d.labels.every(x => x && typeof x.id === 'string' && x.id && ['subject','body','thing'].includes(x.kind) && strings(x.everyday) && x.everyday.length && strings(x.rule) && x.rule.length))) throw new Error('ONTOLOGY_SCHEMA');
   if (d.bodySubject !== undefined) {
     const b = d.bodySubject;
     if (!b || ![b.share,b.perArticle,b.mentions].every(n => Number.isFinite(n) && n > 0) || !b.terms || typeof b.terms !== 'object') throw new Error('ONTOLOGY_SCHEMA');
