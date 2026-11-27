@@ -19,7 +19,7 @@ const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 
 // Only an adjacent bracket group or date can extend a 부칙 prefix.
 // Prose such as "부칙에 따라 ... 제3조" must leave 제3조 in the main body.
-const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?`;
+const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?(?:(?:의|중)\s*)?`;
 const ARTICLE_RE = new RegExp(
   String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d{1,3})\s*조(?:\s*의\s*(\d{1,2}))?` +
   String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d{1,2})\s*항)?`,
@@ -151,7 +151,7 @@ function extractRuleCitations(text) {
       if (!number) continue;
       // Consume the complete addendum prefix before interpreting it. An invalid
       // date/prefix must never fall through to a main-body article match.
-      const selectorText = `${m[1] || ''}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      const selectorText = `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
       const selector = normalizeArticleSelector(selectorText);
       const canonical = selector?.label || selectorText.trim();
       const raw = m[0].replace(/\s+/g, ' ').trim();
