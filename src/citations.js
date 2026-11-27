@@ -157,8 +157,9 @@ function extractRuleCitations(text) {
       // Consume the complete addendum prefix before interpreting it. An invalid
       // date/prefix must never fall through to a main-body article match.
       const selectorText = `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
-      const selector = normalizeArticleSelector(selectorText);
-      const canonical = selector?.label || selectorText.trim();
+      const selector = m.dateSyntaxUnverified ? null : normalizeArticleSelector(selectorText);
+      const originalSelector = `${m.sourcePrefix ?? (m[1] || '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
+      const canonical = selector?.label || originalSelector.trim();
       const raw = m[0].replace(/\s+/g, ' ').trim();
 
       // 같은 문단에서 이 조문 앞에 있는 가장 가까운 멘션에 결속
