@@ -398,15 +398,40 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   };
   const currentLookups=new Map(),historicalLookups=new Map();
   let historicalTool;
-  const currentLaw=name=>{
-    const key=normalize(name);
+  const currentLaw=(name,suffixMatch=false,allowRename=false)=>{
+    const key=`${normalize(name)}|${suffixMatch}|${allowRename}`;
     if(!currentLookups.has(key)) currentLookups.set(key,(async()=>{
-      const response=await call('search_law',{query:name,display:100});
-      if(responseFailed(response)||errorText(textOf(response))) throw failure('LEGAL_LOOKUP_FAILED');
-      const law=exactCurrentLaw(response,name);
+      // Only parser-widened names may use bounded suffix queries; a complete
+      // official name must still be contained at the end of the candidate.
+      const words=name.split(/\s+/);
+      const queries=suffixMatch?[...new Set([words.slice(-3).join(' '),words.slice(-2).join(' '),words.slice(-1)[0]])]:[name];
+      let law=null,response,renamed=null,matchedFromText=null;
+      for(const query of queries){
+        response=await call('search_law',{query,display:100});
+        const text=textOf(response);
+        const noResult=/^\[NOT_FOUND\][^\r\n]*검색 결과가 없습니다/m.test(text);
+        if((responseFailed(response)||errorText(text))&&!noResult) throw failure('LEGAL_LOOKUP_FAILED');
+        law=exactCurrentLaw(response,name);
+        if(!law&&suffixMatch&&!noResult){
+          const matched=listedLaws(text).filter(x=>normalize(name).endsWith(normalize(x.name)))
+            .sort((a,b)=>normalize(b.name).length-normalize(a.name).length)[0];
+          if(matched){law={...matched,sourceUrl:matched.url};matchedFromText=name;}
+        }
+        // Current article references accept an explicit provider rename notice.
+        // Historical resolution and annex identity retain their exact-name rules.
+        if(!law&&!noResult&&allowRename){
+          const notice=renameNotice(text,name);
+          if(notice){
+            law=exactCurrentLaw(response,notice.to);
+            if(!law) throw failure('LEGAL_CURRENT_VERSION_UNVERIFIED');
+            renamed=notice;
+          }
+        }
+        if(law) break;
+      }
       if(!law) throw failure('LEGAL_EXACT_LAW_NOT_FOUND');
       if(law.effectiveAt>compactDate(today.iso)) throw failure('LEGAL_CURRENT_VERSION_UNVERIFIED');
-      return {law,search:clipped(textOf(response),maxTextChars)};
+      return {law,search:clipped(textOf(response),maxTextChars),renamed,matchedFromText};
     })());
     return currentLookups.get(key);
   };
@@ -437,9 +462,17 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
       const article={selector:selector||null,status:'unavailable',bodyRetrieved:false,dateStatus:result.dateStatus,referenceOnly:historical,source:null};
       result.articles.push(article);
       try{
-        const resolved=await(historical?atDate(lawName):currentLaw(lawName));
+        const resolved=await(historical?atDate(lawName):currentLaw(lawName,result.request.suffixMatch===true,true));
         const law=resolved.law;
         result.law=law;
+        if(resolved.matchedFromText) result.matchedFromText=resolved.matchedFromText;
+        if(resolved.renamed){
+          result.renamedFrom=resolved.renamed.from;
+          result.warnings=[
+            {code:'LAW_RENAMED',message:`규정이 옛 법령명 「${resolved.renamed.from}」을 인용합니다. 현행 제명은 「${law.name}」입니다.`},
+            ...(selector?[{code:'ARTICLE_NUMBER_UNVERIFIED',message:`${selector}는 현행 「${law.name}」의 같은 번호 조문입니다. 옛 법령에서 인용한 조문과 같은 내용인지 확인하세요.`}]:[]),
+          ];
+        }
         if(resolved.search) result.search_text=resolved.search.text;
         if(resolved.resolution) result.dateResolution={...resolved.resolution,tool:resolved.tool};
         const arguments_={mst:law.mst,efYd:law.effectiveAt,...(selector?{jo:selector}:{})};

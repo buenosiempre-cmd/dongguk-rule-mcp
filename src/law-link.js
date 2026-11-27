@@ -39,7 +39,7 @@ function planRequests(externalLaws) {
     if (!law.confirmedLawName) { skipped.push({ lawName: law.lawName, reason: 'LAW_NAME_UNCONFIRMED' }); continue; }
     if (!law.articles.length) { skipped.push({ lawName: law.lawName, reason: 'NO_ARTICLE_CITED' }); continue; }
     for (const article of law.articles) {
-      if (requests.length < MAX_LAW_ARTICLES) requests.push({ law_name: law.lawName, article });
+      if (requests.length < MAX_LAW_ARTICLES) requests.push({ law_name: law.lawName, article, ...(law.nameGuessed ? { suffixMatch: true } : {}) });
       else skipped.push({ lawName: law.lawName, article, reason: 'LIMIT' });
     }
   }
@@ -51,7 +51,7 @@ function today() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'As
 async function fetchCitedLaws(externalLaws, { profile, cached, queryLegalReferences }) {
   const { requests, skipped } = planRequests(externalLaws);
   const limits = { maxArticles: MAX_LAW_ARTICLES, maxTextChars: MAX_TEXT_CHARS, totalTimeoutMs: TOTAL_TIMEOUT_MS };
-  if (!requests.length) return { status: 'not_required', laws: [], skipped, limits };
+  if (!requests.length) return { status: skipped.some(x => x.reason === 'LAW_NAME_UNCONFIRMED') ? 'unavailable' : 'not_required', laws: [], skipped, limits };
   const guide = lawLinkGuide(profile);
   if (guide) {
     const { notice, message, ...setup } = guide;
@@ -64,7 +64,7 @@ async function fetchCitedLaws(externalLaws, { profile, cached, queryLegalReferen
     laws.push(entry);
     const remaining = deadline - Date.now();
     if (remaining < 1000) { entry.code = 'LEGAL_TOTAL_TIMEOUT'; continue; }
-    const key = crypto.createHash('md5').update([normalizeName(request.law_name), request.article, today()].join('|')).digest('hex');
+    const key = crypto.createHash('md5').update(['identity-v2', normalizeName(request.law_name), request.suffixMatch === true, request.article, today()].join('|')).digest('hex');
     let result;
     try {
       result = await cached('law-link', key, CACHE_SECONDS, async () => {
@@ -80,6 +80,9 @@ async function fetchCitedLaws(externalLaws, { profile, cached, queryLegalReferen
     } catch (error) {
       result = error.lawResult || { status: 'unavailable', code: 'LEGAL_LOOKUP_FAILED', articles: [] };
     }
+    if (result.renamedFrom) entry.renamedFrom = result.renamedFrom;
+    if (result.matchedFromText) entry.matchedFromText = result.matchedFromText;
+    if (result.warnings?.length) entry.warnings = result.warnings;
     const article = result.articles?.[0];
     entry.status = article?.bodyRetrieved ? (article.truncated ? 'partial' : 'retrieved') : 'unavailable';
     if (article?.bodyRetrieved) {
@@ -96,7 +99,7 @@ async function fetchCitedLaws(externalLaws, { profile, cached, queryLegalReferen
     if (code) entry.code = code;
   }
   const retrieved = laws.filter(x => x.status !== 'unavailable').length;
-  const complete = laws.every(x => x.status === 'retrieved') && !skipped.some(x => x.reason === 'LIMIT');
+  const complete = laws.every(x => x.status === 'retrieved') && !skipped.some(x => x.reason !== 'NO_ARTICLE_CITED');
   return { status: complete ? 'retrieved' : retrieved ? 'partial' : 'unavailable', laws, skipped, limits };
 }
 
@@ -106,6 +109,7 @@ function formatCitedLaws(lawTexts) {
   if (lawTexts.notice) lines.push('', lawTexts.notice);
   for (const law of lawTexts.laws) {
     lines.push('', `#### ${law.lawName} ${law.article}`);
+    for (const warning of law.warnings || []) lines.push(`- ${warning.message}`);
     if (law.status === 'unavailable') { lines.push(`법령 원문을 가져오지 못했습니다(${law.code || 'LEGAL_LOOKUP_FAILED'}). 한국법령 MCP나 국가법령정보센터에서 직접 확인하세요.`); continue; }
     if (law.source) lines.push(`- 시행일 ${law.source.effectiveAt} · MST ${law.source.mst} · ${law.source.url}`);
     lines.push('', law.text.trim());
@@ -113,6 +117,8 @@ function formatCitedLaws(lawTexts) {
   }
   const limited = lawTexts.skipped.filter(x => x.reason === 'LIMIT');
   if (limited.length) lines.push('', `한 번에 ${lawTexts.limits.maxArticles}개 조문까지 가져옵니다. 생략: ${limited.map(x => `${x.lawName} ${x.article}`).join(', ')}`);
+  const unconfirmed = lawTexts.skipped.filter(x => x.reason === 'LAW_NAME_UNCONFIRMED');
+  if (unconfirmed.length) lines.push('', `법령 여부를 확인하지 못해 원문을 조회하지 않았습니다: ${unconfirmed.map(x => x.lawName).join(', ')}`);
   const noArticle = lawTexts.skipped.filter(x => x.reason === 'NO_ARTICLE_CITED');
   if (noArticle.length) lines.push('', `조문을 특정하지 않은 인용은 원문을 가져오지 않았습니다: ${noArticle.map(x => x.lawName).join(', ')}`);
   if (lawTexts.laws.length) lines.push('', '법령 원문은 현행 기준입니다. 규정 제정·개정 당시의 조문과 다를 수 있고, 부칙·경과조치와 사건 적용 여부는 따로 확인해야 합니다.');

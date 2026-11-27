@@ -38,6 +38,7 @@ seed('content-v4', '1_20', { title: '여비규정', markdown: [
 const lawCalls = [];
 const lawNames = new Map();
 let lawDown = false;
+const oldLaw = '지가공시 및 토지 등의 평가에 관한 법률', newLaw = '부동산 가격공시에 관한 법률';
 function lawFixture() {
   const server = new Server({ name: 'korean-law-fixture', version: 'test' }, { capabilities: { tools: {} } });
   const text = value => ({ content: [{ type: 'text', text: value }] });
@@ -48,10 +49,11 @@ function lawFixture() {
     if (lawDown) throw new Error('fixture down');
     if (name === 'search_law') {
       const mst = String(12345 + lawNames.size);
-      lawNames.set(mst, a.query);
+      lawNames.set(mst, a.query === oldLaw ? newLaw : a.query);
+      if (a.query === oldLaw) return text(`「${oldLaw}」은(는) 옛 법령명입니다. 현행은 「${newLaw}」(법령ID 001827, MST ${mst})\n1. ${newLaw} [현행]\n   - 법령ID: 001827\n   - MST: ${mst}\n   - 공포일: 20250101 / 시행일: 20250101\n`);
       return text(`1. ${a.query} [현행]\n   - 법령ID: 001565\n   - MST: ${mst}\n   - 공포일: 20250101 / 시행일: 20250101\n`);
     }
-    if (name === 'get_law_text') return text(`법령명: ${lawNames.get(String(a.mst))}\n공포일: 20250101\n시행일: 20250101\n\n${a.jo}(비과세소득)\n① 합성 조문 본문입니다.\n`);
+    if (name === 'get_law_text') return text(`법령명: ${lawNames.get(String(a.mst))}\n공포일: 20250101\n시행일: 20250101\n\n${a.jo}(비과세소득)\n① 합성 조문 본문입니다.${lawNames.get(String(a.mst)) === '장문법' ? '가'.repeat(7000) : ''}\n`);
     throw new Error('unexpected');
   });
   return server;
@@ -83,6 +85,7 @@ async function main() {
     const result = await call('get_rule_references', { law_id: 1 });
     assert.equal(result.ok, true);
     assert.equal(result.data.lawTexts, undefined);
+    assert.equal(result.data.evidenceStatus, 'retrieved');
   });
 
   await check('법령 서버 주소·키가 없으면 인용 결과는 그대로, 원문 대신 설정 안내', async () => {
@@ -91,6 +94,7 @@ async function main() {
     assert.equal(result.ok, true);
     assert.notEqual(raw.isError, true);
     assert.equal(result.data.lawTexts.status, 'not_configured');
+    assert.equal(result.data.evidenceStatus, 'partial');
     assert.equal(result.data.lawTexts.code, 'LAW_LINK_NOT_CONFIGURED');
     assert.deepEqual(result.data.lawTexts.setup, { state: 'missing', env: ['DONGGUK_LEGAL_MCP_URL', 'LAW_OC'], ocApplyUrl: 'https://open.law.go.kr' });
     for (const expected of [/DONGGUK_LEGAL_MCP_URL/, /LAW_OC/, /open\.law\.go\.kr/, /규정 쪽 결과는 그대로/]) { assert.match(result.data.lawTexts.notice, expected); assert.match(raw.content[0].text, expected); }
@@ -109,6 +113,7 @@ async function main() {
     process.env.DONGGUK_PUBLIC_LAW_LINK = '0';
     const result = await call('get_rule_references', { law_id: 1, include_law_text: true });
     assert.equal(result.data.lawTexts.status, 'not_configured');
+    assert.equal(result.data.evidenceStatus, 'partial');
     assert.equal(result.data.lawTexts.setup.state, 'disabled_public');
     assert.match(result.data.lawTexts.notice, /DONGGUK_PUBLIC_LAW_LINK=0/);
     assert.equal(lawCalls.length, 0);
@@ -131,6 +136,7 @@ async function main() {
     const result = await call('get_rule_references', { law_id: 1, article: 2, include_law_text: true });
     assert.equal(result.ok, true);
     assert.equal(result.data.lawTexts.status, 'unavailable');
+    assert.equal(result.data.evidenceStatus, 'partial');
     assert(result.data.lawTexts.laws.every(x => x.status === 'unavailable' && x.code));
     lawDown = false;
   });
@@ -140,6 +146,7 @@ async function main() {
     const raw = await client.callTool({ name: 'get_rule_references', arguments: { law_id: 1, article: 2, include_law_text: true } });
     const result = raw.structuredContent;
     assert.equal(result.data.lawTexts.status, 'retrieved');
+    assert.equal(result.data.evidenceStatus, 'retrieved');
     assert.deepEqual(result.data.lawTexts.laws.map(x => `${x.lawName} ${x.article} ${x.status}`), ['소득세법 제12조 retrieved', '소득세법 시행령 제12조 retrieved', '법인세법 제19조 retrieved', '부가가치세법 제10조 retrieved']);
     assert.match(result.data.lawTexts.laws[0].text, /합성 조문 본문/);
     assert.equal(result.data.lawTexts.laws[0].source.mst, '12345');
@@ -158,7 +165,33 @@ async function main() {
   await check('조문 없는 인용은 원문을 가져오지 않음', async () => {
     const result = await call('get_rule_references', { law_id: 1, article: 3, include_law_text: true });
     assert.equal(result.data.lawTexts.status, 'not_required');
+    assert.equal(result.data.evidenceStatus, 'retrieved');
     assert.deepEqual(result.data.lawTexts.skipped, [{ lawName: '사립학교법', reason: 'NO_ARTICLE_CITED' }]);
+  });
+
+  await check('법령 본문 부분·생략·옛 법명 경고가 도구 결과에 보존됨', async () => {
+    seed('history', '2', [{ historyId: 20, revisedAt: '2026.09.01' }]);
+    seed('content-v4', '2_20', { title: '합성규정1', markdown: [
+      '### 제1조(한도)', Array.from({length: 9}, (_, i) => `「한도법」 제${i + 1}조`).join(' 및 '),
+      '### 제2조(긴본문)', '「장문법」 제1조',
+      '### 제3조(옛법명)', `「${oldLaw}」 제4조`,
+      '### 제4조(미확정)', '「임의지침」 제1조',
+    ].join('\n') });
+    for (const article of [1, 2, 4]) {
+      const result = await call('get_rule_references', { law_id: 2, article, include_law_text: true });
+      assert.equal(result.data.evidenceStatus, 'partial');
+      assert.equal(result.data.lawTexts.status, article === 4 ? 'unavailable' : 'partial');
+      if (article === 1) assert.equal(result.data.lawTexts.skipped.filter(x => x.reason === 'LIMIT').length, 1);
+      if (article === 2) assert.equal(result.data.lawTexts.laws[0].truncated, true);
+    }
+    const raw = await client.callTool({name: 'get_rule_references', arguments: {law_id: 2, article: 3, include_law_text: true}});
+    const law = raw.structuredContent.data.lawTexts.laws[0];
+    assert.equal(law.source.lawName, newLaw);
+    assert.equal(law.renamedFrom, oldLaw);
+    assert.deepEqual(law.warnings.map(x => x.code), ['LAW_RENAMED', 'ARTICLE_NUMBER_UNVERIFIED']);
+    assert.match(raw.content[0].text, /같은 번호 조문/);
+    const warm = await call('get_rule_references', {law_id: 2, article: 3, include_law_text: true});
+    assert.deepEqual(warm.data.lawTexts.laws[0].warnings, law.warnings);
   });
 
   await check('서비스 정보에 연계 상태', async () => {

@@ -230,6 +230,45 @@ test('dated annex failure never retries with current annex silently',async()=>{
   assert.equal(client.calls.some(c=>c.name==='search_law'),false);
 });
 
+test('bounded unquoted candidates are matched only against full official suffix names',async()=>{
+  const official='교원의 노동조합 설립 및 운영 등에 관한 법률';
+  const candidate='주변문장 교원의 노동조합설립 및 운영 등에 관한 법률';
+  const client=fake(r=>r.name==='search_law'?current(official):r.name==='get_law_text'?lawBody(official,'제5조'):undefined);
+  const response=await run([{law_name:candidate,article:'제5조',suffixMatch:true}],client);
+  assert.equal(response.status,'retrieved');
+  assert.equal(response.results[0].law.name,official);
+  assert.equal(response.results[0].matchedFromText,candidate);
+  assert.equal(client.calls.filter(c=>c.name==='search_law').length,1);
+  for(const requested of [{law_name:'운영 등에 관한 법률',article:'제5조',suffixMatch:true},{law_name:candidate,article:'제5조'}]){
+    const rejected=fake(r=>r.name==='search_law'?current(official):undefined);
+    const result=await run([requested],rejected);
+    assert.equal(result.status,'unavailable');
+    assert(!rejected.calls.some(c=>c.name==='get_law_text'));
+    assert(rejected.calls.filter(c=>c.name==='search_law').length<=3);
+  }
+});
+test('old names require explicit rename notice and verified current listing; warn about article numbers',async()=>{
+  const old='지가공시 및 토지 등의 평가에 관한 법률',official='부동산 가격공시에 관한 법률';
+  const notice=`「${old}」은(는) 옛 법령명입니다. 현행은 「${official}」(법령ID 001827, MST 251375)`;
+  const listing=current(official).content[0].text;
+  const client=fake(r=>r.name==='search_law'?text(notice+'\n'+listing):r.name==='get_law_text'?lawBody(official,'제4조'):undefined);
+  const result=await run([{law_name:old,article:'제4조'}],client);
+  assert.equal(result.status,'retrieved');
+  assert.equal(result.results[0].renamedFrom,old);
+  assert.deepEqual(result.results[0].warnings.map(x=>x.code),['LAW_RENAMED','ARTICLE_NUMBER_UNVERIFIED']);
+  assert.equal(result.results[0].articles[0].source.lawName,official);
+  const annexClient=fake(r=>r.name==='search_law'?text(notice+'\n'+listing):undefined);
+  const annexResult=await run([{law_name:old,annex:'별표 1'}],annexClient);
+  assert.equal(annexResult.status,'unavailable');
+  assert(!annexClient.calls.some(c=>c.name==='get_annexes'));
+  for(const bad of [listing,notice,notice+'\n'+current(official,'251375','20270101').content[0].text,notice.replace(old,'다른옛법')+'\n'+listing]){
+    const rejected=fake(r=>r.name==='search_law'?text(bad):undefined);
+    const failure=await run([{law_name:old,article:'제4조'}],rejected);
+    assert.equal(failure.status,'unavailable');
+    assert(!rejected.calls.some(c=>c.name==='get_law_text'));
+  }
+});
+
 (async()=>{
   let passed=0;
   for(const {name,fn} of tests){try{await fn();passed++;console.log(`ok ${passed} - ${name}`);}catch(error){console.error(`not ok - ${name}`);throw error;}}

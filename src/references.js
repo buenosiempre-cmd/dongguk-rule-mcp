@@ -10,7 +10,7 @@ const ARTICLE_AFTER = /^\s*(?:\([^)\n]{0,60}\)\s*)?(?:에서\s*|의\s*)?(?=제\s
 const ARTICLE_ITEM = /^제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*제\s*(\d+)\s*항)?(?:\s*제\s*\d+\s*호(?:\s*[가-하]목)?)?/;
 // "제29조, 제31조 및 제32조의2" lists belong to the law named before them.
 const ARTICLE_SEPARATOR = /^\s*(?:,|ㆍ|·|및|또는|내지|부터|와|과)\s*(?=제\s*\d+\s*조)/;
-const UNQUOTED_LAW = /([가-힣A-Za-z0-9·ㆍ]{0,30}(?:법률|법))((?:\s?시행령|\s?시행규칙)?)\s*(?=제\s*\d+\s*조)/g;
+const UNQUOTED_LAW = /([가-힣A-Za-z0-9·ㆍ]{0,30}(?:법률|법))((?:\s?시행령|\s?시행규칙)?)\s*(?=(?:\(\s*이하[^)\n]{1,60}\)\s*)?제\s*\d+\s*조)/g;
 const ANAPHORA = /(?:동\s?법|같은\s?법)((?:\s?시행령|\s?시행규칙)?)\s*(?=제\s*\d+\s*조)/g;
 const ABBREVIATION = /^\s*\(\s*이하\s*["“”'‘’]\s*([^"“”'‘’\n]{1,20}?)\s*["“”'‘’]\s*(?:이)?라\s*(?:한다|함)\.?\s*\)/;
 const ANY_ARTICLE = /제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g;
@@ -103,7 +103,13 @@ function extendLawName(source, start, base) {
   if (!wide && !GENERIC_LAW_TAIL.test(base)) return { name: base, start };
   const taken = [];
   for (let i = words.length - 1; i >= 0 && taken.length < (wide ? MAX_NAME_WORDS : 1); i--) {
-    if (!NAME_WORD.test(words[i]) || NAME_BOUNDARY.test(words[i])) break;
+    // Only a conjunction inside a bounded '…에 관한 법률' candidate may be
+    // crossed. Ordinary sentence conjunctions remain boundaries, as do another
+    // law's name on the left. The widened candidate still needs official matching.
+    const internalAnd = words[i] === '및' && base === '법률' &&
+      taken.some(word => /^(?:관한|위한|대한)$/.test(word)) && taken.length + 1 < MAX_NAME_WORDS &&
+      i > 0 && NAME_WORD.test(words[i - 1]) && !NAME_BOUNDARY.test(words[i - 1]) && !LAW_SUFFIX.test(words[i - 1]);
+    if (!NAME_WORD.test(words[i]) || (NAME_BOUNDARY.test(words[i]) && !internalAnd)) break;
     taken.unshift(words[i]);
   }
   if (!taken.length) return { name: bare ? null : base, start };
