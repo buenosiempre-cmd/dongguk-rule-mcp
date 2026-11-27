@@ -172,6 +172,25 @@ check('hybrid: 그래프 관계가 오면 관련 규정을 조금 올림(가장 
   // legacy never reads the graph.
   assert.deepEqual(titles(rank('질문', candidates, { method: 'legacy', graph })), ['가 규정', '나 규정', '다 규정']);
 });
+check('그래프 방향: down은 앞선 규정을 시행한다고 밝힌 하위 규정만, all은 모든 관계', () => {
+  const { relationScores } = require('../src/fusion');
+  const { buildRuleGraph, rankRelatedRules } = require('../src/rule-graph');
+  const article = (title, text) => ({ article: '제1조', supplementary: false, content: `### 제1조(${title})\n${text}` });
+  const corpus = { rules: [
+    { lawId: 11, historyId: 1, title: '복무규정', blocks: [article('목적', '직원의 복무에 관한 사항을 정한다.')] },
+    { lawId: 12, historyId: 1, title: '복무규정 시행세칙', blocks: [article('목적', '이 세칙은 「복무규정」에 따라 시행에 필요한 세부 사항을 정한다.')] },
+    { lawId: 13, historyId: 1, title: '당직내규', blocks: [article('당직', '당직자의 휴가는 「복무규정」을 준용한다.')] },
+  ] };
+  const graph = buildRuleGraph(corpus);
+  const from = lawId => rankRelatedRules(graph, [{ lawId, score: 1 }], { limit: 50 });
+  assert.deepEqual([...relationScores(from(11), 'down').keys()], [12]);
+  assert.deepEqual([...relationScores(from(11), 'all').keys()].sort(), [12, 13]);
+  // From the lower rule, its parent is not lifted in the downward direction.
+  assert.equal(relationScores(from(12), 'down'), null);
+  assert.deepEqual([...relationScores(from(12), 'all').keys()], [11]);
+  assert.equal(relationScores(from(11), 'off'), null);
+  assert.equal(relationScores(null, 'down'), null);
+});
 check('jev: 확률이 오면 확률 순서, 없으면 hybrid', () => {
   const candidates = [candidate('가 규정', 10), candidate('나 규정', 9)];
   const probability = new Map([[candidates[0].lawId, 0.2], [candidates[1].lawId, 0.7]]);

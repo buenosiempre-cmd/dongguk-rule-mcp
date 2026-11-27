@@ -154,7 +154,8 @@ const {
   TOOL_OUTPUT_SCHEMA,
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
-const { rankRules, rankingMethod } = require('./fusion.js');
+const { rankRules, rankingMethod, relationScores } = require('./fusion.js');
+const { buildRuleGraph, rankRelatedRules } = require('./rule-graph.js');
 const { createFacetSignal } = require('./ontology.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
@@ -732,6 +733,20 @@ function excerptPriority(first,semanticArticle,rest){
   if(!semanticArticle||base.includes(semanticArticle)) return base;
   return [...base.slice(0,1),semanticArticle,...base.slice(1)];
 }
+// Graph relations among the leading candidates, for comparison runs only
+// (DONGGUK_MCP_MEASURE_GRAPH=down|all; unset in a running server, so the graph is never built there).
+const GRAPH_SEEDS=5;
+const ruleGraphs=new WeakMap();
+function graphRelations(corpus,candidates){
+  const direction=String(process.env.DONGGUK_MCP_MEASURE_GRAPH||'').trim().toLowerCase();
+  if(!corpus||!['down','all'].includes(direction)) return null;
+  try{
+    if(!ruleGraphs.has(corpus)) ruleGraphs.set(corpus,buildRuleGraph(corpus));
+    // Seeds carry ranks, not raw scores: the leading five candidates, the first counting most.
+    const seeds=[...candidates].sort((a,b)=>b.score-a.score||a.lawId-b.lawId).slice(0,GRAPH_SEEDS).map((hit,i)=>({lawId:hit.lawId,score:1/(i+1)}));
+    return relationScores(rankRelatedRules(ruleGraphs.get(corpus),seeds,{limit:50}),direction);
+  }catch{return null;}
+}
 function rankIndexHits(found,{top,campus,scopeQuery}){
   const families=new Map();
   for(const hit of found.hits){
@@ -749,7 +764,8 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const corpus=loadCorpus(publicCacheDir());
   const requested=rankingMethod();
   const {method,ranked:fused}=rankRules({candidates:[...families.values()].flat(),scope:requestedRuleScope(scopeQuery,campus),query:scopeQuery,campus,
-    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),semantic:found.semantic,method:requested});
+    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),semantic:found.semantic,
+    graph:requested==='legacy'?null:graphRelations(corpus,[...families.values()].flat()),method:requested});
   let ranked=fused;
   // A rule that shares only the institution's name with the question comes after every rule
   // with a matching topic. It stays a candidate: its answer may sit in an appendix the index lacks.

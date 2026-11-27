@@ -138,6 +138,20 @@ const byFamily = candidates => {
 };
 const scoresOf = signal => signal instanceof Map ? signal : null;
 
+// Relations found by the rule graph (rule-graph.js rankRelatedRules) as scores for `graph`.
+// down: only a rule that states it implements a leading candidate (학칙 → its 시행세칙). The
+//       parent of a leading rule, or a rule it merely cites, is left out: those relations pull
+//       towards the large, much-cited rules.
+// all:  every relation, both directions.
+// The evidence of a relation sits in the rule that wrote the citation; for "implements" that
+// is the lower rule.
+function relationScores(related, direction = 'down') {
+  if (!Array.isArray(related) || !['down', 'all'].includes(direction)) return null;
+  const kept = direction === 'all' ? related : related.filter(item => item?.relation === 'implements' && item.evidence?.lawId === item.lawId);
+  const scores = new Map(kept.filter(item => Number.isSafeInteger(item?.lawId) && item.score > 0).map(item => [item.lawId, item.score]));
+  return scores.size ? scores : null;
+}
+
 // Rule candidates of one question, in order.
 // candidates: rules the word index found, each with { lawId, title, family, edition, score
 //   (word score lifted by meaning), wordScore, semanticRuleRank }.
@@ -192,4 +206,4 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
   return { method: used, ranked: ranked.map(hit => ({ ...hit, order: order(hit) })).sort((a, b) => b.order - a.order || a.lawId - b.lawId) };
 }
 
-module.exports = { METHODS, DEFAULT_METHOD, RRF_K, rankingMethod, ranksOf, reciprocalRankFusion, rankRules };
+module.exports = { METHODS, DEFAULT_METHOD, RRF_K, rankingMethod, ranksOf, reciprocalRankFusion, relationScores, rankRules };
