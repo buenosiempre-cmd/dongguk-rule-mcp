@@ -1,353 +1,268 @@
-# 동국 규정 MCP
+<h1 align="center">동국 규정 MCP</h1>
 
-동국대학교 구성원이 AI에서 [공식 통합규정관리시스템](https://rule.dongguk.edu/)의 규정·조문·별표·개정 이력을 찾는 읽기 전용 MCP 서버입니다. **기본 `rules` 프로필은 공개 규정용**이며, 내부 재무지식 기능은 별도 `finance` 프로필로 선택합니다.
+<p align="center">
+  <b>동국대 규정을 AI에게 물으면, 공식 원문에서 찾은 조문과 링크를 붙여 답합니다.</b><br>
+  Claude·ChatGPT·Cursor·Codex 같은 AI 앱에 주소 한 줄만 더하면 됩니다. 설치도 로그인도 없습니다.
+</p>
 
-[구성원 시작 페이지](https://dgu.kr-univ-rules.com/guide) · [상세 사용 가이드](docs/COP_GUIDE.md) · [운영 가이드](docs/OPERATIONS.md) · [CoP 평가 가이드](docs/EVALUATION.md) · [GitHub 릴리스](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.8)
+<p align="center">
+  <a href="docs/assets/usage-demo.mp4"><img src="docs/assets/usage-demo.webp" alt="소개 영상 하이라이트: 질문 한 줄에 「여비규정」 [별표 1] 기준 팀원 국내 출장 숙박비 120,000원이 조문·개정일·원문 링크와 함께 나오고, 이어서 동국대·연세대·한양대·경희대·건국대 여비 규정의 여비 종류 조문을 나란히 비교하는 장면. 하단에 한글 자막" width="800"></a>
+  <br><sub>하이라이트(소리 없음)입니다. <a href="docs/assets/usage-demo.mp4"><b>▶ 내레이션이 있는 전체 영상(MP4, 약 1분 30초: 타대학 비교·상위 법령 조회 포함)</b></a> · 앱 화면은 예시이며 화면 속 규정·법령 내용은 공용 서버와 국가법령 실제 조회 결과(2026-11-26)입니다.</sub>
+</p>
 
-**v0.12.0**은 HWP 원문을 우선해 조문을 비교하고, 표의 셀 좌표·병합 범위·값과 포함된 그림의 파일 내용을 함께 비교합니다. 문서마다 실제 추출 범위와 미지원 항목을 표시하며, HWP를 읽지 못해 HTML로 대체한 결과는 부분 비교로 남깁니다. [v0.12.0 변경 기록](docs/RELEASE-v0.12.0.md)에서 범위를 확인하세요. 출장비·외부 강사료의 교내 규정·한국법령 공동 조회 기능은 유지합니다. [자동 법령 연계 안내](docs/AUTO_LEGAL_INTEGRATION.md) · [v0.10.4 변경 기록](docs/review-2026-10-27.md) · [이전 개선 기록](docs/review-2026-10-07.md) · [빠른 사용과 운영 설정](docs/PERFORMANCE.md)
+<p align="center">
+  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.10"><img alt="버전 0.15.10" src="docs/assets/badges/version.svg"></a>
+  <a href="LICENSE"><img alt="MIT 라이선스" src="docs/assets/badges/license.svg"></a>
+  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml"><img alt="CI: MCP regression" src="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml/badge.svg"></a>
+</p>
 
-개발판 **v0.14.0**은 규정이 인용한 국가 법령 조문의 원문을 함께 가져오는 `get_rule_references(include_law_text=true)`와, 최근 개정된 규정과 변경 조문을 정리해 Slack에 올리는 `npm run weekly-updates`를 추가했습니다.
+> 동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다. 공개 규정 원문([rule.dongguk.edu](https://rule.dongguk.edu/))을 조회해 전달하며, 최종 판단은 공식 원문과 소관 부서 해석을 따르세요.  
+> <em>Read-only MCP for Dongguk University regulations. Not an official university service.</em>
 
-**v0.15.8**은 타대학 대표 규정의 개정일·본문 지문·조회 실패를 직전 기록과 비교하는 `university-watch`와, 사용 중 비교 실패를 집계하는 선택적 사용 로그를 추가합니다. 캐시 10분은 유지하고 본문은 장기 저장하지 않습니다. 기본은 출력만 하며 실제 Slack 게시에는 `--post`가 필요합니다. [변경 기록](CHANGELOG.md)
+## 왜 써야 하나요
 
-이전 v0.15.7은 타대학 비교에 홍익(`hongik`)·한양(`hanyang`)·성균관(`skku`)·세종(`sejong`)·가천(`gachon`)을 추가합니다. 공개된 목록·본문만 읽고 조문만 비교하며, 별표·표·그림 본문은 비교 근거로 올리지 않습니다. 한국외대와 상명대는 넣지 않았습니다. [변경 기록](CHANGELOG.md)
+같은 질문 다섯 개를 세 가지 방법으로 해 봤습니다. 정답은 미리 원문에서 확인해 둔 것입니다(2026-11-26 측정).
 
-이전 v0.15.6은 타대학 비교에 중앙대(`cau`) PDF 조문 어댑터를 더합니다. 목록 개정일과 PDF 경로를 대조해 첨부를 고르고, 비교 범위는 조문으로 유지하며 표·별표·부록·서식은 PDF 원문에서 확인하도록 안내합니다. [변경 기록](CHANGELOG.md)
+| | 공식 규정 사이트 검색 | AI에 그냥 묻기 | AI + 동국 규정 MCP |
+|---|:---:|:---:|:---:|
+| 질문을 문장 그대로 넣으면 | 5개 모두 결과 0건 | 5개 모두 "확인하지 못했다" | 5개 모두 답함 |
+| **정답** | 직접 원문을 열어 찾아야 함 | **0 / 5** | **5 / 5** |
+| 근거 조문과 원문 링크 | 낱말로 다시 찾으면 규정 목록까지 | 없음 | 5개 모두 있음 |
+| 걸린 시간 | 낱말 본문 검색 응답 약 10~15초, 그다음 원문 읽기 | 6~10초 (답은 없음) | 10~20초 |
 
-이전 v0.15.5는 `get_rule_upper_laws(include_text=true)`로 규정 조문 원문과 인용한 현행 국가 법령 조문 원문을 나란히 보여 줍니다. 잘림·미확보·생략은 부분 조회로 남기고, 충돌·적용 여부는 판정하지 않습니다. [변경 기록](CHANGELOG.md)
+- 공식 사이트 검색은 **규정 이름이나 낱말**로 찾는 방식입니다. 이번 다섯 질문을 문장 그대로 넣었을 때는 결과가 없었고, 낱말로 찾아도 금액과 일수는 원문을 열어 직접 읽어야 했습니다.
+- 도구와 웹 검색을 끈 AI는 **학교 규정 원문을 볼 수 없었습니다.** 측정한 AI는 금액과 일수를 지어내지는 않았지만, 다섯 번 모두 "규정 원문을 확인하지 못했다"며 직접 찾아보라고 답했습니다.
+- 동국 규정 MCP를 연결하면 AI가 **공식 원문을 그때 읽고** 답합니다. 이번 다섯 답에는 모두 규정 이름·조문과 원문 링크가 붙어 있었습니다. 링크를 눌러 바로 대조할 수 있습니다.
 
-이전 v0.15.4는 지정한 규정의 조문·부칙·별표·서식 전문을 HWP 우선으로 돌려주는 `get_rule_full_text`를 추가합니다. 긴 문서는 같은 개정본·출처·추출문 해시의 cursor로 이어 받고, 일부 전달·HTML 대체·추출 누락은 부분 조회로 남깁니다. 공개 도구는 15개입니다. [변경 기록](CHANGELOG.md)
+<details>
+<summary>측정 방법과 한계</summary>
 
-이전 v0.15.3은 자연어 질문의 어미·의문사를 정리하고 규정 용어로 검색을 넓힙니다. 모호한 후보는 최대 3개 규정의 미확정 발췌로 보여 주며, 명시한 발췌 조건·조문 선택자와 기관·캠퍼스 범위를 보존합니다. 반환 개수에 맞는 선택 상태와 별도 실조회 평가 스크립트도 포함합니다. [변경 기록](CHANGELOG.md)
+- **질문 5개:** 팀원 국내 출장 숙박비·식비·일비(「여비규정」 별표 1), 본인 결혼 경조휴가(「취업규칙」 제42조), 5년 근속 연가(「취업규칙」 제35조). 정답은 120,000원, 36,000원, 20,000원, 7일, 17일입니다.
+- **공식 사이트 검색:** rule.dongguk.edu 검색에 질문 문장과 낱말 하나(숙박비·식비·일비·경조휴가·연가)를 각각 넣었습니다. 규정명 검색과 본문 검색을 모두 했습니다.
+- **AI에 그냥 묻기:** Claude(Sonnet 모델)에 도구와 웹 검색을 모두 끄고 같은 질문을 했습니다. 근로기준법 같은 일반 기준을 참고로 덧붙인 답은 있었지만, 동국대 규정이라고 답한 것은 없어 정답으로 세지 않았습니다.
+- **AI + 동국 규정 MCP:** 같은 모델에 공용 서버(v0.15.10)만 연결하고 같은 질문을 했습니다. 걸린 시간은 명령을 시작한 뒤 답이 끝날 때까지입니다(프로그램 시작 시간 포함). 같은 질문을 서버에 직접 두 차례씩 보냈을 때 응답은 약 0.2~2.3초였습니다. Opus 모델로 바꿔도 5개 모두 정답이었고 약 14.0~18.5초가 걸렸습니다.
+- 정답을 아는 질문 5개로 한 작은 측정입니다. 전체 정확도를 뜻하지 않으며, 다른 AI 앱이나 웹 검색을 켠 AI는 재지 않았습니다.
 
-이전 v0.15.2는 근거 조회 상태가 실제보다 좋게 표시되던 문제를 고쳤습니다. 재무 근거 조회(`get_finance_evidence`, `review_finance_case`)는 하위 규정 조회가 일부 조회면 그대로 일부 조회로 표시하고, `get_rule_upper_laws`는 법령 본문이 잘리거나 오지 않은 경우를 `textCoverage`로 따로 알립니다. 새 기능은 없습니다. [변경 기록](CHANGELOG.md)
+</details>
 
-이전 개발판 v0.15.1은 타대학 규정 비교를 크게 넓혔습니다. 같은 사안을 규정명이 아니라 주체·행위·규율 요소로 정의한 **사안 프레임**(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)으로 조문을 고르고 규율 요소 × 대학 대조표를 보여 주며, 규정 제목 검색을 먼저 돌려 전담 규정을 찾습니다. 비교 대상은 경희·숙명여대·광운·명지·서강·이화·서울대(OC 키 필요)·연세가 더해져 13곳이고, 고려대는 공개 규정 범위만 조회합니다. 규정명이 없는 자연어 질문이 30초 뒤 실패하던 `lookup_dongguk_rule`도 색인 우선 조회로 고쳤습니다. [변경 기록](CHANGELOG.md)
+## 한눈에 보기
 
-이전 개발판 v0.15.0은 규정이 인용한 국가 법령을 현행 법령 목록과 대조하는 `get_rule_upper_laws`와, 동국대와 타대학 규정의 주제어 일치 조문을 나란히 보여 주는 `compare_university_rules`(운영자가 켤 때만 동작)를 추가했습니다. 띄어 쓴 규정명 인식과 법령 인용 추출도 고쳤습니다. [변경 기록](CHANGELOG.md)
+| 규정 **513개** | 기능 **15가지** | 원문 대조 **누락 0** | 다른 대학 **19곳** |
+|:---:|:---:|:---:|:---:|
+| 동국대 현행 규정 전체를 찾아볼 수 있게 준비해 둡니다 | 찾기, 전문 보기, 개정 이력, 인용 점검, 근거 법령, 타대학 비교 | 규정 4개를 원본 한글 파일과 따로 대조했을 때 표 칸 2,428개·문단 700개 누락 0 | 같은 주제의 조문을 나란히 놓고 봅니다(한 번에 5곳까지) |
 
-**v0.13.0**은 여러 규정의 개정 여부를 한 번에 점검하는 `check_rule_updates`, 규정이 인용한 교내 규정·국가 법령과 그 규정을 인용한 교내 규정을 찾는 `get_rule_references`, 전체 공개 규정의 전문 색인을 추가했습니다. 색인이 있으면 `search_rule_deep`이 공식 사이트 전문검색 대신 색인에서 후보를 찾고 현행 개정본과 대조합니다. [점검 기록](docs/review-2026-11-11.md)
+<sub>513개·15가지는 공용 서버가 2026-11-26에 알려 준 값입니다. 원문 대조는 규정 4개(여비·재무회계·법인카드·위임전결)를 v0.15.7에서 점검한 결과입니다.</sub>
 
-이전 개발판 v0.12.3은 부칙이 본칙과 섞여 `제1조`·`제2조` 조회와 인용 검증이 막히던 문제를 고치고, `부칙(2024.8.27.) 제1조`처럼 부칙 개정일로 조문을 고를 수 있게 했습니다. 규정명이 없는 질문과 원문에 없는 단어가 섞인 전문검색은 핵심어로 다시 찾습니다. [점검 기록](docs/review-2026-11-09.md)
+**속도:** 위 질문 5개에서 서버가 조문을 찾아 돌려주는 데 0.2~2.3초가 걸렸습니다. 이전 점검(v0.15.7)에서는 자주 쓰는 조회 13종의 중간값이 0.30~1.08초였고, 동시에 10건을 보내도 모두 답했습니다. 처음 찾는 규정은 원문을 새로 읽느라 몇 초 더 걸릴 수 있습니다.
 
-이전 개발판 v0.12.2는 “여비규정 별표를 보여줘” 같은 자연어 질문에서 별표를 놓치는 문제를 고치고, 표 아래 여러 문단의 주석을 함께 반환합니다. 별표 번호·가지번호를 구분하며, 원문에서 별표 본체를 찾지 못하면 미확인 상태를 표시합니다. [별표 조회 수정](docs/appendix-query-2026-11-05.md)과 이전 [유지보수 및 새 기능 검토](docs/review-2026-11-05.md)에 범위·검증을 정리했습니다. 아래 개인 설치 링크는 v0.15.8 패키지를 가리킵니다. 공용 서버 반영은 별도 배포 후 확인합니다.
+## 어떻게 동작하나요
 
-## 시작하기
+```mermaid
+flowchart LR
+  q(["🙋 질문<br>평소 말로 묻기"])
+  app["🤖 AI 앱<br>Claude · ChatGPT · Cursor · Codex"]
+  mcp["📚 동국 규정 MCP<br>맞는 규정과 조문 찾기"]
+  subgraph src ["그때그때 읽는 공개 자료"]
+    direction TB
+    s1[("동국대 공식 규정 원문<br>rule.dongguk.edu")]
+    s2[("국가 법령<br>규정이 인용한 법령 조문")]
+    s3[("다른 대학 규정<br>공개 규정 19곳")]
+  end
+  ans(["✅ 근거가 붙은 답<br>규정 이름 · 조문 · 개정일 · 원문 링크"])
 
-| 방법 | 준비 | 연결 |
+  q --> app --> mcp --> src --> ans
+```
+
+1. **평소 말로 묻습니다.** "국내 출장 숙박비 기준 찾아줘"처럼 물으면 됩니다. 기능 이름을 외울 필요가 없습니다.
+2. **AI 앱이 동국 규정 MCP를 부릅니다.** MCP는 AI 앱이 바깥 자료를 읽게 해 주는 연결 방식입니다.
+3. **공식 원문을 그때 읽습니다.** 누구나 볼 수 있는 공개 규정만 읽습니다. 필요하면 규정이 인용한 국가 법령과 다른 대학의 공개 규정도 함께 봅니다.
+4. **근거를 붙여 답합니다.** 규정 이름, 조문이나 별표, 개정일, 원문 링크가 함께 옵니다.
+
+읽기만 합니다. 신고·지급·결재·발송은 하지 않습니다.
+
+## 이런 걸 물어볼 수 있어요
+
+| 하고 싶은 일 | 이렇게 물어보세요 |
+|---|---|
+| 규정에서 기준 찾기 | 여비규정에서 국내 출장 숙박비 기준을 찾아줘 |
+| 금액표·별표 보기 | 위임전결규정 별표에서 물품 구매 전결 기준을 보여줘 |
+| 규정 전체나 목차 보기 | 학칙 목차를 보여줘 |
+| 언제 바뀌었는지 보기 | 여비규정이 언제 개정됐고, 직전 개정에서 뭐가 달라졌어? |
+| 지난 일의 기준 찾기 | 2025년 3월 15일 출장에는 어느 여비규정을 봐야 해? |
+| 문서에 쓴 조문 확인 | 이 기안문에 인용한 조문이 실제로 있는지 확인해줘 |
+| 근거 법령 점검 | 이 규정이 근거로 든 법령이 바뀌었는지 봐줘 |
+| 다른 대학과 비교 | 겸직 허가 기준을 연세대·한양대 규정과 나란히 보여줘 |
+
+실제 답은 이런 모습입니다. 2026-11-26에 Claude(Sonnet)에 공용 서버를 연결해 받은 답의 앞부분입니다.
+
+> **질문:** 동국대학교 직원이 5년 근속하면 연가는 1년에 며칠이야?
+>
+> **5년 근속 직원의 연가는 1년에 17일**입니다.
+>
+> 근거는 동국대학교 「취업규칙」(2026.04.29. 개정) **제35조(연가)**입니다. 연가는 재직년수에 따라 15일에서 25일까지입니다.
+>
+> | 재직년수 | 1~2년 | 3~4년 | **5~6년** | 7~8년 | 9~10년 | … | 21년 이상 |
+> |---|---|---|---|---|---|---|---|
+> | 연가일수 | 15일 | 16일 | **17일** | 18일 | 19일 | … | 25일 |
+>
+> (적용 대상 안내 생략)
+>
+> 원문: [취업규칙](https://rule.dongguk.edu/lmxsrv/law/lawFullView.srv?SEQ=127&SEQ_HISTORY=3619)
+
+<details>
+<summary>기능 15가지 전체 보기</summary>
+
+기능은 AI 앱이 알아서 고릅니다. 15개 모두 읽기 전용입니다.
+
+| 기능 이름 | 하는 일 | 이렇게 물으면 씁니다 |
 |---|---|---|
-| 공용 서버 | 원격 MCP 지원 앱. 인증 없이 주소만 입력 | `https://dgu.kr-univ-rules.com/mcp/rules` |
-| 내 PC | Node.js 20.19 이상 20계열 또는 22.3 이상, 로컬 MCP 지원 앱 | 아래 GitHub 릴리스 설치, 공유 토큰 불필요 |
+| `lookup_dongguk_rule` | 질문에 맞는 규정을 찾아 관련 조문과 별표를 보여 줍니다. 대부분의 질문은 여기서 시작합니다 | 여비규정에서 국내 출장 숙박비 기준 찾아줘 |
+| `search_rule` | 규정 이름이나 내용으로 후보 목록을 보여 줍니다 | 장학금과 관련된 규정이 뭐가 있어? |
+| `get_rule_content` | 이미 고른 규정에서 특정 조나 장을 보여 줍니다 | 여비규정 제5조 보여줘 |
+| `get_rule_full_text` | 규정 하나를 부칙·별표·서식까지 처음부터 끝까지 보여 줍니다 | 위임전결규정 전문을 보여줘 |
+| `get_rule_toc` | 규정의 목차를 보여 줍니다 | 학칙 목차 보여줘 |
+| `list_rule_history` | 규정이 언제 개정됐는지 이력을 보여 줍니다 | 여비규정이 언제 개정됐어? |
+| `applicable_rule` | 특정 날짜 기준으로 어느 개정본이 후보인지 찾습니다 | 2025년 3월 15일 출장에는 어느 여비규정을 봐야 해? |
+| `compare_rule_versions` | 두 개정본을 비교해 바뀐 조문과 별표를 보여 줍니다 | 여비규정이 직전 개정에서 뭐가 달라졌어? |
+| `verify_rule_citations` | 문장에 적은 규정명과 조문이 실제로 있는지 확인합니다 | 이 기안문에 인용한 조문이 실제 있는지 확인해줘 |
+| `search_rule_deep` | 여러 규정의 본문을 한꺼번에 검색합니다 | '겸직'이 나오는 규정을 모두 찾아줘 |
+| `check_rule_updates` | 여러 규정이 기준일 이후 개정됐는지 한 번에 점검합니다 | 여비규정과 위임전결규정이 지난달 이후 개정됐어? |
+| `get_rule_references` | 규정이 인용한 다른 교내 규정·국가 법령과, 이 규정을 인용한 규정을 찾습니다 | 여비규정이 인용하는 법령과 그 조문을 보여줘 |
+| `get_rule_upper_laws` | 규정이 근거로 든 법령이 지금도 그대로인지 점검합니다 | 이 규정이 근거로 든 법령이 바뀌었는지 봐줘 |
+| `compare_university_rules` | 같은 주제의 조문을 다른 대학(한 번에 최대 5곳) 규정과 나란히 보여 줍니다 | 겸직 허가 기준을 고려대·연세대와 나란히 보여줘 |
+| `get_service_info` | 연결 상태와 버전을 알려 줍니다 | 동국 규정 MCP 연결됐는지 확인해줘 |
 
-공용 주소는 공개 규정 조회 전용이며 접속한 곳(IP)마다 1분 60회·하루 1,000회까지 받습니다. 넘으면 HTTP 429와 재시도 시간을 돌려줍니다. 동국대학교의 공식 서비스가 아닌 개인 운영 도구입니다. 앱·요금제·기관 정책별 연결 가능 여부는 실제 환경에서 확인해야 합니다.
+비교·점검 기능은 "다시 볼 곳"을 알려 줄 뿐이고, 같은 내용인지·적용되는지는 판정하지 않습니다. 더 많은 업무 질문은 [docs/WORKFLOWS.md](docs/WORKFLOWS.md)에 있습니다.
 
-### 개인 설치
+</details>
 
-**npm 레지스트리는 현재 미발행**입니다. GitHub의 고정 버전 패키지로 설치합니다.
+## 설치: 주소 하나만 넣으면 됩니다
 
-```bash
-npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz
-dongguk-rule-mcp --version
-dongguk-rule-mcp --doctor --json
+내 PC에 아무것도 설치하지 않습니다. 쓰는 AI 앱에 아래 주소를 등록하면 끝입니다. 가입도 로그인도 없습니다.
+
+```text
+https://dgu.kr-univ-rules.com/mcp/rules
 ```
 
-[tgz를 내려받아](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.8/dongguk-rule-mcp-0.15.8.tgz) `npm install -g ./dongguk-rule-mcp-0.15.8.tgz`로 설치해도 됩니다. 설치 권한이 제한된 기관 PC에서는 [직접 실행 방법](docs/COP_GUIDE.md) 또는 공용 연결을 확인하세요.
+등록한 뒤 새 대화에서 이렇게 물어보세요.
 
-사용할 앱의 설정 예시를 출력합니다. 아래 중 하나를 선택해 기존 MCP 설정에 추가한 뒤 앱을 완전히 종료하고 다시 실행합니다.
+> 동국 규정 MCP가 연결됐는지 확인하고, 여비규정에서 국내 출장 숙박비 기준을 찾아줘.
+
+규정 이름·조문·원문 링크가 붙은 답이 오면 연결된 것입니다.
+
+<details>
+<summary><b>Claude Desktop</b></summary>
+
+1. **Customize(사용자 지정) > Connectors(커넥터)** 화면을 엽니다.
+2. **+ Add** 를 누르고 **Add custom connector(사용자 지정 커넥터 추가)** 를 고릅니다.
+3. 이름은 `동국 규정`, 주소는 위 주소를 넣습니다.
+4. Authentication(인증) 항목에서 **No sign in(로그인 없음)** 을 고르고 추가합니다.
+
+화면이 다르면 [Anthropic 공식 안내](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)의 현재 절차를 따르세요. 메뉴 이름과 위치는 앱 버전에 따라 다를 수 있습니다. 회사·학교 계정은 관리자가 먼저 커넥터를 추가해야 할 수 있습니다.
+
+</details>
+
+<details>
+<summary><b>ChatGPT</b></summary>
+
+등록 화면과 조건은 앱 버전, 계정, 워크스페이스 권한에 따라 다릅니다. [OpenAI 공식 안내](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)의 현재 절차대로 서버를 추가하고 위 주소를 넣습니다. 인증은 없음으로 둡니다. 안내에 나온 메뉴가 보이지 않으면 앱 버전, 계정 조건, 워크스페이스 관리자의 권한 설정을 확인하세요.
+
+</details>
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+터미널에서 한 줄을 실행합니다.
 
 ```bash
-dongguk-rule-mcp --print-config codex
-dongguk-rule-mcp --print-config claude
-dongguk-rule-mcp --print-config cursor
+claude mcp add --transport http dongguk-rule https://dgu.kr-univ-rules.com/mcp/rules
 ```
 
-업데이트 뒤에는 설치 파일의 `--version`, 공용 서버의 `/health`, 실제 앱 연결의 `get_service_info` 버전을 각각 확인합니다. Codex의 기존 연결이 구버전을 유지하면 앱을 완전히 종료한 뒤 다시 실행하고 같은 도구로 재확인합니다. Aside의 도구 목록 갱신과 확인 절차는 [운영 가이드](docs/OPERATIONS.md#클라이언트와-기존-연결-갱신)를 따릅니다.
+</details>
 
-출력은 현재 Node와 설치 경로를 사용하며 앱 설정을 직접 변경하지 않습니다. 패키지를 이동·삭제한 경우 새 경로에서 설정을 다시 출력합니다. `--doctor --json`은 오프라인 설치 점검이고, `--doctor --json --live`는 대표 공개 규정 조회를 추가합니다. 설치 진단만으로 앱 연결·모든 원문·업무 적용이 검증되지는 않습니다.
+<details>
+<summary><b>Cursor</b></summary>
 
-### 첫 질문
-
-> 동국 규정 MCP의 `get_service_info`로 버전과 도구를 확인해줘. 이어서 `lookup_dongguk_rule`로 출장 관련 규정을 찾아줘. 소속·캠퍼스는 [입력], 신분은 [입력], 업무 기준일은 [YYYY-MM-DD]야. 정확한 규정명·LAW_ID·HISTORY_ID·조문/별표·원문 링크를 보여주고, 적용범위·시행일·표의 행과 단위를 확인하기 전 금액이나 전결권자를 확정하지 마.
-
-### 평소 빠르게 질문하기
-
-연결 확인 후에는 `get_service_info`를 매번 부를 필요가 없습니다. 규정명과 핵심어를 포함해 바로 조회하고, 근거가 충분하면 같은 검색·본문·목차를 반복 조회하지 않습니다.
-
-> 동국규정에서 여비규정의 국내 숙박비 기준을 찾아줘. 관련 조문·별표와 원문 링크를 먼저 보여주고 핵심만 짧게 정리해줘. 근거가 부족하거나 잘렸으면 그 부분만 추가 확인해줘.
-
-`lookup_dongguk_rule` 한 번으로 검색·최신 개정본·원문 HWP·관련 별표를 함께 받습니다. 짧은 답변과 별개로 필요한 표의 행·단위·주석, 적용범위와 시행일은 확인해야 합니다. [앱 지침 예시와 캐시 사전 준비](docs/PERFORMANCE.md)
-
-급여·출장비·위임전결·과거 감사·기안문 인용에 바로 적용할 질문과 도구 입력 예시는 [업무 활용 가이드](docs/WORKFLOWS.md)를 참고하세요.
-
-## 공개 규정 도구 — 기본 15개
-
-| 도구 | 용도 |
-|---|---|
-| `get_service_info` | 버전·프로필·도구 범위·이용 안내 확인 |
-| `lookup_dongguk_rule` | 기본 조회: 자연어/규정명 검색 → 개정본 → HWP 조문·별표 발췌; `law_id` 직접 선택 지원 |
-| `search_rule` | 제목·전문으로 규정 후보 목록 검색 |
-| `get_rule_content` | 선택한 규정의 본문·조문·장·키워드 조회 |
-| `get_rule_full_text` | LAW_ID(선택 HISTORY_ID)의 조문·부칙·별표·서식 텍스트 전문. HWP 우선, 긴 문서는 cursor로 이어받기 |
-| `get_rule_toc` | 목차 조회 |
-| `list_rule_history` | 개정 이력 조회 |
-| `applicable_rule` | 기준일 이전 개정본 후보와 부칙의 명시 시행일 대조 |
-| `compare_rule_versions` | HWP 조문 우선 비교와 별표·서식 텍스트, 표 셀·병합 범위, 그림 파일 내용 비교 |
-| `verify_rule_citations` | 비식별 문장의 규정명·조문·제목·항 인용 실존 점검 |
-| `search_rule_deep` | 여러 규정의 전문과 관련 조문 탐색. 전문 색인이 있으면 색인 사용(`mode`로 선택) |
-| `check_rule_updates` | 여러 규정의 개정 여부 일괄 점검, 기준일 이후 개정된 규정 목록 |
-| `get_rule_references` | 규정·조문이 인용한 교내 규정·국가 법령과 역방향 인용(색인 필요). `include_law_text=true`이면 인용된 법령 조문의 현행 원문까지 |
-| `get_rule_upper_laws` | 규정·조문이 인용한 국가 법령을 현행 법령 목록과 대조: 현행 여부·시행일, 인용 조문의 존재·삭제, 옛 법령명, 규정 개정 뒤 법령 개정, 시행예정 개정을 점검 신호로 표시. `include_text=true`이면 규정 조문 원문과 현행 법령 조문 원문을 2열 대조 |
-| `compare_university_rules` | 동국대와 타대학(최대 5개) 규정에서 주제어가 든 조문을 학교별로 나란히 표시. 기본 꺼짐(`DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`), 자세한 범위는 아래 "타대학 규정 비교" |
-
-제목 검색·공식 사이트 전문검색의 기본 단일 조회에서 후보가 모호하면 `AMBIGUOUS_RULE`과 후보 목록을 반환합니다. 자연어 색인 조회에서는 아래와 같이 최대 3개 규정의 미확정 미리보기를 반환합니다. 제목·적용범위를 확인한 뒤 후보의 `LAW_ID`를 `lookup_dongguk_rule`의 `law_id`로 보내 선택합니다. 관련 없는 첫 검색 결과를 업무 근거로 확정하지 않습니다.
-
-**캠퍼스 자동필터는 없습니다.** 공식 화면의 `LAWGROUP`은 캠퍼스 구분이 아닌 문서 종류입니다. 잘못된 `seoul=1 / wise=2` 매핑을 제거했습니다. `campus`는 업무 맥락으로 보존하고 전체 통합목록을 검색하며 `filterApplied:false`를 표시합니다. 서울·WISE·법인 등 소속과 교원·직원·학생 등 대상의 적용범위는 원문에서 확인해야 합니다. [공식 검색 화면](https://rule.dongguk.edu/lmxsrv/main/main.srv), [통합 규정목록](https://rule.dongguk.edu/lmxsrv/law/lawTree.srv) — 2026-09-08 확인.
-
-## 근거의 범위와 한계
-
-- **시점:** 최신 연혁은 최대 10분 캐시합니다. `applicable_rule`은 개정일을 바탕으로 후보를 찾으며 시행일·경과조치·소급 적용까지 최종 확정하지 않습니다.
-- **원문 품질:** HWP 추출 실패·HTML 대체·빈 본문·발췌 잘림·검색어 미일치를 구분합니다. 비교 결과에는 문서별 추출 범위와 실제 미지원 객체·누락 진단을 남깁니다. 공식 API가 아닌 웹 원문 파싱이므로 사이트 변경의 영향을 받습니다.
-- **개정 비교:** 양쪽 개정본의 HWP 조문을 우선 비교합니다. HWP를 읽을 수 없으면 HTML 조문으로 대체하고 부분 상태와 대체 사유를 표시합니다. 기본값인 `include_appendices:true`에서는 별표·서식 텍스트와 표의 셀 좌표·행/열 병합 범위·값, 포함된 그림 파일의 SHA-256 해시도 비교합니다. `include_appendices:false`는 별표·서식 비교를 생략하며 HWP 조문 우선 원칙은 유지합니다.
-- **결과 해석:** 그림 파일의 동일·변경 판정은 OCR, 그림 속 문구의 의미 해석 또는 페이지 배치 비교를 뜻하지 않습니다. 실제 추출 누락·미지원 객체·식별 모호성은 부분 상태로 남기며 “변경 없음”으로 단정하지 않습니다. 시행일과 업무 적용성은 부칙·적용범위를 별도로 확인합니다.
-- **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 HTML 본문 색인은 후보를 찾는 데 사용하며, 별표 내용은 순위에 반영되지 않습니다. `search_rule_deep`은 색인 결과를 현행 목록의 최신 개정본과 대조하고, 개정된 규정은 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색으로 대체합니다. `lookup_dongguk_rule`은 오래된 색인도 후보 탐색에 사용하되 오래됨을 표시하고, 선택한 규정의 연혁·원문을 별도로 조회합니다(기존 캐시 정책 적용). 별표·금액표는 이 통합 조회의 원문 발췌로 확인합니다.
-- **법령 원문 연계:** 운영자가 `DONGGUK_LEGAL_MCP_*`와 `DONGGUK_PUBLIC_LAW_LINK=1`을 설정한 서버에서만 동작합니다. 조문이 특정된 인용만, 한 번에 3개 조문까지 현행 원문을 가져옵니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
-- **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고, 법령 연계가 꺼진 서버에서도 확인할 법령명·조문을 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
-- **상위법령 본문 범위:** `get_rule_upper_laws`의 `lookup.status`는 법령·조문을 확인했는지, `textCoverage.status`는 `include_text=true`로 요청한 본문을 얼마나 받았는지를 따로 알립니다. 본문이 잘리면 `incompleteReasons`에 `LAW_TEXT_TRUNCATED`, 받지 못하면 `LAW_TEXT_UNAVAILABLE`이 들어가고 `evidenceStatus`는 `partial`입니다. 조문의 존재·삭제 여부는 `laws[].articles[].status`로 확인합니다.
-
-  | `textCoverage.status` | 뜻 |
-  |---|---|
-  | `not_requested` | `include_text`를 요청하지 않았습니다. 실패나 불필요가 아닙니다. |
-  | `not_required` | 돌려줄 본문 대상이 없습니다(인용 조문 없음, 본문 없이 삭제·없음이 확인된 조문, 목록에 없는 법령). 법령 확인이 필요 없다는 뜻이 아닙니다. |
-  | `unavailable` | 본문 대상이 있는데 하나도 받지 못했습니다. 사유는 `textCoverage.missingArticles[].reason`(예: `LAW_LINK_NOT_CONFIGURED`, `LEGAL_BODY_ERROR`)입니다. |
-  | `partial` | 일부 본문만 받았거나 받은 본문이 잘렸습니다. 못 받은 조문은 `missingArticles`, 잘린 조문은 `truncatedArticles`입니다. |
-  | `complete` | 대상으로 센 본문을 모두 받았고 누락·잘림이 없습니다. 인용한 조문이 모두 존재한다거나 법령이 현행이라는 뜻이 아닙니다. |
-
-- **인용 관계:** `get_rule_references`와 `get_rule_upper_laws`는 이름을 적은 인용을 찾습니다. "「사립학교법」 제29조, 제31조 및 제32조의2"처럼 나열한 조문, 같은 조문 안의 "동법"·"같은 법 시행령", "(이하 "시행령"이라 한다)"로 정의한 약칭을 앞의 법령에 연결합니다(`anaphora`, `defined_abbreviation`). 낫표 없이 띄어 쓴 법령명은 앞 단어까지 넓혀 추정하고 `name_heuristic`으로 표시하며, 법령 서버에서 정식 이름과 맞춰 본 뒤에만 확정합니다. "관계 법령"처럼 이름이 없는 인용과 다른 조문에 걸친 "동법"은 찾지 못합니다. 역방향 조회의 범위는 색인 범위와 같습니다.
-- **인용:** 인용의 실존 확인과 해당 업무의 적용 적합성은 다릅니다. 검색 0건·확인 필요·부분 조회는 검증 통과가 아닙니다.
-- **업무와 데이터:** 공개 `rules`는 로그인 쿠키와 내부 지식팩을 사용하지 않습니다. 개인별 급여·계좌·학생기록·인증정보를 입력하지 않습니다. 신고·지급·결재 또는 외부 발송을 수행하지 않습니다.
-
-모든 도구는 읽기용 Markdown `content`와 기계용 `structuredContent`를 함께 반환합니다. v0.10.2부터 `structuredContent`를 표시하지 않는 클라이언트에서도 확인할 수 있도록 `get_service_info`의 `version`·`profile`·`toolCount`와 `lookup_dongguk_rule`의 `sourceType`·`evidenceStatus`·부분 조회 사유를 Markdown에도 표시합니다. 자동화에서는 `ok`, `data`, `error.code`와 개별 원문의 경고·부분 상태를 함께 확인합니다. 규정명·LAW_ID·HISTORY_ID·조문/별표 위치·기준일·조회일·원문 URL을 기록하면 근거를 다시 확인할 수 있습니다.
-
-v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrieved`/`partial`) 및 규정별 `incompleteReasons`를 반환합니다. HWP 대체·빈 발췌·글자 수 제한·미확정 후보는 부분 조회이며, `retrieved`도 발췌 확보만 뜻하고 적용성 판단은 아닙니다. `rule_keyword`와 `query`를 함께 보내도 질문으로 관련 부분을 찾습니다. 색인 경로를 포함해 명시한 `terms`가 발췌 조건으로 우선합니다. `terms`가 없으면 자연어 색인의 확장 검색어를 사용하되 질문의 조문·가지조문·별표 선택자도 보존합니다. 여러 단어로 된 질문은 현행 규정 목록에서 질문에 들어 있는 가장 긴 규정 제목을 찾아 그 규정을 고릅니다(`identityStatus:"catalog_title"`). "등록금에 관한 시행세칙 제7조 반환"처럼 띄어 쓴 제목도 낫표 없이 인식합니다. 규정 이름은 발췌 검색어에서 빼므로, 남은 단어가 본문에 없으면 `NO_MATCHING_EXCERPT`로 알립니다. 비정상 검색 페이지는 `NOT_FOUND` 대신 `UPSTREAM_FORMAT_CHANGED`로 반환하고 새 캐시에 저장하지 않습니다.
-
-### 상위법령 조문 원문 대조 (개발 중)
-
-`get_rule_upper_laws({"law_id": LAW_ID, "article": "제9조", "include_text": true})`로 인용이 나온 **규정 조문 원문과 인용한 현행 국가 법령 조문 원문**을 2열로 읽을 수 있습니다. `article`을 생략하면 규정 전체에서 인용을 찾고, 과거 규정은 `history_id`로 고릅니다. 과거 규정을 골라도 오른쪽 법령은 조회 시점의 현행본입니다. 과거 당시 법령의 대조나 충돌·적용 여부 판정이 아닙니다. 점검 신호·CAVEAT는 그대로 제공합니다.
-
-규정 쪽은 인용 추출에 쓴 **HTML 조문 전체**이며 짧은 `citationText`만 보여 주지 않습니다. 별표·서식·그림을 포함한 규정 전문 조회는 `get_rule_full_text`를 사용하세요. 법령 쪽은 기존 korean-law 연동으로 확보한 본문을 재사용하며 새 API나 추가 법령 조회를 만들지 않습니다. `include_text:false`(기본)에서는 양쪽 본문과 대조 쌍을 반환하지 않습니다. 도구 수는 공개 15개·finance 19개 그대로입니다.
-
-구조화 응답의 기존 `laws`, `textCoverage`, `evidenceStatus`, `incompleteReasons`에 `comparison`을 추가했습니다.
-
-| 필드 | 의미 |
-|---|---|
-| `comparison.status` | 대조 본문의 전달 상태: `not_requested`(본문 요청 안 함), `not_required`(명시적 인용 없음), `complete`(대상 양쪽 본문을 모두 전달), `partial`(일부 전달·잘림·생략), `unavailable`(양쪽 본문을 함께 받은 쌍이 없음). 법령의 효력·적용성 판단이 아닙니다. |
-| `comparison.ruleArticles[]` | 중복 없는 규정 조문. `id`, `article`, `supplementaryHeading`, `contentMarkdown`, 출처 `source`(LAW_ID·HISTORY_ID·개정일·URL·HTML 표시), `textCoverage`, 전문 재조회용 `fullTextRequest`를 포함합니다. |
-| `comparison.pairs[]` | 인용별 연결. `ruleArticleId`로 규정 조문을, 0부터 시작하는 `lawIndex`·`lawArticleIndex`로 `laws[lawIndex].articles[lawArticleIndex]`를 찾습니다. `citationText`·인용 항 `paragraph`·해석 근거 `resolutionStatus`·쌍의 `status`·`lawTextStatus`를 보존합니다. 조문 번호가 없으면 `lawArticleIndex:null`, `lawTextStatus:not_specified`이며 임의 조문을 고르지 않습니다. |
-| `comparison.omittedPairs` | 표시 한도 때문에 생략한 인용 수. `laws[].citedBy`에는 인용 목록을 유지합니다. |
-| `laws[].citedBy[].ruleBlockId` | 대조 쌍과 같은 규정 본문 블록 식별자입니다. 요청 내 식별자이며 영구 ID가 아닙니다. |
-
-규정 본문은 조문당 6,000·합계 24,000 UTF-16 코드 단위, 대조 인용은 24건까지입니다. 같은 조문은 합계 한도에서 한 번만 셉니다. 줄바꿈·표 구분자·기호는 구조화 원문에 보존하고, 표 표시에서는 줄바꿈과 기호를 이스케이프합니다. 여러 부칙의 같은 조 번호는 블록 ID와 부칙 제목으로 구분합니다. 법령은 기존대로 최대 12개(기본 8개)·인용 조문 8개·조문당 3,000자입니다.
-
-- 규정 본문 잘림·미반환은 `RULE_TEXT_TRUNCATED`·`RULE_TEXT_UNAVAILABLE`, 대조 인용 생략은 `COMPARISON_LIMIT`입니다. `article`로 범위를 좁히거나 `ruleArticles[].fullTextRequest`의 고정 개정본 전문을 이어 받으세요.
-- 법령 조문 미지정은 `LAW_ARTICLE_UNSPECIFIED`입니다. 법령 미확보·잘림은 기존 `LAW_TEXT_UNAVAILABLE`·`LAW_TEXT_TRUNCATED`이며 한국법령 MCP에서 해당 MST·조문을 확인합니다. 새 사유도 최상위 `incompleteReasons`에 전파되어 `evidenceStatus:partial`이 됩니다.
-- 기존 `textCoverage`는 **법령 본문만**의 범위를 유지합니다. 따라서 법령 본문이 `complete`여도 규정 본문이 잘리면 대조는 `partial`입니다. 현행에 없는 법령·조문은 기존 `textCoverage:not_required`일 수 있지만 양쪽 원문 대조는 `unavailable`이며 부분 상태입니다. 삭제 표지 본문을 받았다면 받은 텍스트로 표시하고 `ARTICLE_DELETED` 점검 신호를 유지합니다.
-- 주제 후보는 근거가 확인된 대조 쌍으로 만들지 않습니다. `comparison.status:complete`여도 법령명 미확정·목록 누락 등의 기존 사유가 있으면 전체 `evidenceStatus`는 `partial`일 수 있습니다.
-
-### 규정 전문 조회 (개발 중)
-
-규정 하나의 전문이 필요하면 `get_rule_full_text({"law_id": LAW_ID})`를 호출합니다. 과거 개정본은 `history_id`도 지정합니다. 생략하면 해당 규정의 최신 개정본을 고르고, 지정한 HISTORY_ID가 그 LAW_ID의 연혁에 있는지 확인합니다. 관련 부분만 고르는 `lookup_dongguk_rule`, HTML의 조·장을 고르는 `get_rule_content`와 달리, 이 도구는 검색어 필터 없이 HWP에서 추출한 조문·부칙·별표·서식을 원문 순서로 반환합니다. 표의 셀 좌표·행/열 병합 범위와 표 아래 주석도 보존합니다.
-
-- 응답의 `contentMarkdown`이 전문 텍스트입니다. 기본 페이지 한도는 30,000, `max_chars`로 1,000~60,000 UTF-16 코드 단위까지 지정할 수 있습니다(설명·메타데이터 제외). 이모지 등의 서로게이트 쌍은 나누지 않지만 표·줄 중간에서 페이지가 끊길 수 있습니다.
-- `textCoverage.hasMore: true`이면 `textCoverage.nextArguments`를 그대로 다음 `get_rule_full_text` 호출에 전달합니다. 첫 응답의 LAW_ID·HISTORY_ID·추출 출처·텍스트 SHA-256을 cursor가 고정하므로, 최신 개정본이 바뀌어도 이어받는 개정본은 바뀌지 않습니다. HTML로 시작했다면 이어받기도 HTML입니다. 원문 텍스트나 출처가 바뀌면 `FULL_TEXT_CHANGED` 오류를 반환하므로 첫 페이지부터 다시 받습니다. 다른 규정·개정본과 cursor를 섞으면 `INVALID_ARGUMENT`입니다.
-- 마지막 페이지의 `nextArguments`와 `nextCursor`는 `null`입니다. 모든 페이지의 **`contentMarkdown`만 순서대로 구분자 없이** 합치세요. `offset`(포함)·`endOffset`(제외)·`totalChars`로 전달 범위를, `sha256`으로 결합한 UTF-8 텍스트의 해시를 확인할 수 있습니다. 이 해시는 다운로드한 HWP 파일의 해시가 아닙니다.
-- 한 응답이 전문의 일부이면 첫·중간·마지막 페이지 모두 `evidenceStatus: partial`, `FULL_TEXT_PAGINATED`, `textCoverage.status: partial`입니다. `truncated`는 그 페이지 뒤에 남은 본문이 있는지 뜻하므로 마지막 페이지에서는 `false`입니다. 페이지 단위 전달 상태와 별도로 `sourceEvidenceStatus`가 추출 원문의 상태를 표시합니다.
-
-| `incompleteReasons` | 의미와 후속 확인 |
-|---|---|
-| `FULL_TEXT_PAGINATED` | 전문의 일부 페이지입니다. 이전 페이지와 합치고, 다음 페이지가 있으면 이어받습니다. |
-| `HWP_FALLBACK` | HWP 실패·빈 본문으로 HTML 대체. 별표·서식 누락 가능성이 있어 공식 원문을 확인합니다. |
-| `HWP_COVERAGE_UNVERIFIED` | 구조 정보가 없거나 원시 HWP 대조가 확인되지 않은 캐시입니다. |
-| `HWP_STRUCTURE_PARTIAL` | 추출 진단이 있습니다. `originalCoverage.diagnostics`에서 누락·미지원 객체 등 구체적 사유를 확인합니다. |
-| `IMAGE_TEXT_UNAVAILABLE` | 그림은 해시·표지만 있고 OCR 문구는 없습니다. 그림 속 문구는 원문에서 확인합니다. |
-
-이어받기를 마쳐도 `sourceEvidenceStatus: partial`인 원문의 누락 한계는 해소되지 않습니다. `retrieved`도 추출 텍스트 확보만 뜻하며, 원본 화면 배치나 시행일·업무 적용성 판단을 보증하지 않습니다. HWP·HTML 모두 본문을 확보하지 못하면 성공 대신 오류를 반환합니다. 출처 URL·개정일·조회 시점은 `sourceUrl`, `revisedAt`, `returnedAt`에 있습니다.
-
-이 도구는 기존 HTML 전문 색인의 검색 순위를 바꾸지 않습니다. 자연어 검색에서 빠진 별표도 LAW_ID를 지정하면 직접 조회할 수 있습니다. 공용 서버 색인 갱신·법령 API·런처 설정은 이 기능 추가로 켜지거나 바뀌지 않습니다.
-
-### 자연어 질문 조회 (v0.15.3)
-
-규정명을 몰라도 `lookup_dongguk_rule({"query":"해외출장 갈 때 일비는 얼마 받아?"})`처럼 질문할 수 있습니다. 질문에 정확한 규정명이나 `law_id`가 있으면 그 선택을 우선하며, 이름이 없는 질문은 공개 전문 색인에서 후보를 찾습니다.
-
-- **어미·의문사 제거:** `겸직하려면→겸직`, `전결해→전결`처럼 명사를 남기고 `어떻게`, `누가`, `받아` 등은 검색 핵심어에서 제외합니다. `피해`, `손해`처럼 `해`로 끝나는 명사는 보존합니다.
-- **규정 용어 확장:** `해외출장→국외출장·국외`, `강사료→강의료`, `환불→반환` 등 등록된 표현 중 색인에 실제로 있는 말도 검색합니다. `이중 수혜`는 `이중수혜`도 찾고, 없는 복합어는 짧은 형태로 다시 찾습니다. 후보 검색에 쓴 표현은 `search.searchTerms`, 실제 발췌 조건은 `query.effectiveTerms`로 확인할 수 있습니다. 명시한 `terms`(예: `감액`, `제10조`)는 자동 확장으로 덮어쓰지 않습니다.
-- **후보와 캠퍼스 판:** 조문 제목의 일치에 가점을 줍니다. 질문의 단어가 규정명에 있는 후보도 일정 점수 이상이면 상위 미리보기에 보존합니다(예: 전결 질문의 위임전결규정). 같은 규정의 WISE캠퍼스·의학계열·산학협력단 판을 비교할 때 질문에 명시한 기관·캠퍼스와 `campus` 입력을 먼저 존중합니다. 예를 들어 산학협력단을 물었으면 산학협력단판을 우선하며, WISE와 산학협력단을 함께 지정하면 해당 복합 판을 우선합니다. 범위를 지정하지 않았거나 여러 판이 맞거나 질문과 `campus`가 충돌하면 서로 다른 판을 별도 후보로 남깁니다. 각 판은 자기 점수를 유지하고, 다른 판의 제목·LAW_ID는 `rules[].editions`와 본문에도 표시합니다. 판 선택은 제목 접두어에 따른 후보 탐색이며 적용범위 확정이 아닙니다. 반환 한도 밖의 판은 다른 후보·다른 판 안내에서 확인하고 `law_id`로 조회하세요.
-- **여러 후보 미리보기:** 1위가 뚜렷하면 단일 후보를, 비슷한 후보가 있으면 기본 `max_rules:1` 요청에도 최대 3개 규정의 발췌를 반환합니다. `search.selection`은 실제 반환 규정 수가 1개이면 `single_candidate`, 2개 이상이면 `multiple_candidates`입니다. `max_rules:2/3`을 명시한 경우도 같은 기준이며, 다중 미리보기는 규정당 최대 3개 관련 블록·6,000자로 제한됩니다. `identityStatus:"candidate_preview"`, `evidenceStatus:"partial"`, `RULE_IDENTITY_UNCONFIRMED`를 확인하고 적용범위를 검토한 뒤 `law_id`로 다시 조회하세요. 후보가 여러 개여도 조회 성공(`ok:true`)이 곧 적용 규정 확정을 뜻하지 않습니다.
-- **발췌 순서:** 색인으로 찾은 자연어 질문은 관련도가 높은 조문부터 보여 줍니다. 글자 수 제한에서도 핵심 조문을 우선 보존하며, 일반 조회는 문서 순서를 유지합니다. 색인이 없거나 일치 후보가 없으면 공식 사이트 전문검색으로 대체하며, 이 경로의 모호한 후보는 `AMBIGUOUS_RULE`로 반환합니다.
-
-### 핵심어(`keywords`)를 함께 보내는 조회
-
-규정은 구어가 아니라 한자어 명사로 쓰여 있습니다. 호출하는 AI가 질문을 규정 용어로 바꿔 `keywords`에 함께 넣으면 맞는 규정과 조문을 더 잘 찾습니다.
+프로젝트의 `.cursor/mcp.json`(모든 프로젝트에 쓰려면 홈 폴더의 `~/.cursor/mcp.json`)에 아래를 넣습니다. 이미 다른 서버가 있으면 `mcpServers` 안에 `dongguk-rule` 항목만 더합니다.
 
 ```json
-{"query": "빌린 장비 잃어버리면 물어내야 해?", "keywords": "물품, 분실, 변상"}
+{
+  "mcpServers": {
+    "dongguk-rule": {
+      "url": "https://dgu.kr-univ-rules.com/mcp/rules"
+    }
+  }
+}
 ```
 
-- **쓰임:** 핵심어는 규정 고르기와 조문 고르기에 모두 쓰이며, 질문의 구어 표현보다 우선합니다. 질문의 낱말은 낮은 비중으로 함께 세어 핵심어가 빠뜨린 맥락을 채웁니다. 캠퍼스·기관 범위(WISE, 산학협력단, 대학원 등)는 핵심어가 아니라 `query`에서 읽습니다.
-- **형식:** 명사 2~6개를 쉼표로 구분합니다. "계약 해지"처럼 띄어 쓴 핵심어는 한 구로 보고, 규정이 붙여 쓴 꼴(계약해지)과 조문 제목에 구 전체가 든 경우를 함께 찾습니다. 200자를 넘거나 문자열이 아니면 `INVALID_ARGUMENT`, 개인번호·계좌·인증정보가 있으면 `SENSITIVE_INPUT`으로 거절합니다. 8개를 넘는 핵심어와 "규정"·"동국대" 같은 말은 쓰지 않습니다.
-- **핵심어가 맞지 않을 때:** 어느 규정에도 없는 핵심어만 있거나 비어 있으면 질문만 넣은 조회와 같은 결과를 반환합니다. 규정에는 있지만 질문과 동떨어진 핵심어를 줘도, 질문만으로 고른 1순위 규정은 미리보기 3개 가운데 마지막 자리에 남기고(`rules[].selectedBy:"question"`), 두 검색이 함께 찾은 규정에서는 질문만으로 고른 조문도 발췌에 넣습니다. 한 규정만 단독으로 보여 주는 것은 질문만으로도 그 규정이 뚜렷할 때로 한정합니다.
-- **응답 기록:** 적용한 핵심어와 규정에 없어 쓰지 못한 핵심어는 `search.keywords`(`applied`, `used`, `missing`, `rewritten`, `questionRuleKept`)와 본문의 "핵심어(keywords)" 줄에서 확인합니다.
-- **`terms`와의 차이:** `terms`는 그대로 명시 발췌 조건입니다. 조문·별표 번호를 알 때만 쓰고, 주제어는 `keywords`에 넣습니다. `law_id`나 규정명으로 규정을 정한 조회에서도 `keywords`로 그 규정 안의 조문을 고릅니다.
-- **`rule_keyword`:** 규정의 정확한 이름을 알 때만 씁니다. `query`와 함께 보낸 `rule_keyword`가 현행 규정명(별칭 포함)과 일치하지 않으면 제목 검색으로 후보 목록을 돌려주는 대신 그 값을 핵심어로 쓰고 질문으로 규정을 찾습니다(`query.ruleKeywordUsedAsKeyword`). 이때 조문·별표 번호 없이 주제어만 든 `terms`는 발췌 조건으로 그대로 쓰면서 규정 고르기에도 반영하고, 색인이 고른 조문을 발췌에 함께 넣습니다. 색인이 없으면 이 처리를 하지 않습니다. `query` 없이 `rule_keyword`만 보낸 조회는 그대로입니다.
+</details>
 
-### 자연어 조회 평가
+<details>
+<summary><b>Codex</b></summary>
+
+터미널에서 한 줄을 실행합니다.
 
 ```bash
-npm ci
-npm test                        # 오프라인 회귀 테스트만 실행
-node src/index.js --build-index  # 별도 실행: 네트워크를 사용해 공개 색인 준비
-npm run evaluate:natural-language -- --output /tmp/natural-language-evaluation.json
+codex mcp add dongguk-rule --url https://dgu.kr-univ-rules.com/mcp/rules
 ```
 
-실조회 평가 스크립트는 [scripts/evaluate-natural-language.js](scripts/evaluate-natural-language.js)이며 기본 `npm test`와 CI에 포함되지 않습니다. 실제 MCP 프로세스의 `lookup_dongguk_rule`을 순차 호출합니다. 공개 색인이 있어야 시작하고 정상 공개 캐시를 사용하므로, 매번 원문을 새로 받는 성능 실험은 아닙니다. 보고서에는 색인 시점·범위·오래됨 여부, 서버 버전, 문항별 소요 시간·규정 식별자·발췌·부분 조회 상태를 기록합니다.
+또는 `~/.codex/config.toml`에 직접 적습니다.
 
-[문항 파일](test/fixtures/natural-language-questions.json)은 `[질문, 허용 규정명 배열 또는 null, 발췌 키워드 또는 null]` 형식으로 총 30문항입니다. 정답 규정이 있는 28문항을 채점하고, 정답 미지정 2문항도 조회하되 `unscored`로 분리합니다. 공백을 제거한 규정명의 부분 일치로 반환된 규정 상위 3개만 평가하며, 단순 후보 목록은 순위에 넣지 않습니다. `top1`·`top3`·`excerptMatched`를 따로 집계하고, 문항 통과는 **상위 3개 정답 규정 포함 + 해당 정답 규정 발췌의 키워드 일치**(키워드 지정 시)입니다. 이는 검색 회귀 평가이며 금액·절차의 법적 정답이나 적용성 판정은 아닙니다.
+```toml
+[mcp_servers.dongguk-rule]
+url = "https://dgu.kr-univ-rules.com/mcp/rules"
+```
 
-`--questions FILE`, `--timeout MS`(문항당 기본 60,000ms), `--output NEW_FILE`을 지원합니다. 결과 JSON은 표준 출력과 지정 파일에 저장하며 기존 파일을 덮어쓰지 않습니다. 채점 실패 또는 호출 오류(미채점 문항 포함)가 있으면 종료 코드 1, 모두 통과하면 0입니다. 개별 호출 실패 후에도 나머지 문항을 평가합니다. 평가 집계 자체는 합성 응답으로 오프라인 테스트합니다.
+</details>
 
-## 공용 서버와 선택 기능
+인터넷으로 MCP에 연결할 수 있는지는 앱·요금제·기관 정책에 따라 다릅니다. 같은 인터넷 접속 주소에서는 1분에 60회, 하루에 1,000회까지 쓸 수 있습니다.
 
-HTTP는 stateless Streamable HTTP이며 MCP 경로는 POST 요청을 사용합니다.
+내 PC에 직접 설치하는 방법, 재무 업무용 기능(구성원 전용), 운영자 설정은 [참고 문서](docs/REFERENCE.md#개인-설치)와 [구성원 가이드](docs/COP_GUIDE.md)에 있습니다.
 
-| 경로 | 범위 |
+## 알아 둘 점
+
+- **공식 서비스가 아닙니다.** 재무팀 직원이 개인으로 운영합니다. 최종 해석은 공식 원문과 소관 부서에 있습니다.
+- **찾아 주는 것까지입니다.** 규정에 그렇게 적혀 있다는 것과 내 사안에 적용된다는 것은 다릅니다. 금액과 결재할 권한이 있는 사람은 표의 행과 단위, 규정 끝부분에 적힌 시행일을 확인한 뒤에 정하세요.
+- **캠퍼스·신분을 자동으로 가려 주지 않습니다.** 서울·WISE·산학협력단, 교원·직원·학생 적용범위는 원문에서 확인합니다.
+- **규정 이름을 함께 말하면 더 잘 찾습니다.** 규정 이름 없이 일상어로만 물으면 맞는 조문을 놓칠 때가 있습니다. 이전 점검(v0.15.7)에서 그런 질문 34개 가운데 21개만 정답 조문이 답에 들어 있었습니다. 이 부분은 고치는 중입니다.
+- **다른 대학 비교는 공개된 규정만 봅니다.** 대학에 따라 규정을 찾지 못할 수 있습니다(이전 점검(v0.15.7)의 여비 주제에서는 19곳 중 16곳에서 주규정과 조문을 찾았습니다). 같은 줄에 놓였다고 같은 제도라는 뜻은 아닙니다.
+- **항상 켜져 있다고 약속하지 않습니다.** 장비 한 대로 운영하며, 공식 규정 사이트가 바뀌거나 멈추면 영향을 받습니다. 최신 개정 정보는 최대 10분 늦을 수 있습니다. 멈췄을 때는 [공식 규정 시스템](https://rule.dongguk.edu/)을 직접 보세요.
+- **개인정보를 넣지 마세요.** 주민등록번호, 계좌, 비밀번호가 든 질문은 거절합니다.
+
+## 자주 묻는 질문
+
+**돈이 드나요? 가입해야 하나요?**  
+아니요. 주소만 등록하면 됩니다. AI 앱 자체의 요금제는 각 앱의 정책을 따릅니다.
+
+**AI가 규정을 지어내지는 않나요?**  
+동국 규정 MCP는 공식 원문에서 읽은 조문만 돌려주고, 찾지 못하면 찾지 못했다고 알립니다. 그 조문을 읽고 문장으로 풀어 주는 것은 AI 앱이므로, 답에 붙은 조문과 원문 링크로 한 번 대조하세요.
+
+**답을 기안에 바로 써도 되나요?**  
+규정 이름, 조문 또는 별표, 조회한 날, 원문 링크를 남기고 소관 부서 확인을 거치세요. "일부만 조회됨" 표시가 있거나 검색 결과가 없다는 것은 확인이 끝났다는 뜻이 아닙니다.
+
+**다른 대학 담당자도 쓸 수 있나요?**  
+동국대 규정을 읽는 도구입니다. 다른 대학과 나란히 보는 기능에는 공개 규정을 읽을 수 있는 대학 19곳이 들어 있습니다. 출처는 [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md)에 있습니다.
+
+## 더 읽기
+
+| 문서 | 내용 |
 |---|---|
-| `/`, `/guide` | 인증정보를 포함하지 않는 구성원 안내 페이지 |
-| `/mcp/rules` | 서버 프로필과 무관하게 공개 규정 15개 도구. 공용 서버에서는 인증 없이 열고 IP별 호출 제한 적용 |
-| `/mcp` | 운영자가 지정한 프로필의 도구, 기존 연결 경로. 공용 서버에서는 토큰 필요 |
-| `/health`, `/ready` | 프로세스·요청 수용 상태; 원문 조회 성공을 의미하지 않음 |
-| `/status` | 관리용 인증이 필요한 집계 운영 상태 |
+| [docs/COP_GUIDE.md](docs/COP_GUIDE.md) | 구성원 시작 가이드 |
+| [docs/WORKFLOWS.md](docs/WORKFLOWS.md) | 급여·출장·전결·감사·인용 점검 질문 예시 |
+| [docs/REFERENCE.md](docs/REFERENCE.md) | 개발자·운영자용 참고(내 PC 설치, 설정, 응답 형식) |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 서버 운영 |
+| [docs/FINANCE_DESK.md](docs/FINANCE_DESK.md) | 재무 업무용 기능 |
+| [CHANGELOG.md](CHANGELOG.md) | 변경 기록 |
 
-운영자가 개인 또는 그룹별 자격증명을 발급·회수하고 만료·허용 경로를 관리합니다. 등록 파일은 SHA-256 해시를 보관하며 `--token-file` 또는 `DONGGUK_MCP_TOKEN_FILE`로 지정합니다. 설정 예시와 발급 명령은 [운영 가이드](docs/OPERATIONS.md)에 있습니다. 토큰 없이 여는 프로세스는 `rules` 프로필로만 띄우고, 재무 기능이 있는 경로에는 HTTPS와 인증을 사용합니다.
+<details>
+<summary>만드는 사람을 위한 메모(영상·배지·검사)</summary>
 
-```bash
-# 접근제한 운영 폴더의 토큰 등록 파일을 지정
-dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-file /secure/dongguk/tokens.json
-```
+소개 영상 원본은 [docs/assets/intro/intro.html](docs/assets/intro/intro.html)(대본 [narration.json](docs/assets/intro/narration.json), 화면 속 내용은 `lookup_dongguk_rule`·`compare_university_rules`·`get_rule_upper_laws` 응답), 앱 예시 화면 원본은 [docs/assets/usage-demo.html](docs/assets/usage-demo.html)입니다. `python3 scripts/intro-video/narrate.py`(MeloTTS로 내레이션 합성, `--only c1,c2`처럼 일부 줄만 다시 합성 가능) 다음 `node scripts/intro-video/record.cjs`로 [MP4](docs/assets/usage-demo.mp4)와 하이라이트 GIF를 다시 만듭니다(크롬·ffmpeg·numpy 필요). 내레이션은 MIT 라이선스인 MeloTTS로 합성했고 배경음은 스크립트가 직접 합성해 외부 음원이 없습니다. 버전·라이선스 배지는 외부 배지 서버 장애에 영향받지 않도록 [docs/assets/badges](docs/assets/badges)의 SVG를 씁니다. 릴리스 때 version.svg의 버전 글자도 함께 바꿉니다. 소스에서 검사하려면 `npm ci` 다음 `npm test`입니다. CI는 Node 20.19.0, 22, 24에서 실행합니다. 실원문은 `npm run test:live`이며 네트워크가 필요합니다. 전교 용량 시험은 아닙니다. npm 레지스트리에는 발행하지 않았고 GitHub 릴리스 패키지로 설치합니다.
 
-공용 서버는 Mac mini에서 운영되며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
+</details>
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **19개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+## 기여 · 라이선스
 
-## 소스 실행과 검증
+[MIT](LICENSE). 원본 Python 구현은 서준호, Node.js MCP 포팅과 운영은 오승훈입니다. [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감을 받았습니다. 타대학 포팅 출처는 [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md)입니다.
 
-```bash
-git clone --branch v0.12.0 https://github.com/buenosiempre-cmd/dongguk-rule-mcp.git
-cd dongguk-rule-mcp
-npm ci
-npm test
-npm run test:live
-node src/index.js --doctor --json
-npm pack --dry-run
-```
-
-| 명령 | 확인 범위 |
-|---|---|
-| `npm test` / `npm run test:offline` | 파서·입력·근거·MCP·HTTP·프로필 등 오프라인 회귀 |
-| `npm run test:live` | 새 MCP 프로세스에서 공식 원문 조회·연혁·별표 등 대표 경로 |
-| `npm run test:live:cop` | 학사·인사·회계 등 대표 업무 규정의 LAW_ID 직접조회·최신 연혁·본문 연결 확인 |
-| `npm run doctor -- --json` | 설치와 도구 등록; `--live`로 대표 원문 조회 추가 |
-| `npm run audit:deps` | 설치 의존성의 알려진 취약점 조회; CI에서도 실행 |
-| `npm run benchmark` | 로컬 HTTP 부하 측정; 전교 운영 용량이나 원문 서버 SLA 검증은 아님 |
-| `node src/index.js --build-index` | 전체 공개 규정의 전문 색인 생성·갱신(실측 약 5분, 바뀐 규정만 다시 읽음) |
-| `npm run issue-token -- --help` | 운영자용 개인/그룹 자격증명 발급 도구 사용법 |
-
-실원문 검사는 원문 서버에 접근 가능한 네트워크가 필요합니다. HTTP 오류만으로 특정 IP 차단을 단정하지 않습니다. 자동 검사와 현업 효과는 구분하고, 실제 앱·캠퍼스·직군별 평가는 [빈 평가 양식](examples/cop-evaluation.csv)으로 기록합니다.
-
-추가 설정: `DONGGUK_RULE_ALIASES`는 부서별 규정 별칭 JSON, `DONGGUK_MCP_NO_CACHE=1`은 디스크 캐시 비활성화입니다. 나머지 실행 옵션은 `dongguk-rule-mcp --help`와 [운영 가이드](docs/OPERATIONS.md)를 확인하세요.
-
-## 라이선스·기여
-
-MIT. 원본 Python 구현: 서준호. Node.js MCP 포팅·운영 개선: 오승훈. [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감을 받았습니다.
-
-[GitHub Issues](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues)에 버전·비식별 재현 질문·오류코드를 남겨주세요. 개인 정보·인증값·내부 문서를 첨부하지 않습니다.
-
-[Finance Desk 통합 기능과 외부 자료팩 설정](docs/FINANCE_DESK.md)
-
-## 타대학 규정 비교 (개발 중)
-
-`compare_university_rules`는 동국대와 타대학의 같은 사안 조문을 학교별 열로 나란히 보여줍니다. 행 순서나 조문 번호는 법적 동등성을 뜻하지 않습니다.
-
-**사안 프레임**: 규정명과 위계(규정·세칙·내규)는 대학마다 다르므로, 등록된 주제(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)는 사안을 **주체 × 행위 × 규율 요소**로 정의한 프레임(`src/issue-frames.js`)으로 조문을 고릅니다. 같은 단어가 다른 뜻으로 쓰인 조문(교내 겸무의 "겸직", 지도교수의 학과 겸직 등)은 제외어로 빼고 `columns[].dropped`에 사유별 건수만 남깁니다. 남은 조문에는 규율 요소(`slots`: 허가권자·기간·보수 등)와 주체, 조문이 인용한 국가 법령(`anchorLaws`, 프레임의 근거 법령과 같으면 `inFrame`)을 붙이고, 대학별로 주규정(`role: primary`, 제목에 사안어가 있거나 요소를 가장 많이 다루는 규정)과 보조규정을 가릅니다. `slotMatrix`는 규율 요소 × 대학 표로, 칸마다 `found`(규정·조문·근거 줄·URL·시행일)·`not_found_in_scope`·`unavailable`·`unsupported`를 구분합니다. 빈 칸은 조회 범위에서 찾지 못했다는 뜻이며 규정 부존재가 아닙니다. 모든 판정은 문자열 대조이고 법적 동등성·적용 여부가 아닙니다(`alignment: "issue_frame_slots_not_legal_equivalence"`). 미등록 주제는 주제어 일치 발췌만 제공합니다. 등록 프레임은 `get_service_info`의 `universityComparison.issueFrames`와 결과의 `supportedTopics`에 나옵니다.
-
-```json
-{"topic":"여비","universities":["korea","uos"],"max_articles":3}
-```
-
-- 동국대 자동 포함. 타대학 키: `korea`(고려), `uos`(서울시립), `konkuk`(건국), `kookmin`(국민), `ssu`(숭실), `khu`(경희), `sookmyung`(숙명여대), `kw`(광운), `mju`(명지), `sogang`(서강), `ewha`(이화), `snu`(서울대, OC 키 필요), `yonsei`(연세), `cau`(중앙), `hongik`(홍익), `hanyang`(한양), `skku`(성균관), `sejong`(세종), `gachon`(가천). 한 번에 최대 5개. 다른 영문 키는 `unsupported`.
-- `columns`마다 조문 번호·본문·규정명·URL·개정일(동국만 확인, 타대학 미확인)·시행일(`effectiveAt`과 출처 `effectiveSource`: 규정 목록의 시행일자 `list` 또는 마지막 부칙의 명시 시행일 `addenda`, `null`은 미확인), `status`, `coverage`, 실패 내역 제공. 학교당 최대 5개 조문, 조문당 2,000자이며 잘림 표시.
-- 주제어는 접두어(교내·교외·학부·대학원·학사)와 끝의 '금'을 떼고 등록된 동의어로 넓힙니다(교내근로장학금 → 근로장학·근로보조금·교내근로·근로학생). 동의어 검색은 후보가 부족할 때만 추가로 합니다(`coverage.queries`).
-- 서울시립은 `.srv`, 국민·숭실·경희·숙명여대는 `.do` 검색을 씁니다. 먼저 규정 제목 검색(대표어와 첫 제목 단서, `coverage.titleQueries`·`titleMatches`)으로 사안을 전담하는 규정(「전임교원 겸직허가에 관한 규정」 등)을 찾아 가장 먼저 읽고(`matchedBy:"title"`), 그다음 전문검색 첫 페이지 후보를 더해 최대 5개 규정을 조회합니다. 제목 검색이 실패하면 전문검색만으로 이어갑니다. 건국·광운·명지는 공개 규정 트리 전체(각 430·255·267개)에서 제목을 대조합니다(`coverage.mode:"title_tree"`, 제목에 주제 단서가 없는 규정 속 조문은 놓칠 수 있어 `complete:false`). 명지는 본문 제목·부칙이 `lawname2`·`addenda2` 클래스라 함께 처리합니다. 고려는 로그인 없이 **약 55개 규정만 공개**하며(다른 규정은 로그인 화면으로 이동, 2026-11-24 확인) 검색·전체 트리·부서별 목록도 세션이 필요합니다. 공개 분류 목록(`lawListManager`, 8개 분류, 10건씩 페이지 넘김)을 모두 읽어 제목을 대조하고(`coverage.mode:"public_folder_list"`, `publicOnly:true`), 결과 표의 상태에 "공개 규정만"을 붙입니다. 목록에 없는 규정(예: 여비규정)은 비공개로 추정되며 조회할 수 없습니다. 목록 형식이 바뀌면 최근 개정 목록(`recent_list_only`)으로 대체합니다. 동국은 제목 검색 우선·미발견 시 전문검색 20행을 규정 단위로 합쳐 후보 최대 5개를 조회합니다.
-- LawMaster가 아닌 대학은 전용 어댑터로 조문을 읽습니다. **서강**(`sogang`)은 자체 REST JSON(`coverage.mode:"rest_json"`)에서 주제어를 제목으로 질의해 매칭 규정의 `content`(조문 HTML)를 받고, **이화**(`ewha`)는 규정집 목록 HTML의 `view-rule` 링크를 따라 각 규정 `.fr-view`의 조문 전문을 읽습니다(`coverage.mode:"html_catalog"`). 두 대학의 조문·부칙 HTML은 공통 변환기(`htmlToArticleMarkdown`)로 `### 제N조`·`## 부칙` 형식으로 바꿔 동일 비교 파이프라인에 올립니다. 개정일은 머리말·부칙 헤딩의 날짜 중 가장 늦은 날, 시행일은 마지막 부칙의 명시일로 채웁니다. 서강대 서버가 중간 인증서를 빠뜨려 TLS 체인이 끊기므로, 공개 중간 인증서(`src/ca/`)를 기본 루트에 **추가**해 검증을 끄지 않고 해결합니다.
-- **서울대**(`snu`, 국립)는 규정이 각 대학 사이트가 아니라 국가법령정보센터(law.go.kr)의 학칙 채널에 공개됩니다. DRF 공개 API(`target=school`)를 XML로 직접 호출하며(`coverage.mode:"lawgo_school"`), 운영자가 law.go.kr에서 발급한 무료 OC 키를 `DONGGUK_LAWGO_OC`로 넣어야 동작합니다(중간 서버 없음). 목록(`lawSearch`)의 `<admrul>`에서 소관부처=서울대·현행 규정만 골라 발령일자(개정일)·시행일자를 읽고, 본문(`lawService`)의 `<조문내용>` 요소를 조문 단위로 받습니다. OC 키가 없으면 해당 열이 `unavailable (LAWGO_OC_NOT_CONFIGURED)`로 표시됩니다. 인용 URL에는 OC 키를 넣지 않습니다. 사립대는 이 학칙 채널에 대부분 없습니다.
-- **연세대**(`yonsei`)는 규정집이 Next.js(App Router) 앱이라 공개 REST API가 없습니다. 페이지에 내장된 RSC flight 데이터(`self.__next_f.push`)를 재조립해 목록(현행 682개 규정의 이름·개정일·UUID)과 본문(규정 페이지의 조문 HTML row)을 읽습니다(`coverage.mode:"nextjs_rsc"`, 로그인 불필요). 본문 HTML row의 길이는 바이트 기준이라 버퍼로 정확히 잘라 인접 데이터가 새지 않게 합니다. flight 스키마는 배포마다 바뀔 수 있어 필드명(`name`·`revisionHistories`·`html`) 기반으로 느슨하게 파싱합니다.
-- **중앙대**(`cau`, A안)는 공개 JSON 목록과 상세 페이지에 연결된 PDF 텍스트 레이어에서 **조문만 비교**합니다. 목록 `MAX_DT`와 같은 규정의 PDF 경로 날짜가 일치하는 첨부가 하나일 때만 조회합니다. 첨부 순서로 최신본을 추측하지 않으며 불일치·복수 후보는 `PDF_REVISION_UNVERIFIED`입니다. `historyId`는 선택한 PDF 경로의 YYYYMMDD, `revisedAt`은 목록 개정일이며 시행일과 다릅니다.
-- 중앙대는 `coverage.comparisonScope:"articles_only"`, `appendicesCompared:false`, `textLayerOnly:true`, `complete:false`로 범위를 표시합니다. 조회한 조문이 있어도 열 상태는 `partial`입니다. **표의 셀·병합·금액 대응, 별표·별지·부록·서식·그림은 비교하지 않습니다.** `〔별표〕`·`〔부록〕`·`[서식]` 등을 포함한 독립 부속 표제 이후는 조문 후보에서 제외하고, 그 뒤 최신 부칙이 있을 수 있어 이 경우 시행일도 미확인으로 남깁니다. 금액·조건은 `articles[].originalPdfUrl`과 Markdown의 PDF 원문 링크에서 확인하도록 안내합니다. 줄바꿈·읽기 순서는 원본 배치와 다를 수 있습니다. `별표 1에 따른…` 같은 본문 참조는 유지하며, 줄바꿈된 `제9조(일비)에 따른다`는 앞 조문의 인용 문장으로 보존합니다. OCR은 수행하지 않습니다.
-- 중앙대 스캔본·빈 텍스트(`PDF_NO_TEXT`), 조문 미검출(`PDF_NO_ARTICLES`), 손상 파일(`PDF_PARSE_FAILED`), 개정본 미확인을 규정별 실패로 남깁니다. 일부 실패는 다른 후보 조회를 계속하고, 모두 실패하면 `unavailable`입니다. 규정 부존재나 비교 완료로 표시하지 않습니다.
-- **홍익대**(`hongik`)는 규정집 페이지의 규정 트리(전체 제목)에서 제목을 대조하고 규정별 페이지의 `.fr-view` 조문 HTML을 읽습니다(`coverage.mode:"html_catalog"`). **한양대**(`hanyang`)는 규정집 화면이 쓰는 공개 JSON에서 규정명을 검색하고 조문별 본문을 읽습니다(`coverage.mode:"rest_json"`). 응답에 섞인 등록자·IP 같은 관리 필드는 읽지 않습니다. 한양의 개정일은 목록의 개정일, 시행일은 마지막 부칙의 명시일입니다.
-- 홍익·한양도 **조문만 비교**합니다(`comparisonScope:"articles_only"`, `appendicesCompared:false`, `tablesCompared:false`). HTML의 표는 통째로 버리고(`tablesOmitted`), 독립 별표 표제(`[별표 1]`, `〔별표 1〕` 등) 뒤와 한양의 별표·서식 묶음(이름이 괄호로 싸여 있어도)은 조문 후보에서 뺍니다. 본문 속 `별표 1에 따라…` 같은 참조와 그 뒤 조문은 그대로 둡니다. 홍익은 잘라낸 뒤쪽에 부칙이 있을 때만 시행일을 미확인으로 둡니다.
-- 조문 제목만 있고 읽은 본문이 없는 조문(본문이 그림뿐이거나 비어 있음)은 비교 조문과 규율 요소 표에 넣지 않습니다. 규정별 `unreadArticles`와 열의 `failures`(`ARTICLE_TEXT_UNAVAILABLE`, `article`, `reason: image_only|empty`)에 남기고, 표시문에 조문 이름과 함께 원문 확인을 안내합니다. 본문 안의 그림은 `imagesOmitted`로 셉니다.
-- **성균관대**(`skku`)·**세종대**(`sejong`)·**가천대**(`gachon`)는 공개 문서에서 **조문만 비교**합니다(`comparisonScope:"articles_only"`, `appendicesCompared:false`, `complete:false`, 열 상태 `partial`). 표·별표·서식·그림은 비교하지 않으며 `articles[].originalPdfUrl`의 원문 파일에서 확인합니다. 독립 별표 표제 이후를 제외한 경우 시행일은 미확인입니다.
-  - 성균관대는 규정집 게시판을 제목으로 검색합니다(`coverage.mode:"board_pdf"`, 10건씩 최대 2쪽, 넘으면 `searchPagesTruncated`). 게시판은 개정본마다 한 줄이므로 오늘 이전 가장 늦은 제·개정일의 줄을 현행본으로 고르고, 시행 예정본이 있으면 `upcomingRevisionAt`으로 알립니다. 제목에 주제어가 없으면 본문 검색을 한 번 하는데(`coverage.channel:"content"`), 본문 검색은 그 단어가 든 개정본만 돌려주므로 규정명으로 다시 찾아 현행본을 확인합니다. 이 재검색도 최대 2쪽과 정렬 검증을 받습니다. 최신순이면 처음 만난 오늘 이전 줄을, 최신순이 아니면 모든 쪽을 읽었을 때만 가장 늦은 줄을 현행본으로 봅니다. 읽지 못한 쪽이 남아 확인할 수 없으면 그 규정은 내려받지 않고 `PDF_REVISION_UNVERIFIED`(`reason: CONFIRMATION_PAGES_UNREAD`)로 남기며 `searchPagesTruncated`·`confirmationPagesTruncated`·`truncated`를 켭니다. `currentRevisionConfirmedByTitle`은 재확인이 필요했던 조회 대상 후보를 모두 확인했을 때만 `true`입니다. 확인 불가뿐 아니라 형식 오류·전송 실패·취소로 재확인이 끝나지 않았거나 조회가 중단되어 시도하지 못한 후보도 `currentRevisionUnverified`에 셉니다. 재확인 단계의 실패는 원래 실패 코드에 `stage:"revision_confirmation"`과 `reason`(`CONFIRMATION_PAGES_UNREAD`·`TITLE_NOT_FOUND`·`CONFIRMATION_REQUEST_FAILED`)을 붙이고, 현행본을 확인한 뒤의 문서 실패는 `stage:"document"`로 구분합니다.
-  - 세종대는 현행 규정 전체가 한 페이지(약 5MB)에 실려 있어 이 대학에만 응답 한도를 6 MiB로 두고, 원문은 캐시에 두지 않은 채(캐시는 UTF-8 바이트 기준 2 MiB 이하만) 파싱한 목록만 10분 동안 재사용합니다(`coverage.mode:"catalog_pdf"`). 시행일은 목록에 적힌 시행일(`effectiveSource:"list"`)이며, 목록에 제정·개정 날짜만 있는 규정은 시행일 미확인입니다.
-  - 가천대는 규정집 위젯의 공개 JSON 목록과 규정별 첨부를 읽습니다(`coverage.mode:"catalog_files"`). 첨부가 PDF면 텍스트 레이어를, 한글 파일이면 기존 HWP 추출기의 본문을 씁니다(`sourceType`으로 구분). 그 밖의 형식은 `DOCUMENT_FORMAT_UNSUPPORTED`, 한글 파일 해석 실패는 `HWP_PARSE_FAILED`·`HWP_NO_ARTICLES`로 규정별 실패에 남깁니다.
-- 한국외대와 상명대는 넣지 않았습니다. 한국외대 규정집은 본문이 이미지라 OCR 없이는 읽을 수 없고, 상명대 규정집은 게스트 로그인 세션이 있어야 열립니다(로그인·쿠키를 쓰지 않는 원칙).
-- PDF는 8 MiB·200페이지·추출 텍스트 100만 코드 단위로 제한하고, 별도 worker에서 최대 10초·동시 2건까지 추출합니다. 초과·취소는 실패 사유로 반환합니다. PDF 바이너리는 공용 텍스트 캐시에 저장하지 않습니다. `pdf-parse` 2.4.5를 고정하며 지원 런타임은 Node 20.19.x 이상 20계열 또는 22.3 이상입니다(Node 21 제외). CI는 20.19·22·24에서 검증합니다. [추출기 공식 호환성 문서](https://github.com/mehmet-kozan/pdf-parse/blob/main/docs/troubleshooting.md)
-- `retrieved`, `partial`, `no_match_in_scope`, `unsupported`, `unavailable` 구분. 조문 미발견은 규정 부존재를 뜻하지 않음. HWP 별표·시행일·법적 적용성은 미확인.
-- 참고 저장소 2026년 7월 탐지 설정 포팅으로 현재 가용성을 보장하지 않음. 차단 우회·로그인·리다이렉트 없음. 서울시립·숭실은 참고 자료의 HTTP 공개 주소.
-- 기본 비활성입니다. 운영자가 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`로 켜야 요청이 나갑니다(공개·재무 프로필 모두). `get_service_info`에 설정 여부를 표시합니다.
-- 서울대(`snu`)만 추가로 `DONGGUK_LAWGO_OC`(law.go.kr에서 발급하는 무료 OPEN API OC 키)가 필요합니다. 키가 없으면 다른 대학은 정상 동작하고 서울대 열만 `unavailable (LAWGO_OC_NOT_CONFIGURED)`로 표시됩니다. 키는 law.go.kr 로그인 → OPEN API 신청에서 받아 접근제한 환경파일로 주입하고 명령행·문서에 적지 않습니다.
-- 외부대학에 쿠키·인증정보 전송 없음. 호출 전체 60초 제한, 요청당 8초, 외부대학당 15초 예산, 대학별 500ms 간격, HTML·JSON 응답 2 MiB 제한(세종대 목록만 6 MiB, 문서는 8 MiB). 시간 초과 시 받은 결과는 유지하고 남은 대학은 `TOTAL_TIMEOUT`으로 표시합니다. 공개 텍스트 응답 10분/최대 64개 메모리 캐시(UTF-8 2 MiB 이하 응답만)와 중복 요청 합치기. 백그라운드 크롤링·재시도 없음.
-
-실측 예(2026-11-24, "겸직"): 동국대는 「JA교원 운영규정」 등 다른 사안 20건을 빼고 「전임교원 인사규정 시행세칙」 제37조·제39조·제40조를 주규정으로, 국민·건국은 전용 겸직 규정을 주규정으로 표시하며, 기간 칸은 조문 제목이 그 요소인 국민 「제7조(겸직 기간)」을 고릅니다.
-
-합성 테스트 출력 예: 동국대 `제9조`와 고려대 `제5조`를 각각 발췌하고 고려대 열에 `coverage.mode:"public_folder_list"`, `status:"partial"`, "공개 규정만"을 표시합니다. 실제 학교의 지급 기준을 뜻하지 않습니다.
-
-포팅 출처·라이선스: [THIRD_PARTY](docs/THIRD_PARTY.md).
-
-비교 표에는 짧은 발췌를, 표 아래에는 학교별 조문 본문을 제공합니다.
-
-호출의 대기 취소는 공유 캐시 로더를 취소하지 않습니다. 다른 요청이 기다리는 원문 요청은 자체 시간 제한(외부대학 8초, 기존 동국 요청 20초) 내에서 완료되며, 취소된 비교 호출은 다음 원문 요청을 시작하지 않습니다. 타대학 전문검색 후보도 제목의 주제 일치를 우선 정렬합니다.
-
-### 타대학 개정 감시 CLI
-
-`npm run university-watch -- --snapshot /local/private/university-watch.json`으로 19개 대학 대표 여비 규정의 개정일·시행일·본문 앞부분 해시·실패를 직전 기록과 비교할 수 있습니다. 기본은 Markdown 출력이며 Slack 게시에는 명시적인 `--post`가 필요합니다. `--usage-only`는 `DONGGUK_MCP_USAGE_LOG_DIR`의 비교 실패 로그만 집계합니다. [운영 안내](docs/OPERATIONS.md#타대학-주간-스모크와-사용-로그)를 참고하세요. 일반 비교의 캐시 TTL 10분·버전은 유지합니다.
-
-### 자연어 정답 조문 벤치마크
-
-다음 명령을 직접 실행하면 JSON·Markdown 보고서를 함께 만듭니다. 기존 보고서는 덮어쓰지 않습니다.
-
-```sh
-npm run benchmark:natural-language -- --questions test/fixtures/natural-language-benchmark.train.json --output /local/new-run.json
-```
-
-- 학습용 46문항의 정답 LAW_ID와 실제 반환 본문의 조문·별표 표제를 함께 검사합니다. 다른 규정의 같은 조문 번호, 후보 목록, 대표 조문 번호만 있는 메타데이터는 적중으로 세지 않습니다. 가지조문·별표 번호를 구분하며 대체 정답은 하나만 맞아도 적중입니다.
-- 개발용 25문항(`test/fixtures/natural-language-benchmark.dev.json`)도 같은 방식으로 측정합니다. 처음에는 공개하지 않고 보관하던 문항입니다.
-- 기존 30문항 배열은 기존 제목·키워드 기준으로 실행합니다. 보류 검증 문항은 팀이 보관하고 마지막에 별도 `--questions` 파일로 평가합니다.
-- 문항에 `"args": {"keywords": "분실, 변상"}`처럼 인수 객체를 두면 `query` 옆에 합쳐서 호출합니다. `--args ARGS.json`은 문항 ID를 키로 한 별도 파일의 인수를 합치고, `--query-only`는 인수를 무시하고 질문만 보냅니다. 같은 문항 파일을 질문만 넣은 실행과 인수를 넣은 실행으로 나눠 잴 수 있고, 보고서에 어느 방식이었는지와 문항별로 보낸 인수를 남깁니다.
-- 실조회는 기본 `npm test`에 포함하지 않습니다. 별도 `XDG_CACHE_HOME`을 지정해 `node src/index.js --build-index`로 색인을 만드세요. 전후 비교는 같은 색인·문항 순서·초기 공개 캐시 복사본을 쓰고 각각 새 프로세스로 실행합니다.
-- 보고서에는 문항·색인·소스 해시와 버전, 본문 포함률, 상위 3개·1순위 적중률, 응답시간 중간값·p95(오름차순 95% 지점의 관측값), 오류 코드, 본문 없는 규정 선택 요청 수를 남깁니다. 시행일 조문 표제가 든 발췌 수, 500자 미만인 정답 규정 발췌 수, 평균 반환 규정 수·본문 글자 수도 함께 기록합니다.
-- 종료 코드 0은 목표 정확도 달성이 아니라 측정 완료를 뜻합니다. 이 지표는 법적 정확성이나 적용 여부를 판정하지 않습니다.
-
-자연어 검색이 규정과 조문을 고르는 기준은 다음과 같습니다. 모두 특정 질문이 아니라 규정의 종류와 낱말에 적용되는 일반 규칙입니다.
-
-- **적용 범위:** 규정집 편제(분류 코드 첫 자리)로 학교 전체에 적용되는 규정(법인·학칙·행정 일반)과 한 기관의 규정(위원회·부속기관·연구소·산학협력단·자치기구)을 나눕니다. 질문이 그 기관을 말하지 않으면 기관 규정과 학생자치기구 회칙·세칙을 낮춥니다. "총학생회 회계연도", "북한학연구소 조교"처럼 기관을 말하면 낮추지 않습니다.
-- **캠퍼스·대학원:** 캠퍼스·산학협력단 판은 같은 계열의 일반판이 있을 때만 낮춥니다. WISE·와이즈·경주·산단·석사·박사 등으로 범위를 말하면 낮추지 않습니다.
-- **핵심 규정:** 다른 규정이 이름을 들어 인용하는 규정(「학칙」, 「교원인사규정」)과 조문이 많은 규정에 약한 우선순위를 줍니다.
-- **업무 용어:** 일상 표현을 규정 용어 묶음으로 바꿔 함께 찾습니다(월급·봉급→보수, 선물·식사 대접→금품등, 잃어버리다→분실). 바꾼 낱말은 원래 낱말보다 무겁게 세지 않습니다. 다른 낱말 속에 든 검색어는 일치로 보지 않습니다("계약"은 계약직이 아님).
-- **조문 선택:** 고른 규정 안에서는 질문 의도(언제·얼마·얼마나 자주·어떤 제재)에 맞는 조문 제목을 먼저 봅니다. 규정 제목에 든 낱말은 조문을 가르는 데 덜 쓰고, 목적·정의 조문은 뒤로 둡니다.
-- **규정 이름을 말한 질문:** "여비규정에서 밥값은 얼마 나와?"처럼 규정을 지정하면 나머지 말을 같은 방식으로 읽어 그 규정 안에서 조문을 고릅니다.
-- **질문의 주체:** 질문이 직원·교원·학생·강사·조교 가운데 하나만 말하면, 이름에 다른 주체만 든 규정(직원 질문의 전임교원 인사규정 등)을 낮춥니다. 이름에 주체가 없거나 교직원처럼 둘을 아우르는 규정은 그대로 둡니다.
-- **기관명만 맞는 후보:** 질문과 기관·캠퍼스 이름만 같고 주제어가 나오는 조문이 없는 규정은 주제가 맞는 규정 뒤에 두고 "기관·캠퍼스 이름만 일치"라고 표시합니다(`rules[].scopeNameOnly`). 별표에만 답이 있을 수 있어 후보에서 빼지는 않습니다.
-
-순위는 적용 여부를 확정하지 않습니다. 세칙이나 다른 캠퍼스 규정도 확인해야 하며, 판본 후보의 미확정 표시는 그대로 유지합니다.
-
-업무 용어 사전은 `src/aliases.js`에서 관리합니다. 강사료↔강의료, 출장비↔여비, 법카↔법인카드는 타대학 비교에도 사용합니다. 자연어 자동 발췌에는 목적·정의를 제외한 본칙 대표 조문을 기존 발췌 한도 안에서 우선 포함합니다. 대표 조문은 순위가 고른 조문, 질문 낱말이 가장 많이 든 조문, 순위의 다음 조문 순서이며(핵심어가 있으면 핵심어가 고른 조문, 질문만으로 고른 조문, 핵심어의 다음 조문 순서), 블록 수 한도를 넘기지 않습니다. 부칙의 같은 번호와 본문 속 조문 번호 언급에는 우선순위를 주지 않으며, 대표 조문의 여러 문단은 한 자리를 차지하고 남는 자리는 기존 순위로 채웁니다. 대표 조문 추가로 기존 별표가 밀리면 같은 한도 안에서 낮은 순위의 일반 블록 대신 별표를 보존하고, 대표 조문이 자리를 다 채운 경우에는 마지막 대표 조문 하나가 별표에 자리를 내줍니다. 사용자가 명시한 조문·별표·검색어가 있으면 그 조건을 우선합니다.
+[Issues](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues)에는 버전과 개인정보를 뺀 재현 질문을 남겨 주세요. 개인정보, 인증값, 내부 문서는 첨부하지 않습니다.

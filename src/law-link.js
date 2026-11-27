@@ -2,19 +2,35 @@
 
 const crypto = require('node:crypto');
 const { normalizeName } = require('./references.js');
+const { legalServerState, legalSetupGuide } = require('./legal-client.js');
 
 // Text of the national-law articles a rule cites, fetched from a Korean Law
 // MCP server. The rule lookup never depends on it: when the law server is not
 // configured, slow or down, the citations are still returned without text.
-const MAX_LAW_ARTICLES = 3;
+// Law answers are cached per article (legal-client.js), so a repeat costs no
+// provider call; 8 matches get_rule_upper_laws' article budget.
+const MAX_LAW_ARTICLES = 8;
 const MAX_TEXT_CHARS = 6000;
 const CALL_TIMEOUT_MS = 15000;
 const TOTAL_TIMEOUT_MS = 35000;
 const CACHE_SECONDS = 6 * 60 * 60;
 
-// The public rules profile reaches the law server only when the operator opts in.
-function lawLinkConfigured(profile) {
-  return process.env.DONGGUK_LEGAL_MCP_ENABLED === '1' && (profile === 'finance' || process.env.DONGGUK_PUBLIC_LAW_LINK === '1');
+// Law text is on whenever the law server is set up. The operator can switch it
+// off for the public rules profile with DONGGUK_PUBLIC_LAW_LINK=0.
+function lawLinkState(profile) {
+  if (profile !== 'finance' && process.env.DONGGUK_PUBLIC_LAW_LINK === '0') return 'disabled_public';
+  return legalServerState().state;
+}
+function lawLinkConfigured(profile) { return lawLinkState(profile) === 'ready'; }
+// What to tell the reader when law text cannot be fetched: what is missing, what
+// the operator can set, and that the rule-side result is unaffected.
+function lawLinkGuide(profile) {
+  const state = lawLinkState(profile);
+  if (state === 'ready') return null;
+  const guide = state === 'disabled_public'
+    ? { state, env: ['DONGGUK_PUBLIC_LAW_LINK'], message: '서버 운영자가 이 공개 주소의 법령 연결을 꺼 두었습니다(DONGGUK_PUBLIC_LAW_LINK=0). 운영자가 이 값을 지우면 다시 켜집니다.' }
+    : legalSetupGuide(state);
+  return { ...guide, notice: `${guide.message} 규정 쪽 결과는 그대로입니다. 법령은 아래 법령명·조문으로 한국법령 MCP나 국가법령정보센터(law.go.kr)에서 확인하세요.` };
 }
 
 function planRequests(externalLaws) {
@@ -36,9 +52,10 @@ async function fetchCitedLaws(externalLaws, { profile, cached, queryLegalReferen
   const { requests, skipped } = planRequests(externalLaws);
   const limits = { maxArticles: MAX_LAW_ARTICLES, maxTextChars: MAX_TEXT_CHARS, totalTimeoutMs: TOTAL_TIMEOUT_MS };
   if (!requests.length) return { status: 'not_required', laws: [], skipped, limits };
-  if (!lawLinkConfigured(profile)) {
-    return { status: 'not_configured', code: 'LAW_LINK_NOT_CONFIGURED', laws: [], skipped, limits,
-      notice: '이 서버에는 법령 연계가 켜져 있지 않습니다. externalLaws의 법령명·조문으로 한국법령 MCP에서 조회하세요.' };
+  const guide = lawLinkGuide(profile);
+  if (guide) {
+    const { notice, message, ...setup } = guide;
+    return { status: 'not_configured', code: 'LAW_LINK_NOT_CONFIGURED', laws: [], skipped, limits, notice, setup };
   }
   const deadline = Date.now() + TOTAL_TIMEOUT_MS;
   const laws = [];
@@ -102,4 +119,4 @@ function formatCitedLaws(lawTexts) {
   return lines.join('\n') + '\n';
 }
 
-module.exports = { lawLinkConfigured, planRequests, fetchCitedLaws, formatCitedLaws, MAX_LAW_ARTICLES };
+module.exports = { lawLinkConfigured, lawLinkState, lawLinkGuide, planRequests, fetchCitedLaws, formatCitedLaws, MAX_LAW_ARTICLES };

@@ -17,6 +17,93 @@ const textOf=response=>Array.isArray(response?.content)?response.content.filter(
 const compactDate=value=>parseDateLoose(value)?.iso.replace(/-/g,'')||null;
 const responseFailed=response=>!response||response.isError===true||Boolean(response.error)||response.structuredContent?.ok===false;
 
+// --- Law-call cache, upstream rate-limit retry and counters ---
+// Laws change rarely, and one law (소득세법, 사립학교법 ...) is cited by many rules,
+// so every successful provider answer is kept on disk and shared by all tools:
+// - search_law / get_annexes: the current-law listing for one Korea (KST) day.
+// - get_law_text with an MST: an MST pins one promulgated version, so its text
+//   never changes; kept 30 days.
+// - legal_analysis / applicable_law: the version in force on a past date; 7 days.
+// Error, empty, maintenance and "not found" answers are never cached.
+const CALL_CACHE_POLICY={
+  search_law:{ttl:6*3600,daily:true},
+  get_annexes:{ttl:6*3600,daily:true},
+  get_law_text:{ttl:30*86400,daily:false,needs:args=>Boolean(args&&args.mst)},
+  legal_analysis:{ttl:7*86400,daily:false},
+  applicable_law:{ttl:7*86400,daily:false},
+};
+const RETRY_ATTEMPTS=2;
+const RETRY_MAX_WAIT_MS=5000;
+const FETCHED_AT=Symbol('fetchedAt');
+const stats={upstreamCalls:0,cacheHits:0,cacheMisses:0,rateLimited:0,retries:0,since:new Date().toISOString()};
+let defaultCallCache=null;
+// index.js hands over its disk cache (public/private scoped, DONGGUK_MCP_NO_CACHE aware).
+function setLegalCallCache(cache){defaultCallCache=typeof cache==='function'?cache:null;}
+function legalCallStats(){return {...stats};}
+function resetLegalCallStats(){Object.assign(stats,{upstreamCalls:0,cacheHits:0,cacheMisses:0,rateLimited:0,retries:0,since:new Date().toISOString()});}
+const kstDay=now=>new Date(now).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+const stable=value=>Array.isArray(value)?`[${value.map(stable).join(',')}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(k=>`${JSON.stringify(k)}:${stable(value[k])}`).join(',')}}`:JSON.stringify(value);
+function callCacheKey(name,args,now=Date.now()){
+  const policy=CALL_CACHE_POLICY[name];
+  if(!policy||(policy.needs&&!policy.needs(args))) return null;
+  return createHash('sha256').update([name,stable(args||{}),policy.daily?kstDay(now):''].join('|')).digest('hex');
+}
+// The provider and the hosted server report a quota hit as HTTP 429 or as an
+// error result that names the limit. Anything else is not retried here.
+const RATE_LIMIT_TEXT=/\b429\b|too many requests|rate[ _-]?limit|quota|요청 한도|호출 한도|한도를? 초과|한도 초과|일일 호출|분당 [0-9,]+회/i;
+function retryAfterMs(text){
+  const m=/retry[- _]?after\D{0,12}(\d+(?:\.\d+)?)/i.exec(text)||/(\d+(?:\.\d+)?)\s*초\s*(?:후|뒤)/.exec(text);
+  return m?Math.round(parseFloat(m[1])*1000):null;
+}
+function rateLimitOf(error,response){
+  if(error){
+    const message=String(error?.message||'');
+    return error?.code===429||RATE_LIMIT_TEXT.test(message)?{waitMs:retryAfterMs(message)}:null;
+  }
+  if(!responseFailed(response)) return null;
+  const text=textOf(response)+' '+String(response?.error?.message||'');
+  return RATE_LIMIT_TEXT.test(text)?{waitMs:retryAfterMs(text)}:null;
+}
+const cacheable=response=>!responseFailed(response)&&!errorText(textOf(response))&&textOf(response).trim().length>0;
+const fetchedAt=response=>response?.[FETCHED_AT]||new Date().toISOString();
+// raw(name,args) performs one provider call. deadline() is the epoch ms after
+// which no retry may start.
+function resilientCaller(raw,{cache=defaultCallCache,deadline=()=>Infinity,sleep=ms=>new Promise(r=>setTimeout(r,ms)),now=Date.now}={}){
+  const live=async(name,args)=>{
+    for(let attempt=0;;attempt++){
+      let response,error;
+      stats.upstreamCalls++;
+      try{response=await raw(name,args);}catch(e){error=e;}
+      const limited=rateLimitOf(error,response);
+      if(!limited){if(error) throw error;return response;}
+      stats.rateLimited++;
+      const waitMs=Math.min(limited.waitMs??500*2**attempt,RETRY_MAX_WAIT_MS);
+      if(attempt>=RETRY_ATTEMPTS||deadline()-Date.now()<waitMs+1000) throw failure('LEGAL_UPSTREAM_RATE_LIMITED');
+      stats.retries++;
+      await sleep(waitMs);
+    }
+  };
+  return async(name,args)=>{
+    const key=cache?callCacheKey(name,args,now()):null;
+    if(!key) return live(name,args);
+    let loaded=false;
+    try{
+      const value=await cache('legal-call',key,CALL_CACHE_POLICY[name].ttl,async()=>{
+        loaded=true;
+        const response=await live(name,args);
+        if(!cacheable(response)) throw Object.assign(new Error('not cacheable'),{uncached:response});
+        return {fetchedAt:new Date(now()).toISOString(),response};
+      });
+      if(loaded) stats.cacheMisses++; else stats.cacheHits++;
+      return Object.assign({},value.response,{[FETCHED_AT]:value.fetchedAt});
+    }catch(error){
+      if(loaded) stats.cacheMisses++;
+      if(error&&Object.prototype.hasOwnProperty.call(error,'uncached')) return error.uncached;
+      throw error;
+    }
+  };
+}
+
 // A local deadline also bounds injected/older clients that ignore the SDK timeout.
 async function bounded(operation,timeoutMs,onTimeout=()=>{}){
   const controller=new AbortController();
@@ -25,23 +112,70 @@ async function bounded(operation,timeoutMs,onTimeout=()=>{}){
   try{return await Promise.race([Promise.resolve().then(()=>operation(controller.signal)),timeout]);}
   finally{clearTimeout(timer);}
 }
+// The law server is used whenever the operator has given an address or a key.
+// DONGGUK_LEGAL_MCP_ENABLED=0 is the operator's off switch; no value means on.
+// reason: disabled (switched off) | missing (no address or key) | invalid (bad value).
+const notConfigured=reason=>Object.assign(failure('LEGAL_MCP_NOT_CONFIGURED'),{reason});
+function legalTransport(){
+  return process.env.DONGGUK_LEGAL_MCP_TRANSPORT||((process.env.DONGGUK_LEGAL_MCP_URL||'').trim()?'streamable-http':'stdio');
+}
 function connectionSettings(){
-  if(process.env.DONGGUK_LEGAL_MCP_ENABLED!=='1') throw failure('LEGAL_MCP_NOT_CONFIGURED');
-  const kind=process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio';
+  if(process.env.DONGGUK_LEGAL_MCP_ENABLED==='0') throw notConfigured('disabled');
+  const kind=legalTransport();
   if(kind==='streamable-http'){
+    const raw=(process.env.DONGGUK_LEGAL_MCP_URL||'').trim();
+    if(!raw) throw notConfigured('missing');
     let url;
-    try{url=new URL(process.env.DONGGUK_LEGAL_MCP_URL||'');}catch{throw failure('LEGAL_MCP_NOT_CONFIGURED');}
+    try{url=new URL(raw);}catch{throw notConfigured('invalid');}
     const loopback=['localhost','127.0.0.1','[::1]'].includes(url.hostname);
-    if((url.protocol!=='https:'&&!(url.protocol==='http:'&&loopback))||url.username||url.password||url.search||url.hash) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+    if((url.protocol!=='https:'&&!(url.protocol==='http:'&&loopback))||url.username||url.password||url.search||url.hash) throw notConfigured('invalid');
     const token=(process.env.DONGGUK_LEGAL_MCP_BEARER_TOKEN||'').trim();
-    if(/[\r\n]/.test(token)) throw failure('LEGAL_MCP_NOT_CONFIGURED');
-    return {kind,url:url.href,token};
+    // The operator's own 법제처 OC for a hosted Korean Law MCP (sent as the
+    // documented "apikey" header). Without it a hosted server answers from its
+    // shared keyless quota. Never echoed in any response or log.
+    const apiKey=(process.env.DONGGUK_LEGAL_MCP_API_KEY||'').trim();
+    if(/[\r\n]/.test(token)||/[\r\n]/.test(apiKey)) throw notConfigured('invalid');
+    return {kind,url:url.href,token,apiKey,loopback};
   }
-  if(kind!=='stdio'||!process.env.LAW_OC) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  if(kind!=='stdio') throw notConfigured('invalid');
+  if(!process.env.LAW_OC) throw notConfigured('missing');
   let args;
-  try{args=JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]');}catch{throw failure('LEGAL_MCP_NOT_CONFIGURED');}
-  if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw failure('LEGAL_MCP_NOT_CONFIGURED');
+  try{args=JSON.parse(process.env.DONGGUK_LEGAL_MCP_ARGS||'["--offline","korean-law-mcp"]');}catch{throw notConfigured('invalid');}
+  if(!Array.isArray(args)||args.some(a=>typeof a!=='string')) throw notConfigured('invalid');
   return {kind,command:process.env.DONGGUK_LEGAL_MCP_COMMAND||'npx',args,lawOc:process.env.LAW_OC};
+}
+// Which 법제처 quota a lookup draws on, from the settings alone (never the key).
+// own_key: this process passes the operator's key (stdio LAW_OC, apikey header
+// or bearer token). local_operator_key: a loopback korean-law-mcp the operator
+// runs on the same machine with its own LAW_OC, so lookups never touch a hosted
+// server's shared quota. shared_keyless: a remote hosted server without a key,
+// whose quota every keyless user shares.
+function legalQuota(settings){
+  if(settings.kind==='stdio'||settings.apiKey||settings.token) return 'own_key';
+  if(settings.loopback) return 'local_operator_key';
+  return 'shared_keyless';
+}
+// Whether the law server can be reached with the current settings, without
+// connecting. Never returns the address or the key.
+function legalServerState(){
+  try{
+    const settings=connectionSettings();
+    return {state:'ready',transport:settings.kind,quota:legalQuota(settings)};
+  }
+  catch(error){return {state:error.reason||'invalid',transport:legalTransport()};}
+}
+// Plain-language guidance for a missing law connection. It names the settings
+// an operator can add and where the key is issued; it never invents an address.
+const OC_APPLY_URL='https://open.law.go.kr';
+function legalSetupGuide(state){
+  if(state==='ready') return null;
+  const env=state==='disabled'?['DONGGUK_LEGAL_MCP_ENABLED']:['DONGGUK_LEGAL_MCP_URL','LAW_OC'];
+  const message=state==='disabled'
+    ?'서버 운영자가 법령 연결을 꺼 두었습니다(DONGGUK_LEGAL_MCP_ENABLED=0). 운영자가 이 값을 지우면 다시 켜집니다.'
+    :state==='missing'
+      ?`이 서버에는 한국법령 MCP 연결 정보가 없어 법령을 조회할 수 없습니다. 서버 운영자가 환경변수 DONGGUK_LEGAL_MCP_URL에 한국법령 MCP 서버 주소를 넣거나, LAW_OC에 법제처 Open API 인증키(OC)를 넣으면 켜집니다(LAW_OC 방식은 서버에 korean-law-mcp가 설치되어 있어야 합니다). OC는 ${OC_APPLY_URL} 에서 신청합니다.`
+      :'법령 MCP 연결 설정 값이 올바르지 않아 법령을 조회할 수 없습니다. 서버 운영자가 DONGGUK_LEGAL_MCP_URL(https 주소, 계정·쿼리 문자열 없이)과 DONGGUK_LEGAL_MCP_TRANSPORT(streamable-http 또는 stdio) 값을 확인해야 합니다.';
+  return {state,env,ocApplyUrl:OC_APPLY_URL,message};
 }
 async function legalClient(timeoutMs){
   const settings=connectionSettings();
@@ -55,7 +189,7 @@ async function legalClient(timeoutMs){
       try{
         client=new Client({name:'dongguk-finance-desk',version:require('../package.json').version});
         transport=settings.kind==='streamable-http'
-          ? new StreamableHTTPClientTransport(new URL(settings.url),{requestInit:{redirect:'error',headers:settings.token?{Authorization:`Bearer ${settings.token}`}:{}}})
+          ? new StreamableHTTPClientTransport(new URL(settings.url),{requestInit:{redirect:'error',headers:{...(settings.token?{Authorization:`Bearer ${settings.token}`}:{}),...(settings.apiKey?{apikey:settings.apiKey}:{})}}})
           : new StdioClientTransport({command:settings.command,args:settings.args,env:{PATH:process.env.PATH,HOME:process.env.HOME,LAW_OC:settings.lawOc},stderr:'pipe'});
         client.onclose=()=>{if(connection===record)connection=null;};
         const connecting=client.connect(transport,{timeout:timeoutMs});
@@ -67,7 +201,7 @@ async function legalClient(timeoutMs){
         // Never expose transport URLs, credentials, child stderr or exception text.
         await client?.close().catch(()=>{});
         await transport?.close().catch(()=>{});
-        throw failure(error?.code==='LEGAL_TIMEOUT'?'LEGAL_TIMEOUT':error?.code==='LEGAL_MCP_NOT_CONFIGURED'?'LEGAL_MCP_NOT_CONFIGURED':'LEGAL_CONNECTION_FAILED');
+        throw error?.code==='LEGAL_MCP_NOT_CONFIGURED'?notConfigured(error.reason):failure(error?.code==='LEGAL_TIMEOUT'?'LEGAL_TIMEOUT':'LEGAL_CONNECTION_FAILED');
       }
     })().catch(error=>{if(connection===record)connection=null;throw error;});
   }
@@ -77,6 +211,7 @@ async function legalClient(timeoutMs){
 
 function errorCode(error){
   if(['LEGAL_TIMEOUT','LEGAL_TOTAL_TIMEOUT','LEGAL_MCP_NOT_CONFIGURED','LEGAL_CONNECTION_FAILED','LEGAL_TOOL_UNAVAILABLE','HISTORICAL_LOOKUP_UNAVAILABLE'].includes(error?.code)) return error.code;
+  if(error?.code==='LEGAL_UPSTREAM_RATE_LIMITED') return error.code;
   if(error?.code===-32001||error?.name==='AbortError'||/timed?\s*out|timeout/i.test(String(error?.message||''))) return 'LEGAL_TIMEOUT';
   if(error?.code===-32601||/unknown tool|tool .*not found|method not found/i.test(String(error?.message||''))) return 'LEGAL_TOOL_UNAVAILABLE';
   if(['ECONNREFUSED','ECONNRESET','EPIPE'].includes(error?.code)||/not connected|connection closed|transport closed/i.test(String(error?.message||''))) return 'LEGAL_CONNECTION_FAILED';
@@ -137,7 +272,9 @@ function bodyProblem(response,law,selector){
   const effective=compactDate(/^시행일:\s*(.+)$/m.exec(text)?.[1]);
   if(!effective||effective!==law.effectiveAt) return 'LEGAL_BODY_VERSION_UNVERIFIED';
   if(/^목차\s*\(총\s*\d+개 조문\)/m.test(text)) return 'LEGAL_TOC_ONLY';
-  const headers=[...text.matchAll(/^(제\d+조(?:의\d+)?)(\([^\r\n]*?\))?[^\S\r\n]*([^\r\n]*)/gm)];
+  // A body line can open with another article ("제70조의2제1항에도 불구하고",
+  // "제5조 및 제6조에 따른"); only a token followed by a title or line end is a header.
+  const headers=[...text.matchAll(/^(제\d+조(?:의\d+)?)(?=\(|[^\S\r\n]|$)(?![^\S\r\n]+(?:및|또는|내지|부터|ㆍ|·|,|에\s|에도|에서|의\s|를|을|은|는|이|가))(\([^\r\n]*?\))?[^\S\r\n]*([^\r\n]*)/gm)];
   const index=selector?headers.findIndex(h=>h[1]===selector):0;
   if(index<0||!headers[index]) return 'LEGAL_ARTICLE_MISSING';
   // The live tool emits both "제17조 계정과목" and "제17조(계정과목)".
@@ -195,7 +332,7 @@ function summarize(results,baseDate,limits,extra={}){
  * body for historical evidence. Dated annexes require advertised date support
  * and matching version metadata; legacy annexes remain explicit current references.
  */
-async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,totalTimeoutMs=DEFAULT_TOTAL_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date()}={}){
+async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,totalTimeoutMs=DEFAULT_TOTAL_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date(),cache,sleep}={}){
   const limits={maxRequests,maxTextChars,timeoutMs,totalTimeoutMs};
   const deadline=Date.now()+totalTimeoutMs;
   let totalExpired=false;
@@ -222,7 +359,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   if(!eligible.length) return summarize(results,date,limits);
   let client;
   try{const {allowed,totalLimited}=remaining();let timerExpired=false;client=injectedClient||await bounded(()=>legalClient(allowed),allowed,()=>{timerExpired=true;}).catch(error=>{if(timerExpired&&totalLimited&&errorCode(error)==='LEGAL_TIMEOUT')throw failure('LEGAL_TOTAL_TIMEOUT');throw error;});if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');}
-  catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code});}
+  catch(error){const code=Date.now()>=deadline&&errorCode(error)==='LEGAL_TIMEOUT'?'LEGAL_TOTAL_TIMEOUT':errorCode(error);for(const {result} of eligible) Object.assign(result,{status:'unavailable',code});return summarize(results,date,limits,{code,...(code==='LEGAL_MCP_NOT_CONFIGURED'?{setup:legalSetupGuide(error?.reason||'invalid')}:{})});}
   const deadlineCall=async operation=>{
     const {allowed,totalLimited}=remaining();
     let timerExpired=false;
@@ -237,7 +374,9 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
       throw error;
     }
   };
-  const call=(name,args)=>deadlineCall((signal,allowed)=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal}));
+  // Injected (test) clients are cached only when a cache is passed explicitly.
+  const call=resilientCaller((name,args)=>deadlineCall((signal,allowed)=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal})),
+    {cache:cache!==undefined?cache:injectedClient?null:defaultCallCache,deadline:()=>deadline,...(sleep?{sleep}:{})});
   let discoveredTools;
   const toolDefinitions=()=>{
     if(!discoveredTools)discoveredTools=(async()=>{
@@ -301,7 +440,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
         if(resolved.resolution) result.dateResolution={...resolved.resolution,tool:resolved.tool};
         const arguments_={mst:law.mst,efYd:law.effectiveAt,...(selector?{jo:selector}:{})};
         const response=await call('get_law_text',arguments_);
-        article.source={provider:'Korean Law MCP',tool:'get_law_text',lawName:law.name,lawId:law.lawId,mst:law.mst,effectiveAt:law.effectiveAt,baseDate:date.iso,retrievedAt:new Date().toISOString(),url:law.sourceUrl,arguments:arguments_};
+        article.source={provider:'Korean Law MCP',tool:'get_law_text',lawName:law.name,lawId:law.lawId,mst:law.mst,effectiveAt:law.effectiveAt,baseDate:date.iso,retrievedAt:fetchedAt(response),url:law.sourceUrl,arguments:arguments_};
         const problem=bodyProblem(response,law,selector);
         if(problem&&problem!=='LEGAL_TOC_ONLY') throw failure(problem);
         const content=clipped(textOf(response),maxTextChars);
@@ -325,7 +464,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
         const response=await call('get_annexes',arguments_);
         const dated=dateSupported?datedAnnexEvidence(response,law.name,date,law):null;
         const versionVerified=dated?.verified===true;
-        annex.source={provider:'Korean Law MCP',tool:'get_annexes',lawName:law.name,lawId:law.lawId,mst:versionVerified?law.mst:null,currentLawMst:dateSupported?null:law.mst,effectiveAt:versionVerified?law.effectiveAt:null,versionVerified,baseDate:date.iso,retrievedAt:new Date().toISOString(),url:law.sourceUrl,annexNo,arguments:arguments_};
+        annex.source={provider:'Korean Law MCP',tool:'get_annexes',lawName:law.name,lawId:law.lawId,mst:versionVerified?law.mst:null,currentLawMst:dateSupported?null:law.mst,effectiveAt:versionVerified?law.effectiveAt:null,versionVerified,baseDate:date.iso,retrievedAt:fetchedAt(response),url:law.sourceUrl,annexNo,arguments:arguments_};
         const problem=annexProblem(dated?.bodyResponse||response,law.name,annexNo);
         if(problem) throw failure(problem);
         const text=textOf(response),content=clipped(text,maxTextChars);
@@ -378,7 +517,9 @@ function amendmentDates(text){
   return [...dates].sort();
 }
 function articleFacts(text,selector){
-  const headers=[...text.matchAll(/^(제\d+조(?:의\d+)?)(\([^\r\n]*?\))?[^\S\r\n]*([^\r\n]*)/gm)];
+  // A body line can open with another article ("제70조의2제1항에도 불구하고",
+  // "제5조 및 제6조에 따른"); only a token followed by a title or line end is a header.
+  const headers=[...text.matchAll(/^(제\d+조(?:의\d+)?)(?=\(|[^\S\r\n]|$)(?![^\S\r\n]+(?:및|또는|내지|부터|ㆍ|·|,|에\s|에도|에서|의\s|를|을|은|는|이|가))(\([^\r\n]*?\))?[^\S\r\n]*([^\r\n]*)/gm)];
   const first=headers.findIndex(h=>h[1]===selector);
   if(first<0) return null;
   let last=first;
@@ -400,7 +541,7 @@ function articleFacts(text,selector){
  * except `suffixMatch` names (written without 낫표, so earlier words may have
  * been swept in): the longest listed name that ends the given name is taken.
  */
-async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,totalTimeoutMs=40000,maxLaws=12,maxArticles=8,maxTextChars=3000,now=new Date()}={}){
+async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,totalTimeoutMs=40000,maxLaws=12,maxArticles=8,maxTextChars=3000,now=new Date(),cache,sleep}={}){
   const limits={maxLaws,maxArticles,maxTextChars,timeoutMs,totalTimeoutMs};
   const todayCompact=compactDate(new Date(now).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}));
   const laws=(Array.isArray(requests)?requests:[]).map((request,i)=>({request,identity:{status:i<maxLaws?'unavailable':'not_checked',...(i<maxLaws?{}:{code:'LAW_LIMIT'})},articles:(request?.articles||[]).map(article=>({article,status:'not_checked'}))}));
@@ -415,14 +556,14 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
   try{
     client=injectedClient||await legalClient(Math.min(timeoutMs,totalTimeoutMs));
     if(typeof client?.callTool!=='function') throw failure('LEGAL_CONNECTION_FAILED');
-  }catch(error){const code=errorCode(error);for(const law of laws) if(law.identity.status==='unavailable') law.identity.code=code;return finish({code});}
+  }catch(error){const code=errorCode(error);for(const law of laws) if(law.identity.status==='unavailable') law.identity.code=code;return finish({code,...(code==='LEGAL_MCP_NOT_CONFIGURED'?{setup:legalSetupGuide(error?.reason||'invalid')}:{})});}
   const codeOf=error=>/^LEGAL_/.test(error?.code||'')?error.code:errorCode(error);
-  const call=async(name,args)=>{
+  const call=resilientCaller(async(name,args)=>{
     const left=deadline-Date.now();
     if(left<500) throw failure('LEGAL_TOTAL_TIMEOUT');
     const allowed=Math.min(timeoutMs,left);
     return bounded(signal=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal}),allowed);
-  };
+  },{cache:cache!==undefined?cache:injectedClient?null:defaultCallCache,deadline:()=>deadline,...(sleep?{sleep}:{})});
   let articleBudget=maxArticles;
   for(const law of laws){
     if(law.identity.status==='not_checked') continue;
@@ -434,10 +575,10 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
       // start with words that are not part of the law's name, so shorten it from the left.
       const words=name.split(/\s+/);
       const queries=law.request.suffixMatch?[...new Set([words.slice(-3).join(' '),words.slice(-2).join(' '),words.slice(-1)[0]])]:[name];
-      let text='',listed=[];
+      let text='',listed=[],listedAt=null;
       for(const query of queries){
         const response=await call('search_law',{query,display:100});
-        text=textOf(response);
+        text=textOf(response);listedAt=fetchedAt(response);
         // The provider states "no such law" explicitly. An empty body, an error or a
         // maintenance page says nothing about whether the law exists.
         const noResult=/^\[NOT_FOUND\][^\r\n]*검색 결과가 없습니다/m.test(text);
@@ -461,7 +602,7 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
         continue;
       }
       law.identity={status:renamed?'renamed':'current',name:current.name,lawId:current.lawId,mst:current.mst,kind:current.kind,
-        promulgatedAt:isoOf(current.promulgatedAt),effectiveAt:isoOf(current.effectiveAt),url:current.url,retrievedAt:new Date().toISOString(),
+        promulgatedAt:isoOf(current.promulgatedAt),effectiveAt:isoOf(current.effectiveAt),url:current.url,retrievedAt:listedAt||new Date().toISOString(),
         ...(renamed?{renamedFrom:renamed.from}:{}),...(corrected?{matchedFromText:corrected}:{}),
         ...(current.effectiveAt&&current.effectiveAt>todayCompact?{notYetEffective:true}:{}),
         pendingAmendments:pendingAmendments(text,current.name)};
@@ -487,11 +628,11 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
           text:content.text,truncated:content.truncated,
           // The listing and the body can state different effective dates for one MST.
           versionCheck:bodyEffective&&current.effectiveAt&&bodyEffective===current.effectiveAt?'matches_listing':'unverified',
-          source:{provider:'Korean Law MCP',tool:'get_law_text',lawName:current.name,mst:current.mst,bodyEffectiveAt:isoOf(bodyEffective),retrievedAt:new Date().toISOString(),url:current.url}});
+          source:{provider:'Korean Law MCP',tool:'get_law_text',lawName:current.name,mst:current.mst,bodyEffectiveAt:isoOf(bodyEffective),retrievedAt:fetchedAt(response),url:current.url}});
       }catch(error){Object.assign(article,{status:'unavailable',code:codeOf(error)});}
     }
   }
   return finish();
 }
 async function closeLegalClient(){const pending=connection;connection=null;if(pending){try{const client=await pending.promise;await client.close();}catch{ /* Failed connections already clean up their transport. */ }}}
-module.exports={queryLegalReferences,closeLegalClient,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};
+module.exports={setLegalCallCache,legalCallStats,resetLegalCallStats,callCacheKey,rateLimitOf,resilientCaller,CALL_CACHE_POLICY,queryLegalReferences,closeLegalClient,legalServerState,legalSetupGuide,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};

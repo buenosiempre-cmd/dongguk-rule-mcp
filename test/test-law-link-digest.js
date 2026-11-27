@@ -68,14 +68,14 @@ async function main() {
   await client.connect(b);
   const call = async (name, args) => (await client.callTool({ name, arguments: args })).structuredContent;
 
-  await check('요청 계획: 조문 있는 확정 법령만, 최대 3개', async () => {
+  await check('요청 계획: 조문 있는 확정 법령만, 최대 8개', async () => {
     const plan = planRequests([
       { lawName: '소득세법', articles: ['제12조', '제20조'], confirmedLawName: true },
       { lawName: '사립학교법', articles: [], confirmedLawName: true },
       { lawName: '어떤 지침', articles: ['제1조'], confirmedLawName: false },
-      { lawName: '법인세법', articles: ['제19조', '제20조'], confirmedLawName: true },
+      { lawName: '법인세법', articles: ['제19조', '제20조', '제21조', '제22조', '제23조', '제24조', '제25조'], confirmedLawName: true },
     ]);
-    assert.deepEqual(plan.requests.map(x => `${x.law_name} ${x.article}`), ['소득세법 제12조', '소득세법 제20조', '법인세법 제19조']);
+    assert.deepEqual(plan.requests.map(x => `${x.law_name} ${x.article}`), ['소득세법 제12조', '소득세법 제20조', '법인세법 제19조', '법인세법 제20조', '법인세법 제21조', '법인세법 제22조', '법인세법 제23조', '법인세법 제24조']);
     assert.deepEqual(plan.skipped.map(x => x.reason), ['NO_ARTICLE_CITED', 'LAW_NAME_UNCONFIRMED', 'LIMIT']);
   });
 
@@ -85,25 +85,47 @@ async function main() {
     assert.equal(result.data.lawTexts, undefined);
   });
 
-  await check('연계가 꺼져 있으면 인용 결과는 그대로, 원문은 not_configured', async () => {
-    const result = await call('get_rule_references', { law_id: 1, include_law_text: true });
+  await check('법령 서버 주소·키가 없으면 인용 결과는 그대로, 원문 대신 설정 안내', async () => {
+    const raw = await client.callTool({ name: 'get_rule_references', arguments: { law_id: 1, include_law_text: true } });
+    const result = raw.structuredContent;
     assert.equal(result.ok, true);
+    assert.notEqual(raw.isError, true);
     assert.equal(result.data.lawTexts.status, 'not_configured');
+    assert.equal(result.data.lawTexts.code, 'LAW_LINK_NOT_CONFIGURED');
+    assert.deepEqual(result.data.lawTexts.setup, { state: 'missing', env: ['DONGGUK_LEGAL_MCP_URL', 'LAW_OC'], ocApplyUrl: 'https://open.law.go.kr' });
+    for (const expected of [/DONGGUK_LEGAL_MCP_URL/, /LAW_OC/, /open\.law\.go\.kr/, /규정 쪽 결과는 그대로/]) { assert.match(result.data.lawTexts.notice, expected); assert.match(raw.content[0].text, expected); }
     assert(result.data.externalLaws.some(x => x.lawName === '소득세법'));
     assert.equal(lawLinkConfigured('rules'), false);
+    const info = await call('get_service_info', {});
+    assert.deepEqual([info.data.integrations.lawLink.configured, info.data.integrations.lawLink.state, info.data.integrations.lawLink.setup.ocApplyUrl], [false, 'missing', 'https://open.law.go.kr']);
   });
 
   const http = createHttpServer({ createServer: lawFixture, version: 'test' });
   await new Promise((resolve, reject) => { http.once('error', reject); http.listen(0, '127.0.0.1', resolve); });
-  Object.assign(process.env, { DONGGUK_LEGAL_MCP_ENABLED: '1', DONGGUK_LEGAL_MCP_TRANSPORT: 'streamable-http', DONGGUK_LEGAL_MCP_URL: `http://127.0.0.1:${http.address().port}/mcp` });
+  // 주소만 넣는다. DONGGUK_LEGAL_MCP_ENABLED·DONGGUK_PUBLIC_LAW_LINK 없이도 켜져야 한다.
+  Object.assign(process.env, { DONGGUK_LEGAL_MCP_URL: `http://127.0.0.1:${http.address().port}/mcp` });
 
-  await check('법령 서버가 설정돼도 공개 프로필은 별도 허용 전에는 연결하지 않음', async () => {
+  await check('운영자가 DONGGUK_PUBLIC_LAW_LINK=0으로 끄면 공개 프로필은 연결하지 않음', async () => {
+    process.env.DONGGUK_PUBLIC_LAW_LINK = '0';
     const result = await call('get_rule_references', { law_id: 1, include_law_text: true });
     assert.equal(result.data.lawTexts.status, 'not_configured');
+    assert.equal(result.data.lawTexts.setup.state, 'disabled_public');
+    assert.match(result.data.lawTexts.notice, /DONGGUK_PUBLIC_LAW_LINK=0/);
     assert.equal(lawCalls.length, 0);
+    assert.deepEqual([lawLinkConfigured('rules'), lawLinkConfigured('finance')], [false, true]);
+    delete process.env.DONGGUK_PUBLIC_LAW_LINK;
   });
 
-  process.env.DONGGUK_PUBLIC_LAW_LINK = '1';
+  await check('운영자가 DONGGUK_LEGAL_MCP_ENABLED=0으로 끄면 어느 프로필도 연결하지 않음', async () => {
+    process.env.DONGGUK_LEGAL_MCP_ENABLED = '0';
+    const result = await call('get_rule_references', { law_id: 1, include_law_text: true });
+    assert.equal(result.data.lawTexts.setup.state, 'disabled');
+    assert.equal(lawCalls.length, 0);
+    assert.deepEqual([lawLinkConfigured('rules'), lawLinkConfigured('finance')], [false, false]);
+    delete process.env.DONGGUK_LEGAL_MCP_ENABLED;
+    assert.deepEqual([lawLinkConfigured('rules'), lawLinkConfigured('finance')], [true, true]);
+  });
+
   await check('법령 서버 장애: 규정 인용은 성공, 원문은 unavailable', async () => {
     lawDown = true;
     const result = await call('get_rule_references', { law_id: 1, article: 2, include_law_text: true });
@@ -113,17 +135,17 @@ async function main() {
     lawDown = false;
   });
 
-  await check('인용된 조문 원문을 가져오고 한도를 넘은 것은 표시', async () => {
+  await check('인용된 조문 원문을 가져옴(한도 8개 안의 4개 조문은 모두)', async () => {
     lawCalls.length = 0;
     const raw = await client.callTool({ name: 'get_rule_references', arguments: { law_id: 1, article: 2, include_law_text: true } });
     const result = raw.structuredContent;
-    assert.equal(result.data.lawTexts.status, 'partial');
-    assert.deepEqual(result.data.lawTexts.laws.map(x => `${x.lawName} ${x.article} ${x.status}`), ['소득세법 제12조 retrieved', '소득세법 시행령 제12조 retrieved', '법인세법 제19조 retrieved']);
+    assert.equal(result.data.lawTexts.status, 'retrieved');
+    assert.deepEqual(result.data.lawTexts.laws.map(x => `${x.lawName} ${x.article} ${x.status}`), ['소득세법 제12조 retrieved', '소득세법 시행령 제12조 retrieved', '법인세법 제19조 retrieved', '부가가치세법 제10조 retrieved']);
     assert.match(result.data.lawTexts.laws[0].text, /합성 조문 본문/);
     assert.equal(result.data.lawTexts.laws[0].source.mst, '12345');
-    assert.deepEqual(result.data.lawTexts.skipped, [{ lawName: '부가가치세법', article: '제10조', reason: 'LIMIT' }]);
+    assert.deepEqual(result.data.lawTexts.skipped, []);
     assert.match(raw.content[0].text, /인용 법령 원문/);
-    assert.equal(lawCalls.filter(x => x.name === 'get_law_text').length, 3);
+    assert.equal(lawCalls.filter(x => x.name === 'get_law_text').length, 4);
   });
 
   await check('같은 날 같은 조문은 캐시에서 반환', async () => {

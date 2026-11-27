@@ -719,6 +719,14 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
     dropped: { count: droppedTotal, reasons: Object.fromEntries(Object.entries(dropped).map(([k, v]) => [k, { count: v, label: DROP_LABELS[k] || k }])) } };
 }
 
+// 타대학 비교는 기본으로 켜져 있다. 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0으로만 끈다.
+function comparisonEnabled() { return process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED !== '0'; }
+// 열 단위 실패 중 운영자 설정으로 풀리는 것은 무엇이 없고 어떻게 넣는지 함께 알린다. 키 값은 넣지 않는다.
+const COLUMN_GUIDES = {
+  LAWGO_OC_NOT_CONFIGURED: { env: ['DONGGUK_LAWGO_OC'], ocApplyUrl: 'https://open.law.go.kr',
+    notice: '서울대 규정은 국가법령정보센터 Open API로 조회하는데, 이 서버에 인증키(OC)가 없어 서울대만 건너뛰었습니다. 다른 대학 결과는 그대로입니다. 서버 운영자가 https://open.law.go.kr 에서 OC를 신청해 환경변수 DONGGUK_LAWGO_OC에 넣으면 서울대도 조회됩니다.' },
+};
+
 const publicClient = createPublicClient();
 async function compareUniversityRules(a, { loadDongguk, client = publicClient, now = () => new Date(), totalTimeoutMs = TOTAL_TIMEOUT_MS, loadExternalImpl = loadExternal } = {}) {
   const invalid = validateArguments(a);
@@ -737,7 +745,7 @@ async function compareUniversityRules(a, { loadDongguk, client = publicClient, n
       const selected = selectArticles(result.rules, terms, a.max_articles || 3, spec.titleHints, spec.frame);
       const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated);
       columns.push({ university: key, name: source.name, status: result.rules.length === 0 && result.failures.length ? 'unavailable' : selected.articles.length ? (partial ? 'partial' : 'retrieved') : 'no_match_in_scope', ...selected, coverage: result.coverage, failures: result.failures });
-    } catch (e) { columns.push({ university: key, name: source.name, status: 'unavailable', code: safeCode(e), articles: [] }); }
+    } catch (e) { const code = safeCode(e), guide = COLUMN_GUIDES[code]; columns.push({ university: key, name: source.name, status: 'unavailable', code, ...(guide ? { notice: guide.notice, setup: { env: guide.env, ocApplyUrl: guide.ocApplyUrl } } : {}), articles: [] }); }
   }
   const frame = spec.frame;
   const slotMatrix = frame ? buildSlotMatrix(frame, columns) : undefined;
@@ -794,6 +802,7 @@ function formatComparison(data) {
     lines.push('', `## ${c.name || c.university} 조문 본문`);
     for (const a of c.articles) lines.push('', `### ${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`, a.originalPdfUrl ? `[${a.sourceType === '한글 파일 본문' ? '원문 파일' : 'PDF 원문'}](${a.originalPdfUrl})` : '', a.upcomingRevisionAt ? `시행 예정 개정본이 있습니다(${a.upcomingRevisionAt}). 여기 보인 것은 그 이전 개정본입니다.` : '');
   }
+  for (const c of data.columns) if (c.notice && c.status === 'unavailable') lines.push('', `- ${c.name || c.university}: ${c.notice}`);
   // 본문을 읽지 못한 조문과 현행본을 확인하지 못한 규정은 건수만이 아니라 무엇인지 적는다.
   for (const c of data.columns) {
     const unread = (c.failures || []).filter(f => f.code === 'ARTICLE_TEXT_UNAVAILABLE' && f.article);
@@ -812,4 +821,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, htmlToArticleMarkdown, latestRevisionDate };
+module.exports = { comparisonEnabled, SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, htmlToArticleMarkdown, latestRevisionDate };

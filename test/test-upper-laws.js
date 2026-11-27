@@ -244,6 +244,9 @@ async function main() {
     assert(result.data.laws.some(x => x.lawName === '사립학교법' && x.articles.map(y => y.article).join() === '제32조의2,제29조,제31조,제99조'));
     assert(result.data.laws.every(x => x.identity.status === 'not_checked' && !x.signals.length));
     assert.equal(lawCalls.length, 0);
+    // 무엇이 없고 운영자가 무엇을 넣으면 되는지 안내한다. 규정 쪽 결과는 그대로다.
+    assert.deepEqual(result.data.lookup.setup, { state: 'missing', env: ['DONGGUK_LEGAL_MCP_URL', 'LAW_OC'], ocApplyUrl: 'https://open.law.go.kr' });
+    for (const expected of [/DONGGUK_LEGAL_MCP_URL/, /LAW_OC/, /open\.law\.go\.kr/, /규정 쪽 결과는 그대로/]) assert.match(result.data.lookup.notice, expected);
   });
   await check('입력 검증', async () => {
     for (const args of [{ law_id: 1, max_laws: 13 }, { law_id: 1, include_text: 'yes' }, { law_id: 1, article: '가나다' }, { law_id: 0 }]) assert.equal((await call('get_rule_upper_laws', args)).error.code, 'INVALID_ARGUMENT');

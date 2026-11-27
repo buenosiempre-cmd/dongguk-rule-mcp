@@ -234,6 +234,9 @@ async function main() {
     await assert.rejects(loadExternal(snu,'여비',spec.terms,{request:async()=>''},undefined,spec), e=>e.code==='LAWGO_OC_NOT_CONFIGURED');
     const off=await compareUniversityRules({topic:'여비',universities:['snu']},{loadDongguk:dongguk,client:{request:async()=>''}});
     assert.equal(off.columns[1].status,'unavailable');assert.equal(off.columns[1].code,'LAWGO_OC_NOT_CONFIGURED');
+    // 키가 없으면 서울대만 건너뛰고, 무엇을 어디서 받아 어디에 넣는지 안내한다(동국대 열은 그대로).
+    assert.equal(off.columns[0].status,'retrieved');assert.deepEqual(off.columns[1].setup,{env:['DONGGUK_LAWGO_OC'],ocApplyUrl:'https://open.law.go.kr'});
+    for(const expected of [/DONGGUK_LAWGO_OC/,/open\.law\.go\.kr/,/다른 대학 결과는 그대로/]){assert.match(off.columns[1].notice,expected);assert.match(formatComparison(off),expected);}
     // OC 설정 + 실제 DRF XML 형식 모의: admrul 목록(소관부처·현행·발령일·시행일) → 조문내용 본문
     process.env.DONGGUK_LAWGO_OC='TESTKEY';
     const listXml='<?xml version="1.0"?><AdmRulSearch><target>school</target><totalCnt>2</totalCnt>'+
@@ -372,8 +375,14 @@ async function main() {
     try {
       const tools=(await client.listTools()).tools;assert(tools.some(t=>t.name==='compare_university_rules'));assert.match(tools.find(t=>t.name==='compare_university_rules').inputSchema.properties.universities.description,/cau/);
       const info=(await client.callTool({name:'get_service_info',arguments:{}})).structuredContent;assert.equal(info.data.toolCount,tools.length);
+      // 기본은 켜짐: 환경변수가 없으면 동작하고, 운영자가 0을 넣었을 때만 꺼진다.
+      delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;
+      assert.equal(info.data.integrations.universityComparison.configured,true);
+      process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='0';
       const disabled=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['uos']}})).structuredContent;assert.equal(disabled.error.code,'NOT_CONFIGURED');
-      process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='1';
+      assert.match(disabled.error.message,/DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0/);assert.equal(disabled.error.details.reason,'DISABLED_BY_OPERATOR');
+      assert.equal((await client.callTool({name:'get_service_info',arguments:{}})).structuredContent.data.integrations.universityComparison.configured,false);
+      delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;
       seed('history','1',[{historyId:3,revisedAt:'2026.11.01'}]);
       seed('content-v3','1_3',{title:'여 비 규 정',markdown:'### 제2조(여비)\n여비 출장 숙박 지급'});
       const live=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['kaist']}})).structuredContent;

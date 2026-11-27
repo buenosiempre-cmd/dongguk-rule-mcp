@@ -113,11 +113,11 @@ const { loadFinancePack, routeFinance, getFinanceContext, hasSensitiveInput } = 
 const {searchHandbook}=require('./handbook.js');
 const {selectPractice}=require('./practice.js');
 const {reviewFinanceCase,formatFinanceReview}=require('./finance-desk.js');
-const { compareUniversityRules, formatComparison, validateArguments: validateComparison, safeCode: comparisonErrorCode } = require('./university-rules');
+const { compareUniversityRules, comparisonEnabled, formatComparison, validateArguments: validateComparison, safeCode: comparisonErrorCode } = require('./university-rules');
 const FINANCE_TOOLS=new Set(['get_finance_context','get_finance_evidence','search_finance_handbook','review_finance_case']);
-const { queryLegalReferences, inspectLaws } = require('./legal-client.js');
+const { queryLegalReferences, inspectLaws, legalServerState, setLegalCallCache, legalCallStats } = require('./legal-client.js');
 const { buildUpperLaws, formatUpperLaws, latestAnnotatedDate, CAVEAT: UPPER_LAW_CAVEAT } = require('./upper-laws.js');
-const { lawLinkConfigured, fetchCitedLaws, formatCitedLaws } = require('./law-link.js');
+const { lawLinkConfigured, lawLinkGuide, fetchCitedLaws, formatCitedLaws } = require('./law-link.js');
 const { summarizeRuleCoverage, lawTextCoverage } = require('./evidence-status.js');
 const { formatLegalEvidence } = require('./legal-format.js');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
@@ -198,6 +198,8 @@ function noCache() {
 }
 function hk(...p) { return crypto.createHash('md5').update(p.join('|')).digest('hex'); }
 const cached = require('./cache.js').createDiskCache({ directory:cacheDir, disabled:noCache, refreshAhead });
+// Law-provider answers share the same scoped disk cache (see legal-client.js).
+setLegalCallCache(cached);
 
 // === HTTP ===
 async function fetchResponse(url, opts={}) {
@@ -460,11 +462,12 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
 
 // National laws behind a rule: cited laws checked against the current-law
 // listing, with the points a reviewer should look at again.
-async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeCandidates=true,maxLaws}={}) {
+async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeCandidates=true,maxLaws,lawOffset}={}) {
   const lawId=toId(rawLawId);
   if(!lawId) return failure('INVALID_ARGUMENT','law_id는 양의 정수여야 합니다. search_rule 결과의 LAW_ID를 사용하세요.');
   for(const [key,value] of [['include_text',includeText],['include_candidates',includeCandidates]]) if(typeof value!=='boolean') return failure('INVALID_ARGUMENT',`${key}는 boolean이어야 합니다.`);
   if(maxLaws!==undefined&&(!Number.isInteger(maxLaws)||maxLaws<1||maxLaws>12)) return failure('INVALID_ARGUMENT','max_laws는 1~12 범위 정수여야 합니다.');
+  if(lawOffset!==undefined&&lawOffset!==null&&(!Number.isInteger(lawOffset)||lawOffset<0||lawOffset>500)) return failure('INVALID_ARGUMENT','law_offset은 0~500 범위 정수여야 합니다.');
   const hasArticle=article!==undefined&&article!==null&&article!=='';
   const selector=hasArticle?normalizeArticleSelector(article):null;
   if(hasArticle&&!selector) return failure('INVALID_ARGUMENT','article은 48, "제48조", "제10조의2", "부칙(2024.8.27.) 제1조" 형식이어야 합니다.');
@@ -494,10 +497,10 @@ async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeC
     }
   }
   const result=await buildUpperLaws({
-    references,title,ruleRevisedAt:resolved.revisedAt,includeText,maxLaws:maxLaws||8,
+    references,title,ruleRevisedAt:resolved.revisedAt,includeText,maxLaws:maxLaws||8,lawOffset:lawOffset||0,
     // Topic candidates describe the whole rule, not one article.
     includeCandidates:includeCandidates&&!selector,
-    configured:lawLinkConfigured(currentProfile()),cached,inspectLaws,
+    configured:lawLinkConfigured(currentProfile()),setupGuide:lawLinkGuide(currentProfile()),cached,inspectLaws,
   });
   // lookup.status covers the identity/existence check; a cut law body is tracked apart.
   const textCoverage=lawTextCoverage(result.laws,{includeText,maxTextChars:result.limits.maxTextChars,lookupCode:result.lookup.code});
@@ -1502,7 +1505,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'compare_university_rules', title:'타대학 규정 조문 비교',
-    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 서버에서 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1 허용 필요. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌만 제공합니다. 서울시립·국민·숭실·경희·숙명여대는 규정 제목 검색(대표어·제목 단서)으로 전담 규정을 먼저 찾은 뒤 전문검색(대표어·동의어)을 더하고, 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. 중앙대는 PDF 텍스트 레이어의 조문만 비교하며 표·별표·부록·서식·그림은 원문에서 확인해야 합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
+    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 기본으로 켜져 있으며 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0으로 끌 수 있습니다. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌만 제공합니다. 서울시립·국민·숭실·경희·숙명여대는 규정 제목 검색(대표어·제목 단서)으로 전담 규정을 먼저 찾은 뒤 전문검색(대표어·동의어)을 더하고, 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. 중앙대는 PDF 텍스트 레이어의 조문만 비교하며 표·별표·부록·서식·그림은 원문에서 확인해야 합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
     inputSchema:{type:'object',properties:{
       topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여, 근로장학, 장학금(사안 프레임 등록 주제). 그 밖의 주제는 주제어 일치만.'},
       universities:{type:'array',minItems:1,maxItems:5,items:{type:'string'},description:'타대학 키: korea(고려) uos(서울시립) konkuk(건국) kookmin(국민) ssu(숭실) khu(경희) sookmyung(숙명여대) kw(광운) mju(명지) sogang(서강) ewha(이화) snu(서울대·OC키 필요) yonsei(연세) cau(중앙·PDF 조문만) hongik(홍익) hanyang(한양) skku(성균관·PDF 조문만) sejong(세종·PDF 조문만) gachon(가천·문서 조문만). dongguk은 자동 포함. 다른 키는 unsupported로 표시.'},
@@ -1518,18 +1521,18 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'get_rule_references', title:'규정 인용 관계 조회', description:'규정(또는 특정 조문)이 명시적으로 인용한 다른 교내 규정·국가 법령(outgoing)과, 이 규정을 인용하는 교내 규정(incoming, 전문 색인 필요)을 찾습니다. 국가 법령은 법령명·조문을 externalLaws로 정리합니다. include_law_text=true이면 인용된 법령 조문의 현행 원문(최대 3개 조문)을 한국법령 MCP에서 함께 가져옵니다. 인용의 존재와 적용 여부는 다릅니다.',
+  { name:'get_rule_references', title:'규정 인용 관계 조회', description:'규정(또는 특정 조문)이 명시적으로 인용한 다른 교내 규정·국가 법령(outgoing)과, 이 규정을 인용하는 교내 규정(incoming, 전문 색인 필요)을 찾습니다. 국가 법령은 법령명·조문을 externalLaws로 정리합니다. include_law_text=true이면 인용된 법령 조문의 현행 원문(최대 8개 조문)을 한국법령 MCP에서 함께 가져옵니다. 인용의 존재와 적용 여부는 다릅니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 3, 제10조의2'},
       history_id:{type:'number',description:'HISTORY_ID (생략=최신). 인용 대상은 현행 목록과 대조합니다.'},
       direction:{type:'string',enum:['outgoing','incoming','both'],default:'outgoing'},
       limit:{type:'integer',minimum:1,maximum:50,default:30,description:'방향별 최대 표시 건수'},
-      include_law_text:{type:'boolean',default:false,description:'true이면 인용된 국가 법령 조문의 현행 원문을 함께 가져옵니다(조문이 특정된 인용만, 최대 3개). 법령 서버가 응답하지 않아도 규정 인용 결과는 반환합니다.'},
+      include_law_text:{type:'boolean',default:false,description:'true이면 인용된 국가 법령 조문의 현행 원문을 함께 가져옵니다(조문이 특정된 인용만, 최대 8개). 법령 서버가 응답하지 않아도 규정 인용 결과는 반환합니다.'},
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'get_rule_upper_laws', title:'규정의 상위법령 관계', description:'동국대 규정(또는 한 조문)이 근거로 인용한 국가 법령을 현행 법령 목록과 대조합니다. 법령별로 현행 여부·종류·시행일, 인용한 조문이 지금도 있는지(삭제·없음), 옛 법령명 인용(제명 변경), 규정 개정 뒤 법령·조문 개정, 시행예정 개정을 점검 신호로 보여 줍니다. include_text=true이면 인용이 나온 규정 조문 원문(HTML)과 현행 법령 조문 원문을 나란히 붙이며 comparison에 연결 관계와 전달 범위를 제공합니다. 법령을 인용하지 않은 규정에는 제목으로 고른 주제 후보 법령을 따로 표시합니다. 점검 신호는 충돌·적용 여부의 판정이 아닙니다. 법령 연계가 꺼진 서버에서는 확인할 법령명·조문 목록을 제공하고 include_text=true이면 규정 원문과 법령 본문 미확보 상태를 함께 반환합니다.',
+  { name:'get_rule_upper_laws', title:'규정의 상위법령 관계', description:'동국대 규정(또는 한 조문)이 근거로 인용한 국가 법령을 현행 법령 목록과 대조합니다. 법령별로 현행 여부·종류·시행일, 인용한 조문이 지금도 있는지(삭제·없음), 옛 법령명 인용(제명 변경), 규정 개정 뒤 법령·조문 개정, 시행예정 개정을 점검 신호로 보여 줍니다. include_text=true이면 인용이 나온 규정 조문 원문(HTML)과 현행 법령 조문 원문을 나란히 붙이며 comparison에 연결 관계와 전달 범위를 제공합니다. 법령을 인용하지 않은 규정에는 제목으로 고른 주제 후보 법령을 따로 표시합니다. 점검 신호는 충돌·적용 여부의 판정이 아닙니다. 법령 서버 연결 정보가 없거나 운영자가 꺼 둔 서버에서는 확인할 법령명·조문 목록과 설정 안내를 제공하고 include_text=true이면 규정 원문과 법령 본문 미확보 상태를 함께 반환합니다.',
     inputSchema:{ type:'object', properties:{
       law_id:{type:'number',description:'LAW_ID'},
       article:{oneOf:[{type:'number'},{type:'string'}],description:'선택 조문. 예: 45, 제10조의2. 지정하면 그 조문의 인용만 보고 주제 후보는 생략합니다.'},
@@ -1537,6 +1540,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       include_text:{type:'boolean',default:false,description:'true이면 인용 규정 조문(조문당 6,000자·합계 24,000자)과 현행 법령 조문(조문당 3,000자)을 대조. 인용 24건까지, 누락·잘림은 partial'},
       include_candidates:{type:'boolean',default:true,description:'규정 제목으로 고른 주제 후보 법령 포함 여부'},
       max_laws:{type:'integer',minimum:1,maximum:12,default:8,description:'확인할 법령 수. 인용 법령이 주제 후보보다 먼저입니다.'},
+      law_offset:{type:'integer',minimum:0,maximum:500,default:0,description:'이어서 볼 법령의 시작 위치. 법령이 max_laws보다 많으면 응답의 page.nextOffset 값을 넣어 나머지 법령을 이어서 확인합니다.'},
     }, required:['law_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
@@ -1568,11 +1572,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
     switch(name){
       case 'get_service_info': {
         const data={version:VERSION,profile,disclaimer:DISCLAIMER,toolCount:profile==='rules'?15:19,readOnly:true,source:'https://rule.dongguk.edu',campus:campusScope(),privacy:{privateKnowledge:profile==='finance',authenticatedUpstream:profile==='finance'&&!!requestCookie()},limits:{historyCacheSeconds:600,contentScope:'원본 HWP 조문·별표, 셀 위치·병합 구조, 그림 파일 해시 비교. OCR·화면 배치·법적 적용성 제외. 문서별 추출 진단 제공.'},usage:['평소처럼 규정 조회나 업무 검토를 요청하세요. 적용 판단에 필요한 사실만 추가로 확인합니다.','규정·법령·해설의 원문 위치와 조회일을 함께 인용하세요.','개인번호·계좌·인증정보를 입력하지 마세요.']};
-        data.integrations={koreanLaw:{configured:profile==='finance'&&process.env.DONGGUK_LEGAL_MCP_ENABLED==='1'&&Boolean(process.env.DONGGUK_LEGAL_MCP_TRANSPORT==='streamable-http'?process.env.DONGGUK_LEGAL_MCP_URL:process.env.LAW_OC),transport:profile==='finance'?(process.env.DONGGUK_LEGAL_MCP_TRANSPORT||'stdio'):null},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
+        const legalServer=legalServerState(),lawGuide=lawLinkGuide(profile);
+        data.integrations={koreanLaw:{configured:profile==='finance'&&legalServer.state==='ready',transport:profile==='finance'?legalServer.transport:null},legalCalls:{quota:legalServer.quota,cache:noCache()?'off':'on',...legalCallStats()},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.fullText={tool:'get_rule_full_text',defaultMaxChars:30000,maxChars:60000,continuation:'textCoverage.nextArguments',source:'HWP first; HTML fallback is partial',images:'no OCR'};
         data.fullTextIndex=indexStatus();
-        data.integrations.universityComparison={configured:process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED==='1',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
-        data.integrations.lawLink={configured:lawLinkConfigured(profile),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
+        data.integrations.universityComparison={configured:comparisonEnabled(),defaultEnabled:true,optOutEnv:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0',snuKeyConfigured:Boolean((process.env.DONGGUK_LAWGO_OC||'').trim()),snuKeyEnv:'DONGGUK_LAWGO_OC',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
+        data.integrations.lawLink={configured:!lawGuide,state:lawGuide?lawGuide.state:'ready',defaultEnabled:true,...(lawGuide?{setup:{env:lawGuide.env,ocApplyUrl:lawGuide.ocApplyUrl},notice:lawGuide.message}:{}),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
           '동국 규정 MCP 서비스 정보',
@@ -1584,7 +1589,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- 상위법령 조문 대조: get_rule_upper_laws(include_text=true), comparison에 규정 원문과 현행 법령 조문 연결 제공',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
-          '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (설정 여부이며 실제 연결 검증은 별도)',
+          '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (재무 공동 검토용 법령 조회. 설정 여부이며 실제 연결 검증은 별도)',
+          '- 법령 호출: '+({own_key:'운영자 법제처 키 사용',local_operator_key:'같은 컴퓨터의 로컬 법령 서버(운영자 법제처 키) 사용',shared_keyless:'호스팅 법령 서버의 공용(무키) 한도 사용 — DONGGUK_LEGAL_MCP_API_KEY로 운영자 키를 넘기면 공용 한도를 타지 않습니다'}[data.integrations.legalCalls.quota]||'연결 안 됨')+' / 법령 응답 캐시 '+data.integrations.legalCalls.cache+' (적중 '+data.integrations.legalCalls.cacheHits+', 실제 호출 '+data.integrations.legalCalls.upstreamCalls+', 한도 재시도 '+data.integrations.legalCalls.retries+')',
+          '- 법령 연결(get_rule_references include_law_text, get_rule_upper_laws): '+(lawGuide?({missing:'연결 정보 없음',invalid:'설정 오류'}[lawGuide.state]||'운영자가 끔')+' — '+lawGuide.message:'켜짐'),
+          '- 타대학 비교(compare_university_rules): '+(data.integrations.universityComparison.configured?'켜짐':'운영자가 끔(DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0)')+' / 서울대 조회 키(DONGGUK_LAWGO_OC): '+(data.integrations.universityComparison.snuKeyConfigured?'있음':'없음(서울대만 건너뜀, https://open.law.go.kr 에서 신청)'),
           '- jointWorkflows: '+(data.integrations.jointWorkflows.join(', ')||'없음'),
           '- privatePacksConfigured: '+data.privacy.privatePacksConfigured,
           '- fullTextIndex: '+(data.fullTextIndex.available?`${data.fullTextIndex.indexedRules}/${data.fullTextIndex.totalRules}개 규정, ${data.fullTextIndex.indexedAt}${data.fullTextIndex.stale?' (오래됨)':''}`:'없음(공식 사이트 검색 사용)'),
@@ -1630,7 +1638,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         break;
       }
       case 'compare_university_rules': {
-        if(process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED!=='1'){r=failure('NOT_CONFIGURED','타대학 비교는 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1로 켠 경우에만 외부 요청을 수행합니다.');break;}
+        if(!comparisonEnabled()){r=failure('NOT_CONFIGURED','서버 운영자가 타대학 비교를 꺼 두었습니다(DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0). 운영자가 이 값을 지우면 다시 켜집니다.',{hint:'동국대 규정 조회 도구는 그대로 쓸 수 있습니다.',details:{reason:'DISABLED_BY_OPERATOR',env:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED'}});break;}
         const invalid=validateComparison(a);
         if(invalid){r=failure('INVALID_ARGUMENT',invalid);break;}
         const data=await compareUniversityRules(a,{loadDongguk:loadDonggukComparison});
@@ -1651,7 +1659,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
       case 'search_rule_deep': r=await hDeep(a.query,{top:a.top,perDoc:a.per_doc,mode:a.mode}); break;
       case 'check_rule_updates': r=await hCheckUpdates(a); break;
       case 'get_rule_references': r=await hReferences(a.law_id,{article:a.article,historyId:a.history_id,direction:a.direction,limit:a.limit,includeLawText:a.include_law_text}); break;
-      case 'get_rule_upper_laws': r=await hUpperLaws(a.law_id,{article:a.article,historyId:a.history_id,includeText:a.include_text,includeCandidates:a.include_candidates,maxLaws:a.max_laws}); break;
+      case 'get_rule_upper_laws': r=await hUpperLaws(a.law_id,{article:a.article,historyId:a.history_id,includeText:a.include_text,includeCandidates:a.include_candidates,maxLaws:a.max_laws,lawOffset:a.law_offset}); break;
       default: r=failure('UNKNOWN_TOOL', `알 수 없는 도구: ${name}`, {isError:true});
     }
     const response=serializeOutcome(name,r);
