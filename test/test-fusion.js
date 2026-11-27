@@ -172,4 +172,39 @@ check('인수: 필수 값이 없거나 모르는 옵션이면 실패', () => {
   assert.throws(() => parseArgs(['--cache']), /MISSING_VALUE/);
 });
 
+console.log('일상어 이름·낱말 처리');
+const aliases = require('../src/aliases');
+const { queryContentTokens } = require('../src/lookup');
+check('이름 사전: 대상·기관·사물의 일상어가 규정 용어로 이어지고 기존 사전 묶음은 그대로', () => {
+  assert(aliases.businessTerms('미화원').includes('미화직'));
+  assert(aliases.businessTerms('상담센터').includes('카운슬링센터'));
+  assert(aliases.businessTerms('킥보드').includes('개인형 이동장치'));
+  assert.deepEqual(aliases.businessTerms('월급'), ['월급', '보수', '급여']);
+  assert.equal(aliases.CONCEPT_GROUPS.length, ontology.data.concepts.length);
+  const legacyWords = new Set(ontology.data.concepts.flatMap(item => [...item.everyday, ...item.rule]));
+  for (const label of ontology.data.labels) {
+    assert(['subject', 'body', 'thing'].includes(label.kind));
+    // A label never rewrites a word the concept groups already define.
+    assert(label.everyday.every(word => !legacyWords.has(word)), label.id);
+  }
+});
+check('이름 사전 자료가 잘못되면 내장 기본값으로', () => {
+  assert.throws(() => ontology.validateData({ ...ontology.data, labels: [{ id: 'x', kind: 'other', everyday: ['가'], rule: ['나'] }] }));
+  assert.throws(() => ontology.validateData({ ...ontology.data, labels: [{ id: 'x', kind: 'thing', everyday: [], rule: ['나'] }] }));
+  assert.equal(ontology.loadOntologyData(() => JSON.stringify({ ...ontology.data, labels: 'broken' })).status, 'fallback');
+  assert.throws(() => ontology.validateData({ ...ontology.data, scopes: ontology.data.scopes.map(item => item.id === 'medical' ? { ...item, place: { ask: '[', title: 'x' } } : item) }));
+  assert.throws(() => ontology.validateData({ ...ontology.data, bodySubject: { ...ontology.data.bodySubject, terms: { 없는대상: 'x' } } }));
+});
+check('조사 둘이 겹친 낱말에서 명사만 남기고, 한 글자 명사 술을 읽음', () => {
+  assert(queryContentTokens('교수학습혁신센터에는 어떤 사람들이 일해').includes('교수학습혁신센터'));
+  assert(queryContentTokens('직원에게도 수당을 줘').includes('직원'));
+  assert(queryContentTokens('기숙사 방에서 술 마셔도 돼').includes('술'));
+});
+check('뭐 하는 곳인지 묻는 질문은 기능·직능 조문, 뽑힐 수 없는 사람은 결격사유', () => {
+  assert(aliases.headingCueStrength('산학기획위원회는 뭐 하는 곳이야', '기능') > 0);
+  assert(aliases.headingCueStrength('입학전형관리위원회는 뭘 하는 데야', '직능') > 0);
+  assert.equal(aliases.headingCueStrength('산학기획위원회 위원은 몇 명이야', '기능'), 0);
+  assert(aliases.phraseConcepts('산학협력단 직원으로 뽑힐 수 없는 사람은 누구야').includes('결격사유'));
+});
+
 console.log(`📊 순위 결합 검증: ${passed}개 통과`);
