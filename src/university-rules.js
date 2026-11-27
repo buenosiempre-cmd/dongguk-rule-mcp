@@ -7,6 +7,7 @@ const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
 const { listArticleBlocks } = require('./parsers');
+const { inspectArticleStructure, BOUNDARY_NOTICE } = require('./html-rule-boundaries');
 const { comparisonTerms } = require('./aliases');
 const { extractEnforcementDates } = require('./timeline');
 const { loadCau, NOTICE: PDF_NOTICE } = require('./cau-pdf');
@@ -209,6 +210,14 @@ function htmlToArticleMarkdown(html) {
     else out.push(line);
   }
   return out.join('\n');
+}
+
+// Diagnostic wrapper: retain main's Markdown byte for byte; never rewrite or
+// discard an uncertain candidate based on words following its title.
+function parseHtmlArticleContent(html) {
+  const markdown = htmlToArticleMarkdown(html);
+  const review = inspectArticleStructure(markdown);
+  return { markdown, tailExcluded: false, boundaryUnverified: review.required, boundaryReasons: review.reasons };
 }
 
 // 본문 머리말(제정·개정 날짜 나열)에서 가장 늦은 날짜(=최근 개정일)를 YYYY.MM.DD로.
@@ -630,7 +639,15 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
   }
   if (source.adapter && ADAPTERS[source.adapter]) {
     const result = await ADAPTERS[source.adapter](source, topic, terms, client, signal, spec);
-    return { ...result, coverage: { ...result.coverage, scannedRules: result.rules.length, attemptedRules: result.rules.length + result.failures.length } };
+    const reviewRules = [];
+    for (const rule of result.rules) {
+      const review = inspectArticleStructure(rule.markdown);
+      if (!review.required) continue;
+      rule.articleBoundaryReview = review;
+      reviewRules.push({ lawId: rule.lawId, historyId: rule.historyId, title: rule.title, reasons: review.reasons });
+    }
+    return { ...result, coverage: { ...result.coverage, scannedRules: result.rules.length, attemptedRules: result.rules.length + result.failures.length,
+      ...(reviewRules.length ? { articleBoundaryReview: { required: true, notice: BOUNDARY_NOTICE, rules: reviewRules } } : {}) } };
   }
   let hits, coverage;
   const searchTerms = uniq(spec.searchTerms || [topic]).slice(0, 2), hints = spec.titleHints || terms;
@@ -764,6 +781,7 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
       if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
       if (!perRule.has(rule)) perRule.set(rule, entry);
       matches.push({ universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId,
+        ...(rule.articleBoundaryReview ? { articleBoundaryReview: rule.articleBoundaryReview } : {}),
         article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
         ...(rule.originalPdfUrl ? {originalPdfUrl:rule.originalPdfUrl,sourceType:rule.sourceType} : {}),
         ...(rule.upcomingRevisionAt ? {upcomingRevisionAt:rule.upcomingRevisionAt} : {}),
@@ -848,6 +866,8 @@ function formatComparison(data) {
     '| 항목 | ' + data.columns.map(c => esc(c.name || c.university)).join(' | ') + ' |',
     '|---|' + data.columns.map(() => '---|').join(''),
     '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
+  const boundaryColumns = data.columns.filter(c => c.coverage?.articleBoundaryReview?.required || c.articles.some(a => a.articleBoundaryReview?.required));
+  if (boundaryColumns.length) lines.splice(3, 0, `> ${boundaryColumns.map(c => c.name || c.university).join('·')}: ${BOUNDARY_NOTICE}`);
   const roleTag = a => a.role ? (a.role === 'primary' ? '[주규정] ' : '[보조] ') : '';
   if (data.issueFrame) {
     lines.push('| 주규정 | ' + data.columns.map(c => {
@@ -897,7 +917,9 @@ function formatComparison(data) {
     if (stale.length) lines.push('', `- ${c.name || c.university}: 현행 개정본을 확인하지 못해 조회하지 않은 규정 ${stale.length}건 — ${stale.map(f => `${f.title}(${why(f)})`).join(', ')}.`);
     if (c.coverage?.currentRevisionUnverified > stale.length) lines.push('', `- ${c.name || c.university}: 조회가 중단되어 현행 개정본 확인을 시도하지 못한 규정 ${c.coverage.currentRevisionUnverified - stale.length}건.`);
   }
-  lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
+  // The review notice is displayed above the table; keep the existing coverage line intact.
+  const coverageText = ({ articleBoundaryReview, ...coverage }) => JSON.stringify(coverage);
+  lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? coverageText(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
   return lines.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');
 }
 
@@ -906,4 +928,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { comparisonEnabled, SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, titleSpecificityBonus, titleMatchesTopic, htmlToArticleMarkdown, latestRevisionDate };
+module.exports = { comparisonEnabled, SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, titleSpecificityBonus, titleMatchesTopic, htmlToArticleMarkdown, parseHtmlArticleContent, latestRevisionDate };
