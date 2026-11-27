@@ -223,6 +223,9 @@ function planKeywordConcepts(phrases, documentFrequency, total) {
 // ones people usually mean. A mild preference, computed once per index.
 // 1 for a short rule nobody cites; 학칙 (cited by 46 rules, 70 articles) gets about 1.35, the cap.
 const standings = new WeakMap();
+// For measurement only: DONGGUK_MCP_MEASURE_STANDING=off scores every rule as if nobody cited it,
+// to compare results with and without this preference. Not a setting for a running server.
+const standingOff = () => String(process.env.DONGGUK_MCP_MEASURE_STANDING || '').trim().toLowerCase() === 'off';
 function ruleStanding(corpus) {
   if (standings.has(corpus)) return standings.get(corpus);
   const compact = text => String(text || '').replace(/\s+/g, '');
@@ -429,7 +432,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
     const mostMatched = Math.max(0, ...scored.map(item => item.matched.length));
     const wordScore = ((scored[0]?.score || 0) + title.score * 1.5 + matchedTerms.length * 0.01)
       * generalRuleWeight(rule.title, query, generalFamilies.has(ruleFamily(rule.title).family), { code: rule.code, forms: searchForms })
-      * (standing.get(rule.lawId) || 1) * subjectWeight(rule.title, subject);
+      * (standingOff() ? 1 : standing.get(rule.lawId) || 1) * subjectWeight(rule.title, subject);
     const semanticRuleRank = sem?.ruleRank.get(rule.lawId) || null;
     const closeness = semanticRuleRank && semanticRuleRank <= SEMANTIC_RULE_REACH ? 1 - (semanticRuleRank - 1) / SEMANTIC_RULE_REACH : 0;
     hits.push({

@@ -9,7 +9,7 @@
 | 값 | 동작 |
 |---|---|
 | `legacy` | 이 모듈을 넣기 전의 순서. 낱말 점수에 의미 순위 가산, 질문이 말한 캠퍼스·기관의 판이 있으면 그 판의 규정만 남김 |
-| `hybrid` | 점수는 같고, 캠퍼스·기관을 온톨로지로 읽음. 물은 곳의 규정은 1.5배, 다른 곳의 규정은 0.6배, 전교 규정은 그대로 후보로 남김. 본문이 다른 직군의 규정은 0.8배 |
+| `hybrid` | 점수는 같고, 캠퍼스·기관을 온톨로지로 읽음. 물은 곳의 규정은 1.5배, 다른 곳의 규정은 0.6배, 전교 규정은 그대로 후보로 남김. 본문이 다른 직군의 규정은 0.8배. 호출부가 그래프 관계를 넘기면 가장 강한 관계의 규정을 1.3배까지 올림 |
 | `rrf` | 낱말 순위·의미 순위·장소 단계(·그래프 순위)를 RRF(`1/(k+순위)`, k=10)로 결합. 의미 순위가 없으면 `hybrid`로 동작 |
 | `jev` | 호출부가 규정별 확률을 넘기면 확률 순서. 없으면 `hybrid`로 동작 |
 
@@ -31,7 +31,7 @@ rankRules({
   query, campus,// 질문과 도구의 campus 인수 — hybrid·rrf·jev가 온톨로지로 장소를 읽음
   facets,       // ontology.createFacetSignal({corpus, query}) 또는 null
   semantic,     // 의미 순위가 있으면 true
-  graph,        // Map(lawId → 점수) 또는 null. rrf에서 한 목록으로 더함(가중 0.5)
+  graph,        // Map(lawId → 점수) 또는 null. hybrid는 최대 1.3배 가점, rrf는 한 목록으로 더함(가중 0.5)
   probability,  // Map(lawId → 확률) 또는 null. jev에서 순서를 정함
   method,       // 생략하면 DONGGUK_MCP_RANKING
 }) // → { method: 실제 쓴 방식, ranked: [{ ...후보, scopeMatch, scopeAmbiguous, editions, order }] }
@@ -40,6 +40,16 @@ rankRules({
 - `graph`·`probability`는 후보를 새로 만들지 않습니다. `candidates`에 있는 규정의 순서만 바꿉니다. 그래프로 후보를 넓히려면 호출부(`index.js`의 `rankIndexHits`)에서 후보를 더한 뒤 넘깁니다.
 - 호출부는 과거 기준일·조문/별표 명시·로그인 쿠키 요청에서 새 신호를 넘기지 않습니다(지금은 색인 조회 자체를 하지 않는 경로입니다).
 - `index.js`·`corpus.js`의 순위 코드는 이 모듈을 통해서만 바꿉니다.
+
+## 비교용 스위치 (서버 설정이 아님)
+
+측정 스크립트가 켜는 환경변수입니다. 운영 서버에는 두지 않습니다.
+
+| 스크립트 옵션 | 환경변수 | 뜻 |
+|---|---|---|
+| `--no-standing` | `DONGGUK_MCP_MEASURE_STANDING=off` | 다른 규정이 많이 인용하는 큰 규정의 가점(`corpus.js` `ruleStanding`, 최대 1.35배)을 빼고 점수를 냄. 가점 자체는 바꾸지 않음 |
+| `--graph down\|all` | `DONGGUK_MCP_MEASURE_GRAPH` | 규정 그래프 모듈이 있는 브랜치에서만 동작. `down`은 앞선 후보를 "시행"한다고 밝힌 하위 규정만, `all`은 모든 관계를 `graph`로 넘김 |
+| `--query-only` | — | 문항에 든 인수(출제자 핵심어)를 빼고 질문만 보냄 |
 
 ## 측정
 
