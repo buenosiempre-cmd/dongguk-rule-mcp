@@ -1,5 +1,7 @@
 # 별표 구조 청크 실험 — 2026-11-27
 
+> 표준 하네스와 보조 캐시를 포함한 최신 결과는 [STANDARD-HARNESS-RESULTS.md](STANDARD-HARNESS-RESULTS.md)에 있다.
+
 > 최신 공통 기준은29bbf66 / manifest dbc6d1fa / 벡터 fd7d662b로 전환했다. [최종 공통 캐시 재측정](FINAL-HANDOFF-RESULTS.md)을 따른다. 아래 이전 기준 기록은 이력으로 보존한다.
 
 > 후속 측정 원칙은 [MEASUREMENT-POLICY.md](MEASUREMENT-POLICY.md)를 따른다. train/dev는 회귀용이며, 기존 별도 dense 점수를 t10w 공개251+probe9 하네스의 효과 점수와 직접 비교하지 않는다.
