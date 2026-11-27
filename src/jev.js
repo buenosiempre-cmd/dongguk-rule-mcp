@@ -2,7 +2,7 @@
 
 // Experimental JEV evidence fusion; deliberately not wired into lookup_rule.
 // Feature equations adapted from Javad Dogani's MIT JEV (13ae4cc).
-// License and upstream reference: experiments/jev/JEV-LICENSE and README.md.
+// License: docs/JEV-LICENSE. Upstream and experiment notes: experiments/jev/README.md.
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
