@@ -7,10 +7,10 @@ const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
 const { listArticleBlocks } = require('./parsers');
+const { inspectArticleStructure, BOUNDARY_NOTICE } = require('./html-rule-boundaries');
 const { comparisonTerms } = require('./aliases');
 const { extractEnforcementDates } = require('./timeline');
 const { loadCau, NOTICE: PDF_NOTICE } = require('./cau-pdf');
-const { classifyArticleStart, isHtmlAppendixHeading } = require('./html-rule-boundaries');
 const { validatePdf, LIMITS: PDF_LIMITS } = require('./pdf-text');
 const { ADAPTERS: MORE_ADAPTERS, DOCUMENT_KEYS, DOCUMENT_NOTICE, isPdf, isHwp } = require('./university-adapters');
 
@@ -186,44 +186,39 @@ function titleMatchesTopic(title, topic, aliases = []) {
 // LawMaster 밖 대학(서강 JSON content, 이화 view HTML 등)의 조문 HTML/텍스트를
 // listArticleBlocks가 읽는 '### 제N조 … / ## 부칙 …' markdown으로 바꾼다.
 // 블록 태그가 없고 조문이 &nbsp;로 이어지는 서강류도 조·부칙·장·절 경계에서 분리한다.
-function parseHtmlArticleContent(html) {
+function htmlToArticleMarkdown(html) {
   let text = String(html || '')
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
     .replace(/<\s*br\s*\/?>/gi, '\n')
     .replace(/<\/(p|div|li|tr|h[1-6]|td|th)\s*>/gi, '\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;|&#160;/gi, ' ')
     .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"')
     .replace(/&ldquo;|&rdquo;/gi, '"').replace(/&lsquo;|&rsquo;/gi, "'")
-    .replace(/&middot;/gi, '·').replace(/&amp;/g, '&')
+    .replace(/&middot;/gi, '·').replace(/&amp;/gi, '&')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
-  const boundaryBefore = (before, space) => !before || /\n[ \t]*$/.test(before) || space.length >= 2 || /[.。>]$/.test(before);
-  // Flat HTML still needs heading boundaries. An inline citation is not one:
-  // require a structural boundary and HTML-specific title/body classification.
-  text = text.replace(/([ \t]*)(제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（])/g, (all, space, start, offset, source) => {
-    const before = source.slice(0, offset), rest = source.slice(offset + space.length).split('\n');
-    return boundaryBefore(before, space) && classifyArticleStart(rest[0], rest[1]) === 'heading' ? '\n' + start : all;
-  });
-  text = text.replace(/([ \t]*)(부\s*칙(?=[\s(（<\[]|$)|제\s*\d+\s*(?:장|절)(?=[\s(（]))/g, (all, space, start, offset, source) =>
-    boundaryBefore(source.slice(0, offset), space) ? '\n' + start : all);
-  const lines = text.split('\n').map(raw => raw.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  text = text
+    .replace(/\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[(（])/g, '\n$1')
+    .replace(/\s*(제\s*\d+\s*(?:장|절)(?=[\s(（]))/g, '\n$1')
+    .replace(/\s*(부\s*칙(?=[\s(（<\[]|$))/g, '\n$1');
   const out = [];
-  let tailExcluded = false, boundaryUnverified = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (isHtmlAppendixHeading(line, lines[i + 1])) { tailExcluded = true; break; }
-    // A particle may continue in the next HTML paragraph after a title-shaped
-    // citation. Looking ahead preserves that sentence in its preceding article.
-    const kind = classifyArticleStart(line, lines[i + 1]);
-    if (kind === 'heading') out.push('### ' + line);
-    else if (kind === 'unknown') { boundaryUnverified = true; out.push('## 조문 경계 미확인', line); }
+  for (const raw of text.split('\n')) {
+    const line = raw.replace(/\s+/g, ' ').trim();
+    if (!line) continue;
+    if (/^제\s*\d+\s*조(?:\s*의\s*\d+)?(?=[(（\s]|$)/.test(line)) out.push('### ' + line);
     else if (/^부\s*칙(?=[\s(（<\[]|$)/.test(line)) out.push('## ' + line.replace(/^부\s*칙\s*/, '부칙 '));
     else if (/^제\s*\d+\s*(?:장|절)(?=[\s(（]|$)/.test(line)) out.push('## ' + line);
     else out.push(line);
   }
-  return { markdown: out.join('\n'), tailExcluded, boundaryUnverified };
+  return out.join('\n');
 }
-function htmlToArticleMarkdown(html) { return parseHtmlArticleContent(html).markdown; }
+
+// Diagnostic wrapper: retain main's Markdown byte for byte; never rewrite or
+// discard an uncertain candidate based on words following its title.
+function parseHtmlArticleContent(html) {
+  const markdown = htmlToArticleMarkdown(html);
+  const review = inspectArticleStructure(markdown);
+  return { markdown, tailExcluded: false, boundaryUnverified: review.required, boundaryReasons: review.reasons };
+}
 
 // 본문 머리말(제정·개정 날짜 나열)에서 가장 늦은 날짜(=최근 개정일)를 YYYY.MM.DD로.
 function latestRevisionDate(text) {
@@ -277,10 +272,10 @@ async function loadSogang(source, topic, terms, client, signal, spec = {}) {
   const ranked = rankByTitle([...byId.values()], topic, terms, hints).slice(0, maxRules);
   const rules = [], failures = [];
   for (const hit of ranked) {
-    const { markdown, tailExcluded, boundaryUnverified } = parseHtmlArticleContent(hit.content || '');
+    const markdown = htmlToArticleMarkdown(hit.content || '');
     if (!listArticleBlocks(markdown).length) { failures.push({ lawId: hit.pkid, code: 'UPSTREAM_FORMAT_CHANGED' }); continue; }
-    const effectiveAt = tailExcluded || boundaryUnverified ? null : latestAddendaEffective(markdown);
-    rules.push({ title: String(hit.title).trim(), lawId: hit.pkid, historyId: 0, markdown, ...(tailExcluded ? { appendicesExcluded: true } : {}), ...(boundaryUnverified ? { articleBoundaryUnverified: true } : {}),
+    const effectiveAt = latestAddendaEffective(markdown);
+    rules.push({ title: String(hit.title).trim(), lawId: hit.pkid, historyId: 0, markdown,
       url: `${source.origin}/ko/regulation/home`, revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
   }
   return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
@@ -309,10 +304,10 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
     try {
       const html = await client.request(source, `/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`, undefined, 15000, signal);
       const body = cheerio.load(html)('.fr-view').html() || '';
-      const { markdown, tailExcluded, boundaryUnverified } = parseHtmlArticleContent(body);
+      const markdown = htmlToArticleMarkdown(body);
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
-      const effectiveAt = tailExcluded || boundaryUnverified ? null : latestAddendaEffective(markdown);
-      rules.push({ title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown, ...(tailExcluded ? { appendicesExcluded: true } : {}), ...(boundaryUnverified ? { articleBoundaryUnverified: true } : {}),
+      const effectiveAt = latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
         url: `${source.origin}/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`,
         revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
     } catch (e) {
@@ -375,11 +370,11 @@ async function loadLawgoSchool(source, topic, terms, client, signal, spec = {}) 
       const body = [...xml.matchAll(/<조문내용>([\s\S]*?)<\/조문내용>/g)]
         .map(a => a[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').trim())
         .filter(Boolean).join('\n');
-      const { markdown, tailExcluded, boundaryUnverified } = parseHtmlArticleContent(body);
+      const markdown = htmlToArticleMarkdown(body);
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
       const nm = hit.title.replace(/\s+/g, '');
       const promul = xmlField(xml, '발령일자') || hit.promulgated, num = xmlField(xml, '발령번호');
-      rules.push({ title: hit.title, lawId: Number(hit.id) || hit.id, historyId: 0, markdown, ...(tailExcluded ? { appendicesExcluded: true } : {}), ...(boundaryUnverified ? { articleBoundaryUnverified: true } : {}),
+      rules.push({ title: hit.title, lawId: Number(hit.id) || hit.id, historyId: 0, markdown,
         url: num && promul ? `${source.origin}/행정규칙/${encodeURIComponent(nm)}/(${num},${promul})` : `${source.origin}/행정규칙/${encodeURIComponent(nm)}`,
         revisedAt: ymdDot(hit.promulgated), effectiveAt: ymdIso(hit.enforced), effectiveSource: hit.enforced ? 'lawgo_list' : null });
     } catch (e) {
@@ -431,10 +426,10 @@ async function loadYonsei(source, topic, terms, client, signal, spec = {}) {
       const ln = parseInt(row[1], 16), start = row.index + row[0].length;
       // T 길이는 바이트 수(UTF-8)라 문자열 인덱스가 아닌 버퍼로 정확히 자른다.
       const html = Buffer.from(b.slice(start), 'utf8').subarray(0, ln).toString('utf8');
-      const { markdown, tailExcluded, boundaryUnverified } = parseHtmlArticleContent(html);
+      const markdown = htmlToArticleMarkdown(html);
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
-      const effectiveAt = tailExcluded || boundaryUnverified ? null : latestAddendaEffective(markdown);
-      rules.push({ title: hit.title, lawId: hit.id, historyId: 0, markdown, ...(tailExcluded ? { appendicesExcluded: true } : {}), ...(boundaryUnverified ? { articleBoundaryUnverified: true } : {}),
+      const effectiveAt = latestAddendaEffective(markdown);
+      rules.push({ title: hit.title, lawId: hit.id, historyId: 0, markdown,
         url: `${source.origin}/regulations/${hit.id}`,
         revisedAt: hit.revisedAt, effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
     } catch (e) {
@@ -618,7 +613,15 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
   }
   if (source.adapter && ADAPTERS[source.adapter]) {
     const result = await ADAPTERS[source.adapter](source, topic, terms, client, signal, spec);
-    return { ...result, coverage: { ...result.coverage, scannedRules: result.rules.length, attemptedRules: result.rules.length + result.failures.length } };
+    const reviewRules = [];
+    for (const rule of result.rules) {
+      const review = inspectArticleStructure(rule.markdown);
+      if (!review.required) continue;
+      rule.articleBoundaryReview = review;
+      reviewRules.push({ lawId: rule.lawId, historyId: rule.historyId, title: rule.title, reasons: review.reasons });
+    }
+    return { ...result, coverage: { ...result.coverage, scannedRules: result.rules.length, attemptedRules: result.rules.length + result.failures.length,
+      ...(reviewRules.length ? { articleBoundaryReview: { required: true, notice: BOUNDARY_NOTICE, rules: reviewRules } } : {}) } };
   }
   let hits, coverage;
   const searchTerms = uniq(spec.searchTerms || [topic]).slice(0, 2), hints = spec.titleHints || terms;
@@ -751,8 +754,7 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
       if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
       if (!perRule.has(rule)) perRule.set(rule, entry);
       matches.push({ universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId,
-        ...(rule.appendicesExcluded ? { appendicesExcluded: true } : {}),
-        ...(rule.articleBoundaryUnverified ? { articleBoundaryUnverified: true } : {}),
+        ...(rule.articleBoundaryReview ? { articleBoundaryReview: rule.articleBoundaryReview } : {}),
         article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
         ...(rule.originalPdfUrl ? {originalPdfUrl:rule.originalPdfUrl,sourceType:rule.sourceType} : {}),
         ...(rule.upcomingRevisionAt ? {upcomingRevisionAt:rule.upcomingRevisionAt} : {}),
@@ -837,6 +839,8 @@ function formatComparison(data) {
     '| 항목 | ' + data.columns.map(c => esc(c.name || c.university)).join(' | ') + ' |',
     '|---|' + data.columns.map(() => '---|').join(''),
     '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
+  const boundaryColumns = data.columns.filter(c => c.coverage?.articleBoundaryReview?.required || c.articles.some(a => a.articleBoundaryReview?.required));
+  if (boundaryColumns.length) lines.splice(3, 0, `> ${boundaryColumns.map(c => c.name || c.university).join('·')}: ${BOUNDARY_NOTICE}`);
   const roleTag = a => a.role ? (a.role === 'primary' ? '[주규정] ' : '[보조] ') : '';
   if (data.issueFrame) {
     lines.push('| 주규정 | ' + data.columns.map(c => {
@@ -873,7 +877,7 @@ function formatComparison(data) {
   for (const c of data.columns) {
     if (!c.articles.length) continue;
     lines.push('', `## ${c.name || c.university} 조문 본문`);
-    for (const a of c.articles) lines.push('', `### ${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', a.articleBoundaryUnverified ? '[일부 조문 경계가 불명확해 그 구간은 비교에서 제외했습니다. 원문을 확인하세요.]' : '', a.appendicesExcluded ? '[독립 부속 문서 표제 이후는 비교에서 제외했습니다. 별표·부록·서식은 원문을 확인하세요.]' : '', `[원문](${a.url})`, a.originalPdfUrl ? `[${a.sourceType === '한글 파일 본문' ? '원문 파일' : 'PDF 원문'}](${a.originalPdfUrl})` : '', a.upcomingRevisionAt ? `시행 예정 개정본이 있습니다(${a.upcomingRevisionAt}). 여기 보인 것은 그 이전 개정본입니다.` : '');
+    for (const a of c.articles) lines.push('', `### ${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`, a.originalPdfUrl ? `[${a.sourceType === '한글 파일 본문' ? '원문 파일' : 'PDF 원문'}](${a.originalPdfUrl})` : '', a.upcomingRevisionAt ? `시행 예정 개정본이 있습니다(${a.upcomingRevisionAt}). 여기 보인 것은 그 이전 개정본입니다.` : '');
   }
   for (const c of data.columns) if (c.notice && c.status === 'unavailable') lines.push('', `- ${c.name || c.university}: ${c.notice}`);
   // 본문을 읽지 못한 조문과 현행본을 확인하지 못한 규정은 건수만이 아니라 무엇인지 적는다.
@@ -885,7 +889,9 @@ function formatComparison(data) {
     if (stale.length) lines.push('', `- ${c.name || c.university}: 현행 개정본을 확인하지 못해 조회하지 않은 규정 ${stale.length}건 — ${stale.map(f => `${f.title}(${why(f)})`).join(', ')}.`);
     if (c.coverage?.currentRevisionUnverified > stale.length) lines.push('', `- ${c.name || c.university}: 조회가 중단되어 현행 개정본 확인을 시도하지 못한 규정 ${c.coverage.currentRevisionUnverified - stale.length}건.`);
   }
-  lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? JSON.stringify(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
+  // The review notice is displayed above the table; keep the existing coverage line intact.
+  const coverageText = ({ articleBoundaryReview, ...coverage }) => JSON.stringify(coverage);
+  lines.push('', ...data.columns.map(c => `- ${c.name || c.university}: ${c.coverage ? coverageText(c.coverage) : c.status}${c.failures?.length ? ` / 실패 ${c.failures.length}건` : ''}${c.dropped?.count ? ` / 프레임 제외 ${c.dropped.count}건` : ''}`));
   return lines.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');
 }
 
