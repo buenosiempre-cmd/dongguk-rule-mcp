@@ -155,6 +155,24 @@ async function main() {
     assert.equal(laws.find(x => x.lawName === '사립학교법').nameGuessed, undefined);
   });
 
+  await check('약칭 괄호와 접속사가 든 긴 법명: 실제 누락 사례와 문장 경계', async () => {
+    for (const quote of ["'", '“', '‘']) {
+      const found = extractReferences(`개인정보보호법(이하 ${quote}법'이라 한다) 제30조에 따른 처리방침`, resolver);
+      assert.deepEqual(found.map(x => [x.name, x.article]), [['개인정보보호법', '제30조']]);
+    }
+    const name = '교원의 노동조합설립 및 운영 등에 관한 법률';
+    const found = extractReferences(`${name} 제5조의 규정에 의하여 노동조합 전임자로 종사하게 된 때`, resolver);
+    assert.deepEqual(found.map(x => [x.name, x.article, x.nameExtended]), [['운영 등에 관한 법률', '제5조', true]]);
+    assert.equal(found[0].nameCandidate, name);
+    assert.equal(summarizeExternalLaws(found)[0].nameGuessed, true);
+    assert.deepEqual(refs('운영 및 소득세법 제12조'), ['external_law|소득세법|제12조|name_heuristic']);
+    assert.deepEqual(refs('이 경우 및 국가를 당사자로 하는 계약에 관한 법률 제7조'), ['external_law|국가를 당사자로 하는 계약에 관한 법률|제7조|name_heuristic']);
+    const bounded = extractReferences('가 '.repeat(80) + name + ' 제5조', resolver)[0];
+    assert(bounded.nameCandidate.length <= 125);
+    assert(bounded.nameCandidate.split(/\s+/).length <= 9);
+    assert.deepEqual(refs('평가방법(이하 \"방법\"이라 한다) 제5조'), []);
+  });
+
   await check('법령 식별: 현행, 제명 변경, 시행예정, 목록에 없음', async () => {
     const result = await inspectLaws([{ name: '사립학교법', articles: [] }, { name: '향토예비군설치법', articles: [] }, { name: '없는가상법', articles: [] }], { client: injected });
     assert.equal(result.status, 'retrieved');

@@ -60,8 +60,8 @@ function planLaws(references, { title, includeCandidates = true, maxLaws = MAX_L
   for (const item of references) {
     if (item.scope !== 'external_law' && !item.externalCandidate) continue;
     const name = item.target.lawName || item.target.name;
-    const key = normalizeName(name);
-    const law = laws.get(key) || { lawName: name, relation: 'cited', nameStatus: item.scope === 'external_law' ? 'law_name' : 'candidate_name', nameGuessed: true, articles: [], citedBy: [] };
+    const key = JSON.stringify([normalizeName(name), normalizeName(item.nameCandidate)]);
+    const law = laws.get(key) || { lawName: name, relation: 'cited', nameStatus: item.scope === 'external_law' ? 'law_name' : 'candidate_name', nameGuessed: true, articles: [], citedBy: [], ...(item.nameCandidate ? { nameCandidate: item.nameCandidate } : {}) };
     if (!item.nameExtended) law.nameGuessed = false;
     if (item.article && !law.articles.includes(item.article)) law.articles.push(item.article);
     law.citedBy.push({
@@ -73,7 +73,7 @@ function planLaws(references, { title, includeCandidates = true, maxLaws = MAX_L
   }
   const cited = [...laws.values()];
   const candidates = includeCandidates
-    ? topicCandidates(title).filter(x => !laws.has(normalizeName(x.lawName))).map(x => ({ lawName: x.lawName, relation: 'topic_candidate', nameStatus: 'law_name', nameGuessed: false, topics: x.topics, articles: [], citedBy: [] }))
+    ? topicCandidates(title).filter(x => !cited.some(law => normalizeName(law.lawName) === normalizeName(x.lawName))).map(x => ({ lawName: x.lawName, relation: 'topic_candidate', nameStatus: 'law_name', nameGuessed: false, topics: x.topics, articles: [], citedBy: [] }))
     : [];
   const all = [...cited, ...candidates];
   // Laws past max_laws are not dropped: page.nextOffset continues from there.
@@ -136,11 +136,11 @@ async function buildUpperLaws({ references, title, ruleRevisedAt, includeCandida
       const remaining = deadline - Date.now();
       if (remaining < 1000) { law.identity = { status: 'unavailable', code: 'LEGAL_TOTAL_TIMEOUT' }; continue; }
       // Do not reuse pre-validation entries; leave the old cache files untouched.
-      const key = crypto.createHash('md5').update(['body-evidence-v3', normalizeName(law.lawName), law.nameGuessed ? 'guess' : 'name', articles.join(','), today()].join('|')).digest('hex');
+      const key = crypto.createHash('md5').update(['body-evidence-v3', normalizeName(law.lawName), law.nameGuessed ? 'guess' : 'name', articles.join(','), law.nameCandidate || '', today()].join('|')).digest('hex');
       let found;
       try {
         found = await cached('upper-law', key, CACHE_SECONDS, async () => {
-          const result = await inspectLaws([{ name: law.lawName, articles, suffixMatch: law.nameGuessed }], {
+          const result = await inspectLaws([{ name: law.lawName, articles, suffixMatch: law.nameGuessed, ...(law.nameCandidate ? { nameCandidate: law.nameCandidate } : {}) }], {
             timeoutMs: Math.min(CALL_TIMEOUT_MS, remaining), totalTimeoutMs: Math.min(TOTAL_TIMEOUT_MS, remaining), maxLaws: 1, maxArticles: MAX_ARTICLES, maxTextChars: MAX_TEXT_CHARS,
           });
           const entry = result.laws[0];
