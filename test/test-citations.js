@@ -517,6 +517,29 @@ const deps = {
     check(`명시적 별지·조항 뒤 N호는 계속 확인필요: ${scope}`, result.citations.length === 1
       && result.citations[0].status === 'UNSUPPORTED_CITATION' && result.summary.verified === 0);
   }
+  for (const scope of ['별지1', '별지 1', '별지 제1호', '별지1호', '별지 1호 서식', '별표1', '별표 1']) {
+    for (const prefix of ['', '제1조 제1항 ']) {
+      const input = `「검수규정」 ${prefix}${scope}을 적용한다.`;
+      const result = await verifyRuleCitations(input, suffixDeps);
+      const citation = result.citations[0];
+      check(`숫자 붙은 별지·별표 전체 확인필요: ${prefix}${scope}`, result.citations.length === 1
+        && citation.status === 'UNSUPPORTED_CITATION' && result.summary.verified === 0
+        && result.summary.exists === 0 && result.summary.needsReview === 1
+        && citation.originalRange.text === `${prefix}${scope}을`
+        && input.slice(citation.originalRange.start, citation.originalRange.end) === `${prefix}${scope}을`
+        && citation.unsupportedReasons.includes('UNSUPPORTED_DETAIL'), JSON.stringify(result.citations));
+    }
+  }
+  for (const phrase of ['별지와 같이 시행한다', '별지 참조']) {
+    const result = await verifyRuleCitations(`「검수규정」 ${phrase}.`, suffixDeps);
+    check(`숫자 없는 별지는 규정명 단독 검증 유지: ${phrase}`, result.citations.length === 1
+      && result.citations[0].status === 'RULE_EXISTS' && result.summary.verified === 1 && result.summary.needsReview === 0);
+  }
+  const unnumberedTable = await verifyRuleCitations('「검수규정」 별표와 같이 지급한다.', suffixDeps);
+  check('번호 없는 별표의 기존 확인필요 유지', unnumberedTable.citations.length === 1
+    && unnumberedTable.citations[0].status === 'UNSUPPORTED_CITATION'
+    && unnumberedTable.summary.verified === 0 && unnumberedTable.summary.needsReview === 1);
+
   const inheritedDetail = await verifyRuleCitations('「검수규정」 제1조제1항 및 제2항 99호', suffixDeps);
   check('앞 조문을 이어받은 항 뒤의 N호도 미지원 범위 유지', inheritedDetail.citations.length === 2
     && inheritedDetail.citations[1].status === 'UNSUPPORTED_CITATION'
