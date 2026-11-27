@@ -298,9 +298,9 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
   });
   if (!items.length) throw error('UPSTREAM_FORMAT_CHANGED');
   const titleHits = rankByTitle(items, topic, terms, hints);
-  // Bound discovery to two canonical undergraduate rules already in this catalog.
-  // Do not broaden explicit graduate/institution topics or title-only monitoring.
-  const academicTopic = !spec.titleOnly && /^(?:휴학|복학|재입학|전과|졸업|수료|학점|수강신청|제적|자퇴)$/.test(compact(topic));
+  // Enter fallback only when the catalog has no title matches at all.
+  // Even failed/empty title results retain the existing main path and response.
+  const academicTopic = titleHits.length === 0 && !spec.titleOnly && /^(?:휴학|복학|재입학|전과|졸업|수료|학점|수강신청|제적|자퇴)$/.test(compact(topic));
   const academicHits = academicTopic ? items.filter(hit =>
     /^(?:이화여자대학교)?학칙(?:시행세칙)?$/.test(compact(hit.title)) && !titleHits.includes(hit))
     .sort((a, b) => compact(a.title).length - compact(b.title).length).slice(0, 2) : [];
@@ -317,7 +317,7 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
       const effectiveAt = latestAddendaEffective(markdown);
       if (fallback.includes(hit)) fallbackRead++;
-      rules.push({ ...(academicTopic ? { academicTopic: compact(topic), academicFallback: fallback.includes(hit) } : {}), title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
+      rules.push({ ...(fallback.includes(hit) ? { academicTopic: compact(topic), academicFallback: true } : {}), title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
         url: `${source.origin}/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`,
         revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
     } catch (e) {
@@ -325,6 +325,8 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
       if (['ACCESS_DENIED', 'SESSION_REQUIRED', 'UPSTREAM_UNAVAILABLE', 'REDIRECT_NOT_FOLLOWED', 'TOTAL_TIMEOUT'].includes(safeCode(e))) break;
     }
   }
+  // Preserve main's exact coverage contract whenever a title candidate exists.
+  if (titleHits.length) return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
   return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: titleHits.length,
     academicFallbackRules: fallback.length, academicFallbackAttemptedRules: fallbackAttempted, academicFallbackReadRules: fallbackRead, academicFallbackTitles: fallback.map(hit => hit.title),
     discoveryScope: fallback.length ? 'titles_and_bounded_academic_rules' : 'titles_only',
@@ -751,18 +753,18 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
     const entry = { universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId, url: rule.url, slots: new Set(), titleScore };
     for (const block of listArticleBlocks(rule.markdown)) {
       if (block.supplementary) continue;
-      if (rule.academicTopic && !academicTopicMention(block.content, rule.academicTopic)) continue;
+      if (rule.academicFallback && !academicTopicMention(block.content, rule.academicTopic)) continue;
       const matchedTerms = terms.filter(t => block.content.includes(t));
       if (!matchedTerms.length) continue;
       // 조문 제목(첫 줄)에 주제어가 있으면 그 조문이 주제를 직접 다룬다고 보고 앞에 둔다.
       const heading = block.content.split('\n')[0];
-      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + ((rule.academicTopic ? academicTopicMention(heading, rule.academicTopic) : terms.some(t => heading.includes(t))) ? 2 : 0) + ruleBonus;
+      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + (terms.some(t => heading.includes(t)) ? 2 : 0) + ruleBonus;
       const analysis = frame ? analyzeArticle(block, rule, frame) : null;
       if (analysis?.excluded) { dropped[analysis.excluded] = (dropped[analysis.excluded] || 0) + 1; continue; }
       if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
       if (!perRule.has(rule)) perRule.set(rule, entry);
       matches.push({ universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId,
-        _academicFallback: !!rule.academicFallback, article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
+        article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
         ...(rule.originalPdfUrl ? {originalPdfUrl:rule.originalPdfUrl,sourceType:rule.sourceType} : {}),
         ...(rule.upcomingRevisionAt ? {upcomingRevisionAt:rule.upcomingRevisionAt} : {}),
         matchedTerms, url: rule.url, revisedAt: rule.revisedAt || null, effectiveAt: rule.effectiveAt || null,
@@ -770,9 +772,7 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
         ...(analysis ? { slots: analysis.slots, subjects: analysis.subjects, anchorLaws: analysis.anchorLaws } : {}), _score: score });
     }
   }
-  // Additional academic rules can only fill slots left by title-matched rules.
-  matches.sort((a, b) => Number(a._academicFallback) - Number(b._academicFallback) || b._score - a._score);
-  for (const match of matches) delete match._academicFallback;
+  matches.sort((a, b) => b._score - a._score);
   const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
   if (!frame) { for (const m of matches) delete m._score; return base; }
   const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);

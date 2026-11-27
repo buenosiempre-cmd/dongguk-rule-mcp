@@ -444,13 +444,13 @@ async function main() {
     const list=[...Array.from({length:6},(_,i)=>[String(2000+i),`휴학 처리 규정 ${i}`]),['1009','학칙'],['1010','학칙시행세칙']].map(([id,title])=>`<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=${id}">${title}</a>`).join('');
     const calls=[];const client={request:async(s,path)=>{calls.push(path);return path.includes('view-rule')?'<div class="fr-view">제1조(휴학) 휴학을 허가한다.</div>':list;}};
     const data=await loadExternal(source,'휴학',spec.terms,client,undefined,spec);
-    assert.equal(data.rules.length,5); assert.equal(calls.length,6); assert.equal(data.coverage.titleMatches,6);
-    assert.equal(data.coverage.academicFallbackRules,0); assert(data.coverage.truncated);
+    assert.equal(data.rules.length,5); assert.equal(calls.length,6); assert.equal(data.coverage.titleMatches,5);
+    assert.equal(data.coverage.academicFallbackRules,undefined); assert.equal(data.coverage.truncated,false);
     const only={request:async()=>'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>'};
     const watched=await loadExternal(source,'휴학',spec.terms,only,undefined,{...spec,titleOnly:true});
     assert.equal(watched.rules.length,0); assert.equal(watched.coverage.discoveryScope,'titles_only');
     const limited=await loadExternal(source,'휴학',spec.terms,client,undefined,{...spec,maxRules:1});
-    assert.equal(limited.rules.length,1); assert.equal(limited.coverage.academicFallbackRules,0);
+    assert.equal(limited.rules.length,1); assert.equal(limited.coverage.academicFallbackRules,undefined);
   });
   await check('B2 미지원 주제·대학원 지정은 학부 학칙으로 확대하지 않고 제목 한계를 표시', async () => {
     for(const topic of ['여비','겸직','대학원 휴학','없는주제']) {
@@ -482,14 +482,15 @@ async function main() {
       assert.equal(col.status,withTitle?'partial':'no_match_in_scope');
     }
   });
-  await check('PR80 제목 규정 1~4개: 진짜 주제의 학칙도 기존 발췌 다음 빈자리만 사용', async () => {
+  await check('PR80 재검수: 제목 규정 1~4개가 있으면 학칙은 조회·발췌하지 않음', async () => {
     for (let count=1;count<=4;count++) for(let limit=1;limit<=5;limit++) {
       const titles=Array.from({length:count},(_,i)=>`<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=${10+i}">전과규정 ${i}</a>`).join('');
       const client={request:async(s,p)=>!p.includes('view-rule')?titles+'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>':p.endsWith('=1009')?'<div class="fr-view"><p>제40조(전과신청)</p><p>전과신청서를 낸다.</p></div>':'<div class="fr-view"><p>제1조(신청)</p><p>전과를 신청한다.</p></div>'};
       const data=await compareUniversityRules({topic:'전과',universities:['ewha'],max_articles:limit},{loadDongguk:dongguk,client});
       const col=data.columns.find(c=>c.university==='ewha');
       assert.deepEqual(col.articles.slice(0,Math.min(count,limit)).map(a=>a.lawId),Array.from({length:Math.min(count,limit)},(_,i)=>10+i));
-      if(limit>count)assert.equal(col.articles[count].lawId,1009);
+      assert.equal(col.articles.length,Math.min(count,limit));
+      assert.equal(col.coverage.academicFallbackRules,undefined);
       assert(!JSON.stringify(col).includes('_academicFallback'));
     }
   });
