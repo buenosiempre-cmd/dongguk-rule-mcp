@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+import copy
 import numpy as np
 
 spec = importlib.util.spec_from_file_location('jev_eval', Path(__file__).parents[1] / 'scripts/evaluate-jev.py')
@@ -44,6 +45,19 @@ class EvaluationTests(unittest.TestCase):
         for rows in [after[:1], [after[0], after[0]]]:
             with self.assertRaisesRegex(ValueError, 'QUESTION_SET_MISMATCH'):
                 m.comparison_by_id(before, rows, ['top3'])
+
+    def test_reference_rejects_changed_dictionary_or_query_mode(self):
+        hashes = {name:'hash-'+name for name in ['corpus.js','lookup.js','aliases.js','semantic.js']}
+        ref = {'mode':'query만','after':{'indexSha256':'corpus','sourceHashes':hashes},'questionFiles':[{'sha256':'questions'}]}
+        ev = {'corpusHash':'corpus','sources':[{'sha256':'questions'}],'codeHashes':{'src/'+k:v for k,v in hashes.items()}}
+        m.validate_reference(ref,ev)
+        for file in hashes:
+            bad = copy.deepcopy(ref);bad['after']['sourceHashes'][file]='changed'
+            with self.assertRaisesRegex(ValueError,'SCORER_MISMATCH'):
+                m.validate_reference(bad,ev)
+        bad=copy.deepcopy(ref);bad['mode']='query+문항 자체 args'
+        with self.assertRaisesRegex(ValueError,'QUERY_MODE_MISMATCH'):
+            m.validate_reference(bad,ev)
 
 
 if __name__ == '__main__':

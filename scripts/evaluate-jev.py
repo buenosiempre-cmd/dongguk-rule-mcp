@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import platform
+import subprocess
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -152,6 +153,16 @@ def comparison_by_id(before, after, metrics):
                   'fixed': [r['id'] for r in after if not before_by_id[r['id']][key] and r[key]]} for key in metrics}
 
 
+def validate_reference(ref, evidence):
+    if ref.get('mode') != 'query만':
+        raise ValueError('REFERENCE_QUERY_MODE_MISMATCH')
+    if ref['after']['indexSha256'] != evidence['corpusHash'] or {s['sha256'] for s in ref['questionFiles']} != {s['sha256'] for s in evidence['sources']}:
+        raise ValueError('REFERENCE_SNAPSHOT_MISMATCH')
+    for file in ['corpus.js', 'lookup.js', 'aliases.js', 'semantic.js']:
+        if ref['after']['sourceHashes'].get(file) != evidence['codeHashes'].get('src/' + file) or not evidence['codeHashes'].get('src/' + file):
+            raise ValueError('REFERENCE_PRODUCTION_SCORER_MISMATCH')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--evidence', required=True)
@@ -170,10 +181,7 @@ def main():
     if args.reference:
         ref_raw = Path(args.reference).read_bytes()
         ref = json.loads(ref_raw)
-        if ref['after']['indexSha256'] != evidence['corpusHash'] or {s['sha256'] for s in ref['questionFiles']} != {s['sha256'] for s in evidence['sources']}:
-            raise ValueError('REFERENCE_SNAPSHOT_MISMATCH')
-        if ref['after']['sourceHashes']['corpus.js'] != evidence['codeHashes']['src/corpus.js']:
-            raise ValueError('REFERENCE_PRODUCTION_SCORER_MISMATCH')
+        validate_reference(ref, evidence)
         reference = {'path': args.reference, 'sha256': hashlib.sha256(ref_raw).hexdigest(),
                      'scope': 't10x full MCP baseline; JEV below is isolated retrieval, not a full MCP replacement run',
                      'summary': ref['after']['summary'], 'results': ref['after']['results']}
@@ -243,6 +251,7 @@ def main():
     metadata = {k: v for k, v in evidence.items() if k != 'records'}
     report = {'metadata': metadata, 'evidenceSha256': hashlib.sha256(raw).hexdigest(),
               'evaluatorSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              'evaluatorGitHead': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=Path(__file__).parents[1], text=True).strip(),
               'python': platform.python_version(), 'numpy': np.__version__, 'sklearn': sklearn.__version__,
               'groups': len(group_ids), 'folds': fold_reports,
               'summary': {'rrf': summary(baseline['rrf']), 'expandedRrf': summary(baseline['expandedRrf']), 'jevOOF': summary(jev),
@@ -273,6 +282,7 @@ def main():
                 'top3': {'hits': sum(r['top3'] for r in rows), 'total': len(rows)},
                 'selectedArticleHit': {'hits': sum(r['selectedArticleHit'] for r in rows), 'total': len(rows)},
                 'latencyMs': percentiles([r['elapsedMs'] for r in rows]),
+                'latencyScope': 'scorer only; semantic map precomputed; excludes query encoding and vector scoring',
                 'jevVsProduction': comparison_by_id(rows, jev, ['top3', 'selectedArticleHit']), 'records': rows}
     if reference:
         report['productionMcpReference'] = {k: v for k, v in reference.items() if k != 'results'}
