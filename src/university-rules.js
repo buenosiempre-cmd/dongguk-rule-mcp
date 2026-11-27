@@ -272,6 +272,14 @@ async function loadSogang(source, topic, terms, client, signal, spec = {}) {
   return { rules, failures, coverage: { mode: 'rest_json', queries, totalCandidates: byId.size, titleMatches: ranked.length, truncated: ranked.length > maxRules, complete: false } };
 }
 
+// Bounded academic discovery accepts the topic as a word or a supported academic
+// compound/inflection, not as an arbitrary substring (전과정, 대학점검, ...).
+function academicTopicMention(text, topic) {
+  const noun = '(?:신청서|신청|허가|기간|절차|요건|기준|시기|원서|예정자|예정|처리|취소|승인|제한|연장|대상자|대상|생|자|중|전|후)?';
+  const ending = '(?:으로부터|에게서|에서는|에서도|에서만|으로|에서|에게|까지|부터|은|는|이|가|을|를|의|에|도|만|와|과|한|하는|하여|하면|할|하려는|하고자)?';
+  return new RegExp(`(?:^|[^\\p{L}\\p{N}])${topic}${noun}${ending}(?=$|[^\\p{L}\\p{N}])`, 'u').test(String(text));
+}
+
 // 이화여대: 규정집 목록 HTML(view-rule 링크) + 규정별 view 페이지(.fr-view에 조문 전문).
 async function loadEwha(source, topic, terms, client, signal, spec = {}) {
   const maxRules = ruleLimit(spec);
@@ -299,14 +307,17 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
   const fallback = academicHits.slice(0, Math.max(0, maxRules - titleHits.length));
   const ranked = [...titleHits.slice(0, maxRules), ...fallback];
   const rules = [], failures = [];
+  let fallbackAttempted = 0, fallbackRead = 0;
   for (const hit of ranked) {
     try {
+      if (fallback.includes(hit)) fallbackAttempted++;
       const html = await client.request(source, `/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`, undefined, 15000, signal);
       const body = cheerio.load(html)('.fr-view').html() || '';
       const markdown = htmlToArticleMarkdown(body);
       if (!listArticleBlocks(markdown).length) throw error('UPSTREAM_FORMAT_CHANGED');
       const effectiveAt = latestAddendaEffective(markdown);
-      rules.push({ title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
+      if (fallback.includes(hit)) fallbackRead++;
+      rules.push({ ...(academicTopic ? { academicTopic: compact(topic), academicFallback: fallback.includes(hit) } : {}), title: hit.title, lawId: Number(hit.cd2), historyId: 0, markdown,
         url: `${source.origin}/ewha/intro/rules.do?mode=view-rule&srRuleCd1=${hit.cd1}&srRuleCd2=${hit.cd2}`,
         revisedAt: ruleRevisedAt(markdown), effectiveAt: effectiveAt || null, effectiveSource: effectiveAt ? 'addenda' : null });
     } catch (e) {
@@ -315,9 +326,9 @@ async function loadEwha(source, topic, terms, client, signal, spec = {}) {
     }
   }
   return { rules, failures, coverage: { mode: 'html_catalog', totalCandidates: items.length, titleMatches: titleHits.length,
-    academicFallbackRules: fallback.length, academicFallbackTitles: fallback.map(hit => hit.title),
+    academicFallbackRules: fallback.length, academicFallbackAttemptedRules: fallbackAttempted, academicFallbackReadRules: fallbackRead, academicFallbackTitles: fallback.map(hit => hit.title),
     discoveryScope: fallback.length ? 'titles_and_bounded_academic_rules' : 'titles_only',
-    notice: fallback.length ? '목록 제목 후보와 학부 학칙·학칙시행세칙 최대 2개의 본문에서 주제어를 찾았습니다. 대학원·다른 기관 규정이나 전체 규정 전문을 검색한 결과는 아닙니다.' : '규정 목록의 제목으로 후보를 골랐습니다. 제목에 주제어가 없는 규정의 본문은 빠질 수 있습니다.',
+    notice: fallback.length ? `학부 학칙·학칙시행세칙 최대 2개 중 ${fallback.length}개를 추가 후보로 선정했습니다. 본문 조회 시도 ${fallbackAttempted}개, 읽음 ${fallbackRead}개이며 일치 여부는 반환 조문과 상태를 확인하세요. 대학원·다른 기관 규정이나 전체 규정 전문을 검색한 결과는 아닙니다.` : '규정 목록의 제목으로 후보를 골랐습니다. 제목에 주제어가 없는 규정의 본문은 빠질 수 있습니다.',
     truncated: titleHits.length + academicHits.length > ranked.length, complete: false } };
 
 }
@@ -740,17 +751,18 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
     const entry = { universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId, url: rule.url, slots: new Set(), titleScore };
     for (const block of listArticleBlocks(rule.markdown)) {
       if (block.supplementary) continue;
+      if (rule.academicTopic && !academicTopicMention(block.content, rule.academicTopic)) continue;
       const matchedTerms = terms.filter(t => block.content.includes(t));
       if (!matchedTerms.length) continue;
       // 조문 제목(첫 줄)에 주제어가 있으면 그 조문이 주제를 직접 다룬다고 보고 앞에 둔다.
       const heading = block.content.split('\n')[0];
-      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + (terms.some(t => heading.includes(t)) ? 2 : 0) + ruleBonus;
+      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + ((rule.academicTopic ? academicTopicMention(heading, rule.academicTopic) : terms.some(t => heading.includes(t))) ? 2 : 0) + ruleBonus;
       const analysis = frame ? analyzeArticle(block, rule, frame) : null;
       if (analysis?.excluded) { dropped[analysis.excluded] = (dropped[analysis.excluded] || 0) + 1; continue; }
       if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
       if (!perRule.has(rule)) perRule.set(rule, entry);
       matches.push({ universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId,
-        article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
+        _academicFallback: !!rule.academicFallback, article: block.canonical, text: block.content.slice(0, 2000), textTruncated: block.content.length > 2000,
         ...(rule.originalPdfUrl ? {originalPdfUrl:rule.originalPdfUrl,sourceType:rule.sourceType} : {}),
         ...(rule.upcomingRevisionAt ? {upcomingRevisionAt:rule.upcomingRevisionAt} : {}),
         matchedTerms, url: rule.url, revisedAt: rule.revisedAt || null, effectiveAt: rule.effectiveAt || null,
@@ -758,7 +770,9 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
         ...(analysis ? { slots: analysis.slots, subjects: analysis.subjects, anchorLaws: analysis.anchorLaws } : {}), _score: score });
     }
   }
-  matches.sort((a, b) => b._score - a._score);
+  // Additional academic rules can only fill slots left by title-matched rules.
+  matches.sort((a, b) => Number(a._academicFallback) - Number(b._academicFallback) || b._score - a._score);
+  for (const match of matches) delete match._academicFallback;
   const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
   if (!frame) { for (const m of matches) delete m._score; return base; }
   const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);

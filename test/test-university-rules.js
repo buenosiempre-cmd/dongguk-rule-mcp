@@ -471,6 +471,46 @@ async function main() {
     const noMatch=await compareUniversityRules({topic:'복학',universities:['ewha']},{loadDongguk:dongguk,client:other});
     assert.equal(noMatch.columns.find(c=>c.university==='ewha').status,'no_match_in_scope');
   });
+  await check('PR80 P1 검수 원문: 전과정 조문은 정답 전과규정을 밀어내지 않음', async () => {
+    const fixture=require('./fixtures/ewha-academic-ranking.json');
+    for (const withTitle of [true,false]) {
+      const client={request:async(s,p)=>!p.includes('view-rule')?(withTitle?fixture.catalog:'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>'):p.endsWith('=10')?fixture.correct:fixture.unrelated};
+      const data=await compareUniversityRules({topic:'전과',universities:['ewha'],max_articles:3},{loadDongguk:dongguk,client});
+      const col=data.columns.find(c=>c.university==='ewha');
+      assert.deepEqual(col.articles.map(a=>a.lawId),withTitle?[10,10,10]:[]);
+      assert.equal(col.matchingArticles,withTitle?3:0);assert.equal(col.articlesTruncated,false);
+      assert.equal(col.status,withTitle?'partial':'no_match_in_scope');
+    }
+  });
+  await check('PR80 제목 규정 1~4개: 진짜 주제의 학칙도 기존 발췌 다음 빈자리만 사용', async () => {
+    for (let count=1;count<=4;count++) for(let limit=1;limit<=5;limit++) {
+      const titles=Array.from({length:count},(_,i)=>`<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=${10+i}">전과규정 ${i}</a>`).join('');
+      const client={request:async(s,p)=>!p.includes('view-rule')?titles+'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>':p.endsWith('=1009')?'<div class="fr-view"><p>제40조(전과신청)</p><p>전과신청서를 낸다.</p></div>':'<div class="fr-view"><p>제1조(신청)</p><p>전과를 신청한다.</p></div>'};
+      const data=await compareUniversityRules({topic:'전과',universities:['ewha'],max_articles:limit},{loadDongguk:dongguk,client});
+      const col=data.columns.find(c=>c.university==='ewha');
+      assert.deepEqual(col.articles.slice(0,Math.min(count,limit)).map(a=>a.lawId),Array.from({length:Math.min(count,limit)},(_,i)=>10+i));
+      if(limit>count)assert.equal(col.articles[count].lawId,1009);
+      assert(!JSON.stringify(col).includes('_academicFallback'));
+    }
+  });
+  await check('PR80 학사 주제의 어절·지원 복합어와 다른 낱말 부분일치를 구분', async () => {
+    for(const [topic,good,bad] of [['전과','전과신청서는 제출한다.','전과정의 이수를 인정한다.'],['학점','학점을 인정한다.','대학점검을 실시한다.'],['휴학','휴학하려는 학생은 신청한다.','휴학술회의를 개최한다.']]) {
+      for(const [text,expected] of [[good,1],[bad,0]]) {
+        const client={request:async(s,p)=>!p.includes('view-rule')?'<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>':`<div class="fr-view"><p>제1조(기준)</p><p>${text}</p></div>`};
+        const data=await compareUniversityRules({topic,universities:['ewha']},{loadDongguk:dongguk,client});
+        assert.equal(data.columns.find(c=>c.university==='ewha').articles.length,expected,text);
+      }
+    }
+  });
+  await check('PR80 P2: 실패·미일치·일치 안내는 선정/시도/읽음만 진술', async () => {
+    for(const mode of ['fail','none','match']) {
+      const client={request:async(s,p)=>{if(!p.includes('view-rule'))return '<a href="?mode=view-rule&srRuleCd1=994&srRuleCd2=1009">학칙</a>';if(mode==='fail')throw Object.assign(new Error('offline'),{code:'UPSTREAM_UNAVAILABLE'});return `<div class="fr-view"><p>제26조(기준)</p><p>${mode==='match'?'휴학을 허가한다.':'교육의 목적을 정한다.'}</p></div>`;}};
+      const data=await compareUniversityRules({topic:'휴학',universities:['ewha']},{loadDongguk:dongguk,client});const col=data.columns.find(c=>c.university==='ewha');
+      assert.equal(col.status,mode==='fail'?'unavailable':mode==='none'?'no_match_in_scope':'partial');
+      assert.equal(col.coverage.academicFallbackRules,1);assert.equal(col.coverage.academicFallbackAttemptedRules,1);assert.equal(col.coverage.academicFallbackReadRules,mode==='fail'?0:1);
+      assert(!formatComparison(data).includes('주제어를 찾았습니다'));assert.match(formatComparison(data),/본문 조회 시도 1개/);
+    }
+  });
   await check('고려대 공개 분류 목록: 페이지 넘김·제목 대조·공개 범위 표시', async () => {
     const listing=(total,rows)=>`<p>전체: ${total} 건&nbsp; 페이지:</p>`+rows.map(([id,h,t])=>`<a href="/lmxsrv/law/lawFullView.do?SEQ=${id}&amp;SEQ_HISTORY=${h}">${t}</a>`).join('');
     const parsed=parseFolderListing(listing(2,[[1,2,'3-4-5 장학금 지급 규정'],[3,4,'3-1-1 직제규정']]));

@@ -1,0 +1,6 @@
+{
+  "description": "PR80 red-team synthetic regression; not official university text",
+  "catalog": "<a href=\"?mode=view-rule&srRuleCd1=994&srRuleCd2=10\">전과규정</a><a href=\"?mode=view-rule&srRuleCd1=994&srRuleCd2=1009\">학칙</a>",
+  "correct": "<div class=\"fr-view\"><p>제1조(신청)</p><p>전과를 신청하려는 학생은 신청서를 제출한다.</p><p>제2조(허가)</p><p>전과는 정원 범위에서 허가한다.</p><p>제3조(시기)</p><p>전과 신청 시기는 학기 시작 전으로 한다.</p></div>",
+  "unrelated": "<div class=\"fr-view\"><p>제40조(전과정의 이수)</p><p>졸업을 위해 교육과정 전체를 이수하여야 한다.</p><p>제41조(전과정 이수의 인정)</p><p>외국 대학에서 이수한 전체 교육과정은 심사를 거쳐 인정한다.</p><p>제42조(전과정 이수의 예외)</p><p>공동학위과정의 이수 기준은 따로 정한다.</p></div>"
+}
