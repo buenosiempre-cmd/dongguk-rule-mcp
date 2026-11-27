@@ -111,32 +111,45 @@ function cleanListTitle(text) {
   return { title, effectiveAt: m ? `${m[1]}-${m[2]}-${m[3]}` : null };
 }
 
-// 마지막 부칙 블록의 명시 시행일(본문 순서상 첫 날짜). '공포한 날부터' 등 날짜가 없으면 null.
+// 마지막 부칙에서 규정 전체의 단일 명시 시행일만 채택한다. 범위·날짜가 불명확하면 null.
 function latestAddendaEffective(markdown) {
   const source = String(markdown || '');
-  // 마지막 부칙 지점부터(헤딩 줄 포함) 검색한다. 어댑터 변환본은 "부칙 … 시행한다"가
-  // 한 줄에 오기도 하므로 헤딩을 버리지 않는다.
   const heads = [...source.matchAll(/^#{0,3}\s*부\s*칙.*$/gm)];
   if (!heads.length) return null;
-  const last = source.slice(heads[heads.length - 1].index);
-  const datePattern = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*(?:개정\s*)?시행/g;
+  // Keep inline commencement text, but remove an optional addendum date label.
+  const last = source.slice(heads[heads.length - 1].index)
+    .replace(/^#{0,3}\s*부\s*칙\s*(?:[（(<\[][^）)>\]\n]*[）)>\]])?/, '');
+  const datePattern = /^(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*(?:개정\s*)?$/;
+  const generalSubject = /^(?:이|본)?(?:개정)?(?:규정|지침|규칙|세칙|내규|학칙|규약|요령|기준)(?:은|는)/;
+  const provision = String.raw`제\d+조(?:의\d+)?(?:제\d+항)?(?:[（(][^（）()]+[）)])?`;
+  const provisionSubject = new RegExp(`^${provision}(?:부터${provision}까지)?(?:(?:의(?:개정)?규정)?(?:은|는)|에따른수당은)`);
   const dates = new Set();
-  let previousEnd = 0;
-  for (const match of last.matchAll(datePattern)) {
-    const prefix = last.slice(previousEnd, match.index).replace(/\s+/g, '');
-    previousEnd = match.index + match[0].length;
-    // A separate date for an explicitly named provision is not the rule's date.
-    // Keep the existing general date + "다만 제7조는 ..." behavior.
-    if (/제\d+조(?:의\d+)?(?:제\d+항)?(?:의규정)?(?:은|는)$/.test(prefix)) continue;
-    const found = extractEnforcementDates(match[0].replace(/개정\s*시행$/, '시행'));
+  let end = 0;
+  for (const match of last.matchAll(/([\s\S]*?)시행(?:한다|함)?(?=[.。\s,"'”’]|$)/g)) {
+    end = match.index + match[0].length;
+    // Strip completed preceding sentences and structural labels, never arbitrary
+    // text before a date. An unrecognised subject must not become a general date.
+    const clause = match[1].replace(/^[\s\S]*(?:한다|함)[.。]/, '')
+      .replace(/\s+/g, '').replace(/^[.。,]+/, '').replace(/^#{1,3}/, '')
+      .replace(/^[①-⑳]/, '').replace(/^(?:제\d+조)?[（(]시행일[）)]/, '')
+      .replace(/^다만[,，]?/, '');
+    const scoped = provisionSubject.exec(clause);
+    if (scoped) {
+      if (!datePattern.test(clause.slice(scoped[0].length))) return null;
+      continue;
+    }
+    const subject = generalSubject.exec(clause);
+    const date = subject ? clause.slice(subject[0].length) : clause;
+    // A bare date under an addendum/commencement heading is supported too.
+    // Unknown or undated general clauses invalidate an earlier candidate.
+    if (!datePattern.test(date)) return null;
+    const found = extractEnforcementDates(date.replace(/개정$/, '') + '시행');
     if (found.length !== 1) return null;
     dates.add(found[0].iso);
   }
-  // A later undated commencement must not silently reuse an earlier dated one.
-  const generalClauses = last.match(/(?:이|본)\s*(?:개정\s*)?(?:규정|지침|규칙|세칙|내규|학칙|규약|요령|기준)\s*(?:은|는)[\s\S]*?시행(?:한다|함)/g) || [];
-  if (generalClauses.some(clause => !new RegExp(datePattern.source).test(clause))) return null;
-  // Several general commencement dates in one addendum do not establish which
-  // revision is current. Do not guess by picking the first, last or maximum.
+  // Do not ignore unsupported commencement endings after a supported clause.
+  if (/시행/.test(last.slice(end))) return null;
+  // Several general dates do not establish which revision is current.
   return dates.size === 1 ? [...dates][0] : null;
 }
 
