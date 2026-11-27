@@ -114,4 +114,4 @@ async function loadCau(source, topic, terms, client, signal, spec, { rankByTitle
   return { rules, failures, coverage: { mode: 'cau_pdf', totalCandidates: items.length, titleMatches: ranked.length,
     truncated: ranked.length > maxRules, complete: false, comparisonScope: 'articles_only', appendicesCompared: false, textLayerOnly: true, notice: NOTICE } };
 }
-module.exports = { loadCau, selectPdf, articleMarkdown, isAppendixHeading, isArticleHeading, NOTICE };
+module.exports = { loadCau, selectPdf, articleMarkdown, isAppendixHeading, NOTICE };
