@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>동국 규정 MCP 작동 방식 한눈에 보기 (v0.15.11)</title>
-<meta name="description" content="동국 규정 MCP v0.15.11이 질문을 받아 규정 원문·조문·상위 법령·타대학 규정을 찾아 근거와 함께 돌려주는 과정을 다이어그램으로 정리했습니다.">
+<title>동국 규정 MCP 작동 방식 한눈에 보기 (v0.15.12)</title>
+<meta name="description" content="동국 규정 MCP v0.15.12이 질문을 받아 규정 원문·조문·상위 법령·타대학 규정을 찾아 근거와 함께 돌려주는 과정을 다이어그램으로 정리했습니다.">
 <style>
 :root{--or:#e8811a;--or2:#fff4e8;--orb:#f6d3ad;--ink:#1f2937;--mut:#6b7280;--bd:#e5e7eb;--bl:#2563eb;--bl2:#eef4ff;--blb:#c7d7fe;--gr:#16a34a;--gr2:#ecfdf3;--grb:#bbf7d0;--rd:#dc2626;--rd2:#fef2f2;--pu:#7c3aed;--pu2:#f5f0ff;--pub:#ddd0fb;--te:#0d9488;--te2:#f0fdfa;--teb:#99f6e4;--ye2:#fffbeb;--yeb:#fde68a;--gy:#f3f4f6}
 *{box-sizing:border-box}
@@ -172,7 +172,7 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:18px}
     <p class="sub">AI 앱에서 동국대 규정을 물으면, 공식 규정 원문에서 맞는 규정과 조문을 골라 원문 링크·개정일과 함께 돌려줍니다. 필요하면 근거 법령이 지금도 그대로인지, 다른 대학은 어떻게 정했는지도 함께 찾아 줍니다.</p>
   </div>
   <div class="badges">
-    <div class="badge">기준 버전 <b>v0.15.11</b></div>
+    <div class="badge">기준 버전 <b>v0.15.12</b></div>
     <div class="badge">읽기 전용 · 도구 <b>15개</b></div>
   </div>
 </header>
@@ -578,7 +578,8 @@ footer{text-align:center;color:var(--mut);font-size:12px;margin-top:18px}
     <div class="tl"><div class="pt"></div><b>v0.15.8</b><span>타대학 주간 개정 감시, 선택 사용 로그</span></div>
     <div class="tl"><div class="pt"></div><b>v0.15.9</b><span>모든 도구 기본 켜짐, 법령 캐시·429 재시도·law_offset</span></div>
     <div class="tl"><div class="pt"></div><b>v0.15.10</b><span>로컬 법령 서버 한도 표시 수정</span></div>
-    <div class="tl now"><div class="pt"></div><b>v0.15.11 · 현재</b><span>자연어 조회 개선·핵심어 입력, 인용 검증 오탐 차단, HTML 본문 누락 수정</span></div>
+    <div class="tl"><div class="pt"></div><b>v0.15.11</b><span>자연어 조회 개선·핵심어 입력, 인용 검증 오탐 차단, HTML 본문 누락 수정</span></div>
+    <div class="tl now"><div class="pt"></div><b>v0.15.12 · 현재</b><span>상위 법령·타대학 시행일 표시 수정, 의미검색·순위 결합(선택 기능)</span></div>
   </div>
   <div class="install">
     <div class="box bl">
@@ -597,7 +598,7 @@ Authorization: Bearer &lt;발급받은 토큰&gt;</pre>
     <div class="box gy">
       <h4>③ 내 PC 설치 <span class="tag o">stdio</span></h4>
       <p style="margin:0;font-size:12.5px">Node.js 20.19+(20계열) 또는 22.3+, 21 제외. npm 레지스트리가 아닌 GitHub 릴리스 패키지</p>
-      <pre>npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.11/dongguk-rule-mcp-0.15.11.tgz
+      <pre>npm install -g https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/download/v0.15.12/dongguk-rule-mcp-0.15.12.tgz
 dongguk-rule-mcp --doctor --json
 dongguk-rule-mcp --print-config claude</pre>
       <p class="note">규정 조회·타대학 비교는 바로 동작. 법령 조회는 <code>LAW_OC</code>(법제처 키) 또는 <code>DONGGUK_LEGAL_MCP_URL</code>이 있어야 하고, 서울대 비교는 <code>DONGGUK_LAWGO_OC</code>가 더 필요합니다.</p>
@@ -611,7 +612,7 @@ dongguk-rule-mcp --print-config claude</pre>
 </div>
 
 <details class="src">
-  <summary>이 페이지의 근거 (v0.15.11 소스)</summary>
+  <summary>이 페이지의 근거 (v0.15.12 소스)</summary>
   <ul>
     <li>구성·경로·인증·한도: <code>src/index.js</code> <code>startHttp</code>·<code>createServer</code>, <code>src/http-server.js</code>, <code>src/rate-limit.js</code>, <code>docs/OPERATIONS.md</code></li>
     <li>원문·캐시·색인: <code>src/index.js</code> <code>TTL</code>·<code>fetchResponse</code>·<code>getOriginalContent</code>·<code>buildRuleIndex</code>, <code>src/corpus.js</code></li>
@@ -622,7 +623,7 @@ dongguk-rule-mcp --print-config claude</pre>
   </ul>
 </details>
 
-<footer>동국 규정 MCP 작동 방식 안내 · v0.15.11 기준 · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp">GitHub 저장소</a> · <a href="REFERENCE.md">개발자 참고</a></footer>
+<footer>동국 규정 MCP 작동 방식 안내 · v0.15.12 기준 · <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp">GitHub 저장소</a> · <a href="REFERENCE.md">개발자 참고</a></footer>
 </div>
 </body>
 </html>
