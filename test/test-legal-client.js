@@ -230,6 +230,88 @@ test('dated annex failure never retries with current annex silently',async()=>{
   assert.equal(client.calls.some(c=>c.name==='search_law'),false);
 });
 
+test('bounded unquoted candidates are matched only against full official suffix names',async()=>{
+  const official='교원의 노동조합 설립 및 운영 등에 관한 법률';
+  const candidate='주변문장 교원의 노동조합설립 및 운영 등에 관한 법률';
+  const client=fake(r=>r.name==='search_law'?current(official):r.name==='get_law_text'?lawBody(official,'제5조'):undefined);
+  const response=await run([{law_name:candidate,article:'제5조',suffixMatch:true}],client);
+  assert.equal(response.status,'retrieved');
+  assert.equal(response.results[0].law.name,official);
+  assert.equal(response.results[0].matchedFromText,candidate);
+  assert.equal(client.calls.filter(c=>c.name==='search_law').length,1);
+  for(const requested of [{law_name:'운영 등에 관한 법률',article:'제5조',suffixMatch:true},{law_name:candidate,article:'제5조'}]){
+    const rejected=fake(r=>r.name==='search_law'?current(official):undefined);
+    const result=await run([requested],rejected);
+    assert.equal(result.status,'unavailable');
+    assert(!rejected.calls.some(c=>c.name==='get_law_text'));
+    assert(rejected.calls.filter(c=>c.name==='search_law').length<=3);
+  }
+});
+test('old names require explicit rename notice and verified current listing; warn about article numbers',async()=>{
+  const old='지가공시 및 토지 등의 평가에 관한 법률',official='부동산 가격공시에 관한 법률';
+  const notice=`「${old}」은(는) 옛 법령명입니다. 현행은 「${official}」(법령ID 001827, MST 251375)`;
+  const listing=current(official).content[0].text;
+  const client=fake(r=>r.name==='search_law'?text(notice+'\n'+listing):r.name==='get_law_text'?lawBody(official,'제4조'):undefined);
+  const result=await run([{law_name:old,article:'제4조'}],client);
+  assert.equal(result.status,'retrieved');
+  assert.equal(result.results[0].renamedFrom,old);
+  assert.deepEqual(result.results[0].warnings.map(x=>x.code),['LAW_RENAMED','ARTICLE_NUMBER_UNVERIFIED']);
+  assert.equal(result.results[0].articles[0].source.lawName,official);
+  const annexClient=fake(r=>r.name==='search_law'?text(notice+'\n'+listing):undefined);
+  const annexResult=await run([{law_name:old,annex:'별표 1'}],annexClient);
+  assert.equal(annexResult.status,'unavailable');
+  assert(!annexClient.calls.some(c=>c.name==='get_annexes'));
+  for(const bad of [listing,notice,notice+'\n'+current(official,'251375','20270101').content[0].text,notice.replace(old,'다른옛법')+'\n'+listing]){
+    const rejected=fake(r=>r.name==='search_law'?text(bad):undefined);
+    const failure=await run([{law_name:old,article:'제4조'}],rejected);
+    assert.equal(failure.status,'unavailable');
+    assert(!rejected.calls.some(c=>c.name==='get_law_text'));
+  }
+});
+
+test('I1 conjunction context and anaphora retain the old boundary and guessed identity through both consumers',async()=>{
+  const {createResolver,extractReferences,summarizeExternalLaws}=require('../src/references');
+  const {planRequests}=require('../src/law-link');
+  const {planLaws}=require('../src/upper-laws');
+  const {inspectLaws}=require('../src/legal-client');
+  const official='국가를 당사자로 하는 계약에 관한 법률';
+  for(const prefix of ['계약절차는 내부지침 및 ','업무 처리 및 ','교육 및 ','']) for(const anaphora of ['같은 법','동법']){
+    const refs=extractReferences(`${prefix}${official} 제7조 및 ${anaphora} 제8조에 따른다.`,createResolver([]));
+    assert.deepEqual(refs.map(x=>x.name),[official,official]);
+    assert(refs.every(x=>x.nameExtended===true));
+    const external=summarizeExternalLaws(refs);
+    assert.equal(external.length,1);assert.equal(external[0].nameGuessed,true);
+    const client=fake(r=>r.name==='search_law'?current(official):r.name==='get_law_text'?lawBody(official,r.arguments.jo):undefined);
+    const response=await run(planRequests(external).requests,client);
+    assert.equal(response.status,'retrieved');assert.equal(response.counts.bodyRetrieved,2);
+    assert(response.results.every(x=>x.law.name===official));
+    assert.equal(client.calls.filter(x=>x.name==='search_law').length,1);
+    assert.equal(client.calls.find(x=>x.name==='search_law').arguments.query,official);
+    const planned=planLaws(refs,{includeCandidates:false}).laws[0];
+    const upper=await inspectLaws([{name:planned.lawName,articles:planned.articles,suffixMatch:planned.nameGuessed,nameCandidate:planned.nameCandidate}],{client,now:NOW});
+    assert.equal(upper.status,'retrieved');assert.equal(upper.laws[0].identity.name,official);
+  }
+});
+test('conjunction candidates require official matches; unknown names retain the boundary and candidates stay separate',async()=>{
+  const {createResolver,extractReferences,summarizeExternalLaws}=require('../src/references');
+  const {planRequests}=require('../src/law-link');
+  const official='교원의 노동조합 설립 및 운영 등에 관한 법률';
+  const refs=extractReferences('교원의 노동조합설립 및 운영 등에 관한 법률 제5조 및 같은 법 제6조',createResolver([]));
+  assert(refs.every(x=>x.name==='운영 등에 관한 법률'&&x.nameExtended&&x.nameCandidate));
+  const requests=planRequests(summarizeExternalLaws(refs)).requests;
+  const client=fake(r=>r.name==='search_law'?current(official):r.name==='get_law_text'?lawBody(official,r.arguments.jo):undefined);
+  const good=await run(requests,client);assert.equal(good.status,'retrieved');assert.equal(good.counts.bodyRetrieved,2);
+  assert(good.results.every(x=>x.law.name===official));
+  for(const name of ['별개의 운영 등에 관한 법률','교원의 노동조합 설립 및 운영 등에 관한 법률 시행령']){
+    const rejected=fake(r=>r.name==='search_law'?current(name):undefined);
+    const bad=await run(requests,rejected);assert.equal(bad.status,'unavailable');
+    assert(!rejected.calls.some(x=>x.name==='get_law_text'));
+    assert(refs.every(x=>x.name==='운영 등에 관한 법률'&&x.nameExtended));
+  }
+  const many=summarizeExternalLaws(extractReferences('교원의 노동조합설립 및 운영 등에 관한 법률 제5조. 다른대상 및 운영 등에 관한 법률 제5조.',createResolver([])));
+  assert.equal(many.length,2);assert.notEqual(many[0].nameCandidate,many[1].nameCandidate);
+});
+
 (async()=>{
   let passed=0;
   for(const {name,fn} of tests){try{await fn();passed++;console.log(`ok ${passed} - ${name}`);}catch(error){console.error(`not ok - ${name}`);throw error;}}

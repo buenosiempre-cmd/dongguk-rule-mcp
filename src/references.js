@@ -10,7 +10,7 @@ const ARTICLE_AFTER = /^\s*(?:\([^)\n]{0,60}\)\s*)?(?:에서\s*|의\s*)?(?=제\s
 const ARTICLE_ITEM = /^제\s*(\d+)\s*조(?:\s*의\s*(\d+))?(?:\s*제\s*(\d+)\s*항)?(?:\s*제\s*\d+\s*호(?:\s*[가-하]목)?)?/;
 // "제29조, 제31조 및 제32조의2" lists belong to the law named before them.
 const ARTICLE_SEPARATOR = /^\s*(?:,|ㆍ|·|및|또는|내지|부터|와|과)\s*(?=제\s*\d+\s*조)/;
-const UNQUOTED_LAW = /([가-힣A-Za-z0-9·ㆍ]{0,30}(?:법률|법))((?:\s?시행령|\s?시행규칙)?)\s*(?=제\s*\d+\s*조)/g;
+const UNQUOTED_LAW = /([가-힣A-Za-z0-9·ㆍ]{0,30}(?:법률|법))((?:\s?시행령|\s?시행규칙)?)\s*(?=(?:\(\s*이하[^)\n]{1,60}\)\s*)?제\s*\d+\s*조)/g;
 const ANAPHORA = /(?:동\s?법|같은\s?법)((?:\s?시행령|\s?시행규칙)?)\s*(?=제\s*\d+\s*조)/g;
 const ABBREVIATION = /^\s*\(\s*이하\s*["“”'‘’]\s*([^"“”'‘’\n]{1,20}?)\s*["“”'‘’]\s*(?:이)?라\s*(?:한다|함)\.?\s*\)/;
 const ANY_ARTICLE = /제\s*(\d+)\s*조(?:\s*의\s*(\d+))?/g;
@@ -93,7 +93,7 @@ function readArticles(tail) {
 // "근로자퇴직급여 보장법", "국가를 당사자로 하는 계약에 관한 법률": the words before
 // the last one are part of the name. The result is a best guess; a caller that can
 // reach a law server should confirm it against the official name.
-function extendLawName(source, start, base) {
+function extendLawName(source, start, base, acrossAnd = false) {
   const words = source.slice(Math.max(0, start - 90), start).split('\n').pop().split(/[ \t]+/).filter(Boolean);
   // Nothing precedes on this line, or the base is glued to the previous character.
   if (!words.length || !/[ \t]$/.test(source.slice(0, start))) return { name: base, start };
@@ -103,7 +103,13 @@ function extendLawName(source, start, base) {
   if (!wide && !GENERIC_LAW_TAIL.test(base)) return { name: base, start };
   const taken = [];
   for (let i = words.length - 1; i >= 0 && taken.length < (wide ? MAX_NAME_WORDS : 1); i--) {
-    if (!NAME_WORD.test(words[i]) || NAME_BOUNDARY.test(words[i])) break;
+    // Only a conjunction inside a bounded '…에 관한 법률' candidate may be
+    // crossed. Ordinary sentence conjunctions remain boundaries, as do another
+    // law's name on the left. The widened candidate still needs official matching.
+    const internalAnd = acrossAnd && words[i] === '및' && base === '법률' &&
+      taken.some(word => /^(?:관한|위한|대한)$/.test(word)) && taken.length + 1 < MAX_NAME_WORDS &&
+      i > 0 && NAME_WORD.test(words[i - 1]) && !NAME_BOUNDARY.test(words[i - 1]) && !LAW_SUFFIX.test(words[i - 1]);
+    if (!NAME_WORD.test(words[i]) || (NAME_BOUNDARY.test(words[i]) && !internalAnd)) break;
     taken.unshift(words[i]);
   }
   if (!taken.length) return { name: bare ? null : base, start };
@@ -163,9 +169,16 @@ function extractReferences(text, resolver) {
     if ((match[1] === '법' || match[1] === '법률') && /(?:같은|동|이|본|해당|관련|관계)[ \t]*$/.test(source.slice(Math.max(0, match.index - 6), match.index))) continue;
     const extended = extendLawName(source, match.index, match[1]);
     if (!extended.name || overlaps(extended.start, end)) continue;
-    const name = `${extended.name}${match[2] ? ` ${match[2].trim()}` : ''}`;
+    const suffix = match[2] ? ` ${match[2].trim()}` : '';
+    const name = `${extended.name}${suffix}`;
+    // Keep the established boundary in the extracted name. Crossing '및' only
+    // supplies a candidate; a law provider must confirm its full official name.
+    const wider = extendLawName(source, match.index, match[1], true);
+    const nameCandidate = wider.name && wider.name !== extended.name && !overlaps(wider.start, end)
+      ? `${wider.name}${suffix}` : null;
     push(extended.start, end, name, articles, false, extended.extended
-      ? { scope: 'external_law', target: { lawName: name }, resolutionStatus: 'name_heuristic', nameExtended: true } : undefined);
+      ? { scope: 'external_law', target: { lawName: name }, resolutionStatus: 'name_heuristic', nameExtended: true,
+        ...(nameCandidate ? { nameCandidate } : {}) } : undefined);
   }
 
   // "동법 제4조", "같은 법 시행령 제5조": the nearest law named earlier in this text.
@@ -179,7 +192,11 @@ function extractReferences(text, resolver) {
     const base = antecedent.name.replace(/\s?(?:시행령|시행규칙)$/, '');
     const suffix = match[1].trim();
     const name = suffix ? `${base} ${suffix}` : base;
-    push(match.index, end, name, articles, false, { scope: 'external_law', target: { lawName: name }, resolutionStatus: 'anaphora' });
+    const candidateBase = antecedent.nameCandidate?.replace(/\s?(?:시행령|시행규칙)$/, '');
+    push(match.index, end, name, articles, false, { scope: 'external_law', target: { lawName: name }, resolutionStatus: 'anaphora',
+      ...(antecedent.nameExtended ? { nameExtended: true } : {}),
+      ...(candidateBase ? { nameCandidate: suffix ? `${candidateBase} ${suffix}` : candidateBase } : {}),
+    });
   }
 
   // 「…법 시행령」(이하 "시행령"이라 한다) … 시행령 제30조
@@ -208,7 +225,7 @@ function extractReferences(text, resolver) {
 
   const seen = new Set();
   return found.sort((a, b) => a.position - b.position).filter(item => {
-    const key = [item.scope, normalizeName(item.name), item.article || '', item.paragraph || ''].join('|');
+    const key = [item.scope, normalizeName(item.name), normalizeName(item.nameCandidate), item.article || '', item.paragraph || ''].join('|');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -222,8 +239,8 @@ function summarizeExternalLaws(references) {
     if (item.scope !== 'external_law' && !item.externalCandidate) continue;
     const name = item.target.lawName || item.target.name;
     // 「사학기관 재무회계 규칙」 and 「사학기관 재무ㆍ회계 규칙」 are one law.
-    const key = normalizeName(name);
-    const entry = laws.get(key) || { lawName: name, articles: [], citations: 0, confirmedLawName: item.scope === 'external_law', nameGuessed: true };
+    const key = JSON.stringify([normalizeName(name), normalizeName(item.nameCandidate)]);
+    const entry = laws.get(key) || { lawName: name, articles: [], citations: 0, confirmedLawName: item.scope === 'external_law', nameGuessed: true, ...(item.nameCandidate ? { nameCandidate: item.nameCandidate } : {}) };
     entry.citations++;
     // A name written without 낫표 and widened to earlier words is a guess until a law server confirms it.
     if (!item.nameExtended) entry.nameGuessed = false;

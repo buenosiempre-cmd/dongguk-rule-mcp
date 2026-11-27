@@ -478,7 +478,7 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
     counts:{...totals,shown},
     coverage:{outgoing:direction==='incoming'?null:{scope:selector?'selected_article':'whole_rule',complete:true},incoming:direction==='outgoing'?null:incoming,catalogAvailable},
     truncated:omittedCount>0,omittedCount,
-    evidenceStatus:(direction==='outgoing'||(incoming.scanned&&incoming.complete&&!incoming.stale))&&catalogAvailable&&!omittedCount?'retrieved':'partial',
+    evidenceStatus:(direction==='outgoing'||(incoming.scanned&&incoming.complete&&!incoming.stale))&&catalogAvailable&&!omittedCount&&(!lawTexts||['retrieved','not_required'].includes(lawTexts.status))?'retrieved':'partial',
     returnedAt:new Date().toISOString(),
   });
 }
