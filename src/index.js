@@ -341,9 +341,9 @@ async function buildSemanticRuleIndex({onProgress,shared=false}={}) {
   catch(error){return {ok:false,code:error.code||'SEMANTIC_MODEL_UNAVAILABLE',message:error.code==='SEMANTIC_RUNTIME_MISSING'?error.message+' 서버 설치 폴더에서 `npm install @huggingface/transformers`를 실행하거나 DONGGUK_MCP_SEMANTIC_RUNTIME에 설치 폴더를 지정하세요.':'임베딩 모델을 불러오지 못했습니다.'};}
   const started=Date.now();
   let built;
-  // A failure here leaves the previous vector file in place.
+  // Only a completed build atomically publishes a new index description.
   try{built=await buildSemanticIndex({corpus,directory,embedder,previous:loadSemanticIndex(directory),onProgress});}
-  catch{return {ok:false,code:'SEMANTIC_BUILD_FAILED',message:'조문 벡터를 만들지 못했습니다. 기존 벡터 파일은 그대로입니다.'};}
+  catch{return {ok:false,code:'SEMANTIC_BUILD_FAILED',message:'조문 벡터를 만들지 못해 새 색인을 게시하지 않았습니다. 이전 색인이 있다면 유지됩니다. 사용 가능 여부는 의미검색 상태에서 확인하세요.'};}
   return {ok:true,model:built.meta.model,articles:built.meta.articles,vectors:built.meta.rows,dims:built.meta.dims,reusedArticles:built.reused,seconds:Math.round((Date.now()-started)/1000),builtAt:built.meta.builtAt};
 }
 function indexStatus() {
