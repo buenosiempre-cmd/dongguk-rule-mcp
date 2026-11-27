@@ -9,6 +9,8 @@ const heading = text => /^\s*(?:#{1,6}\s*)?제\s*\d+\s*조(?:\s*의\s*\d+)?\s*[�
 const directCampus = /(?:동국대학교|본교|본\s*대학교)\s*(?:\([^)]{0,80}\)\s*)?(?:서울|WISE|경주|와이즈)\s*캠퍼스|(?:동국대학교|본교)\s*\(\s*(?:서울|WISE|경주|와이즈)\s*캠퍼스\s*\)/i;
 const explicitApplication = /(?:에|에게|을|를)\s*(?:적용한다|적용함|적용하는|적용된다|적용됨|적용대상으로|대상으로)/;
 const ownInstitution = /(?:동국대학교|본교)\s*(?:\([^)]{0,80}\)\s*)?(?:(?:서울|WISE|경주|와이즈)\s*캠퍼스\s*)?(?:산학협력단|의학계열|의과대학|한의과대학|의학전문대학원|의료원)(?=\s*(?:\([^)]{0,80}\)\s*)?의)/i;
+const institutionalTarget = /(?:산학협력단|의학계열|의과대학|한의과대학|의학전문대학원|의료원)\s*(?:(?:의|소속)\s*(?:임직원|직원|교직원|구성원)|(?:에게|에)\s*$)/;
+const institutionalDomain = /(?:산학협력단|의학계열|의과대학|한의과대학|의학전문대학원|의료원)\s*(?:\([^)]{0,80}\)\s*)?의\s*(?:조직|운영|설치|인사|복무)/;
 const negative = /(?:적용|준용)\s*(?:하지|되지|아니)|(?:제외|예외|다만|적용하지|적용되지)/;
 const withoutTitles = text => text.replace(/[「『][^」』]*[」』]/g, ' ');
 const unique = values => [...new Set(values)].sort();
@@ -38,8 +40,9 @@ function inferRuleScope(rule) {
         // Only the direct target clause (not a preceding cited source) establishes scope.
         values=application ? placeOf(applicationTarget)[axis] : ownership ? placeOf((axis==='campus'?directCampus:ownInstitution).exec(cleaned)[0])[axis] : [];
         if(application && /(?:전교|양\s*캠퍼스|모든\s*캠퍼스|캠퍼스에\s*관계없이)/.test(applicationTarget))values=[];
+        if(axis==='institution'&&!(application?institutionalTarget.test(applicationTarget.trim()):institutionalDomain.test(cleaned))){values=[];reason='institution_admin_or_subject_not_scope';}
         if(!application&&named[axis].length>1){values=[];uncertain[axis]=true;}
-        if(!values.length)reason='mention_without_direct_scope';
+        if(!values.length)reason=reason||'mention_without_direct_scope';
         // A bare citation/analogy is never enough to establish the current rule's scope.
         else if(/(?:준용한다|준용함|따른다)\s*[.。]?\s*$/.test(cleaned.trim())&&!/목적|정한다|적용한다/.test(cleaned))reason='reference_only';
       }
