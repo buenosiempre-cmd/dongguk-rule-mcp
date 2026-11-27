@@ -13,9 +13,9 @@ const { pathToFileURL } = require('node:url');
 
 const SEMANTIC_VERSION = 1;
 // Changes whenever the text given to the model changes, so old vectors are not reused.
-const TEXT_VERSION = 2;
+const TEXT_VERSION = 3;
 const META_FILE = `semantic-v${SEMANTIC_VERSION}.json`;
-const VECTOR_FILE = `semantic-v${SEMANTIC_VERSION}.bin`;
+const vectorFilename = hash => `semantic-v${SEMANTIC_VERSION}.${hash}.bin`;
 const RUNTIME_PACKAGE = '@huggingface/transformers';
 
 // E5 models are trained with "query: " and "passage: " prefixes and mean pooling.
@@ -28,9 +28,6 @@ const MODELS = {
 const DEFAULT_MODEL = 'Xenova/multilingual-e5-small';
 const CHUNK_CHARS = 400;
 const CHUNK_OVERLAP = 100;
-// Far above the longest article of the rule book (about 5,500 characters, 18 pieces). An article
-// longer than this keeps its first pieces and its last one, so the closing proviso stays searchable.
-const MAX_CHUNKS = 40;
 const DEFAULT_TIMEOUT_MS = 1500;
 // After a failed load or a stalled inference, the word index answers alone for this long before
 // another try; after a failed inference, for the shorter time.
@@ -71,9 +68,7 @@ function articleTexts(title, content) {
     starts.push(start);
     if (start + CHUNK_CHARS >= body.length) break;
   }
-  // Over the limit: the first pieces, then the piece that ends the article.
-  const kept = starts.length <= MAX_CHUNKS ? starts : [...starts.slice(0, MAX_CHUNKS - 1), Math.max(0, body.length - CHUNK_CHARS)];
-  return kept.map(start => {
+  return starts.map(start => {
     const piece = body.slice(start, start + CHUNK_CHARS);
     return start === 0 || !heading ? `${head} ${piece}` : `${head} ${heading} ${piece}`;
   });
@@ -122,8 +117,9 @@ async function createEmbedder({ directory, model = modelName(), download = false
 
 // === building ===
 async function buildSemanticIndex({ corpus, directory, embedder, previous = null, batchSize = 16, onProgress = () => {}, now = () => new Date() }) {
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1) throw new Error('Invalid semantic batch size');
   const reusable = new Map();
-  if (previous && previous.meta.model === embedder.model && previous.meta.textVersion === TEXT_VERSION) {
+  if (previous && validMeta(previous.meta) && previous.meta.model === embedder.model) {
     let row = 0;
     for (const rule of previous.meta.rules) for (const [, hash, count] of rule.blocks) {
       reusable.set(`${rule.lawId}:${hash}`, { row, count });
@@ -145,11 +141,12 @@ async function buildSemanticIndex({ corpus, directory, embedder, previous = null
       if (kept) reused++;
       total++;
     });
-    if (blocks.length) rules.push({ lawId: rule.lawId, historyId: rule.historyId, blocks });
+    if (blocks.length) rules.push({ lawId: rule.lawId, historyId: rule.historyId, blockCount: rule.blocks.length, blocks });
   }
   const rows = pending.reduce((sum, item) => sum + item.count, 0);
-  let dims = previous?.meta.dims || 0, vectors = null, row = 0, done = 0;
+  let dims = 0, vectors = null, row = 0, done = 0;
   const write = vector => {
+    if (!vector.length || (vectors && vector.length !== dims) || !vector.every(Number.isFinite)) throw new Error('Invalid semantic vector');
     if (!vectors) { dims = vector.length; vectors = new Float32Array(rows * dims); }
     vectors.set(vector, row * dims);
     row++;
@@ -158,31 +155,28 @@ async function buildSemanticIndex({ corpus, directory, embedder, previous = null
   const flush = async () => {
     if (!queue.length) return;
     const embedded = await embedder.embedPassages(queue);
+    if (embedded.length !== queue.length) throw new Error('Invalid semantic embedding count');
     queue = [];
-    return embedded;
+    for (const vector of embedded) write(vector);
   };
   // Vectors are written in article order, so new articles are embedded in runs between reused ones.
-  for (let i = 0; i < pending.length;) {
-    const item = pending[i];
+  for (const item of pending) {
     if (item.kept) {
-      for (let k = 0; k < item.count; k++) write(previous.vectors.subarray((item.kept.row + k) * dims, (item.kept.row + k + 1) * dims));
-      i++; done++;
-      continue;
+      await flush();
+      for (let k = 0; k < item.count; k++) write(previous.vectors.subarray((item.kept.row + k) * previous.meta.dims, (item.kept.row + k + 1) * previous.meta.dims));
+    } else {
+      for (const text of item.texts) {
+        queue.push(text);
+        if (queue.length === batchSize) await flush();
+      }
     }
-    let end = i;
-    while (end < pending.length && !pending[end].kept && queue.length + pending[end].texts.length <= Math.max(batchSize, pending[end].texts.length)) {
-      queue.push(...pending[end].texts);
-      end++;
-    }
-    for (const vector of await flush()) write(vector);
-    done += end - i;
-    i = end;
+    done++;
     onProgress({ done, total, reused });
   }
+  await flush();
   if (!vectors) vectors = new Float32Array(0);
-  // The hash ties this description to exactly these vectors: the two files are replaced one
-  // after the other, and a reader must never pair one generation's rows with another's vectors.
-  const meta = { version: SEMANTIC_VERSION, textVersion: TEXT_VERSION, model: embedder.model, dims, rows, articles: total, builtAt: now().toISOString(), corpusBuiltAt: corpus.builtAt, vectorHash: vectorHash(vectors), rules };
+  const hash = vectorHash(vectors);
+  const meta = { version: SEMANTIC_VERSION, textVersion: TEXT_VERSION, model: embedder.model, dims, rows, articles: total, builtAt: now().toISOString(), corpusBuiltAt: corpus.builtAt, vectorHash: hash, vectorFile: vectorFilename(hash), rules };
   if (directory) saveSemanticIndex(directory, { meta, vectors });
   return { meta, vectors, reused };
 }
@@ -190,17 +184,23 @@ async function buildSemanticIndex({ corpus, directory, embedder, previous = null
 const vectorHash = vectors => crypto.createHash('sha256').update(Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)).digest('hex');
 
 function saveSemanticIndex(directory, { meta, vectors }) {
+  if (!validMeta(meta) || vectors.length !== meta.rows * meta.dims || !vectors.every(Number.isFinite)
+    || vectorHash(vectors) !== meta.vectorHash) throw new Error('Invalid semantic index');
   const folder = semanticDir(directory);
   fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
   const suffix = `.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-  const files = [[path.join(folder, VECTOR_FILE), Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)], [path.join(folder, META_FILE), JSON.stringify(meta)]];
-  // Vectors first, description second. Between the two renames (or after a crash there) the old
-  // description sits beside new vectors; its hash does not match them and the pair is not used.
+  const files = [[path.join(folder, meta.vectorFile), Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength)], [path.join(folder, META_FILE), JSON.stringify(meta)]];
+  // Publish immutable, content-addressed vectors before atomically switching the description.
+  // Readers holding the old description keep its vectors, including after a failed publish.
+  // Do not remove old generations here: a different process may still be reading them.
   for (const [filename, data] of files) {
     try {
       fs.writeFileSync(filename + suffix, data, { mode: 0o600 });
       fs.renameSync(filename + suffix, filename);
-    } finally { if (fs.existsSync(filename + suffix)) fs.unlinkSync(filename + suffix); }
+    } finally {
+      // Cleanup must not turn a successful publish into a reported failure.
+      try { fs.unlinkSync(filename + suffix); } catch {}
+    }
   }
 }
 
@@ -210,15 +210,23 @@ function saveSemanticIndex(directory, { meta, vectors }) {
 // file's rows. Anything else means a damaged or foreign file, and the index is not used.
 function validMeta(meta) {
   if (!meta || meta.version !== SEMANTIC_VERSION || meta.textVersion !== TEXT_VERSION || !MODELS[meta.model]) return false;
-  if (!Number.isInteger(meta.dims) || meta.dims <= 0 || !Number.isInteger(meta.rows) || meta.rows < 0) return false;
-  if (typeof meta.vectorHash !== 'string' || !Array.isArray(meta.rules)) return false;
+  if (!Number.isSafeInteger(meta.dims) || meta.dims <= 0 || !Number.isSafeInteger(meta.rows) || meta.rows < 0
+    || !Number.isSafeInteger(meta.rows * meta.dims * 4)) return false;
+  if (typeof meta.vectorHash !== 'string' || !/^[a-f0-9]{64}$/.test(meta.vectorHash)
+    || meta.vectorFile !== vectorFilename(meta.vectorHash) || !Array.isArray(meta.rules)) return false;
   let rows = 0;
+  const lawIds = new Set();
   for (const rule of meta.rules) {
-    if (!rule || !Number.isInteger(rule.lawId) || !Array.isArray(rule.blocks)) return false;
+    if (!rule || !Number.isInteger(rule.lawId) || !Number.isSafeInteger(rule.blockCount) || rule.blockCount < 1 || !Array.isArray(rule.blocks)) return false;
+    if (lawIds.has(rule.lawId)) return false;
+    lawIds.add(rule.lawId);
+    const positions = new Set();
     for (const entry of rule.blocks) {
       if (!Array.isArray(entry) || entry.length !== 3) return false;
       const [position, hash, count] = entry;
-      if (!Number.isInteger(position) || position < 0 || typeof hash !== 'string' || !Number.isInteger(count) || count < 1) return false;
+      if (!Number.isInteger(position) || position < 0 || position >= rule.blockCount || typeof hash !== 'string' || !Number.isInteger(count) || count < 1) return false;
+      if (positions.has(position)) return false;
+      positions.add(position);
       rows += count;
     }
   }
@@ -227,17 +235,21 @@ function validMeta(meta) {
 
 const loadedIndexes = new Map();
 function loadSemanticIndex(directory) {
-  const metaFile = path.join(semanticDir(directory), META_FILE), vectorFile = path.join(semanticDir(directory), VECTOR_FILE);
-  let stamp;
+  const metaFile = path.join(semanticDir(directory), META_FILE);
+  let stamp, meta, vectorFile;
   try {
-    const meta = fs.statSync(metaFile), vectors = fs.statSync(vectorFile);
-    stamp = `${meta.mtimeMs}:${meta.size}:${vectors.mtimeMs}:${vectors.size}`;
+    // Read the description once: a concurrent writer may publish another one at any time.
+    const description = fs.readFileSync(metaFile, 'utf8');
+    meta = JSON.parse(description);
+    if (!validMeta(meta)) return null;
+    vectorFile = path.join(semanticDir(directory), meta.vectorFile);
+    const vectors = fs.statSync(vectorFile);
+    stamp = `${description}:${vectors.mtimeMs}:${vectors.ctimeMs}:${vectors.size}`;
   } catch { return null; }
   const memo = loadedIndexes.get(metaFile);
   if (memo && memo.stamp === stamp) return memo.index;
   let index = null;
   try {
-    const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
     const buffer = fs.readFileSync(vectorFile);
     if (validMeta(meta) && buffer.byteLength === meta.rows * meta.dims * 4
       && crypto.createHash('sha256').update(buffer).digest('hex') === meta.vectorHash) {
@@ -264,6 +276,12 @@ function alignToCorpus(index, corpus) {
   let row = 0, matched = 0, articles = 0;
   for (const entry of index.meta.rules) {
     const rule = byId.get(entry.lawId);
+    // A changed revision may legitimately have fewer blocks. For the same revision,
+    // the stored bound must agree with the corpus, not merely with its own positions.
+    if (rule && rule.historyId === entry.historyId && entry.blockCount !== rule.blocks.length) {
+      perIndex.set(index, null);
+      return null;
+    }
     for (const [blockIndex, hash, count] of entry.blocks) {
       const block = rule?.blocks[blockIndex];
       articles++;
@@ -280,7 +298,9 @@ function alignToCorpus(index, corpus) {
 }
 
 function scoreBlocks(index, corpus, queryVector) {
-  const { rowBlocks } = alignToCorpus(index, corpus);
+  const aligned = alignToCorpus(index, corpus);
+  if (!aligned) return null;
+  const { rowBlocks } = aligned;
   const { dims } = index.meta, vectors = index.vectors;
   if (queryVector.length !== dims) return null;
   const scores = new Map();
@@ -363,6 +383,7 @@ async function semanticScores({ corpus, directory, text, limitMs = timeoutMs() }
   if (!corpus || !directory || !query || semanticSetting() === 'off') return null;
   const index = loadSemanticIndex(directory);
   if (!index || (!state.override && index.meta.model !== modelName())) return null;
+  if (!alignToCorpus(index, corpus)) return null;
   let timer = null;
   try {
     const work = embedQuestion(directory, index.meta.model, query);
@@ -396,6 +417,7 @@ function semanticStatus(directory, corpus = null) {
   try {
     index = directory ? loadSemanticIndex(directory) : null;
     aligned = index && corpus ? alignToCorpus(index, corpus) : null;
+    if (index && corpus && !aligned) index = null;
   } catch { index = null; aligned = null; }
   return {
     setting, model: modelName(), indexAvailable: !!index,

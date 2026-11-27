@@ -34,7 +34,7 @@ for (const keyword of ['여비규정', '여비']) seed('search', key(keyword, fa
 for (const keyword of ['출장 숙박비', '출장숙박비']) seed('search', key(keyword, false, 1, 10, '0'), { total: 0, hits: [] });
 seed('search', key('출장 숙박비', true, 1, 10, '0'), { total: 1, hits: [hit] });
 seed('history', '1', [{ historyId: 10, revisedAt: '2026.01.01' }]);
-seed('content-v3', '1_10', { title: '여비규정', markdown: '### 제1조(목적)\n합성 본문' });
+seed('content-v4', '1_10', { title: '여비규정', markdown: '### 제1조(목적)\n합성 본문' });
 seed('original-structure-v2', '1_10', { markdown: '제1조(목적) 합성 목적\n\n제2조(대상) 합성 대상\n\n제3조(범위) 합성 범위\n\n제4조(신청) 합성 신청\n\n제5조(숙박비) 숙박비는 합성 기준을 따른다.\n\n제6조(운임) 철도운임은 합성 기준을 따른다.' });
 
 let passed = 0, failed = 0;
