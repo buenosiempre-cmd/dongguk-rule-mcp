@@ -39,7 +39,7 @@ async function main() {
     const k = expandTopic('겸직'); assert.equal(k.frame.id, 'external_concurrent_office'); assert.deepEqual(k.terms, ['겸직', '겸업']);
     const spaced = expandTopic('교원 겸직'); assert.equal(spaced.frame.id, 'external_concurrent_office'); assert.deepEqual(spaced.terms, ['겸직', '겸업']); assert(spaced.titleHints.includes('교원'));
     assert.equal(expandTopic('등록금 반환').frame.id, 'tuition_refund');
-    const two = expandTopic('여비 겸직'); assert.equal(two.frame, null); assert.deepEqual(two.terms, ['여비', '겸직']);
+    const two = expandTopic('여비 겸직'); assert.equal(two.frame, null); assert.deepEqual(two.terms, ['여비', '출장비', '겸직']);
     assert.equal(expandTopic('학부졸업유예').frame, null); assert.deepEqual(expandTopic('학부졸업유예').terms, ['학부졸업유예', '졸업유예']);
   });
   await check('동음어 조문 제외: 교내 겸무(JA교원)·지도교수 겸직은 빼고, 외부 겸직·행동강령은 남긴다', () => {

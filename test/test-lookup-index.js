@@ -75,7 +75,7 @@ seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
   value.markdown = value.markdown.replace(/\n(?=###)/g, '\n\n');
   seed('content-v3', key, value);
-  const appendix = key === '1_20' ? '\n\n제10조의2(특례)\n가지조문고유내용\n\n<별표 1> 지급표\n\n| 항목 | 금액 |\n|---|---|\n| 합성 | 100원 |\n\n① 별표주석\n\n<별표 10> 다른 표\n\n다른표고유내용\n\n<별표 1의2> 가지 표\n\n가지표고유내용' : '';
+  const appendix = key === '1_20' ? '\n\n제10조의2(특례)\n가지조문고유내용\n\n<별표 1> 지급표\n\n| 항목 | 금액 |\n|---|---|\n| 합성 | 100원 |\n\n① 별표주석\n\n<별표 10> 다른 표\n\n다른표고유내용\n\n<별표 1의2> 가지 표\n\n가지표고유내용\n\n## 부칙\n\n### 제9조(시행일)\n2050년부터 시행한다.' : '';
   seed('original-structure-v2', key, { markdown: value.markdown + appendix, structure: { coverage: { articles: 'complete' } } });
 }
 for (const rule of CATALOG) seed('history', String(rule.lawId), [{ historyId: rule.historyId, revisedAt: rule.revisedAt }]);
@@ -93,6 +93,16 @@ async function main() {
   check('복합어 대체: 두 글자·규정에 없는 말은 대체하지 않음', rewriteMissingToken('없음', df, corpus.rules.length) === null && rewriteMissingToken('zzzz', df, corpus.rules.length) === null);
   const scholarship = searchCorpus(corpus, '교내근로장학금 성적 기준', { top: 5 });
   check('색인 검색: 대체 단어 기록과 후보', scholarship.rewrittenTerms['교내근로장학금'] === '근로장학금' && scholarship.tokens.includes('근로장학금') && scholarship.hits.some(h => h.lawId === 6) && scholarship.hits.some(h => h.lawId === 5));
+  const {businessTerms,generalRuleWeight,comparisonTerms}=require('../src/aliases.js');
+  check('사전의 객체 원형 키도 일반 검색어로 처리', ['constructor','toString','__proto__'].every(t=>businessTerms(t).length===1 && searchCorpus(corpus,t+' 여비').hits.length>0));
+  check('어간 동의어는 다른 말투에도 적용', ['잃어버렸는데','잃어버리면','잃어버린'].every(t=>businessTerms(t).includes('분실')) && businessTerms('출장갈때').includes('여비'));
+  check('조문 제목으로 직접 연결하지 않는 업무 사전', !businessTerms('매달').includes('지급기일') && businessTerms('협조결재').length===1 && businessTerms('학점').length===1 && businessTerms('적립금').length===1);
+  check('석사·박사·논문 질문은 대학원 감점 해제', ['석사 논문 심사 절차','박사과정 수료 학점','학위청구 논문'].every(q=>generalRuleWeight('일반대학원 학칙시행세칙',q)===1));
+  check('짝 없는 캠퍼스 규정은 감점하지 않음', generalRuleWeight('WISE캠퍼스 아파트 관리내규','아파트 입주',false)===1 && generalRuleWeight('WISE캠퍼스 아파트 관리내규','아파트 입주',true)<1);
+  check('비교 주제는 규정 이름 동의어만 확장', comparisonTerms('강사료').includes('강의료') && comparisonTerms('법카').includes('법인카드') && comparisonTerms('한도').length===1);
+  const {extractRelevantBlocks}=require('../src/lookup.js');
+  const preferred=extractRelevantBlocks('### 제2조(기준)\n강의료 지급 기준\n\n### 제8조(금액)\n강의료 지급 기준 100원 200원', '강의료', {maxBlocks:1,order:'relevance',priorityArticles:['제2조']});
+  check('대표 조문을 발췌 한도 안에서 먼저 포함', preferred.text.includes('제2조(') && !preferred.text.includes('제8조('));
   const travel = searchCorpus(corpus, '국내출장 일비와 숙박비 한도', { top: 5 });
   check('색인 검색: 여비규정이 1위, 한도는 없는 단어', travel.hits[0].lawId === 1 && travel.hits[0].articles[0].article === '제9조' && travel.missingTerms.includes('한도') && travel.rewrittenTerms['국내출장'] === '출장');
 
@@ -109,6 +119,7 @@ async function main() {
     const travelLookup = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도' });
     check('자연어 질문: 색인으로 여비규정을 미리보기로 반환', travelLookup.sc.ok === true && travelLookup.sc.data.search.mode === '핵심어 색인' && travelLookup.sc.data.search.identityStatus === 'candidate_preview' && travelLookup.sc.data.rules[0].lawId === 1);
     check('미리보기는 근거 미확정(partial)과 다른 후보를 표시', travelLookup.sc.data.rules[0].evidenceStatus === 'partial' && travelLookup.sc.data.rules[0].incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED') && /다른 후보: .*취업규칙\(LAW_ID 3\)/.test(travelLookup.text) && /제9조\(일비 등의 지급\)/.test(travelLookup.text));
+    check('MCP 자동 발췌는 동번호 부칙을 검색어로 추가하지 않음', !travelLookup.sc.data.rules[0].excerpt.text.includes('2050년') && !travelLookup.sc.data.rules[0].excerpt.text.includes('시행일'));
     check('색인 기준·대체 단어를 본문에 표시', /색인 기준: /.test(travelLookup.text) && /짧게 바꿔 찾은 단어: 국내출장→출장/.test(travelLookup.text) && /어느 규정에도 없는 단어: 한도/.test(travelLookup.text));
     check('색인 경로에서는 전문검색을 요청하지 않음', !searches.some(s => s.type === 'CONTENTS'));
 
@@ -164,7 +175,7 @@ async function main() {
 
     const family = await call('lookup_dongguk_rule', { query: '육아휴직 기간' });
     const general = family.sc.data.rules.find(r => r.lawId === 21);
-    check('범위 미지정은 일반·WISE·의학 판을 별도 미확정 후보로 보존', family.sc.data.rules.length === 3 && [21, 22, 23].every(id => family.sc.data.rules.some(r => r.lawId === id)) && family.sc.data.search.selection === 'multiple_candidates');
+    check('범위 미지정은 일반판 우선, 적용범위가 다른 판도 별도 미확정 후보로 보존', family.sc.data.rules.length === 3 && family.sc.data.rules.map(r=>r.lawId).join(',') === '21,25,23' && family.sc.data.search.selection === 'multiple_candidates');
     check('미리보기 한도 밖의 다른 판도 LAW_ID와 제목 보존', general.editions.length === 3 && [22, 23, 24].every(id => general.editions.some(e => e.lawId === id && e.title === CATALOG.find(r => r.lawId === id).title)));
     check('자연어 발췌는 문서 순서보다 관련 조문 우선', general.excerpt.text.indexOf('제9조') < general.excerpt.text.indexOf('제1조') && general.excerpt.text.includes('제1조'));
     const wise = await call('lookup_dongguk_rule', { query: '육아휴직 기간', campus: 'wise' });
@@ -174,6 +185,9 @@ async function main() {
 
     for (const [scopeQuery, campus, allowed, text] of [
       ['산학협력단 장비 구매 절차', undefined, [32, 34], '산학협력단장이'],
+      ['산단 장비 구매 절차', undefined, [32, 34], '산학협력단장이'],
+      ['와이즈 장비 구매 절차', undefined, [33, 34], 'WISE담당자가'],
+      ['경주 장비 구매 절차', undefined, [33, 34], 'WISE담당자가'],
       ['의학계열 장비 구매 절차', undefined, [35], '의학담당자가'],
       ['WISE캠퍼스 산학협력단 장비 구매 절차', undefined, [34], 'WISE산학담당자가'],
       ['산학협력단 장비 구매 절차', 'wise', [34], 'WISE산학담당자가'],
@@ -203,6 +217,13 @@ async function main() {
       check('다중 미리보기 제한과 본문 안내도 일치', data.query.maxSections === 3 && data.query.maxChars === 6000 && lookup.text.includes(`규정 ${data.rules.length}개`));
     }
     check('한 판만 반환하면 single_candidate', wise.sc.data.rules.length === 1 && wise.sc.data.search.selection === 'single_candidate');
+
+    const named = await call('lookup_dongguk_rule', { query: '여비규정에서 밥값은 얼마 나와?' });
+    check('규정 이름을 말한 질문도 일상어를 규정 용어로 읽어 조문 선택', named.sc.data.rules.length === 1 && named.sc.data.rules[0].lawId === 1 && named.sc.data.rules[0].excerpt.text.includes('제9조('));
+    const explicitTerms = await call('lookup_dongguk_rule', { rule_keyword: '여비규정', terms: '밥값' });
+    check('terms를 직접 준 조회는 검색어를 넓히지 않음', explicitTerms.sc.data.rules[0].lawId === 1 && !explicitTerms.sc.data.rules[0].excerpt.text.includes('제9조('));
+    const oneWord = await call('lookup_dongguk_rule', { query: '숙박비' });
+    check('제목 후보가 없는 한 낱말 질문은 색인으로 조회', oneWord.sc.ok === true && oneWord.sc.data.search.mode === '핵심어 색인' && oneWord.sc.data.rules[0].lawId === 1);
 
     fs.unlinkSync(corpusPath(dir));
     searches.length = 0;

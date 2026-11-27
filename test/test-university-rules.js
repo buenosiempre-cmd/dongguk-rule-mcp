@@ -125,6 +125,14 @@ async function main() {
     assert.deepEqual(expandTopic('학부졸업유예').terms,['학부졸업유예','졸업유예']);assert.deepEqual(expandTopic('학부졸업유예').searchTerms,['졸업유예','학부졸업유예']);
     assert.deepEqual(expandTopic('등록금 반환').terms,['등록금','반환','환불']);assert.deepEqual(expandTopic('교원 겸직').terms,['겸직','겸업']);assert.equal(expandTopic('교원 겸직').frame.id,'external_concurrent_office');assert.deepEqual(expandTopic('교원 복무').terms,['교원','복무']);
   });
+  await check('강사료 비교는 동국 강의료 원문을 포함하고 넓은 주제는 확장하지 않음', async () => {
+    const d=await compareUniversityRules({topic:'강사료',universities:['korea']},{loadExternal:async()=>({rules:[],coverage:{complete:true},failures:[]}),loadDongguk:async(topic,terms,options)=>{
+      assert(terms.includes('강의료'));assert(options.searchTerms.includes('강의료'));
+      return {rules:[{lawId:9001,title:'강의료지급규정',markdown:'### 제4조(지급기일)\n강의료 지급일은 매월 말일이다.'}],coverage:{complete:true},failures:[]};
+    }});
+    assert.equal(d.columns[0].status,'retrieved');assert(d.columns[0].articles.some(a=>a.text.includes('강의료')));
+    assert.deepEqual(expandTopic('학점').terms,['학점']);
+  });
   await check('목록 제목의 스크립트 제거와 시행일자 추출', () => {
     const t=cleanListTitle(`if(chekFutureDate('20261015')){document.write("<span style='color: red;'>[시행예정]</span>");} 3-1-47 포상규정 newIcon('20261015');`);
     assert.deepEqual(t,{title:'3-1-47 포상규정',effectiveAt:'2026-10-15'});

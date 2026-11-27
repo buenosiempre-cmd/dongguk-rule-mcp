@@ -7,6 +7,7 @@ const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
 const { listArticleBlocks } = require('./parsers');
+const { comparisonTerms } = require('./aliases');
 const { extractEnforcementDates } = require('./timeline');
 const { loadCau, NOTICE: PDF_NOTICE } = require('./cau-pdf');
 const { validatePdf, LIMITS: PDF_LIMITS } = require('./pdf-text');
@@ -87,15 +88,17 @@ function topicVariants(word) {
 function expandTopic(topic) {
   const raw = String(topic).trim(), c = compact(raw), core = c.replace(TOPIC_PREFIX, '');
   const fromFrame = (frame, extraHints = []) => ({ terms: [...frame.terms], searchTerms: [...frame.searchTerms], titleHints: uniq([...frame.titleHints, ...extraHints]), frame });
-  const whole = resolveFrame(topicVariants(raw));
+  const synonyms = comparisonTerms(c);
+  const whole = resolveFrame(synonyms.flatMap(topicVariants));
   if (whole) return fromFrame(whole);
   if (/\s/.test(raw)) {
     const words = raw.split(/\s+/);
     const matched = uniq(words.map(w => resolveFrame(topicVariants(w))));
     if (matched.length === 1) return fromFrame(matched[0], words.filter(w => !resolveFrame(topicVariants(w))));
-    return { terms: words, searchTerms: [raw], titleHints: words, frame: null };
+    const terms=uniq(words.flatMap(comparisonTerms));
+    return { terms, searchTerms: uniq([raw,...terms]), titleHints: terms, frame: null };
   }
-  const terms = uniq([c, core.length >= 2 ? core : null]);
+  const terms = uniq([...synonyms, core.length >= 2 ? core : null]);
   return { terms, searchTerms: [...terms].reverse(), titleHints: terms, frame: null };
 }
 
