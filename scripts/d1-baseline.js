@@ -90,6 +90,16 @@ function comparison(before, after) {
 }
 
 async function measure(label, cacheRoot, repo, questions, options) {
+  // These are measurement-only caches: pin every rule, including already-cached histories.
+  // Otherwise a stale history's first revision can disagree with the captured corpus/HTML.
+  const catalog = JSON.parse(fs.readFileSync(path.join(options.snapshotCache, CACHE_SUFFIX, 'catalog/all.json')));
+  const historyDir = path.join(cacheRoot, CACHE_SUFFIX, 'history');
+  fs.mkdirSync(historyDir, { recursive: true });
+  for (const rule of catalog) {
+    const file = path.join(historyDir, `${rule.lawId}.json`);
+    if (fs.existsSync(file) && !fs.realpathSync(file).startsWith(fs.realpathSync(path.join(cacheRoot, CACHE_SUFFIX)) + path.sep)) throw new Error('CACHE_SYMLINK_OUTSIDE_ISOLATION');
+    fs.writeFileSync(file, JSON.stringify([{ historyId: rule.historyId, revisedAt: rule.revisedAt }]), { mode: 0o600 });
+  }
   // Freeze the approved snapshot's cache freshness without touching source cache bytes.
   const now = new Date();
   for (const category of ['catalog', 'history']) {
@@ -226,7 +236,7 @@ async function main(args = process.argv.slice(2)) {
   const after = await measure('after', afterCache, path.resolve(options.afterRepo), questions, options);
   const report = { startedAt, completedAt: new Date().toISOString(), questionFiles: files,
     mode: options.useArgs ? 'query+문항 자체 args' : 'query만', network: 'blocked',
-    snapshotAdapter: { catalogSha256, search: 'LAWNAME 제목 포함 비교, 같은 고정 catalog', content: '동일 lawId/historyId 수집 HTML만 사용', history: '누락 연혁은 catalog의 알려진 고정 연혁 1개만 재현. 과거 기준일 평가 미지원. before/after는 측정 전용 캐시이며 일반 조회용으로 사용하지 않는다.', hwp: '캐시 이외 실패 유지' },
+    snapshotAdapter: { catalogSha256, search: 'LAWNAME 제목 포함 비교, 같은 고정 catalog', content: '동일 lawId/historyId 수집 HTML만 사용', history: '모든 평가 연혁 캐시를 catalog의 알려진 고정 연혁 1개로 저장. 과거 기준일 평가 미지원. before/after는 측정 전용 캐시이며 일반 조회용으로 사용하지 않는다.', hwp: '캐시 이외 실패 유지' },
     definitions: { strict: '상위 3개 정답 규정 본문에 정답 조문/별표 표제 포함', top3: '상위 3개 반환 규정에 정답 규정 포함', bodyIncluded: '반환 전체 정답 규정 본문에 정답 조문/별표 표제 포함', articleGivenTop3: 'strict 정답 수 / 규정 top3 정답 수',
       limitation: '표제 존재를 채점하며 조문 내용의 법적 정확성이나 발췌 완전성을 판정하지 않는다. 원본 구조 캐시에서 발췌한 경우 HTML 전문 색인 변경은 후보 순위에만 드러날 수 있다. 첫 질의를 포함한 1회 실행 지연이다.' },
     before, after, diff: comparison(before.results, after.results) };
