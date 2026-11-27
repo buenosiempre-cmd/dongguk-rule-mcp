@@ -66,3 +66,7 @@ node scripts/measure-natural-language.js --cache <캐시 사본> --questions 문
 - 기본은 오프라인입니다. 제목 검색은 색인으로 대신 답하고 그 밖의 원문 요청은 실패시킵니다. 캐시에 없는 원문을 받으려면 `--online`.
 - 내는 값: 정답 조문 포함(엄격), 정답 규정 상위 3, 규정이 맞을 때 조문 포함, 한 규정만 보여 준 수와 그 정확도, 의미검색을 실제로 쓴 문항 수, 오류 수, 지연 중앙값·p95, RSS. 세트(파일)별로 나눠 냅니다. `--compare`는 새로 틀린 문항과 정답 규정이 상위 3에서 빠진 문항을 모두 적습니다.
 - 지연은 이 프로세스 안의 조회 시간입니다. 원문 사이트 왕복은 들어 있지 않습니다.
+
+## 본문 판 보강 실험
+
+방식은 `hybrid`로 두고 측정용 `DONGGUK_MCP_MEASURE_SCOPE=body|exclude`로 index.js 호출부에서 `createScopeSignal({corpus,mode}).agreement`를 `placeAgreementOf`에 연결한다. `body`는 기존 판정, `exclude`는 본문 단일 캠퍼스의 명시적 불일치에만 음수를 내고 나머지는 null로 제목 판독에 맡긴다. 추출·판정표는 같고 fusion 알고리즘·배수·기본 legacy는 유지한다. 기존 `hybrid-scope` 방식 이름은 제거했다.

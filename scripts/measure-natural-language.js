@@ -17,7 +17,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 function parseArgs(args) {
-  const options = { questions: [], ranking: null, keywords: null, cache: null, out: null, compare: null, offline: true };
+  const options = { questions: [], ranking: null, keywords: null, cache: null, out: null, compare: null, offline: true, queryOnly: false };
   for (let i = 0; i < args.length; i++) {
     const name = args[i], value = () => { if (i + 1 >= args.length) throw new Error(`MISSING_VALUE ${name}`); return args[++i]; };
     if (name === '--cache') options.cache = value();

@@ -748,8 +748,12 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // Order and edition choice are decided in fusion.js; `method` is the one it actually used.
   const corpus=loadCorpus(publicCacheDir());
   const requested=rankingMethod();
+  // Measurement-only provider; fusion owns edition selection and weights.
+  const scopeMode=process.env.DONGGUK_MCP_MEASURE_SCOPE;
+  const scopeSignal=requested==='hybrid'&&corpus&&['body','exclude'].includes(scopeMode)
+    ?require('./scope').createScopeSignal({corpus,mode:scopeMode}):null;
   const {method,ranked:fused}=rankRules({candidates:[...families.values()].flat(),scope:requestedRuleScope(scopeQuery,campus),query:scopeQuery,campus,
-    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),semantic:found.semantic,method:requested});
+    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),semantic:found.semantic,placeAgreementOf:scopeSignal?.agreement,method:requested});
   let ranked=fused;
   // A rule that shares only the institution's name with the question comes after every rule
   // with a matching topic. It stays a candidate: its answer may sit in an appendix the index lacks.
