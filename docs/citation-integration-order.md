@@ -4,7 +4,7 @@
 
 | 상태 | 의미 | 집계 |
 |---|---|---|
-| `ARTICLE_SELECTOR_UNVERIFIED` | 인용의 날짜 선택자를 해석하지 못하거나, 일치 날짜를 찾지 못한 상황에서 원문에 날짜 미상 부칙이 있어 실존을 판단할 수 없음 | ⚠, `needsReview`에 포함. `verified`·`exists`·`notFound`에서 제외 |
+| `ARTICLE_SELECTOR_UNVERIFIED` | 인용의 날짜 선택자 또는 같은 문장의 바로 다음 조문과의 연결을 해석하지 못하거나, 일치 날짜를 찾지 못한 상황에서 원문에 날짜 미상 부칙이 있어 실존을 판단할 수 없음 | ⚠, `needsReview`에 포함. `verified`·`exists`·`notFound`에서 제외 |
 | `UNSUPPORTED_CITATION` | 별표·서식·호·목·지원 범위 밖 번호 또는 앞 조문을 특정할 수 없는 항 인용 | ⚠, `needsReview`에 포함. `verified`·`exists`에서 제외 |
 | `NOT_FOUND` | 확인 가능한 부칙 날짜·조문 구조에 인용된 날짜 또는 조문이 없음 | ✗, `notFound`에 포함 |
 | `ARTICLE_AMBIGUOUS` | 날짜 없는 인용에 같은 조문 번호의 부칙이 여러 개 대응 | ⚠, `needsReview`에 포함 |

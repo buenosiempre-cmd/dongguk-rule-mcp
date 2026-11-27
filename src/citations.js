@@ -47,6 +47,26 @@ function citationRange(segment, start, text) {
   return { start: segment.offset + start, end: segment.offset + start + text.length, text };
 }
 
+// Preserve an explicit dated selector independently of its connection to an article.
+// Only the next article in the same sentence and rule context can inherit it.
+function scanDatedAddenda(text) {
+  return [...text.matchAll(new RegExp(ADDENDUM_PREFIX_SOURCE, 'g'))]
+    .filter(m => /\d{4}\s*[.\-/년]/.test(m[0]))
+    .map(m => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
+}
+
+function preserveDatedAddendum(match, text, addenda, mentions, after) {
+  if (match[1]) return false;
+  const pending = [...addenda].reverse().find(s => s.start >= after && s.end <= match.index);
+  if (!pending) return false;
+  const gap = text.slice(pending.end, match.index);
+  if (/[.!?。！？]/.test(gap) || overlaps(mentions, pending.start, match.index)) return false;
+  match[0] = text.slice(pending.start, match.index) + match[0];
+  match[1] = pending.text;
+  match.index = pending.start;
+  return true; // The selector was read, but its connection was not parsed.
+}
+
 function nkey(value) {
   return normalizeMiddots(value).replace(/\s+/g, '').toLowerCase();
 }
@@ -161,11 +181,15 @@ function extractRuleCitations(text) {
     mentionsAll.push(...mentions.map(x => ({ ...x, offset: segment.offset })));
     const bound = new Set();
 
+    const datedAddenda = scanDatedAddenda(segment.text);
+    let previousArticleEnd = 0;
     ARTICLE_RE.lastIndex = 0;
     let m;
     let previousArticle = null;
     while ((m = ARTICLE_RE.exec(segment.text)) !== null) {
       if (overlaps(mentions, m.index, ARTICLE_RE.lastIndex)) continue;
+      const connectionUnverified = !!m[2] && preserveDatedAddendum(m, segment.text, datedAddenda, mentions, previousArticleEnd);
+      if (m[2]) previousArticleEnd = ARTICLE_RE.lastIndex;
       const owner = [...mentions].reverse().find(x => x.end <= m.index);
       const paragraph = m[7] && /^제\s*(\d+)\s*항$/.exec(m[7]);
       const bridge = previousArticle ? segment.text.slice(previousArticle.end, m.index) : '';
@@ -188,7 +212,7 @@ function extractRuleCitations(text) {
       }
       const selectorText = m[2] ? `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${m[2]}조${m[3] ? `의${m[3]}` : ''}` : null;
       const selector = selectorText ? normalizeArticleSelector(selectorText) : null;
-      const selectorUnverified = inherited ? inherited.selectorUnverified : !!m[1] && !selector;
+      const selectorUnverified = inherited ? inherited.selectorUnverified : connectionUnverified || (!!m[1] && !selector);
       const canonical = inherited ? inherited.article.canonical : (selector?.label || selectorText);
       const article = inherited ? { ...inherited.article } : m[2]
         ? { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical }
@@ -217,7 +241,7 @@ function extractRuleCitations(text) {
       previousArticle = article && !unsupportedReasons.length
         ? { article, selectorUnverified, owner, end: ARTICLE_RE.lastIndex }
         : null;
-      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || '', unsupportedReasons.length ? raw : ''].join('|');
+      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || '', selectorUnverified, unsupportedReasons.length ? raw : ''].join('|');
       if (seen.has(key)) continue;
       seen.add(key);
       citations.push({
