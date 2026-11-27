@@ -52,7 +52,19 @@
     },
     "startupMs": 490.144542,
     "peakRssMb": 757.609375,
-    "timingScope": "Warm local e5-small inference included; first-use lexical term cache; no MCP/network/excerpt rendering; JEV includes RRF shared first stage. No query embedding cache."
+    "timingScope": "Warm local e5-small inference included; first-use lexical term cache; no MCP/network/excerpt rendering; JEV includes RRF shared first stage. No query embedding cache.",
+    "dataQuality": {
+      "status": "D1_PRE_FIX",
+      "severity": "P1",
+      "reportedBy": "레드팀 t3y / 코디네이터 t6v, 2026-11-27",
+      "corpusSha256": "47118b4a549b3d827c3b8e1a70b5f8e5f56f575c04caa9fb0357efa783802229",
+      "headingOnlyBlocksReported": 1656,
+      "affectedRulesReported": 248,
+      "indexedArticles": 9790,
+      "disposition": "D1 수정 전 역사적 실험 결과. 수정 색인에서 기준선 및 JEV 재학습/검증 전까지 채택 근거로 사용하지 않음.",
+      "strictBodyAccuracy": "미측정",
+      "graphIntegration": "명시적으로 확인된 상위 규정에서 하위 시행세칙/내규 방향만 가점. 상향/일반 인용/방향 불명은 가점하지 않음."
+    }
   },
   "evidenceSha256": "616633f81917e8313ef75095f04c9f4c129433574e584f5f119d91dfd65db0cd",
   "evaluatorSha256": "af9238495fd1c0a57e98651ab085759e0a423abbe50820e8fbf61d21a790ec15",
