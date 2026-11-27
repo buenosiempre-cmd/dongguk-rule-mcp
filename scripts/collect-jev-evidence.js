@@ -11,11 +11,13 @@ const { loadSemanticIndex, createEmbedder } = require('../src/semantic');
 const { createRetriever, FEATURE_NAMES, experimentFingerprint } = require('../src/jev');
 const sha = data => crypto.createHash('sha256').update(data).digest('hex');
 const DEV_OPEN_SHA = '4ac646c4c649bb00c37bdb28cb78e557a2c418ae98f3fef09c627ad276ffded3';
+// The second revision changes only all 20 IDs from Rxx to RTxx; content verified equal.
+const DEV_OPEN_SHAS = [DEV_OPEN_SHA, '977def756d89605ffbad21b23c242ad24dbb9880791b61502d62706f909d85ed'];
 function readPublicSources(devOpen) {
   const sources = devOpen ? [{ split: 'dev_open', file: devOpen }] : ['train', 'dev'].map(split => ({ split, file: path.join(__dirname, `../test/fixtures/natural-language-benchmark.${split}.json`) }));
   return sources.map(({ split, file }) => {
     const bytes = fs.readFileSync(file), hash = sha(bytes);
-    if (devOpen && hash !== DEV_OPEN_SHA) throw new Error('UNAPPROVED_DEV_OPEN_HASH');
+    if (devOpen && !DEV_OPEN_SHAS.includes(hash)) throw new Error('UNAPPROVED_DEV_OPEN_HASH');
     return { split, file: path.relative(path.join(__dirname, '..'), file), sha256: hash, rows: validateQuestions(JSON.parse(bytes)) };
   });
 }
@@ -89,4 +91,4 @@ async function main(argv = process.argv.slice(2)) {
   fs.writeFileSync(options.output, JSON.stringify(report) + '\n', { flag: 'wx' });
 }
 if (require.main === module) main().catch(e => { console.error(e.message); process.exitCode = 1; });
-module.exports = { main, assertFullVectorCoverage, readPublicSources, DEV_OPEN_SHA };
+module.exports = { main, assertFullVectorCoverage, readPublicSources, DEV_OPEN_SHA, DEV_OPEN_SHAS };

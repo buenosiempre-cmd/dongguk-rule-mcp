@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { FEATURE_NAMES, evidenceFeatures, reciprocalRankFusion, aggregateRules, createRetriever, rerank } = require('../src/jev');
 const { assertFullVectorCoverage } = require('../scripts/collect-jev-evidence');
+require('./test-jev-frozen');
 
 async function main() {
   // Golden values generated with upstream features.py at 13ae4cc.

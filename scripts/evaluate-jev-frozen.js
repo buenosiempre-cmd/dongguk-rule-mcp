@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { rerank, aggregateRules } = require('../src/jev');
-const { DEV_OPEN_SHA } = require('./collect-jev-evidence');
+const { DEV_OPEN_SHAS } = require('./collect-jev-evidence');
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const FROZEN_REPORTS = {
   single: 'db88764d6a16dcc3510bd2b0393b32bc592436d5ee97385f39a85d8414b39f7b',
@@ -12,7 +12,7 @@ const FROZEN_REPORTS = {
 };
 function validateInputs(evidence, trained, trainedBytes) {
   if (sha(trainedBytes) !== FROZEN_REPORTS[evidence.keyEncoding]) throw new Error('NOT_FROZEN_D1_MODEL');
-  if (evidence.sources.length !== 1 || evidence.sources[0].sha256 !== DEV_OPEN_SHA || evidence.records.length !== 20 || new Set(evidence.records.map(r => r.id)).size !== 20) throw new Error('NOT_APPROVED_DEV_OPEN');
+  if (evidence.sources.length !== 1 || !DEV_OPEN_SHAS.includes(evidence.sources[0].sha256) || evidence.records.length !== 20 || new Set(evidence.records.map(r => r.id)).size !== 20) throw new Error('NOT_APPROVED_DEV_OPEN');
   for (const key of ['fingerprint', 'corpusHash', 'vectorHash', 'keyEncoding', 'textVersion']) {
     if (evidence[key] !== trained.metadata[key]) throw new Error(`MODEL_EVIDENCE_MISMATCH:${key}`);
   }
