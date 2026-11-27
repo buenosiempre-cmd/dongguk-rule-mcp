@@ -1,0 +1,333 @@
+[
+  {
+    "id": "ontology-dev-1",
+    "query": "직원 휴가 신청",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "직원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": []
+    }
+  },
+  {
+    "id": "ontology-dev-2",
+    "query": "교원 급여 지급",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "교원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "보수"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-3",
+    "query": "강사 출장비",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "강사"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "여비"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-4",
+    "query": "조교 신청 절차",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "조교"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": []
+    }
+  },
+  {
+    "id": "ontology-dev-5",
+    "query": "학생 복학 신청",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "학생"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "복학"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-6",
+    "query": "대학원생 휴학 신청",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "학생"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": [
+          "graduate"
+        ]
+      },
+      "concepts": [
+        "휴학"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-7",
+    "query": "WISE 학생 휴학",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "학생"
+      ],
+      "scopes": {
+        "campus": [
+          "wise"
+        ],
+        "institution": []
+      },
+      "concepts": [
+        "휴학"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-8",
+    "query": "서울캠퍼스 직원 수당",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "직원"
+      ],
+      "scopes": {
+        "campus": [
+          "seoul"
+        ],
+        "institution": []
+      },
+      "concepts": [
+        "수당"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-9",
+    "query": "산단 직원 보수",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "직원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": [
+          "industry"
+        ]
+      },
+      "concepts": [
+        "보수"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-10",
+    "query": "의대 교원 수당",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "교원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": [
+          "medical"
+        ]
+      },
+      "concepts": [
+        "수당"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-11",
+    "query": "직원 출장",
+    "keywords": "WISE 산학협력단",
+    "expected": {
+      "subjects": [
+        "직원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "여비"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-12",
+    "query": "휴학 신청",
+    "keywords": "대학원",
+    "expected": {
+      "subjects": [],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "휴학"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-13",
+    "query": "교직원 수당",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "교원",
+        "직원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "수당"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-14",
+    "query": "교수가 학생에게 안내",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "교원",
+        "학생"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": []
+    }
+  },
+  {
+    "id": "ontology-dev-15",
+    "query": "조교수 급여",
+    "keywords": "",
+    "expected": {
+      "subjects": [
+        "교원"
+      ],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "보수"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-16",
+    "query": "교수법 운영",
+    "keywords": "",
+    "expected": {
+      "subjects": [],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": []
+    }
+  },
+  {
+    "id": "ontology-dev-17",
+    "query": "강사료 지급",
+    "keywords": "",
+    "expected": {
+      "subjects": [],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": []
+    }
+  },
+  {
+    "id": "ontology-dev-18",
+    "query": "서울 출장비",
+    "keywords": "",
+    "expected": {
+      "subjects": [],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": [
+        "여비"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-19",
+    "query": "서울캠퍼스 WISE 휴학",
+    "keywords": "",
+    "expected": {
+      "subjects": [],
+      "scopes": {
+        "campus": [
+          "wise",
+          "seoul"
+        ],
+        "institution": []
+      },
+      "concepts": [
+        "휴학"
+      ]
+    }
+  },
+  {
+    "id": "ontology-dev-20",
+    "query": "하자보수 절차",
+    "keywords": "",
+    "expected": {
+      "subjects": [],
+      "scopes": {
+        "campus": [],
+        "institution": []
+      },
+      "concepts": []
+    }
+  }
+]
