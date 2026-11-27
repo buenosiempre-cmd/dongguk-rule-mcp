@@ -247,4 +247,4 @@ async function main(args = process.argv.slice(2)) {
 }
 
 if (require.main === module) main().catch(error => { console.error(`D1 baseline failed: ${/^[A-Z_]+$/.test(error.message) ? error.message : 'CHECK_INPUT_OR_ISOLATED_CACHE'}`); process.exitCode = 1; });
-module.exports = { parseArgs, loadQuestions, strictResult, summarize, comparison, validatedCaches, main };
+module.exports = { parseArgs, loadQuestions, strictResult, summarize, comparison, validatedCaches, measure, main };

@@ -2,7 +2,8 @@
 
 // Candidate-signal experiment, not the production lexical/semantic fusion.
 // Policy is fixed: maximum cosine per article/rule, three rules, three evidence
-// items per rule. Only the committed train/dev and appendix dev questions enter.
+// items per rule. Only committed train/dev, appendix dev, or the explicitly
+// approved hash-locked open-dev dataset enters. Retrieval policy is unchanged.
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -88,7 +89,9 @@ function compare(results, left, right) {
 }
 
 async function main() {
-  const [cache, output] = process.argv.slice(2);
+  const [cache, output, option, ...extra] = process.argv.slice(2);
+  if (extra.length || option !== undefined && option !== '--open-dev') throw new Error('INVALID_OPTIONS');
+  const openQuestions = option === '--open-dev' ? require('./appendix-open-questions').loadOpenQuestions() : null;
   if (!cache || !output || fs.existsSync(output) || fs.existsSync(output + '.index.json')) throw new Error('NEW_OUTPUT_AND_D1_CACHE_REQUIRED');
   const corpusPath = path.join(cache, 'corpus/corpus-v1.json'), metaPath = path.join(cache, 'semantic/semantic-v1.json');
   if (readHash(corpusPath) !== EXPECTED_CORPUS) throw new Error('D1_CORPUS_MISMATCH');
@@ -114,7 +117,11 @@ async function main() {
   for (let i = 0; i < coordinates.length; i += 16) coordinateVectors.push(...await embedder.embedPassages(coordinates.slice(i, i + 16).map(item => item.text)));
   const addedBuildMs = performance.now() - buildStart;
   const files = [], questions = [];
-  for (const split of ['train', 'dev', 'new-dev']) {
+  if (openQuestions) {
+    files.push({ split: 'open-dev', file: path.relative(root, openQuestions.file), sha256: openQuestions.sha256, count: openQuestions.questions.length });
+    questions.push(...openQuestions.questions);
+  }
+  for (const split of openQuestions ? [] : ['train', 'dev', 'new-dev']) {
     const file = path.join(root, split === 'new-dev' ? 'experiments/appendix/fixtures/questions.dev.json' : `test/fixtures/natural-language-benchmark.${split}.json`);
     const rows = JSON.parse(fs.readFileSync(file));
     files.push({ split, file: path.relative(root, file), sha256: readHash(file), count: rows.length });
@@ -126,17 +133,18 @@ async function main() {
     const scoreStart = performance.now(), base = scoreArticles(articles, index, query), denseMs = performance.now() - scoreStart;
     const coord = coordinates.map((item, i) => ({ ...item, score: coordinateVectors[i].reduce((sum, n, j) => sum + n * query[j], 0) }));
     const sideStart = performance.now(), side = searchAppendixIndex(appendix, query, { model: embedder.model, catalog: corpus.rules, top: 100 }), sideMs = performance.now() - sideStart;
-    results.push({ id: question.id, split: question.split, query: question.q, gt: question.gt,
+    results.push({ id: question.id, split: question.split, tags: question.tags || [], query: question.q, gt: question.gt,
       row: question.row, terms: question.terms, d1Dense: scoreQuestion(question, selectCandidates(base)),
       d1Coordinates: scoreQuestion(question, selectCandidates([...base, ...coord])),
       d1Kordoc: scoreQuestion(question, selectCandidates([...base, ...side])), timing: { embeddedMs, denseMs, sideMs } });
   }
   for (const [file, expected] of Object.entries(sourceHashes)) if (readHash(file) !== expected) throw new Error('READONLY_SOURCE_CHANGED');
   const conditions = ['d1Dense', 'd1Coordinates', 'd1Kordoc'];
-  const summary = Object.fromEntries(['train', 'dev', 'new-dev'].map(split => {
-    const rows = results.filter(row => row.split === split);
+  const summary = Object.fromEntries((openQuestions ? ['open-dev', 'S', 'C', 'D'] : ['train', 'dev', 'new-dev']).map(split => {
+    const rows = results.filter(row => row.split === split || row.tags.includes(split));
     return [split, { conditions: Object.fromEntries(conditions.map(name => [name, summarize(rows, name)])),
-      deltaVsDense: compare(rows, 'd1Dense', 'd1Kordoc'), deltaVsCoordinates: compare(rows, 'd1Coordinates', 'd1Kordoc') }];
+      deltaVsDense: compare(rows, 'd1Dense', 'd1Kordoc'), deltaVsCoordinates: compare(rows, 'd1Coordinates', 'd1Kordoc'),
+      coordinatesVsDense: compare(rows, 'd1Dense', 'd1Coordinates') }];
   }));
   const timing = Object.fromEntries(['embeddedMs', 'denseMs', 'sideMs'].map(key => {
     const values = results.map(row => row.timing[key]).sort((a, b) => a - b);
@@ -144,6 +152,7 @@ async function main() {
   }));
   const report = { scope: 'D1 전체 corpus의 dense 후보 신호 실험. 실제 MCP strict70/71 기준선 및 운영 fusion과 다른 지표.',
     policy: '동일 query vector 1회, 조문별 max cosine, 규정별 max cosine 상위3, 규정별 증거 상위3; 가중치 조정 없음.',
+    argsMode: 'query-only; question args ignored', trainingOrTuning: false, tagGroupsOverlap: !!openQuestions,
     baselineCommit: BASE_COMMIT, experimentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
     corpusSha256: EXPECTED_CORPUS, textVersion: index.meta.textVersion, vectorFile: index.meta.vectorFile, vectorSha256: EXPECTED_VECTOR,
     sourceHashes, sourceUnchanged: true, codeHashes: Object.fromEntries(['scripts/evaluate-appendix-d1.js', 'src/appendix-kordoc.js', 'src/appendix-index.js', 'src/semantic.js'].map(file => [file, readHash(path.join(root, file))])),

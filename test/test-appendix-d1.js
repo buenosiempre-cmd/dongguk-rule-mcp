@@ -1,5 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
+const { loadOpenQuestions, parseApprovedQuestions } = require('../scripts/appendix-open-questions');
 const { selectCandidates, scoreQuestion, summarize, compare } = require('../scripts/evaluate-appendix-d1');
 const item = (lawId, id, score, article) => ({ lawId, id, score, article, text: article, type: 'article' });
 const question = { gt: [{ lawId: 4, articles: ['제2조'] }] };
@@ -22,4 +23,10 @@ const rows = [{ id: 'q', before: { top3: true, strict: true, evidenceHit: null }
 assert.deepEqual(compare(rows, 'before', 'after').strict.newWrong, ['q']);
 assert.deepEqual(summarize(rows, 'after').articleGivenTop3, { hits: 0, total: 1 });
 assert.deepEqual(summarize(rows, 'after').rowEvidence, { hits: 0, total: 0 });
+const approved = loadOpenQuestions();
+assert.equal(approved.questions.length, 20);
+assert.deepEqual(['S', 'C', 'D'].map(tag => approved.questions.filter(q => q.tags.includes(tag)).length), [15, 8, 7]);
+assert.throws(() => parseApprovedQuestions(Buffer.from('[]')), /HASH_MISMATCH/);
+const { callArguments } = require('../scripts/benchmark-natural-language');
+assert.deepEqual(callArguments(approved.questions[0], { useArgs: false }), { query: approved.questions[0].q });
 console.log('appendix D1 scoring: candidate limits, strict/row distinction and regression lists passed');
