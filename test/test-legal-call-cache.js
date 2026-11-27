@@ -101,6 +101,50 @@ test('disk cache: a second process-level lookup reads the file, not the provider
   assert.equal(client.calls.length,2);
   assert.ok(fs.readdirSync(path.join(dir,'legal-call')).length>=2);
 });
+test('validated bodies recover after provider repair, while successful bodies stay cached',async()=>{
+  const now=new Date('2026-11-27T03:00:00Z');
+  for(const consumer of ['upper','references']) for(const defect of ['date','name','article','empty']){
+    const cache=memoryCache();let broken=true,bodies=0;
+    const client={async callTool({name,arguments:a}){
+      if(name==='search_law')return listing('사립학교법');
+      bodies++;let value=body('사립학교법',a.jo);
+      if(broken){const t=value.content[0];
+        if(defect==='date')t.text=t.text.replace('시행일: 20240301','시행일: 20270428');
+        if(defect==='name')t.text=t.text.replace('법령명: 사립학교법','법령명: 다른법');
+        if(defect==='article')t.text=t.text.replace('제29조','제30조');
+        if(defect==='empty')t.text='';
+      }return value;
+    }};
+    const query=()=>consumer==='upper'?inspectLaws([{name:'사립학교법',articles:['제29조']}],{client,cache,now})
+      :queryLegalReferences([{law_name:'사립학교법',article:'제29조'}],{client,cache,now});
+    assert.notEqual((await query()).status,'retrieved',`${consumer}/${defect}`);
+    broken=false;
+    const recovered=await query();assert.equal(recovered.status,'retrieved',`${consumer}/${defect}`);
+    assert.equal((await query()).status,'retrieved');assert.equal(bodies,2,'one rejected call, one repair, then cache');
+  }
+});
+test('legacy unvalidated body files are bypassed and retained, not deleted',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'legal-legacy-'));
+  const cache=createDiskCache({directory:()=>dir});
+  const args={mst:'9001',efYd:'20240301',jo:'제29조'};
+  const key=callCacheKey('get_law_text',args);
+  const bad=body('다른법','제29조');
+  await cache('legal-call',key,30*86400,async()=>({fetchedAt:'2026-11-27T00:00:00Z',response:bad}));
+  const client=fakeClient();
+  const r=await inspectLaws([{name:'사립학교법',articles:['제29조']}],{client,cache});
+  assert.equal(r.status,'retrieved');assert.equal(client.calls.filter(x=>x.name==='get_law_text').length,1);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir,'legal-call',key+'.json'))).response,bad);
+});
+test('one shared disk-cache instance coalesces eight cold validated article requests',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'legal-validated-concurrent-'));
+  const cache=createDiskCache({directory:()=>dir});let bodies=0;
+  const client={async callTool({name,arguments:a}){if(name==='search_law')return listing('사립학교법');
+    bodies++;await new Promise(r=>setTimeout(r,20));return body('사립학교법',a.jo);}};
+  await inspectLaws([{name:'사립학교법',articles:[]}],{client,cache});
+  const rows=await Promise.all(Array.from({length:8},()=>inspectLaws([{name:'사립학교법',articles:['제29조']}],{client,cache})));
+  assert(rows.every(r=>r.status==='retrieved'));assert.equal(bodies,1);
+});
+
 test('own 법제처 key goes to the hosted server as the apikey header and never into results',async()=>{
   const seen=[];
   const server=http.createServer((req,res)=>{seen.push(req.headers);res.writeHead(500,{'content-type':'text/plain'});res.end('fixture');});
