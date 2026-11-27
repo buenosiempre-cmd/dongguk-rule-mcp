@@ -1,5 +1,7 @@
 # 별표 구조 청크 실험 — 2026-11-27
 
+> 후속 측정 원칙은 [MEASUREMENT-POLICY.md](MEASUREMENT-POLICY.md)를 따른다. train/dev는 회귀용이며, 기존 별도 dense 점수를 t10w 공개251+probe9 하네스의 효과 점수와 직접 비교하지 않는다.
+
 > D1 공통 코드·전체 corpus 재측정은 [D1-RESULTS.md](D1-RESULTS.md)를 참고한다. 아래는 이전 단일 HWP 후보 실험이며 D1 전체 검색 점수와 합산하지 않는다.
 
 > t3y의 새 공개 개발20문항 고정 설정 결과는 [OPEN-DEV-RESULTS.md](OPEN-DEV-RESULTS.md)에 별도로 기록했다. 학습·조정에 사용하지 않았다.

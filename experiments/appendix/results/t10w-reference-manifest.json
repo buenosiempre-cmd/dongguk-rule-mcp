@@ -1,0 +1,41 @@
+{
+  "kind": "provided-baseline-reference-not-rerun",
+  "source": "/Users/bueno/herdr-work/rule_mcp_upgrade/의미기반검색확장_기준선_D1_20261127",
+  "counts": {
+    "train": 46,
+    "dev": 25,
+    "probe1": 28,
+    "probe2": 28,
+    "probe3": 26,
+    "probe4": 24,
+    "probe5": 20,
+    "probe6": 24,
+    "probe7": 22,
+    "probe8": 8,
+    "probe9": 36
+  },
+  "sha256": {
+    "d1-q.json": "46a82c6dc0c21457dd5b9d615572afc6fca142b98e5dac59d0302705618a4327",
+    "d1-s.json": "9ecc0b86e144adb8bbe5facba104f7ed0ed799bf1e23d4ff05fe506831df1858",
+    "d1-h.json": "980f015186021a85fa005ed8ba12c781f07cfc1176add1e232e40ed91f5747ba",
+    "d1off-q.json": "fbebf3de73408b9661c978b0aa8eddd5ffb8f59ab572d331044e884ec6535185",
+    "d1off-s.json": "d2a7052d3534c4333768ca6445792a1942742af6eabee09b44000e9889f92856",
+    "d1off-h.json": "6ce271877cce0d00d0f84caed6e4213feac03d524691a86eee6546cc4809f054",
+    "d1-y.json": "7858b00721ad2af5f3fe9e1d1d298ad70e61c0e278c642aec4836f261e76151f",
+    "d1off-y.json": "01630d93b68ec74c53f02dd1ded5683ab8964077a56dda849b198a3a2e905c60",
+    "harness-d1.js": "c24eb47a2515f29f9486f78a86c22680ce9f31990adc376db9ae3a6b8e799792",
+    "sets/train.json": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+    "sets/dev.json": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+    "sets/probe1.json": "4b12ff7be41f287b4f2efd01ec9337a0048d3731ccc98b435b42ebe313553971",
+    "sets/probe2.json": "e732b77617e419cf6d9bb8127b2dd0643437c8d4bc8c72b4623967dbcb3bcbee",
+    "sets/probe3.json": "d75f51390760b1d8c450972bf70cb2070ded560f430df5a085ad011e88800e9f",
+    "sets/probe4.json": "1aa7426f08c436c50b997afd91df46f158fafebf9f576c59c25bff6d2aed40d9",
+    "sets/probe5.json": "d732de670389d326106fbeffaa696f3aae92e8c4ecd61d15293fd5d7d4448efc",
+    "sets/probe6.json": "273addf0d91cb352386d794e317788e64a015df21a476b107eb80961e35cd68a",
+    "sets/probe7.json": "1288cfa318effacbf1e2ee16a95e969ba008bc63614de40fa1356ce412fc2688",
+    "sets/probe8.json": "ad9d64b143daa0f9b2c17d1dd6372bea9bda60b31412e38d5c74a35e562ace3a",
+    "sets/probe9.json": "397446c02c585e5d1cb8b74d93a06c741eee73fca3e0df459750a04551e9cc69",
+    "gen/kw-all-sonnet.json": "797b448bd31784319502d79b826793087e96e6c8d8cf6cbeeaa7058a941855a5",
+    "gen/kw-all-haiku.json": "4ea88cf5bace97f50cb20ffa363b09defec390d7ad39774b0a3da7d949f107a6"
+  }
+}
