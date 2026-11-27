@@ -58,3 +58,9 @@ npm test
 `--key-encoding single`은 질의 임베딩을 정확히 한 번 사용하고 추가 텍스트 키는 낱말 특징에만 사용한다. `full`(기본값)은 과거 실험 설정으로 추가키도 인코딩한다. 두 조건은 별도로 학습하며 지문에도 조건이 포함된다.
 
 평가기의 `--reference /path/to/d1-semantic-on-v3.json`은 공통 MCP 참조의 corpus·공개 문항·검색 의존성 4파일 해시와 query-only 모드를 검사한다. 생산 searchCorpus 직접 호출은 별도 지표이며 최종 MCP 발췌까지 거치지 않는다. `productionSearchCorpus.on.latencyMs`는 미리 계산한 semantic map을 받은 채점기 비용만으로 임베딩 시간이 제외된다.
+
+## 새 공개 개발 20문항: 고정 모델 비교
+
+[결과](DEV-OPEN-FROZEN-RESULTS.md): 기존 71문항으로 학습한 모델을 고정해 적용했다. 새 문항으로 학습·조정하지 않았다. 두 조건 모두 규정 top3 20/20·선택조문19/20으로 실험 RRF와 같으며, 생산 searchCorpus 선택조문18/20보다 한 건 개선하지만 의미 on의 규정1위에서 두 건 악화했다. 약점 중심 개발 비교이고 전체 MCP strict 및 박스 보류셋 효과는 미측정이다.
+
+`collect-jev-evidence.js --dev-open <dev_open.json>`은 승인된 공개20 파일의 SHA 두 버전(ID R→RT 변경만)을 허용한다. 나머지 경로·옵션은 기존과 같다. `evaluate-jev-frozen.js --evidence <수집JSON> --trained-report <기존 D1 report-single-v2.json 또는 report-full-v2.json> --output <새결과JSON>`은 이전 모델 파일 SHA·입력 기준·생산 소스 해시를 검증하고 추론만 수행한다. 새 대용량 증거는 저장소에 넣지 않는다.
