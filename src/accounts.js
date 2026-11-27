@@ -40,24 +40,43 @@ function parseAccountAppendix(text) {
   });
   return accounts.filter((a,i,list)=>list.findIndex(b=>b.code===a.code&&b.name===a.name)===i);
 }
+// Historical resolution identifies a version by MST, not by a fabricated law ID.
+// Accept that identity only when the annex independently confirms the same
+// law/version/effective date and the requested base date.
+function hasAccountLawIdentity(legal,result,annex) {
+  if(result.law?.lawId) return true;
+  const law=result.law,source=annex.source;
+  const normalize=value=>String(value||'').replace(/[\sㆍ·]/g,'');
+  return !!law && /^\d+$/.test(law.mst||'') && !!law.effectiveAt
+    && source?.versionVerified===true && source.tool==='get_annexes'
+    && normalize(source.lawName)===normalize(law.name)
+    && source.mst===law.mst && source.effectiveAt===law.effectiveAt
+    && !!legal.baseDate && source.baseDate===legal.baseDate;
+}
 function findAccountCandidates(legal,query,unit,{limit=4}={}) {
   if(!['school','corporation_general'].includes(unit)) return {status:'scope_unconfirmed',candidates:[],notice:'회계단위를 확인한 뒤 계정 적용 표시를 대조합니다.'};
+  // Version identity does not establish which fiscal year's transactions use
+  // an amended annex. This module does not resolve addenda or transition rules.
+  const applicationReview=legal.baseDate?{
+    application_status:'requires_review',
+    application_notice:'적용 회계연도는 부칙 확인 필요: 판본의 시행일과 별개로 부칙 적용례·경과조치 및 거래의 회계연도를 대조해야 합니다.',
+  }:null;
   const expanded=query.replace(/복사지|A4\s*용지|에이포\s*용지/gi,'복사용지').replace(/프린터\s*용지/g,'프린트용지');
   const normalized=expanded.replace(/\s+/g,''),candidates=[];
   const searchTerms=(expanded.match(/[가-힣A-Za-z0-9]+/g)||[]).map(x=>x.replace(/(?:으로|에서|에는|은|는|을|를|이|가)$/,'')).filter(x=>x.length>=3&&!/^(?:계정|처리|검토|증빙|확인|지급|구입|구매|일반|비용|이거|어떻게|해주세요|알려)/.test(x));
   for(const result of legal.results||[]) for(const annex of result.annexes||[]) {
-    if(!['retrieved','partial'].includes(result.status)||!result.law?.lawId||!['retrieved','partial'].includes(annex.status)||annex.bodyRetrieved!==true||!annex.text||!/^별표\s*1$/.test(annex.selector||'')||result.law.name?.replace(/[\sㆍ·]/g,'')!=='사학기관재무회계규칙에대한특례규칙')continue;
+    if(!['retrieved','partial'].includes(result.status)||!hasAccountLawIdentity(legal,result,annex)||!['retrieved','partial'].includes(annex.status)||annex.bodyRetrieved!==true||!annex.text||!/^별표\s*1$/.test(annex.selector||'')||result.law.name?.replace(/[\sㆍ·]/g,'')!=='사학기관재무회계규칙에대한특례규칙')continue;
     for(const account of parseAccountAppendix(annex.text)) {
       const name=account.name.replace(/\s+/g,'');
       const stem=name.replace(/비$/,'');
       const score=new RegExp(`(?:^|\\D)${account.code}(?:\\D|$)`).test(query)?120:normalized.includes(name)?100:stem.length>=3&&normalized.includes(stem)?70:searchTerms.some(term=>account.description.replace(/\s+/g,'').includes(term))?30:0;
       if(!score||!account.applicable_to[unit])continue;
-      candidates.push({...account,score,source_kind:'law_annex',law:result.law,annex:annex.selector||result.request.annex,date_status:annex.dateStatus||'unverified',reference_only:annex.referenceOnly!==false,source_truncated:!!annex.truncated,decision_status:'candidate_requires_review'});
+      candidates.push({...account,score,source_kind:'law_annex',law:result.law,annex:annex.selector||result.request.annex,date_status:annex.dateStatus||'unverified',reference_only:!!applicationReview||annex.referenceOnly!==false,source_truncated:!!annex.truncated,decision_status:'candidate_requires_review',...applicationReview});
     }
   }
   candidates.sort((a,b)=>b.score-a.score);
   const relevant=candidates[0]?.score>=70?candidates.filter(x=>x.score>=70):candidates;
   const incomplete=(legal.results||[]).some(r=>(r.annexes||[]).some(a=>a.truncated||a.status!=='retrieved'));
-  return {status:relevant.length?'candidates_found':'no_verified_match',candidates:relevant.slice(0,limit),total_candidates:relevant.length,omitted_count:Math.max(0,relevant.length-limit),source_complete:!incomplete,notice:'법령 별표의 명칭·적용회계로 찾은 후보입니다. 거래의 실질과 학교 계정 마스터·예산 배정은 별도 확인하며 계정 추천을 확정하지 않습니다.'+(incomplete?' 별표 일부가 미조회 또는 잘렸습니다. 검색되지 않은 계정이 없다는 뜻은 아닙니다.':'')};
+  return {status:relevant.length?'candidates_found':'no_verified_match',candidates:relevant.slice(0,limit),total_candidates:relevant.length,omitted_count:Math.max(0,relevant.length-limit),source_complete:!incomplete,notice:'법령 별표의 명칭·적용회계로 찾은 후보입니다. 거래의 실질과 학교 계정 마스터·예산 배정은 별도 확인하며 계정 추천을 확정하지 않습니다.'+(relevant.length&&applicationReview?' '+applicationReview.application_notice:'')+(incomplete?' 별표 일부가 미조회 또는 잘렸습니다. 검색되지 않은 계정이 없다는 뜻은 아닙니다.':'')};
 }
 module.exports={parseAccountAppendix,findAccountCandidates};
