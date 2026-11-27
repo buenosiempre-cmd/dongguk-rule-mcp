@@ -53,21 +53,37 @@ function citationRange(segment, start, text) {
 // Preserve an explicit dated selector independently of its connection to an article.
 // Only the next article in the same sentence and rule context can inherit it.
 function scanDatedAddenda(text) {
-  return [...text.matchAll(new RegExp(ADDENDUM_PREFIX_SOURCE, 'g'))]
+  const addenda = [...text.matchAll(new RegExp(ADDENDUM_PREFIX_SOURCE, 'g'))]
     .filter(m => /\d{4}\s*[.\-/년]/.test(m[0]))
     .map(m => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
+  // A date before 부칙 is still a selector. Preserve incomplete dates too;
+  // normalizeArticleSelector will decide whether their meaning is supported.
+  const leading = /(?<!\d)([(（<〈\[])?(\d{4}[\d\s.\-/년월일]*)(?:자\s*)?부\s*칙([)）>〉\]])?/g;
+  for (const m of text.matchAll(leading)) {
+    const pairs = { '(': ')', '（': '）', '<': '>', '〈': '〉', '[': ']' };
+    addenda.push({
+      start: m.index, end: m.index + m[0].length,
+      text: `부칙(${m[2].trim()}) `, leading: true,
+      syntaxUnverified: (m[1] ? pairs[m[1]] !== m[3] : !!m[3]),
+    });
+  }
+  return addenda.sort((a, b) => a.start - b.start);
 }
 
 function preserveDatedAddendum(match, text, addenda, mentions, after) {
-  if (match[1]) return false;
-  const pending = [...addenda].reverse().find(s => s.start >= after && s.end <= match.index);
+  const articleStart = match.index + (match[1]?.length || 0);
+  const pending = [...addenda].reverse().find(s => s.start >= after && (match[1]
+    ? s.leading && s.start < match.index && s.end >= match.index && s.end <= articleStart
+    : s.end <= match.index));
   if (!pending) return false;
-  const gap = text.slice(pending.end, match.index);
-  if (/[.!?。！？]/.test(gap) || overlaps(mentions, pending.start, match.index)) return false;
-  match[0] = text.slice(pending.start, match.index) + match[0];
+  const gap = text.slice(pending.end, articleStart);
+  if (/[.!?。！？]/.test(gap) || overlaps(mentions, pending.start, articleStart)) return false;
+  match[0] = text.slice(pending.start, match.index + match[0].length);
   match[1] = pending.text;
   match.index = pending.start;
-  return true; // The selector was read, but its connection was not parsed.
+  // A leading date with a direct connection can use the shared selector parser.
+  // Other connections retain the selector but cannot claim article verification.
+  return !pending.leading || pending.syntaxUnverified || !/^\s*(?:(?:의|중)\s*)?$/.test(gap);
 }
 
 function nkey(value) {
