@@ -15,6 +15,9 @@
 //           Graph relations, when a caller passes them, lift a related rule a little.
 // - rrf     reciprocal rank fusion of the word, meaning, place and graph rankings.
 // - jev     a relevance probability per rule, when the caller supplies one; hybrid otherwise.
+// A caller may also supply its own reading of where a rule applies (`placeAgreementOf`), for
+// experiments that read a rule's place from more than its title; the choice of editions and the
+// weights stay here.
 const { placeRequest, placeAgreement } = require('./ontology');
 
 const METHODS = ['legacy', 'hybrid', 'rrf', 'jev'];
@@ -83,8 +86,19 @@ function legacyEditions(members, scope) {
 // ("WISE캠퍼스 구매규정" for a WISE question). A family with no such edition keeps its
 // university-wide rule, which still applies there; only an edition for a place the question
 // leaves out is set aside.
-function placedEditions(members, place) {
-  const agreement = new Map(members.map(member => [member, placeAgreement(member.title, place)]));
+// The caller's reading of a rule's place, when it gives one; the title otherwise. A reading that
+// throws or is not an integer is ignored for that rule.
+function agreementOf(member, place, placeAgreementOf) {
+  if (typeof placeAgreementOf === 'function') {
+    try {
+      const value = placeAgreementOf(member, place);
+      if (Number.isInteger(value)) return value;
+    } catch { /* the title decides */ }
+  }
+  return placeAgreement(member.title, place);
+}
+function placedEditions(members, place, placeAgreementOf = null) {
+  const agreement = new Map(members.map(member => [member, agreementOf(member, place, placeAgreementOf)]));
   const best = Math.max(...agreement.values());
   const selected = best > 0 ? members.filter(member => agreement.get(member) === best)
     : members.some(member => agreement.get(member) === 0) ? members.filter(member => agreement.get(member) === 0) : members;
@@ -132,9 +146,14 @@ const scoresOf = signal => signal instanceof Map ? signal : null;
 // facets:   createFacetSignal(...) of the ontology, or null.
 // semantic: true when meaning ranks are present.
 // graph, probability: Map(lawId → score) from a caller that has them, or null.
+// placeAgreementOf: (candidate, place) → integer or null, or omitted. `place` is
+//   ontology.placeRequest(query, campus). Positive: the rule is for a place the question names;
+//   negative: for a place the question leaves out; 0: university-wide. null (or anything that
+//   is not an integer) leaves that rule to its title. Not called for legacy, nor when the
+//   question names no place.
 // Returns { method, ranked } where each ranked rule carries scopeMatch, scopeAmbiguous,
 // editions, and `order` (larger is earlier). `method` is the one actually used.
-function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, method = rankingMethod() }) {
+function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, placeAgreementOf = null, method = rankingMethod() }) {
   let used = METHODS.includes(method) ? method : DEFAULT_METHOD;
   if (used === 'jev' && !scoresOf(probability)) used = 'hybrid';
   if (used === 'legacy') {
@@ -145,7 +164,7 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
     return { method: used, ranked };
   }
   const place = placeRequest(query, campus);
-  const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place));
+  const ranked = byFamily(candidates).flatMap(members => placedEditions(members, place, place.specified ? placeAgreementOf : null));
   // Graph relations (when a caller supplies them) lift a related rule by up to GRAPH_SHARE,
   // in proportion to the strongest relation among the candidates.
   const relations = scoresOf(graph);

@@ -87,6 +87,33 @@ check('hybrid: 도구의 campus 인수도 범위로 읽음', () => {
   assert.deepEqual(titles(rank('구매 계약', purchasing(), { method: 'hybrid', campus: 'wise' })), ['WISE캠퍼스 구매규정', '취업규칙', 'WISE캠퍼스 대관 규정']);
 });
 
+check('호출부의 장소 판독(placeAgreementOf): 정수만 받고, null·예외·비정수는 제목으로, legacy와 범위 없는 질문에는 부르지 않음', () => {
+  const candidates = () => [candidate('취업규칙', 10), candidate('대관 규정', 9), candidate('WISE캠퍼스 대관 규정', 8)];
+  // A reading that says 대관 규정 is a Seoul rule: for a WISE question it falls behind.
+  const calls = [];
+  const reading = (member, place) => { calls.push([member.title, place.campuses.join()]); return member.title === '대관 규정' ? -1 : null; };
+  const read = rank('경주캠퍼스 대관 신청과 직원 휴가', [candidate('취업규칙', 10), candidate('학생준칙', 9), candidate('문서규정', 8)], { method: 'hybrid', placeAgreementOf: member => member.title === '학생준칙' ? -1 : null });
+  assert.deepEqual(read.ranked.map(hit => [hit.title, hit.scopeMatch]), [['취업규칙', null], ['문서규정', null], ['학생준칙', false]]);
+  assert.equal(read.ranked[2].order, 9 * 0.6);
+  const wise = rank('경주캠퍼스 대관 신청', candidates(), { method: 'hybrid', placeAgreementOf: reading });
+  assert.deepEqual(titles(wise), ['WISE캠퍼스 대관 규정', '취업규칙']);
+  assert(calls.length === 3 && calls.every(([, campuses]) => campuses === 'wise'));
+  // Bad readings leave every rule to its title.
+  for (const bad of [() => 0.5, () => 'yes', () => { throw new Error('x'); }, () => undefined, 'not a function']) {
+    assert.deepEqual(titles(rank('경주캠퍼스 대관 신청', candidates(), { method: 'hybrid', placeAgreementOf: bad })), ['WISE캠퍼스 대관 규정', '취업규칙']);
+  }
+  calls.length = 0;
+  rank('대관 신청', candidates(), { method: 'hybrid', placeAgreementOf: reading });
+  rank('경주캠퍼스 대관 신청', candidates(), { method: 'legacy', placeAgreementOf: reading });
+  assert.equal(calls.length, 0);
+  // rrf uses the same reading for its place tiers.
+  const fusedCandidates = () => [candidate('취업규칙', 10, { semanticRuleRank: 1 }), candidate('학생준칙', 9, { semanticRuleRank: 2 })];
+  const plain = rank('경주캠퍼스 직원 휴가', fusedCandidates(), { method: 'rrf', semantic: true });
+  const fused = rank('경주캠퍼스 직원 휴가', fusedCandidates(), { method: 'rrf', semantic: true, placeAgreementOf: member => member.title === '취업규칙' ? -1 : null });
+  assert.equal(fused.ranked.find(hit => hit.title === '취업규칙').scopeMatch, false);
+  assert(fused.ranked.find(hit => hit.title === '취업규칙').order < plain.ranked.find(hit => hit.title === '취업규칙').order);
+});
+
 console.log('대상');
 const staffRule = { lawId: 9001, title: '취업규칙', code: '3-3-14', blocks: Array.from({ length: 12 }, (_, i) => ({ article: `제${i + 1}조`, content: `### 제${i + 1}조(복무)\n직원은 성실히 근무한다. 직원의 휴가는 따로 정한다.` })) };
 const mixedRule = { lawId: 9002, title: '여비규정', code: '3-7-5', blocks: Array.from({ length: 12 }, (_, i) => ({ article: `제${i + 1}조`, content: `### 제${i + 1}조(여비)\n교직원의 여비는 직원과 교원에게 같은 기준으로 지급한다.` })) };
