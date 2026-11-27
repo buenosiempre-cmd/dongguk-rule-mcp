@@ -1479,7 +1479,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id','from_history_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'verify_rule_citations', title:'규정 인용 검증', description:'기안문·품의서·공문·AI 답변 텍스트에 인용된 동국대학교 규정 조문을 실제 규정집과 대조 검증하는 환각 게이트. 「규정명」 제N조(제목) 제N항 표기를 추출해 규정 실존, 조문 실존(본칙 존재 범위 안내), 조문 제목 일치, 원문자 ①~㊿로 확인 가능한 항 번호까지 확인합니다. 별표·별지·서식·호·목, 지원 범위 밖 번호나 해석 불가 선택자는 UNSUPPORTED_CITATION(확인필요)이며 summary.verified에 포함하지 않습니다. originalRange와 parsedRange로 원래 인용 범위와 지원 파싱 범위를 구분합니다. 결재 전 인용 점검에 사용하세요. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
+  { name:'verify_rule_citations', title:'규정 인용 검증', description:'기안문·품의서·공문·AI 답변 텍스트에 인용된 동국대학교 규정 조문을 실제 규정집과 대조 검증하는 환각 게이트. 「규정명」 제N조(제목) 제N항 표기를 추출해 규정 실존, 조문 실존(본칙 존재 범위 안내), 조문 제목 일치, 원문자 ①~㊿로 확인 가능한 항 번호까지 확인합니다. 별표·별지·서식·호·목, 지원 범위 밖 번호나 해석 불가 선택자는 UNSUPPORTED_CITATION(확인필요)이며 summary.verified에 포함하지 않습니다. 날짜 부칙은 이 독립 브랜치에서 확인필요로 보존합니다. 범위·나열은 적힌 조문만 각각 점검하며 범위 사이 조문은 검증하지 않습니다. originalRange와 parsedRange로 원래 인용 범위와 지원 파싱 범위를 구분합니다. 확인필요는 검증 통과가 아닙니다. 결재 전 인용 점검에 사용하세요. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       text:{type:'string',description:'검증할 전체 텍스트 (20,000자 이하). 예: 품의서 본문'},
       campus:{type:'string',description:'업무 캠퍼스 맥락 all/seoul/wise. 공식 목록에는 캠퍼스 필터가 없어 전체 검색 후 적용범위를 확인합니다.',default:'all'},

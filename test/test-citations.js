@@ -131,7 +131,7 @@ const deps = {
   };
   for (const scope of [
     '별표999', '별표 제999호', '별지 제999호 서식', '별지서식999', '서식999',
-    '제1조의123', '제1조의120', '제1000조', '제0조', '제1조의0',
+    '제1조의123', '제1조의120', '제1000조', '제1234조', '제0조', '제1조의0',
     '제1조 제999항', '제1조제100항', '제1조 제51항', '제1조 제0항',
     '제1조 제1항 제999호', '제1조 제1항 가목', '제1조 별표999',
     '제1조(목적) 제999항', '제999항', '제999호',
@@ -170,6 +170,13 @@ const deps = {
   check('I03 일반 문장의 제목을 목 인용으로 오인하지 않음', prose.citations.length === 1 && prose.summary.verified === 1);
   const ruleOnly = await verifyRuleCitations('「검수규정」에 따른다.', redteamDeps);
   check('I03 규정명만 요청하면 RULE_EXISTS 유지', ruleOnly.summary.verified === 1 && ruleOnly.citations[0].status === 'RULE_EXISTS');
+  const employmentDeps = { ...redteamDeps, searchRule: async () => ({ hits: [{ lawId: 1, historyId: 2, title: '취업규칙' }] }) };
+  const fourDigit = await verifyRuleCitations('「취업규칙」 제1234조', employmentDeps);
+  check('I03 D3 제1234조가 규정명 실존으로 축소되지 않음', fourDigit.citations[0].article === '제1234조'
+    && fourDigit.citations[0].status === 'UNSUPPORTED_CITATION' && fourDigit.summary.verified === 0);
+  const employmentOnly = await verifyRuleCitations('「취업규칙」에 따라', employmentDeps);
+  check('I03 D5 취업규칙 이름만 쓴 인용은 정상 통과', employmentOnly.citations[0].status === 'RULE_EXISTS'
+    && employmentOnly.summary.verified === 1 && employmentOnly.summary.needsReview === 0);
   for (const kind of ['searchRule', 'resolveLatest', 'getRuleMarkdown']) {
     const unavailable = await verifyRuleCitations('「검수규정」 제1조', { ...redteamDeps, [kind]: async () => { throw Error('synthetic outage'); } });
     check(`I03 레드팀 장애 ${kind}: 성공 제외`, unavailable.summary.verified === 0 && unavailable.summary.needsReview === 1);

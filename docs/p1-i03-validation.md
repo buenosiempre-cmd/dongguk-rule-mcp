@@ -2,7 +2,7 @@
 
 별표999를 규정명만 확인한 `RULE_EXISTS`로, 제1조의123을 제1조의12로, 제1조 제999항을 제1조로 처리하던 오탐을 차단한다. 전체 숫자와 상세 선택자를 먼저 소비하고 지원하는 파싱 범위를 따로 보존한다. 미지원 범위는 `UNSUPPORTED_CITATION` / 확인필요이며 `summary.verified`에서 제외한다.
 
-## 검증 결과 (2026-11-27)
+## 최초 PR 검증 결과 (2026-11-27)
 
 원격 main `d08ef02c10ae33c237a83c335afeccdeaf993a64`에서 독립 worktree/브랜치를 만들었다. I02 위에 쌓은 브랜치가 아니다.
 
@@ -44,3 +44,11 @@ node scripts/reproduce-citations.cjs /tmp/i03-citation-repros.json
 새 측정 폴더에서 `prepare.py`로 지정 core/aux 및 공개 문항을 검증·복사하고, `run.sh`의 checkout 경로를 지정한 뒤 `zsh run.sh i03`으로 실행한다. `run2.sh`와 `harness-d1.js` 원본은 수정하지 않는다. 조건은 `NL_SETS=train,dev,probe1,...,probe9,dev_open,scope12v2,scope22v2`, `NL_OFFLINE=1`, 빈 `query-only.json`, `DONGGUK_MCP_RANKING=legacy`, `DONGGUK_MCP_SEMANTIC=auto`다. 하네스 wrapper 종료값만 믿지 않고 결과 파일·339건·유일 ID·코드/캐시 해시·문항별 비교를 추가 검증했다.
 
 필드·지원 범위·집계 계약은 [REFERENCE.md](REFERENCE.md#verify_rule_citations-구조화-요약-계약)에 정리했고 `verify_rule_citations` 도구 설명도 갱신했다.
+
+
+## 보충 검토
+
+상태 이름의 정의 주체·반영 순서·충돌 해소 조건은 [공통 반영 계약](citation-integration-order.md)을 따른다. I02 #68 다음 I03 #70 순서다.
+
+
+보충 후 `npm test`: **1,007 통과 / 0 실패**(기존 PR 1,003/0, main 942/0). 인용 테스트는 102/0이다. `제1234조`와 `「취업규칙」에 따라`의 정확한 입력을 추가했다. 표준 하네스는 250/339, train/dev 68/71이며 기존 main의 문항별 결과와 모두 같다. 재현 스크립트는 기존 10입력에 4자리 조·규정명 대조군을 더한 12입력을 실행한다. 최신 증거는 `p1-citations-validation-20261127/supplement/`의 `four-digit-before-after.json`, `i03-npm-test.log`, `i03-results.json`, `i03-repros.json`이다.

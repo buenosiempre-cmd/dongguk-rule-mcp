@@ -411,3 +411,6 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 | `summary.floating` | 같은 문단에 규정명을 확정하지 못한 선택자 수. `floating`에 사유와 범위를 반환하며 `verified`에 넣지 않는다. |
 
 `exists`와 `needsReview`는 중복될 수 있다. 검토 게이트는 `verified`뿐 아니라 `needsReview`, `notFound`, `floating`, `truncated`를 함께 확인해야 한다. 별표 본체·서식·호·목을 확인하지 않은 결과를 규정명 실존만으로 승인 근거로 사용하지 않는다.
+
+
+범위(`제3조 내지 제5조`, `제3조~제5조`)·나열(`제3조·제4조`)은 적힌 조문 각각을 추출한다. 범위 사이 생략 조문은 검증하지 않는다. 따라서 `verified`는 반환된 개별 인용의 성공 수이며 범위 전체의 실존을 보장하지 않는다. 상태 정의 주체와 I02 선행 반영 조건은 [공통 반영 계약](citation-integration-order.md)을 따른다.
