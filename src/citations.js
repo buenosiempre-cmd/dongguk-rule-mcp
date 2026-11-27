@@ -22,7 +22,7 @@ const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?(?:(?:의|중)\s*)?`;
 // Case/topic particles can follow a selector without whitespace. Keep the
 // final word boundary so nouns such as 호실 and 다목적실 are not split.
-const DETAIL_PARTICLE_SOURCE = String.raw`(?:에(?:게(?:서)?|서)?|으로|로|까지|부터|만|도|의|을|를|은|는|이|가|과|와){1,3}`;
+const DETAIL_PARTICLE_SOURCE = String.raw`(?:에(?:게(?:서)?|서)?|으로|로|까지|부터|만|도|의|을|를|은|는|이|가|과|와)+`;
 const DETAIL_END = String.raw`(?=$|[^가-힣A-Za-z0-9]|${DETAIL_PARTICLE_SOURCE}(?=\s|$|[,.!?]))`;
 const DETAIL_NUMBER = String.raw`\s*(?:제\s*)?\d+(?:\s*호)?(?:\s*의\s*\d+)?`;
 const APPENDIX_SOURCE = String.raw`(?:별\s*표(?:${DETAIL_NUMBER})?|별\s*지(?:\s*서\s*식)?(?:${DETAIL_NUMBER})?(?:\s*서\s*식)?|서\s*식${DETAIL_NUMBER})${DETAIL_END}`;
