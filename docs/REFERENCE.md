@@ -392,7 +392,7 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 | `originalRange` | 실제 입력에서 선택자가 차지하는 `{start,end,text}`. 규정명만 쓴 인용은 그 멘션 범위다. |
 | `parsedRange` | 지원 문법으로 파싱한 연속 범위 또는 `null`. 파싱은 실존 확인을 뜻하지 않는다. |
 | `inheritedArticle` | `및 제2항`, `같은 조 제2항`이 바로 앞 조문을 이어받았으면 `true`. 실제 원문 범위는 여전히 `제2항`이다. |
-| `unsupportedReasons` | 미지원 사유. `UNSUPPORTED_DETAIL`, `UNSUPPORTED_ARTICLE_NUMBER`, `UNSUPPORTED_PARAGRAPH_NUMBER`, `UNBOUND_PARAGRAPH`. |
+| `unsupportedReasons` | 미지원 사유. `UNSUPPORTED_DETAIL`, `UNSUPPORTED_ARTICLE_NUMBER`, `UNSUPPORTED_PARAGRAPH_NUMBER`, `UNSUPPORTED_SELECTOR_SUFFIX`, `UNBOUND_PARAGRAPH`. |
 
 범위는 0부터 시작하는 UTF-16 오프셋이고 `end`는 제외한다. `input.slice(start,end) === text`다. 결과는 동일 인용을 중복 제거하므로 모든 출현 위치를 나열하지 않는다.
 
@@ -413,4 +413,6 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 
 `exists`와 `needsReview`는 중복될 수 있다. 새 확인필요 상태는 `verified`·`exists`에 넣지 않는다. 검토할 때는 `notFound`, `needsReview`, `floating`, `truncated`도 함께 확인한다.
 
-범위(`제3조 내지 제5조`, `제3조~제5조`)와 나열(`제3조·제4조`)은 적힌 조문 각각을 추출한다. 범위 사이 생략된 조문은 검증하지 않으므로 `verified`를 범위 전체의 실존 확인으로 해석하지 않는다. 인용 실존은 해당 사안의 법적 적용 적합성을 보장하지 않는다.
+범위(`제1조 내지 제3조`, `제1조~제3조`)는 제1조와 제3조를 모두 판정하고, 사이 조문인 제2조는 검증하지 않는다. 나열(`제3조·제4조`)은 적힌 조문 각각을 추출한다. 따라서 `verified`를 범위 전체의 실존 확인으로 해석하지 않는다. 인용 실존은 해당 사안의 법적 적용 적합성을 보장하지 않는다.
+
+`99호`처럼 제를 생략한 호, `"가"목`처럼 따옴표가 있는 목, `제1조의2의3`·`제1항의2` 같은 중첩 접미부도 원래 범위에 포함한다. 미지원 세부 표기를 버리고 앞 조·항만 성공 처리하지 않는다. 중첩 숫자 접미부는 `UNSUPPORTED_SELECTOR_SUFFIX` 사유로 확인필요 처리한다.

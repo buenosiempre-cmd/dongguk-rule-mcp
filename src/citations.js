@@ -23,11 +23,15 @@ const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s
 const DETAIL_END = String.raw`(?=$|[^가-힣A-Za-z0-9]|(?:에(?:서|는|도)?|의|을|를|은|는|이|가|과|와|으로|까지|부터)(?=\s|$|[,.!?]))`;
 const DETAIL_NUMBER = String.raw`\s*(?:제\s*)?\d+(?:\s*호)?(?:\s*의\s*\d+)?`;
 const APPENDIX_SOURCE = String.raw`(?:별\s*표(?:${DETAIL_NUMBER})?|별\s*지(?:\s*서\s*식)?(?:${DETAIL_NUMBER})?(?:\s*서\s*식)?|서\s*식${DETAIL_NUMBER})${DETAIL_END}`;
-const DETAIL_SOURCE = String.raw`(?:${APPENDIX_SOURCE}|제\s*\d+\s*호(?:\s*의\s*\d+)?${DETAIL_END}|[가나다라마바사아자차카타파하]\s*목${DETAIL_END})`;
+const DETAIL_SOURCE = String.raw`(?:${APPENDIX_SOURCE}|(?:제\s*)?\d+\s*호(?:\s*의\s*\d+)?${DETAIL_END}|(?:["'“‘]\s*)?[가나다라마바사아자차카타파하](?:\s*["'”’])?\s*목${DETAIL_END})`;
+// Extra numeric suffixes are part of the requested scope, never a valid prefix match.
+// Keep them out of the standalone scanner so ordinary possessive prose is not a citation.
+const SELECTOR_SUFFIX_SOURCE = String.raw`의\s*\d+(?:\s*의\s*\d+)*(?:\s*제\s*\d+\s*항(?:\s*의\s*\d+)*)?${DETAIL_END}`;
+const TAIL_SOURCE = String.raw`(?:${DETAIL_SOURCE}|${SELECTOR_SUFFIX_SOURCE})`;
 const ARTICLE_RE = new RegExp(
   String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d+)(?!\d)\s*조(?:\s*의\s*(\d+)(?!\d))?` +
   String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d+)(?!\d)\s*항)?` +
-  String.raw`((?:\s*${DETAIL_SOURCE})+)?|(?<![가-힣A-Za-z0-9])(${DETAIL_SOURCE}|제\s*\d+\s*항)`,
+  String.raw`((?:\s*${TAIL_SOURCE})+)?|(?<![가-힣A-Za-z0-9])(${DETAIL_SOURCE}|제\s*\d+\s*항)`,
   'g'
 );
 
@@ -190,7 +194,7 @@ function extractRuleCitations(text) {
         unsupportedReasons.push('UNSUPPORTED_PARAGRAPH_NUMBER');
         parsedText = parsedText.replace(/\s*제\s*\d+\s*항$/, '');
       }
-      if (m[6]) unsupportedReasons.push('UNSUPPORTED_DETAIL');
+      if (m[6]) unsupportedReasons.push(/^\s*의\s*\d/.test(m[6]) ? 'UNSUPPORTED_SELECTOR_SUFFIX' : 'UNSUPPORTED_DETAIL');
       const parsedRange = parsedText ? citationRange(segment, m.index, parsedText) : null;
       const raw = m[0].replace(/\s+/g, ' ').trim();
 
@@ -328,7 +332,7 @@ function judgeCitation(citation, rec) {
   if (citation.unsupportedReasons?.length) {
     const note = citation.unsupportedReasons.includes('UNBOUND_PARAGRAPH')
       ? '항 인용의 앞 조문을 특정할 수 없음 — 조문 번호와 함께 적어 확인 필요'
-      : '별표·서식·호·목 또는 지원 범위 밖 번호는 미검증 — 해당 원문 확인 필요';
+      : '별표·서식·호·목·중첩 접미부 또는 지원 범위 밖 번호는 미검증 — 해당 원문 확인 필요';
     return { status: 'UNSUPPORTED_CITATION', symbol: '⚠', note };
   }
   if (citation.selectorUnverified) {

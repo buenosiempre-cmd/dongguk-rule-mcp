@@ -291,6 +291,41 @@ const deps = {
     check('명시적 상세 인용은 조사·붙여쓰기에도 확인필요', result.summary.needsReview === 1 && result.summary.verified === 0, JSON.stringify(result.citations));
   }
 
+  const suffixDeps = { ...redteamDeps, getRuleMarkdown: async () => '### 제1조(목적)\n① 첫항\n② 둘째항\n\n### 제1조의2(특례)\n가지조문\n\n### 제2조(대상)\n대상\n\n### 제3조(준용)\n준용' };
+  for (const scope of [
+    '제1조 제1항 99호', '제1조제1항99호', '제1조 제1항 99 호', '제1조 제1항 제 99 호',
+    '제1조 제1항 "가"목', '제1조 제1항 " 가 " 목', "제1조 제1항 '가'목",
+    '제1조 제1항 “가” 목', '제1조 제1항 ‘가’목',
+    '제1조의2의3', '제1조 의 2 의 3', '제1조의2의3의4', '제1조의2의3 제1항',
+    '제1조 제1항의2', '제1조제1항 의 2', '제1조 제1항의2의3',
+    '제1조 제1항 99호 “가”목',
+  ]) {
+    const input = `「검수규정」 ${scope}`;
+    const result = await verifyRuleCitations(input, suffixDeps);
+    check(`세부 인용을 잘라 성공 처리하지 않음: ${scope}`, result.citations.length === 1
+      && result.citations[0].status === 'UNSUPPORTED_CITATION' && result.citations[0].unsupportedReasons.length > 0
+      && result.summary.verified === 0 && result.summary.exists === 0 && result.summary.needsReview === 1, JSON.stringify(result.citations));
+    check(`미지원 세부 인용 원문 범위 보존: ${scope}`, result.citations[0].originalRange.text === scope
+      && input.slice(result.citations[0].originalRange.start, result.citations[0].originalRange.end) === scope
+      && result.citations[0].parsedRange.text !== scope);
+  }
+  for (const scope of [
+    '제1조에 따라 다목적실을 사용한다.', '제1조의 서식을 따른다.',
+    '제1조 제1항 99호실을 사용한다.', '제1조 제1항 99 호실을 사용한다.',
+    '제1조 제1항 "가목적실"을 사용한다.', '제1조 제1항 "가"라는 이름을 쓴다.',
+    '제1조의2의 취지를 따른다.', '제1조 제1항의 취지를 따른다.',
+    '제1조의2의 3가지 의미를 설명한다.',
+  ]) {
+    const result = await verifyRuleCitations(`「검수규정」 ${scope}`, suffixDeps);
+    check(`정상 서술문 경계 유지: ${scope}`, result.citations.length === 1
+      && result.summary.verified === 1 && result.summary.needsReview === 0, JSON.stringify(result.citations));
+  }
+  for (const scope of ['제1조 내지 제3조', '제1조~제3조']) {
+    const result = await verifyRuleCitations(`「검수규정」 ${scope}`, suffixDeps);
+    check('범위의 제1조와 제3조를 모두 판정하고 제2조는 검증하지 않음', result.citations.map(c => c.article).join() === '제1조,제3조'
+      && result.summary.verified === 2);
+  }
+
   const empty = await verifyRuleCitations('규정 인용이 전혀 없는 평문입니다.', deps);
   check('인용 없음 처리', empty.citations.length === 0 && empty.summary.total === 0);
 

@@ -20,3 +20,5 @@ node scripts/reproduce-citation-review.cjs . citation-review-repros.json
 첫 스크립트는 기존 12개 합성 입력을, 둘째는 일반 문장·항 나열·날짜 미상 부칙의 11개 추가 입력을 실행한다. 검색 순위·발췌·패키지 버전·캐시 형식은 바꾸지 않는다. 실제 규정의 법적 적용성이나 배포 환경을 검증하는 테스트가 아니다. 상태·집계 의미는 [인용 검증 상태 계약](citation-integration-order.md)을 따른다. 실행 결과와 변경 반영 내역은 PR 본문에서 관리한다.
 
 검증: `npm test` 1,048 통과 / 0 실패, 인용 테스트 143 통과 / 0 실패. 표준 오프라인 검색 하네스 250/339(train/dev 68/71 포함), 기준 main과 문항별 결과 동일. 기존 12입력과 추가 11입력을 모두 재실행했다.
+
+제를 생략한 호·따옴표가 있는 목·중첩 숫자 접미부는 전체 인용 범위를 보존해 확인필요 처리한다. `제1조 내지 제3조`는 제1조와 제3조를 모두 판정하고 제2조는 검증하지 않는다. 추가 재현: `node scripts/reproduce-citation-suffixes.cjs . citation-suffixes.json`.
