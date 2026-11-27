@@ -8,6 +8,7 @@ const META = 'semantic-v1.json';
 const LOCK = '.semantic-publish.lock';
 const FILE = /^semantic-v1\.([a-f0-9]{64})\.bin$/;
 const GRACE_MS = 60 * 60 * 1000;
+const LOCK_LEASE_MS = 15 * 60 * 1000;
 const latestCleanup = new Map();
 const coded = code => Object.assign(new Error(code), { code });
 const same = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
@@ -39,40 +40,67 @@ function ownUnlink(file, info) {
 function createLock(file) {
   const fd = fs.openSync(file, 'wx', 0o600);
   const info = fs.fstatSync(fd);
+  const token = crypto.randomBytes(16).toString('hex'), createdAt = Date.now();
   try {
-    fs.writeFileSync(fd, JSON.stringify({ producer: PRODUCER, pid: process.pid, token: crypto.randomBytes(16).toString('hex') }));
+    fs.writeFileSync(fd, JSON.stringify({ producer: PRODUCER, pid: process.pid, token, createdAt }));
   } catch (error) {
     try { ownUnlink(file, info); } catch {}
     throw error;
   } finally { fs.closeSync(fd); }
-  return info;
+  return { file, info, token, createdAt };
 }
-function acquire(folder) {
-  if (!safeFolder(folder)) throw coded('SEMANTIC_UNSAFE_DIRECTORY');
-  const file = path.join(folder, LOCK);
-  try { return { file, info: createLock(file) }; } catch (error) { if (error.code !== 'EEXIST') throw error; }
-  const old = lockRecord(file);
-  if (!old || alive(old.value.pid)) throw coded('SEMANTIC_PUBLISH_BUSY');
-  // One reclaimer per dead owner's token prevents two stale readers from
-  // unlinking the next writer's live lock. A crashed reclaimer fails closed.
-  const claim = path.join(folder, `.semantic-reclaim.${old.value.token}.lock`);
-  let claimInfo;
-  try { claimInfo = createLock(claim); } catch { throw coded('SEMANTIC_RECLAIM_BLOCKED'); }
+function expired(info) { return Date.now() - info.mtimeMs >= LOCK_LEASE_MS; }
+function assertOwner(lock) {
+  const current = lockRecord(lock.file);
+  if (!current || !same(current.info, lock.info) || current.value.token !== lock.token ||
+      Date.now() - lock.createdAt >= LOCK_LEASE_MS || expired(current.info)) throw coded('SEMANTIC_LOCK_LOST');
+}
+function snapshot(file) {
+  const info = plainFile(file), record = lockRecord(file);
+  const after = plainFile(file);
+  if (!info || !same(info, after) || info.mtimeMs !== after.mtimeMs || info.ctimeMs !== after.ctimeMs) return null;
+  return { info, record };
+}
+function unchanged(a, b) {
+  return a && b && same(a.info, b.info) && a.info.mtimeMs === b.info.mtimeMs && a.info.ctimeMs === b.info.ctimeMs &&
+    a.record?.value.token === b.record?.value.token;
+}
+function reclaimable(value, claim) {
+  return value && (expired(value.info) || (!claim && value.record && !alive(value.record.value.pid)));
+}
+function acquireFile(file, depth = 0) {
+  try { return createLock(file); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+  const old = snapshot(file), busy = depth ? 'SEMANTIC_RECLAIM_BLOCKED' : 'SEMANTIC_PUBLISH_BUSY';
+  if (!reclaimable(old, depth > 0) || depth >= 16) throw coded(busy);
+  // Each abandoned claim has its own identity-keyed recovery claim. This keeps
+  // concurrent reclaimers serialized even when a former reclaimer also died.
+  const key = depth === 0 && old.record ? old.record.value.token : crypto.createHash('sha256')
+    .update(`${path.basename(file)}:${old.info.dev}:${old.info.ino}:${old.info.ctimeMs}`).digest('hex');
+  const claim = acquireFile(path.join(path.dirname(file), `.semantic-reclaim.${key}.lock`), depth + 1);
   try {
-    const current = lockRecord(file);
-    if (!current || !same(current.info, old.info) || current.value.token !== old.value.token || alive(current.value.pid)) {
-      throw coded('SEMANTIC_PUBLISH_BUSY');
-    }
+    const current = snapshot(file);
+    if (!unchanged(current, old) || !reclaimable(current, depth > 0)) throw coded(busy);
+    assertOwner(claim);
     fs.unlinkSync(file);
-    try { return { file, info: createLock(file) }; } catch (error) {
-      if (error.code === 'EEXIST') throw coded('SEMANTIC_PUBLISH_BUSY');
+    try { return createLock(file); } catch (error) {
+      if (error.code === 'EEXIST') throw coded(busy);
       throw error;
     }
-  } finally { try { ownUnlink(claim, claimInfo); } catch {} }
+  } finally { try { if (lockRecord(claim.file)?.value.token === claim.token) ownUnlink(claim.file, claim.info); } catch {} }
 }
 function withGenerationLock(folder, work) {
-  const lock = acquire(folder);
-  try { return work(); } finally { try { ownUnlink(lock.file, lock.info); } catch {} }
+  // Publication may follow a configured directory alias, but deletion continues
+  // to use the original path and refuses a symlink directory.
+  let resolved;
+  try { resolved = fs.realpathSync(folder); } catch { throw coded('SEMANTIC_UNSAFE_DIRECTORY'); }
+  if (!safeFolder(resolved)) throw coded('SEMANTIC_UNSAFE_DIRECTORY');
+  const lock = acquireFile(path.join(resolved, LOCK));
+  const check = () => {
+    assertOwner(lock);
+    if (fs.realpathSync(folder) !== resolved) throw coded('SEMANTIC_UNSAFE_DIRECTORY');
+  };
+  try { check(); return work(check); }
+  finally { try { if (lockRecord(lock.file)?.value.token === lock.token) ownUnlink(lock.file, lock.info); } catch {} }
 }
 
 function readPublished(folder, validateMeta) {
@@ -118,8 +146,11 @@ function trackGeneration(folder, meta, previousMeta, now) {
 
 // Must run under the same writer lock as publication. A reader may retain the
 // old pointer for an hour; after that, a delayed reader safely falls back.
-function cleanGenerationsLocked(folder, validateMeta, now) {
+function cleanGenerationsLocked(folder, validateMeta, now, check) {
   const report = { at: new Date(now).toISOString(), removedGenerations: 0, removedBytes: 0, skippedGenerations: 0, errors: [] };
+  if (!safeFolder(folder)) {
+    report.errors.push('SEMANTIC_UNSAFE_DIRECTORY'); latestCleanup.set(folder, report); return report;
+  }
   const published = readPublished(folder, validateMeta), meta = published?.value, tracking = retentionOf(meta);
   if (!tracking) report.errors.push('SEMANTIC_RETENTION_UNAVAILABLE');
   else for (const record of tracking.generations) {
@@ -137,9 +168,13 @@ function cleanGenerationsLocked(folder, validateMeta, now) {
       }
       if (!safeFolder(folder)) { report.errors.push('SEMANTIC_UNSAFE_DIRECTORY'); break; }
       if (!same(ownedStat(folder, record), info)) { report.skippedGenerations++; continue; }
+      check();
       fs.unlinkSync(filename);
       report.removedGenerations++; report.removedBytes += info.size;
-    } catch { report.errors.push('SEMANTIC_GENERATION_DELETE_FAILED'); }
+    } catch (error) {
+      report.errors.push(error.code === 'SEMANTIC_LOCK_LOST' ? error.code : 'SEMANTIC_GENERATION_DELETE_FAILED');
+      if (error.code === 'SEMANTIC_LOCK_LOST') break;
+    }
   }
   report.errors = [...new Set(report.errors)];
   latestCleanup.set(folder, report);
@@ -147,7 +182,7 @@ function cleanGenerationsLocked(folder, validateMeta, now) {
 }
 
 function cleanupGenerations(folder, validateMeta, now = Date.now()) {
-  try { return withGenerationLock(folder, () => cleanGenerationsLocked(folder, validateMeta, now)); }
+  try { return withGenerationLock(folder, check => cleanGenerationsLocked(folder, validateMeta, now, check)); }
   catch (error) {
     const report = { at: new Date(now).toISOString(), removedGenerations: 0, removedBytes: 0, skippedGenerations: 0,
       errors: [String(error.code || '').startsWith('SEMANTIC_') ? error.code : 'SEMANTIC_GENERATION_CLEANUP_FAILED'] };
@@ -185,4 +220,4 @@ function generationStatus(folder, validateMeta, now = Date.now()) {
   } catch { return { ...report, code: 'SEMANTIC_GENERATION_STATUS_FAILED' }; }
 }
 
-module.exports = { GRACE_MS, withGenerationLock, readPublished, trackGeneration, cleanGenerationsLocked, cleanupGenerations, generationStatus };
+module.exports = { GRACE_MS, LOCK_LEASE_MS, withGenerationLock, readPublished, trackGeneration, cleanGenerationsLocked, cleanupGenerations, generationStatus };

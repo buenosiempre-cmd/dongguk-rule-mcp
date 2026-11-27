@@ -189,14 +189,15 @@ function saveSemanticIndex(directory, { meta, vectors }, { now = Date.now } = {}
     || vectorHash(vectors) !== meta.vectorHash) throw new Error('Invalid semantic index');
   const folder = semanticDir(directory);
   fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
-  return withGenerationLock(folder, () => {
+  return withGenerationLock(folder, check => {
     const time = now();
     if (!Number.isSafeInteger(time) || time < 0) throw new Error('Invalid semantic publication time');
-    const previous = readPublished(folder, validMeta)?.value;
+    const previous = readPublished(fs.realpathSync(folder), validMeta)?.value;
     const suffix = `.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
     const publish = (filename, data) => {
       try {
         fs.writeFileSync(filename + suffix, data, { mode: 0o600 });
+        check();
         fs.renameSync(filename + suffix, filename);
       } finally { try { fs.unlinkSync(filename + suffix); } catch {} }
     };
@@ -205,7 +206,7 @@ function saveSemanticIndex(directory, { meta, vectors }, { now = Date.now } = {}
     const tracked = trackGeneration(folder, meta, previous, time);
     publish(path.join(folder, META_FILE), JSON.stringify(tracked));
     // Cleanup failure must never change a successful publication into a failure.
-    try { cleanGenerationsLocked(folder, validMeta, time); } catch {}
+    try { cleanGenerationsLocked(folder, validMeta, time, check); } catch {}
   });
 }
 

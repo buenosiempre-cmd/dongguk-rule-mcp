@@ -7,7 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
 const s = require('../src/semantic.js');
-const { withGenerationLock, GRACE_MS } = require('../src/semantic-generations.js');
+const { withGenerationLock, GRACE_MS, LOCK_LEASE_MS } = require('../src/semantic-generations.js');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'semantic-retention-'));
 const start = Date.now() - 10 * GRACE_MS;
 let passed = 0;
@@ -142,7 +142,7 @@ async function main() {
     assert.deepEqual(fs.readdirSync(folder(dir)).sort(), before); assert.deepEqual(fs.readFileSync(metaFile(dir)), bytes);
     assert(fs.existsSync(file(dir, A)));
   });
-  await check('활성 잠금·손상 잠금·EPERM은 회수하지 않음', () => {
+  await check('15분 전 활성 잠금·손상 잠금·EPERM은 회수하지 않음', () => {
     const dir = fixture(); three(dir);
     withGenerationLock(folder(dir), () => assert.throws(() => save(dir, D, start + 3), /SEMANTIC_PUBLISH_BUSY/));
     const lock = path.join(folder(dir), '.semantic-publish.lock'); fs.writeFileSync(lock, '{}');
@@ -152,12 +152,93 @@ async function main() {
     try { assert.equal(clean(dir, start + 2 * GRACE_MS).errors[0], 'SEMANTIC_PUBLISH_BUSY'); } finally { process.kill = kill; }
     assert.deepEqual(fs.readFileSync(lock), old);
   });
-  await check('죽은 writer 잠금은 회수하지만 중단된 회수 claim은 임의 삭제하지 않음', () => {
+  await check('죽은 writer 잠금은 회수하지만 15분 전 회수 claim은 보존', () => {
     const dir = fixture(); three(dir); deadLock(dir); save(dir, D, start + 2 * GRACE_MS);
     assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, D.meta.vectorHash);
     const dead = deadLock(dir); const claim = path.join(folder(dir), `.semantic-reclaim.${dead.token}.lock`);
     fs.writeFileSync(claim, JSON.stringify(dead));
     assert.equal(clean(dir, Date.now()).errors[0], 'SEMANTIC_RECLAIM_BLOCKED'); assert(fs.existsSync(claim));
+  });
+  await check('15분 지난 PID 재사용·빈 파일·손상 잠금은 회수하고 신선한 잠금은 보호', () => {
+    for (const contents of ['', '{broken', JSON.stringify({ producer: 'dongguk-rule-mcp/semantic-retention', pid: process.pid, token: 'a'.repeat(32) })]) {
+      const dir = fixture(); three(dir); const lock = path.join(folder(dir), '.semantic-publish.lock');
+      fs.writeFileSync(lock, contents);
+      assert.throws(() => save(dir, D, start + 3), /SEMANTIC_PUBLISH_BUSY/);
+      const old = new Date(Date.now() - LOCK_LEASE_MS - 1000); fs.utimesSync(lock, old, old);
+      save(dir, D, start + 2 * GRACE_MS);
+      assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, D.meta.vectorHash);
+      assert(!fs.existsSync(lock));
+    }
+  });
+  await check('15분 지난 중단 claim과 그 회수 claim도 안전하게 회수', () => {
+    const dir = fixture(); three(dir); const dead = deadLock(dir);
+    const claim = path.join(folder(dir), `.semantic-reclaim.${dead.token}.lock`);
+    fs.writeFileSync(claim, '');
+    const old = new Date(Date.now() - LOCK_LEASE_MS - 1000); fs.utimesSync(claim, old, old);
+    const info = fs.lstatSync(claim);
+    const key = crypto.createHash('sha256').update(`${path.basename(claim)}:${info.dev}:${info.ino}:${info.ctimeMs}`).digest('hex');
+    const nested = path.join(folder(dir), `.semantic-reclaim.${key}.lock`); fs.writeFileSync(nested, '{broken'); fs.utimesSync(nested, old, old);
+    save(dir, D, start + 3);
+    assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, D.meta.vectorHash);
+    assert(!fs.existsSync(claim)); assert(!fs.existsSync(nested));
+  });
+  await check('미래 시각 잠금과 만료된 symlink·hardlink 잠금은 회수하지 않음', () => {
+    for (const kind of ['future', 'symlink', 'hardlink']) {
+      const dir = fixture(); three(dir); const lock = path.join(folder(dir), '.semantic-publish.lock');
+      const external = path.join(dir, 'user-lock-data'); fs.writeFileSync(external, '보존');
+      if (kind === 'symlink') fs.symlinkSync(external, lock);
+      else if (kind === 'hardlink') fs.linkSync(external, lock);
+      else fs.writeFileSync(lock, '');
+      const time = new Date(Date.now() + (kind === 'future' ? LOCK_LEASE_MS : -2 * LOCK_LEASE_MS));
+      fs.utimesSync(lock, time, time);
+      assert.throws(() => save(dir, D, start + 3), /SEMANTIC_PUBLISH_BUSY/);
+      assert(fs.existsSync(lock)); assert.equal(fs.readFileSync(external, 'utf8'), '보존');
+      assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, C.meta.vectorHash);
+    }
+  });
+  await check('회수 뒤 재개한 옛 writer는 새 포인터·벡터를 덮어쓰지 못함', () => {
+    const dir = fixture(); three(dir); const write = fs.writeFileSync; let paused = false;
+    fs.writeFileSync = function(name, ...args) {
+      const result = write.call(this, name, ...args);
+      if (!paused && typeof name === 'string' && name.startsWith(metaFile(dir) + '.') && name.endsWith('.tmp')) {
+        paused = true;
+        const lock = path.join(folder(dir), '.semantic-publish.lock'), old = new Date(Date.now() - LOCK_LEASE_MS - 1000);
+        fs.utimesSync(lock, old, old); save(dir, B, start + 4);
+      }
+      return result;
+    };
+    try { assert.throws(() => save(dir, D, start + 3), /SEMANTIC_LOCK_LOST/); } finally { fs.writeFileSync = write; }
+    assert(paused); assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, B.meta.vectorHash);
+    assert(!fs.existsSync(path.join(folder(dir), '.semantic-publish.lock')));
+    assert(!fs.readdirSync(folder(dir)).some(name => name.endsWith('.tmp')));
+  });
+  await check('잠금 만료 뒤 재개한 정리자는 새 게시의 세대를 삭제하지 않음', () => {
+    const dir = fixture(); three(dir); const read = fs.readFileSync; let paused = false;
+    fs.readFileSync = function(name, ...args) {
+      const result = read.call(this, name, ...args);
+      if (!paused && name === file(dir, A)) {
+        paused = true;
+        const lock = path.join(folder(dir), '.semantic-publish.lock'), old = new Date(Date.now() - LOCK_LEASE_MS - 1000);
+        fs.utimesSync(lock, old, old);
+        // Acquire/release without publication to exercise the ownership guard itself.
+        withGenerationLock(folder(dir), () => {});
+      }
+      return result;
+    };
+    let result;
+    try { result = clean(dir, start + 2 * GRACE_MS); } finally { fs.readFileSync = read; }
+    assert(result.errors.includes('SEMANTIC_LOCK_LOST')); assert(fs.existsSync(file(dir, A)));
+  });
+  await check('semantic symlink 게시·적재는 허용하되 자동·명시 정리 모두 건너뜀', () => {
+    const dir = fixture(), target = fixture(); fs.mkdirSync(folder(target)); fs.symlinkSync(folder(target), folder(dir));
+    const user = path.join(folder(target), 'notes.txt'); fs.writeFileSync(user, '보존');
+    three(dir); save(dir, D, start + 2 * GRACE_MS);
+    assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, D.meta.vectorHash);
+    assert.equal(pointer(dir).retention.previous, C.meta.vectorFile);
+    for (const x of [A, B, C, D]) assert(fs.existsSync(file(dir, x)));
+    assert.equal(clean(dir, start + 3 * GRACE_MS).removedGenerations, 0);
+    assert.equal(fs.readFileSync(user, 'utf8'), '보존');
+    withGenerationLock(folder(target), () => assert.throws(() => save(dir, A, start + 4), /SEMANTIC_PUBLISH_BUSY/));
   });
   await check('유예보다 오래 멈춘 reader는 사라진 벡터 대신 최신 포인터를 한 번 재조회', () => {
     const dir = fixture(); save(dir, A, start); const read = fs.readFileSync; let first = true;
@@ -169,14 +250,24 @@ async function main() {
     try { assert.equal(s.loadSemanticIndex(dir).meta.vectorHash, C.meta.vectorHash); } finally { fs.readFileSync = read; }
     assert(!fs.existsSync(file(dir, A)));
   });
-  await check('동시 stale-lock 회수자 두 개가 새 writer 잠금을 탈취하지 않음', async () => {
+  await check('죽은·만료·빈 잠금과 만료 claim의 동시 회수자가 새 writer 잠금을 탈취하지 않음', async () => {
+    for (const mode of ['dead', 'expired', 'empty', 'claim']) {
     const dir = fixture(); three(dir); const dead = deadLock(dir);
+    const lockFile = path.join(folder(dir), '.semantic-publish.lock');
+    const old = new Date(Date.now() - LOCK_LEASE_MS - 1000);
+    if (mode === 'expired') { fs.writeFileSync(lockFile, JSON.stringify({ ...dead, pid: process.pid })); fs.utimesSync(lockFile, old, old); }
+    if (mode === 'empty') { fs.writeFileSync(lockFile, ''); fs.utimesSync(lockFile, old, old); }
+    if (mode === 'claim') {
+      const claim = path.join(folder(dir), `.semantic-reclaim.${dead.token}.lock`);
+      fs.writeFileSync(claim, ''); fs.utimesSync(claim, old, old);
+    }
+    const expected = fs.readFileSync(lockFile, 'utf8');
     const go = path.join(dir, 'go'), active = path.join(dir, 'active');
     const script = `
-      const fs=require('node:fs'),g=require(process.argv[1]); const [dir,ready,go,active,deadPid]=process.argv.slice(2);
+      const fs=require('node:fs'),g=require(process.argv[1]); const [dir,ready,go,active,expected]=process.argv.slice(2);
       const read=fs.readFileSync; let waited=false;
       fs.readFileSync=function(name,...args){const result=read.call(this,name,...args);
-        if(String(name).endsWith('.semantic-publish.lock')&&!waited&&JSON.parse(result).pid===Number(deadPid)){
+        if(String(name).endsWith('.semantic-publish.lock')&&!waited&&String(result)===expected){
           waited=true;fs.writeFileSync(ready,'ready');while(!fs.existsSync(go))Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,10);
         }return result;};
       try{g.withGenerationLock(dir,()=>{let fd;try{fd=fs.openSync(active,'wx')}catch{throw Error('OVERLAP')}
@@ -184,7 +275,7 @@ async function main() {
       catch(e){process.stdout.write(e.message);process.exitCode=e.message.includes('OVERLAP')?2:0;}`;
     const children = [0, 1].map(i => {
       const ready = path.join(dir, `ready-${i}`);
-      const child = spawn(process.execPath, ['-e', script, require.resolve('../src/semantic-generations.js'), folder(dir), ready, go, active, String(dead.pid)]);
+      const child = spawn(process.execPath, ['-e', script, require.resolve('../src/semantic-generations.js'), folder(dir), ready, go, active, expected]);
       let out = ''; child.stdout.on('data', bytes => out += bytes); child.stderr.on('data', bytes => out += bytes);
       return { child, ready, done: new Promise(resolve => child.on('exit', code => resolve({ code, output: out }))) };
     });
@@ -197,6 +288,7 @@ async function main() {
       assert(results.every(item => item.code === 0 && !item.output.includes('OVERLAP')), JSON.stringify(results));
       assert(results.some(item => item.output === 'OK'), JSON.stringify(results));
     } finally { children.forEach(item => { if (item.child.exitCode === null) item.child.kill(); }); }
+    }
   });
   await check('실제 HTTP /status가 인증 후 세대 수·용량·유예·미추적 정보를 읽기만 함', async () => {
     const cache = fixture(), dir = path.join(cache, 'dongguk-rule-mcp', 'v2', 'public'); three(dir);
