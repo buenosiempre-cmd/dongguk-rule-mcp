@@ -34,7 +34,7 @@ function seed(category, key, value, scope = 'public') {
 function rule(id, original, html = 'HTML 본문', scope = 'public') {
   seed('history', String(id), [{ historyId: id * 10, revisedAt: '2026.01.01' }, { historyId: id * 10 - 1, revisedAt: '2025.01.01' }], scope);
   if (original) seed('original-structure-v2', `${id}_${id * 10}`, original, scope);
-  seed('content-v3', `${id}_${id * 10}`, { markdown: html }, scope);
+  seed('content-v4', `${id}_${id * 10}`, { markdown: html }, scope);
 }
 const full = parsed.markdown;
 rule(1, parsed);

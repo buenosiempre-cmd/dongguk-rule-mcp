@@ -62,7 +62,7 @@ function seed(category, key, data) {
 }
 seed('catalog', 'all', CATALOG);
 for (const [key, value] of Object.entries(CONTENT)) {
-  seed('content-v3', key, value);
+  seed('content-v4', key, value);
   seed('original-structure-v2', key, { markdown: value.markdown, structure: { coverage: { articles: 'complete' } } });
 }
 for (const rule of CATALOG) seed('history', String(rule.lawId), [{ historyId: rule.historyId, revisedAt: rule.revisedAt }]);
@@ -131,6 +131,13 @@ async function main() {
   check('한 조문이 길어도 추론 묶음은 지정 크기를 넘지 않고 모든 조각을 순서대로 임베딩',
     batches.every(batch => batch.length <= 7) && batches.flat().join() === semantic.articleTexts(longCorpus.rules[0].title, longBody).join()
     && longIndex.meta.rows === longTexts.length);
+  const singleBatches = [];
+  await semantic.buildSemanticIndex({ corpus: longCorpus, embedder: {
+    model: semantic.DEFAULT_MODEL, embedPassages: async texts => { singleBatches.push([...texts]); return texts.map(fakeVector); },
+  } });
+  check('기본 추론은 조각 하나씩만 받아 이웃 조각의 padding에 의존하지 않음',
+    singleBatches.length === longTexts.length && singleBatches.every(batch => batch.length === 1)
+    && singleBatches.flat().join() === semantic.articleTexts(longCorpus.rules[0].title, longBody).join());
 
   // ── 색인이 없을 때 ──
   check('벡터 색인이 없으면 의미 점수 없음(null)', await semantic.semanticScores({ corpus: loaded, directory: dir, text: '빌린 물건 돌려주기' }) === null);
