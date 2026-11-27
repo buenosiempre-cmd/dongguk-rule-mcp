@@ -1,6 +1,6 @@
 # JEV 공개 문항 검색 실험
 
-> **D1 수정 전 기준 — 채택 판단 보류.** 이 보고의 수치·계수는 본문 누락 결함이 있는 corpus(SHA-256 `47118b4a…`)로 측정했다. 레드팀은 본문 없는 제목만의 조문 1,656개(약17%), 관련 규정248개를 보고했다. t10x의 파서 수정·색인 재생성 및 기준선 재측정 이후 JEV도 재학습·교차검증해야 한다. 현재 수치를 수정 후 성능으로 인용하지 않는다.
+> **최신 재평가:** 공통 코드 `907b998`, corpus `59c2e11fe66e…`, TEXT3 `semantic-v1.c76feb89…bin` 기준 결과는 [D1-FIXED-RESULTS.md](D1-FIXED-RESULTS.md)에 있다. 생산 searchCorpus 대비 악화가 있어 현재 JEV 대체를 권고하지 않는다. 기존 RESULTS.md와 results/의 대용량 자료는 D1 수정 전 역사적 기록이다.
 
 이 실험은 조문 후보의 상대 증거를 로지스틱 회귀로 결합하고, 규정 후보는 최고 조문 점수로 선택한다. 서비스의 `lookup_rule`에는 연결하지 않았다. 설치만으로 검색 동작이 바뀌지 않는다.
 
@@ -27,6 +27,7 @@ export DONGGUK_MCP_SEMANTIC_MODEL_DIR=/path/to/local-models
 node scripts/collect-jev-evidence.js \
   --corpus-dir /path/to/public-cache \
   --vector-dir /path/to/e5-small-index \
+  --key-encoding single \
   --output /tmp/jev-evidence.json
 uv run --with-requirements experiments/jev/requirements.txt python scripts/evaluate-jev.py \
   --evidence /tmp/jev-evidence.json --output /tmp/jev-report.json
@@ -52,3 +53,8 @@ npm test
 공개 71문항에는 사용자 제공 keywords가 없어 질문만 평가한다. 정답에서 키워드를 만들지 않는다. 기존 사전/검색 코드가 공개 문항으로 개선된 이력, 적은 규정 그룹 수, 불완전한 음성 라벨 때문에 OOF만으로 새 보류 문항의 개선을 확정하지 않는다. 전체 71문항으로 학습한 최종 계수는 재현 산출물이며 별도 미사용 테스트셋으로 검증된 배포 모델이 아니다.
 
 최종 수치는 `RESULTS.md`와 `results/report.json`을 참고한다. 출시 여부는 별도 공개 개발 확장과 동국규정팀의 미사용 보류셋 검증 후 판단한다.
+
+
+`--key-encoding single`은 질의 임베딩을 정확히 한 번 사용하고 추가 텍스트 키는 낱말 특징에만 사용한다. `full`(기본값)은 과거 실험 설정으로 추가키도 인코딩한다. 두 조건은 별도로 학습하며 지문에도 조건이 포함된다.
+
+평가기의 `--reference /path/to/d1-semantic-on-v3.json`은 공통 MCP 참조의 corpus·공개 문항·검색 의존성 4파일 해시와 query-only 모드를 검사한다. 생산 searchCorpus 직접 호출은 별도 지표이며 최종 MCP 발췌까지 거치지 않는다. `productionSearchCorpus.on.latencyMs`는 미리 계산한 semantic map을 받은 채점기 비용만으로 임베딩 시간이 제외된다.

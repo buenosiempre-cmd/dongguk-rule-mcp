@@ -1,5 +1,7 @@
 # JEV D1 수정 후 corpus 수령·재평가 준비 (2026-11-27)
 
+> 이 문서는 corpus 수령 당시의 준비 기록이다. 재평가는 이후 완료했으며 최신 결과는 [D1-FIXED-RESULTS.md](D1-FIXED-RESULTS.md)를 따른다.
+
 **수정 corpus 수령과 격리 복사·대사는 완료했다. 새 e5 색인과 t10x 기준선은 아직 전달 전이므로 D1 수정 후 JEV 점수·학습 계수는 없다.**
 
 - 원본(읽기만): `/Users/bueno/Documents/Codex/d1-artifacts-20261127/after/dongguk-rule-mcp/v2/public/corpus/corpus-v1.json`
