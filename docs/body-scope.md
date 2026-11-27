@@ -1,6 +1,6 @@
 # 목적·적용범위 본문에 의한 판 보강 실험
 
-상태: 최종 공통 캐시 전환 후 비교 완료. **생산 도입 비권고**: 개선0, 신규오답은 의미검색 on의 Z137·off의 K02. [전체 결과](body-scope-results.md)에 조건별 전수 변경을 기록했다. 기본은 `legacy`이며 기존 `hybrid` 동작도 유지한다. `DONGGUK_MCP_RANKING=hybrid-scope`만 본문 근거를 사용한다. 법적 적용을 확정하는 기능이 아니다.
+상태: 최종 공통 캐시 전환 후 비교 완료. **생산 도입 비권고**: 개선0, 신규오답은 의미검색 on의 Z137·off의 K02. [표준 하네스 결과](body-scope-standard-results.md)에 조건별 전수 변경을 기록했다. 기본은 `legacy`이며 기존 `hybrid` 동작도 유지한다. `DONGGUK_MCP_RANKING=hybrid-scope`만 본문 근거를 사용한다. 법적 적용을 확정하는 기능이 아니다.
 
 ## 모듈과 훅
 
@@ -35,3 +35,5 @@ node scripts/measure-body-scope.js --cache <자체 사본 루트> \
 비교 기준은 `--ranking hybrid`다. 질문만 조건은 args.keywords도 무시한다. 새 공통 corpus·벡터 SHA를 모두 명시해야 실행할 수 있다. 결과에는 실제 사용 파일명·TEXT 버전·커밋·소스 해시·문항 해시와 규정별 전수 판정표를 넣는다. strict/top3/조건부 조문/1위·모든 신규오답·개선·반환 순서 변화를 세트별로 보고한다. scope22는 t110 공개 개발 Z121~Z142의 데이터 선택이며 런타임 규칙과 무관하다. 박스 보류셋은 읽지 않는다.
 
 최신 PR60 `7d13345`와의 충돌은 merge `702dbce`로 해소했고, 같은 규칙으로 최종 공통 캐시에서 다시 비교했다. 본문 판정513개와 모듈 해시는 merge 전후 동일하다. 현재 결과는 [최신 하네스 보고](body-scope-results.md), 지정 f0b355f 기준의 이전 결과는 [별도 기록](body-scope-results-f0b355f.md)으로 구분한다.
+
+평가 표준화 후 인계733파일과 보조 캐시673파일을 대조해 `harness-d1.js`+`run2.sh` 원본 그대로 8조건을 다시 측정했다. [표준 하네스 보고](body-scope-standard-results.md)를 우선 참조한다. 자체 하네스 기록은 하네스 내부 전후 비교 보조자료로만 남긴다.
