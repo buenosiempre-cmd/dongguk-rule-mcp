@@ -154,7 +154,7 @@ const PHRASE_CONCEPTS = [
   // 수업연한: the student is the one who studies ("학생은 몇 년 다닐 수 있어?", even beside "교수에게"), or the whole
   // question is about school with no worker in it ("학교 몇 년 다녀야 졸업해?"). "학생 상담하는 교수는 몇 년" is not.
   [/(?:학생|학부생|대학원생|재학생|신입생|학부|대학원|학사과정|학위과정)(?:은|는|이|가|도|에서)?\s*(?:최대\s*|최장\s*)?몇\s*년.{0,8}(?:다녀|다니|다닐)|^(?=.*(?:학생|학부|대학원|학위|졸업|학사과정|재학|입학))(?!.*(?:직원|교원|교수|강사|근무|회사|재직|근속|승진))(?=.*(?:몇\s*년.{0,8}(?:다녀|다니|다닐)|(?:다녀|다니|다닐).{0,8}몇\s*년))/, '수업연한'],
-  [/(?:못\s*뽑|뽑을\s*수\s*없|뽑힐\s*수\s*없|(?:임용|채용|선발)될\s*수\s*없|될\s*수\s*없는\s*사람)/, '결격사유'],
+  [/(?:못\s*뽑|뽑을\s*수\s*없|(?:임용|채용|선발)될\s*수\s*없|될\s*수\s*없는\s*사람)/, '결격사유'],
   // 열람 needs a record to look at; a person's own 개인정보 is one (정보주체의 열람청구).
   [/(?:자료|기록|문서|서류|장부|성적|개인정보).{0,20}(?:보여\s*(?:달라|줘|줄)|볼\s*수|열람)/, '열람'],
   [/개인\s*(?:용무|용도|적으로|일로|볼일)|사적으로|집에\s*가져/, '사적'],
@@ -208,21 +208,13 @@ function containsTerm(text, term) {
   const other = OTHER_WORDS.get(term);
   return other ? text.replace(other, '').includes(term) : true;
 }
-// Everyday names of people, bodies and things that rules call something else (미화원 → 미화직,
-// 상담센터 → 카운슬링센터, 킥보드 → 개인형 이동장치). Kept apart from the concept groups above:
-// each entry names a class of the ontology, and every rule term occurs in the rule book.
-const LABEL_VOCABULARY = new Map();
-for (const { everyday, rule } of ontologyData.labels || []) {
-  for (const word of everyday) LABEL_VOCABULARY.set(word, [...new Set([...(LABEL_VOCABULARY.get(word) || []), ...rule.filter(term => term !== word)])]);
-}
-const ruleTermsOf = word => [...(RULE_VOCABULARY.get(word) || []), ...(LABEL_VOCABULARY.get(word) || [])];
 // The question word, its stem, and the rule vocabulary that may stand for it.
 function businessTerms(term, { verbs = true } = {}) {
   const stem = (verbs && VERB_STEMS.find(([pattern]) => pattern.test(term))?.[1]) || term;
-  return [...new Set([term, stem, ...ruleTermsOf(stem), ...suffixVariants(stem)])];
+  return [...new Set([term, stem, ...(RULE_VOCABULARY.get(stem) || []), ...suffixVariants(stem)])];
 }
 // A word the dictionary knows as written ("출산휴가", "회계연도") keeps its last syllable.
-const knownTerm = term => RULE_VOCABULARY.has(term) || LABEL_VOCABULARY.has(term) || COMPOUND_WORDS.has(term);
+const knownTerm = term => RULE_VOCABULARY.has(term) || COMPOUND_WORDS.has(term);
 // Comparison topics are rule names; only name-level synonyms are expanded there.
 const RULE_NAME_SYNONYMS = new Set(['강사료', '강의료', '출장비', '여비', '법카', '법인카드', '클린카드']);
 function comparisonTerms(term) {
@@ -246,7 +238,7 @@ const QUESTION_INTENTS = [
   // "~하면 어떻게 돼?" asks what follows.
   { ask: /면\s*어떻게\s*(?:돼|되|됨)|는\s*어떻게\s*(?:돼|되)/, headings: [/조치|제재|처리|효과|불이익/] },
   { ask: /종류|유형|구분|어떤\s*(?:게|것|것들)이?\s*있|뭐가\s*있|무엇이\s*있/, headings: [/종류|구분|유형/] },
-  { ask: /무슨\s*일|하는\s*일|어떤\s*일|역할이|업무가|(?:뭐|뭘|무엇을)\s*하는/, headings: [/임무|직무|업무|역할|기능|직능/] },
+  { ask: /무슨\s*일|하는\s*일|어떤\s*일|역할이|업무가/, headings: [/임무|직무|업무|역할|기능/] },
   { ask: /몇\s*명|인원|정원/, headings: [/정원|인원/, /구성/] },
   { ask: /자격|조건|요건|대상/, headings: [/자격|요건|대상/] },
   // "몇 살까지" asks for the age itself (정년), not when the retirement takes effect (정년퇴직).
