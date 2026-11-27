@@ -26,6 +26,26 @@ const ARTICLE_RE = new RegExp(
   'g'
 );
 
+// Preserve an explicit dated selector independently of its connection to an article.
+// Only the next article in the same sentence and rule context can inherit it.
+function scanDatedAddenda(text) {
+  return [...text.matchAll(new RegExp(ADDENDUM_PREFIX_SOURCE, 'g'))]
+    .filter(m => /\d{4}\s*[.\-/년]/.test(m[0]))
+    .map(m => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
+}
+
+function preserveDatedAddendum(match, text, addenda, mentions, after) {
+  if (match[1]) return false;
+  const pending = [...addenda].reverse().find(s => s.start >= after && s.end <= match.index);
+  if (!pending) return false;
+  const gap = text.slice(pending.end, match.index);
+  if (/[.!?。！？]/.test(gap) || overlaps(mentions, pending.start, match.index)) return false;
+  match[0] = text.slice(pending.start, match.index) + match[0];
+  match[1] = pending.text;
+  match.index = pending.start;
+  return true; // The selector was read, but its connection was not parsed.
+}
+
 function nkey(value) {
   return normalizeMiddots(value).replace(/\s+/g, '').toLowerCase();
 }
@@ -139,9 +159,13 @@ function extractRuleCitations(text) {
     mentionsAll.push(...mentions.map(x => ({ ...x, offset: segment.offset })));
     const bound = new Set();
 
+    const datedAddenda = scanDatedAddenda(segment.text);
+    let previousArticleEnd = 0;
     ARTICLE_RE.lastIndex = 0;
     let m;
     while ((m = ARTICLE_RE.exec(segment.text)) !== null) {
+      const connectionUnverified = preserveDatedAddendum(m, segment.text, datedAddenda, mentions, previousArticleEnd);
+      previousArticleEnd = ARTICLE_RE.lastIndex;
       const supplementary = !!m[1];
       const number = parseInt(m[2], 10);
       const subNumber = m[3] ? parseInt(m[3], 10) : null;
@@ -170,7 +194,7 @@ function extractRuleCitations(text) {
       owner.boundCount = (owner.boundCount || 0) + 1;
       bound.add(owner);
 
-      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || ''].join('|');
+      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || '', connectionUnverified].join('|');
       if (seen.has(key)) continue;
       seen.add(key);
       citations.push({
@@ -178,7 +202,7 @@ function extractRuleCitations(text) {
         ruleName: owner.resolved,
         anaphora: owner.kind === 'anaphora',
         article: { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical },
-        selectorUnverified: !selector,
+        selectorUnverified: connectionUnverified || !selector,
         hang, citedTitle,
       });
     }

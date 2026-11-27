@@ -385,7 +385,7 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 
 ## 날짜 부칙 인용 검증 상태
 
-`verify_rule_citations`는 부칙 머리의 개정일과 조문을 대조한다. 날짜 표기를 해석하지 못하면 `ARTICLE_SELECTOR_UNVERIFIED`(⚠)다. 일치 날짜를 찾지 못한 상태에서 원문에 날짜 미상 부칙이 있어도 같은 확인필요 상태로 남긴다. 이 상태는 `verified`와 `exists`에서 제외하고 `needsReview`에 센다.
+`verify_rule_citations`는 부칙 머리의 개정일과 조문을 대조한다. 날짜 표기 또는 같은 문장의 바로 다음 조문과의 연결을 해석하지 못하면 `ARTICLE_SELECTOR_UNVERIFIED`(⚠)다. 일치 날짜를 찾지 못한 상태에서 원문에 날짜 미상 부칙이 있어도 같은 확인필요 상태로 남긴다. 이 상태는 `verified`와 `exists`에서 제외하고 `needsReview`에 센다.
 
 날짜가 확인되는 부칙만 있고 해당 날짜·조문이 없으면 `NOT_FOUND`다. 날짜 없는 인용이 여러 부칙 조문에 대응하면 `ARTICLE_AMBIGUOUS`다. 날짜 부칙의 개정일을 시행일로 판정하지 않는다.
 

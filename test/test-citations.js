@@ -185,6 +185,38 @@ const deps = {
     check('일반 문장의 부칙 낱말은 뒤 본칙 조문을 삼키지 않음', result.citations.length === 1
       && result.citations[0].status === 'EXISTS' && !result.citations[0].article.startsWith('부칙'), JSON.stringify(result.citations));
   }
+  for (const date of ['2099.1.1.', '2020.1.1.']) {
+    for (const connector of ['에서 ', ' 중의 ', '에 따른 ', ' 가운데 ', '의 취지를 고려해 ', '을 검토한 후 ']) {
+      const selector = `부칙(${date})${connector}제1조`;
+      const result = await verifyRuleCitations(`「검수규정」 ${selector}를 인용한다.`, redteamDeps);
+      check(`R2 날짜 선택자 연결 미해석: ${selector}`, result.citations.length === 1
+        && result.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED'
+        && result.citations[0].article.startsWith(`부칙(${date})`)
+        && result.summary.verified === 0 && result.summary.exists === 0 && result.summary.needsReview === 1,
+      JSON.stringify(result.citations));
+    }
+  }
+  for (const text of [
+    '「검수규정」 부칙의 취지를 고려해 제3조',
+    '「검수규정」 부칙 중 적용대상을 검토하여 제3조',
+    '「검수규정」 부칙에 따라 시행하며, 제3조를 준용한다.',
+    '「검수규정」 부칙(2099.1.1.)을 검토한다. 제3조를 준용한다.',
+    '「검수규정」 부칙(2099.1.1.)을 검토한다! 제3조를 준용한다.',
+    '「검수규정」 부칙(2099.1.1.)을 검토한다? 제3조를 준용한다.',
+  ]) {
+    const result = await verifyRuleCitations(text, { ...redteamDeps, getRuleMarkdown: async () => '### 제3조(준용)\n본문\n\n' + redteamBody });
+    check('R2 날짜 없는 서술문 또는 다음 문장의 조문은 본칙 유지',
+      result.citations.length === 1 && result.citations[0].article === '제3조' && result.summary.verified === 1);
+  }
+  const nextOnly = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 가운데 제1조 및 제1조의12', redteamDeps);
+  check('R2 날짜 선택자는 바로 다음 조문 한 개에만 보존', nextOnly.citations.length === 2
+    && nextOnly.citations[0].status === 'ARTICLE_SELECTOR_UNVERIFIED' && nextOnly.citations[1].status === 'EXISTS');
+  const newOwner = extractRuleCitations('「검수규정」 부칙(2099.1.1.)을 검토하고 「다른규정」 제3조');
+  check('R2 다른 규정명으로 날짜 선택자를 넘기지 않음', newOwner.citations.find(c => c.ruleName === '다른규정')?.article.canonical === '제3조');
+  const repeated = await verifyRuleCitations('「검수규정」 부칙(2020.1.1.) 제1조 및 부칙(2020.1.1.) 가운데 제1조', redteamDeps);
+  check('R2 같은 날짜·조문도 미해석 인용을 성공 인용으로 중복 제거하지 않음', repeated.citations.length === 2
+    && repeated.summary.verified === 1 && repeated.summary.needsReview === 1);
+
   const unknownAmongDated = await verifyRuleCitations('「검수규정」 부칙(2099.1.1.) 제1조', {
     ...redteamDeps, getRuleMarkdown: async () => redteamBody + '\n\n## 부칙\n\n### 제1조(시행일)\n날짜 미상',
   });
