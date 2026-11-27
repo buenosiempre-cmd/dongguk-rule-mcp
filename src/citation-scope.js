@@ -28,7 +28,7 @@ function readDetail(text, start, { suffix = false, paragraph = false } = {}) {
   if (/목$/.test(match[0]) && /^(?:적|재|록|차)/.test(next)) return null;
   if (/표$/.test(match[0]) && /^시/.test(next)) return null;
   if (/식$/.test(match[0]) && /^지/.test(next)) return null;
-  if (kind === 'UNSUPPORTED_SELECTOR_SUFFIX' && /^(?:가지|개|명|건|회|배)/.test(next)) return null;
+  if (kind === 'UNSUPPORTED_SELECTOR_SUFFIX' && /^(?:가지|개|명|건|회|배|호(?:실|봉|선|기|점|수|칭)|항(?:목|구))/.test(next)) return null;
   // Retain a numbered annex's full designation, including spaced form labels.
   if (/^(?:별\s*표|별\s*지|서\s*식)/.test(match[0])) {
     const number = /^\s*(?:제\s*)?\d+(?:\s*호)?(?:\s*의\s*\d+)?/.exec(next);
