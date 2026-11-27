@@ -5,7 +5,7 @@
 ## 구현과 착수
 
 - Draft PR [#64](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/pull/64), branch `experiment/body-scope-20261127`. 착수 및 t110 fusion 훅 범위를 코디네이터에게 보고했다.
-- 코드 기준: PR60 `f0b355f` + `feat/nl-semantic` `29bbf6625a46593797ffedeb348a00a99d71c44f`의 merge `e2202fd`. 측정 커밋 `d5f7f998c7a88c0ace8229ea8b2881d378be25a8`에서 규칙을 고정했다. 결과를 보고 계수·규칙을 바꾸지 않았다.
+- 코드 기준: PR60 최신 `7d13345`와 `feat/nl-semantic` `29bbf6625a46593797ffedeb348a00a99d71c44f`를 merge했다. 지정 f0b355f 기준 측정을 마친 뒤 PR60이 진행하여 생긴 충돌을 merge로 해결한 후 별도로 재측정했다. scope 모듈 해시와 513개 판정은 merge 전후 모두 동일하다. 기본 큰 규정 가점은 켜고 그래프는 끈 상태로 비교했다. 기존 측정은 [f0b355f 기준 기록](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/blob/experiment/body-scope-20261127/docs/body-scope-results-f0b355f.md)에 보존한다. 측정 커밋 `702dbceb4eadc1e669663cc0f9618086a55bbdac`에서 규칙을 고정했다. 결과를 보고 계수·규칙을 바꾸지 않았다.
 - 새 `src/scope.js`가 첫 3개 본칙의 목적·적용범위·적용대상에서 캠퍼스/기관 근거를 읽는다. 제목 판은 보존하고 인용·소재·일반 언급·관리 주체·예외/부정·모호한 복수 범위는 보수적으로 보류한다. 미확정은 전교 적용 확정이 아니다.
 - `fusion.js`에는 선택적 agreement 콜백만 연결했다. t110의 기존 판 선택 알고리즘과 배수는 유지했다. `corpus.js`·`index.js` 순위 코드는 수정하지 않았다. 기본 `legacy`와 기존 `hybrid`는 그대로다. 문항·규정번호 하드코딩 없음.
 
@@ -26,15 +26,15 @@
 
 | 조건 | 세트 | 문항 | 엄격 | top3 | 조건부 조문 | 새로 틀림 전수 | 개선 전수 |
 |---|---|---:|---:|---:|---:|---|---|
-| 의미검색 on / query | 공개251 | 251 | 240 → 240 | 243 → 243 | 240/243 → 240/243 | 없음 | 없음 |
+| 의미검색 on / query | 공개251 | 251 | 239 → 239 | 242 → 242 | 239/242 → 239/242 | 없음 | 없음 |
 | 의미검색 on / query | 회귀71(251에 포함) | 71 | 70 → 70 | 70 → 70 | 70/70 → 70/70 | 없음 | 없음 |
-| 의미검색 on / query | probe9 | 36 | 31 → 31 | 34 → 34 | 31/34 → 31/34 | 없음 | 없음 |
+| 의미검색 on / query | probe9 | 36 | 29 → 29 | 32 → 32 | 29/32 → 29/32 | 없음 | 없음 |
 | 의미검색 on / query | scope12 | 12 | 10 → 10 | 10 → 10 | 10/10 → 10/10 | 없음 | 없음 |
 | 의미검색 on / query | scope22 | 22 | 20 → 19 | 21 → 20 | 20/21 → 19/20 | scope22:Z137 | 없음 |
 | 의미검색 on / query | dev_open | 20 | 19 → 19 | 20 → 20 | 19/20 → 19/20 | 없음 | 없음 |
-| 의미검색 off / query | 공개251 | 251 | 231 → 231 | 237 → 237 | 231/237 → 231/237 | 없음 | 없음 |
+| 의미검색 off / query | 공개251 | 251 | 229 → 229 | 235 → 235 | 229/235 → 229/235 | 없음 | 없음 |
 | 의미검색 off / query | 회귀71(251에 포함) | 71 | 70 → 70 | 70 → 70 | 70/70 → 70/70 | 없음 | 없음 |
-| 의미검색 off / query | probe9 | 36 | 27 → 27 | 32 → 32 | 27/32 → 27/32 | 없음 | 없음 |
+| 의미검색 off / query | probe9 | 36 | 25 → 25 | 30 → 30 | 25/30 → 25/30 | 없음 | 없음 |
 | 의미검색 off / query | scope12 | 12 | 11 → 10 | 11 → 10 | 11/11 → 10/10 | scope12:K02 | 없음 |
 | 의미검색 off / query | scope22 | 22 | 20 → 20 | 20 → 20 | 20/20 → 20/20 | 없음 | 없음 |
 | 의미검색 off / query | dev_open | 20 | 17 → 17 | 20 → 20 | 17/20 → 17/20 | 없음 | 없음 |
@@ -65,10 +65,10 @@ K02의 공개 fixture는 WISE 직원 건강진단 질문에 안전보건관리�
 
 | 조건 | 문항 | 중앙값 ms | p95 ms | 의미검색 실제 사용(전/후) | 오류(전/후) |
 |---|---:|---:|---:|---:|---:|
-| 의미검색 on / query | 341 | 35 → 35 | 55 → 57 | 341 / 341 | 0 / 0 |
-| 의미검색 off / query | 341 | 25 → 26 | 47 → 46 | 0 / 0 | 0 / 0 |
-| 의미검색 on / sonnet | 251 | 73 → 72 | 109 → 111 | 251 / 251 | 0 / 0 |
-| 의미검색 on / haiku | 251 | 69 → 70 | 108 → 108 | 251 / 251 | 0 / 0 |
+| 의미검색 on / query | 341 | 46 → 55 | 82 → 103 | 341 / 341 | 0 / 0 |
+| 의미검색 off / query | 341 | 42 → 39 | 82 → 77 | 0 / 0 | 0 / 0 |
+| 의미검색 on / sonnet | 251 | 120 → 94 | 191 → 148 | 251 / 251 | 0 / 0 |
+| 의미검색 on / haiku | 251 | 81 → 78 | 125 → 123 | 251 / 251 | 0 / 0 |
 
 각 조건은 별도 프로세스·캐시에서 1회 순차 실행했다. 지연은 모델 초기화가 포함된 질의 시간 분포이며 반복 실험이나 속도 우월성의 근거가 아니다. 의미검색 on은 모든 문항에서 실제 사용했고 off는0, 총 **2,368회 호출 오류0**이다. 최종 결과를 보고 재조정하지 않았다.
 
@@ -78,6 +78,6 @@ K02의 공개 fixture는 WISE 직원 건강진단 질문에 안전보건관리�
 
 ## 산출물
 
-- 원시 비교 8개 JSON·로그, comparison.json(문항별 전후), scope-audit.json(규정513 전수), source-manifest.json, integrity.json: `/Users/bueno/Documents/Codex/scope-artifacts-20261127/final-common/`
+- 원시 비교 8개 JSON·로그, comparison.json(문항별 전후), scope-audit.json(규정513 전수), source-manifest.json, integrity.json: `/Users/bueno/Documents/Codex/scope-artifacts-20261127/latest-hybrid-common/`
 - 문항 원본·해시: `/Users/bueno/Documents/Codex/scope-artifacts-20261127/inputs/`, `input-manifest.json`. 원시 캐시·본문 판정 근거·대용량 결과는 Git에 넣지 않았다.
-- 본 보고서와 검색 가능한 규정별 전수 판정표: `~/herdr-work/rule_mcp_upgrade/본문판별_최종공통기준_결과_20261127.html` (동명 Markdown).
+- 본 보고서와 검색 가능한 규정별 전수 판정표: `~/herdr-work/rule_mcp_upgrade/본문판별_최신하네스_결과_20261127.html` (동명 Markdown).

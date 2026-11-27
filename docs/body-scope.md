@@ -33,3 +33,5 @@ node scripts/measure-body-scope.js --cache <자체 사본 루트> \
 ```
 
 비교 기준은 `--ranking hybrid`다. 질문만 조건은 args.keywords도 무시한다. 새 공통 corpus·벡터 SHA를 모두 명시해야 실행할 수 있다. 결과에는 실제 사용 파일명·TEXT 버전·커밋·소스 해시·문항 해시와 규정별 전수 판정표를 넣는다. strict/top3/조건부 조문/1위·모든 신규오답·개선·반환 순서 변화를 세트별로 보고한다. scope22는 t110 공개 개발 Z121~Z142의 데이터 선택이며 런타임 규칙과 무관하다. 박스 보류셋은 읽지 않는다.
+
+최신 PR60 `7d13345`와의 충돌은 merge `702dbce`로 해소했고, 같은 규칙으로 최종 공통 캐시에서 다시 비교했다. 본문 판정513개와 모듈 해시는 merge 전후 동일하다. 현재 결과는 [최신 하네스 보고](body-scope-results.md), 지정 f0b355f 기준의 이전 결과는 [별도 기록](body-scope-results-f0b355f.md)으로 구분한다.
