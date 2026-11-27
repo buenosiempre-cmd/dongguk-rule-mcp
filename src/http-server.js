@@ -4,6 +4,7 @@
 // credential identifiers are written to logs or returned by the status API.
 const http = require('http');
 const { createUsageLog } = require('./usage-log');
+const { createQueryLog } = require('./query-log');
 const crypto = require('crypto');
 const fs = require('fs');
 const net = require('net');
@@ -95,6 +96,7 @@ function validateConfiguration(options = {}) {
     rateLimitPerDay: integer(options.rateLimitPerDay, 1000, 0, 10000000, 'rateLimitPerDay'),
     trustProxy: options.trustProxy !== false,
     usageLogDir: typeof (options.usageLogDir ?? process.env.DONGGUK_MCP_USAGE_LOG_DIR) === 'string' ? (options.usageLogDir ?? process.env.DONGGUK_MCP_USAGE_LOG_DIR).trim() : '',
+    queryLogDir: typeof (options.queryLogDir ?? process.env.DONGGUK_MCP_QUERY_LOG_DIR) === 'string' ? (options.queryLogDir ?? process.env.DONGGUK_MCP_QUERY_LOG_DIR).trim() : '',
   };
 }
 
@@ -141,6 +143,7 @@ function readBody(req, { maxBodyBytes, bodyTimeoutMs }) {
 function createHttpServer(options = {}) {
   const config = validateConfiguration(options);
   const usageLog = createUsageLog({ dir: config.usageLogDir });
+  const queryLog = createQueryLog({ dir: config.queryLogDir });
   // File duplicates have already been rejected. The separately configured
   // legacy token is appended last and deliberately retains administrator and
   // all-endpoint access if its digest also occurs in the member token file.
@@ -298,6 +301,7 @@ function createHttpServer(options = {}) {
       if (!body || typeof body !== 'object') throw problem(400, 'Invalid JSON-RPC request', -32600);
       if (res.destroyed) throw problem(499, 'Client disconnected');
       usageLog?.track(req, res, pathname, receivedAt, body);
+      queryLog?.track(req, res, pathname, receivedAt, body);
       running.add(operation);
       server = await config.endpointFactories[pathname]();
       transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
@@ -346,6 +350,7 @@ function createHttpServer(options = {}) {
     return shutdownPromise;
   };
   httpServer.flushUsageLog = () => usageLog?.flush() || Promise.resolve();
+  httpServer.flushQueryLog = () => queryLog?.flush() || Promise.resolve();
   return httpServer;
 }
 

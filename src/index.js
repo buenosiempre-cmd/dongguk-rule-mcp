@@ -1578,6 +1578,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         data.fullTextIndex=indexStatus();
         data.integrations.universityComparison={configured:comparisonEnabled(),defaultEnabled:true,optOutEnv:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0',snuKeyConfigured:Boolean((process.env.DONGGUK_LAWGO_OC||'').trim()),snuKeyEnv:'DONGGUK_LAWGO_OC',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
         data.integrations.lawLink={configured:!lawGuide,state:lawGuide?lawGuide.state:'ready',defaultEnabled:true,...(lawGuide?{setup:{env:lawGuide.env,ocApplyUrl:lawGuide.ocApplyUrl},notice:lawGuide.message}:{}),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
+        data.privacy.queryLog=require('./query-log').queryLogInfo();
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
         r=success([
           '동국 규정 MCP 서비스 정보',
@@ -1595,6 +1596,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- 타대학 비교(compare_university_rules): '+(data.integrations.universityComparison.configured?'켜짐':'운영자가 끔(DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0)')+' / 서울대 조회 키(DONGGUK_LAWGO_OC): '+(data.integrations.universityComparison.snuKeyConfigured?'있음':'없음(서울대만 건너뜀, https://open.law.go.kr 에서 신청)'),
           '- jointWorkflows: '+(data.integrations.jointWorkflows.join(', ')||'없음'),
           '- privatePacksConfigured: '+data.privacy.privatePacksConfigured,
+          '- 검색어 저장: '+(data.privacy.queryLog.enabled?'켜짐':'꺼짐')+' — '+data.privacy.queryLog.notice,
           '- fullTextIndex: '+(data.fullTextIndex.available?`${data.fullTextIndex.indexedRules}/${data.fullTextIndex.totalRules}개 규정, ${data.fullTextIndex.indexedAt}${data.fullTextIndex.stale?' (오래됨)':''}`:'없음(공식 사이트 검색 사용)'),
           '',
           '공식 목록에는 캠퍼스 필터가 없습니다. 캠퍼스·직군별 적용은 규정 제목과 적용범위 조문을 확인하세요.',

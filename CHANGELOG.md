@@ -2,6 +2,14 @@
 
 ## 미배포
 
+### 질문 로그(선택)
+
+- `DONGGUK_MCP_QUERY_LOG_DIR`를 넣은 HTTP 서버만 검색·조회 도구(`lookup_dongguk_rule`, `search_rule`, `search_rule_deep`, `applicable_rule`, `compare_university_rules`, 회원용 재무 검색 3종)의 질문 문자열 하나를 `queries-YYYY-MM.jsonl`(디렉터리 0700·파일 0600)에 남깁니다. 시각(KST)·도구·경로(`/mcp/rules`·`/mcp`)·질문(마스킹, 최대 200자)·결과 상태·결과 건수·첫 결과 규정명·소요 시간만 저장하고, 다른 인자·답변 본문·IP·헤더·토큰·회원 식별자는 저장하지 않습니다. 기안문을 받는 `review_finance_case`는 제외합니다.
+- 주민·외국인등록번호, 전화번호, 이메일, 카드·계좌·사업자등록번호, 7자리 이상 숫자, URL, 긴 비밀값을 저장 전에 가립니다. 이름·사건 서술은 가리지 못하므로 고지 문구로 안내합니다.
+- `scripts/sync-query-log-notion.js`가 서버 밖에서 노션 데이터베이스로 올립니다(`NOTION_QUERY_LOG_TOKEN`, `NOTION_QUERY_LOG_DATABASE_ID`). 파일별 오프셋으로 중복을 막고 `--dry-run`, `--prune`(로컬 보관 기간 정리), `--prune-notion`, `--export-wrong`(오답 → 정답률 질문 세트)을 지원합니다. 보관 기간은 기본 365일(`DONGGUK_MCP_QUERY_LOG_RETENTION_DAYS`).
+- `get_service_info`가 `privacy.queryLog`와 `검색어 저장:` 줄로 수집 여부·보관 기간·고지 문구를 알려 줍니다. 설명은 `docs/QUERY_LOG.md`.
+- 기본은 꺼져 있습니다. 공용 서버 런처 변경과 동기화 예약은 이 변경에 포함하지 않습니다.
+
 ### 자연어 정답 조문 벤치마크
 
 - lawId와 실제 반환 본문의 조문/별표 표제를 함께 확인하는 직접 실행하는 벤치마크, 학습 46문항, 오프라인 채점 테스트를 추가합니다.
