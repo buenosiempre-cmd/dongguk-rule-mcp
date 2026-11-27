@@ -132,6 +132,22 @@ function ruleTitleScore(title, terms, hints) {
   return hints.some(x => t.includes(compact(x))) ? 1 : 0;
 }
 
+// 주제 전담에 가까운 짧은 제목(출장비규정, 출장비 지급 규정, 여비규정)을 올리고,
+// 같은 단서가 있어도 산학협력단·연구과제 내규·세부지침은 그 다음으로 둔다.
+function titleSpecificityBonus(title, topic, terms, hints) {
+  const t = compact(String(title || '').split(/제\s*\d+\s*조/)[0]).replace(/^[\d-]+/, '');
+  const stems = uniq([topic, ...terms, ...hints].map(x => compact(x)).filter(x => x.length >= 2));
+  let bonus = 0;
+  if (stems.some(s => t === s || t === s + '규정' || t === s + '지급규정' || t === `${s}지급에관한규정`)) bonus += 40;
+  if (/(산학협력단|연구과제)/.test(t) && /(내규|세부지침|사용기준)/.test(t)) bonus -= 25;
+  return bonus;
+}
+
+function titleMatchesTopic(title, topic, aliases = []) {
+  const t = compact(title);
+  return uniq([topic, ...aliases].map(x => compact(x)).filter(Boolean)).some(k => t.includes(k));
+}
+
 // LawMaster 밖 대학(서강 JSON content, 이화 view HTML 등)의 조문 HTML/텍스트를
 // listArticleBlocks가 읽는 '### 제N조 … / ## 부칙 …' markdown으로 바꾼다.
 // 블록 태그가 없고 조문이 &nbsp;로 이어지는 서강류도 조·부칙·장·절 경계에서 분리한다.
@@ -180,7 +196,13 @@ function ruleRevisedAt(markdown) {
 function rankByTitle(items, topic, terms, hints) {
   const query = compact(topic);
   const scored = items
-    .map((it, i) => ({ it, i, s: (compact(it.title) === query || compact(it.title) === query + '규정' ? 100 : compact(it.title).includes(query) ? 30 : 0) + ruleTitleScore(it.title, terms, hints) * 10 }))
+    .map((it, i) => {
+      const t = compact(it.title);
+      const s = (t === query || t === query + '규정' ? 100 : t.includes(query) ? 30 : 0)
+        + ruleTitleScore(it.title, terms, hints) * 10
+        + titleSpecificityBonus(it.title, topic, terms, hints);
+      return { it, i, s };
+    })
     .filter(x => ruleTitleScore(x.it.title, terms, hints) > 0 || x.s >= 30);
   scored.sort((a, b) => b.s - a.s || a.i - b.i);
   return scored.map(x => x.it);
@@ -561,7 +583,8 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
   // 제목 채널: 「전임교원 겸직허가에 관한 규정」처럼 사안을 전담하는 규정이 본문 검색에서는 다른 규정의
   // 조문에 밀려 상위 5개 밖으로 빠질 수 있다(서울시립 2026-11-25 확인). 제목 검색(대표어·첫 제목 단서)을
   // 먼저 돌려 후보에 넣고 가장 먼저 읽는다. 제목 검색 실패는 본문 검색으로 이어간다.
-  const titleQueries = uniq([terms[0], hints[0]]).filter(q => q && q.length >= 2).slice(0, 2);
+  // 기본은 대표어·첫 제목 단서만 제목 검색한다. 감시처럼 별칭을 모두 쓰려면 spec.titleQueries로 넘긴다.
+  const titleQueries = uniq(spec.titleQueries || [terms[0], hints[0]]).filter(q => q && q.length >= 2).slice(0, 4);
   const searchAll = async (run, mode, runTitle) => {
     const merged = [], seen = new Set(), queries = [];
     let total = 0, pageCut = false, titleMatches = 0;
@@ -636,7 +659,7 @@ async function loadExternal(source, topic, terms, client, signal, spec = {}, pdf
   const query = compact(topic);
   const rank = hit => {
     const title = compact(hit.title.split(/제\s*\d+\s*조/)[0]).replace(/^[\d-]+/, '');
-    return (hit.matchedBy === 'title' ? 50 : 0) + (title === query || title === query + '규정' ? 100 : title.includes(query) ? 30 : 0) + ruleTitleScore(hit.title, terms, hints) * 10;
+    return (hit.matchedBy === 'title' ? 50 : 0) + (title === query || title === query + '규정' ? 100 : title.includes(query) ? 30 : 0) + ruleTitleScore(hit.title, terms, hints) * 10 + titleSpecificityBonus(hit.title, topic, terms, hints);
   };
   hits.sort((a,b)=>rank(b)-rank(a));
   for (const hit of hits.slice(0, maxRules)) {
@@ -821,4 +844,4 @@ function effectiveLabel(a) {
   return `시행일 ${a.effectiveAt} (${a.effectiveSource === 'list' ? '규정 목록 시행일자' : '마지막 부칙 명시 시행일'})`;
 }
 
-module.exports = { comparisonEnabled, SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, htmlToArticleMarkdown, latestRevisionDate };
+module.exports = { comparisonEnabled, SOURCES, TOPICS, FRAMES, MAX_RULES, TOTAL_TIMEOUT_MS, PUBLIC_ONLY_NOTICE, FRAME_NOTICE, parsePairs, parseFolderListing, parseTree, parseUniversitySearch, parseExternalContent, createPublicClient, validateArguments, selectArticles, compareUniversityRules, formatComparison, loadExternal, safeCode, expandTopic, cleanListTitle, latestAddendaEffective, ruleTitleScore, titleSpecificityBonus, titleMatchesTopic, htmlToArticleMarkdown, latestRevisionDate };

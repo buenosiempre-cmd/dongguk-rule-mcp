@@ -241,8 +241,9 @@ async function loadSkku(source, topic, terms, client, signal, spec, { rankByTitl
   }
   if (!anyOk) throw firstError || error('UPSTREAM_FORMAT_CHANGED');
   let candidates = rankByTitle(currentSkkuRules(rows, todayKst(now)), topic, terms, hints), channel = 'title';
-  if (!candidates.length) {
-    // 제목에 주제어가 없는 사안(여비 → 직원 복무규정)은 본문 검색 한 번으로 후보를 찾는다.
+  if (!candidates.length && !spec.titleOnly) {
+    // 제목에 주제어가 없는 사안(여비 → 직원 복무규정)은 비교 조회에서만 본문 검색으로 후보를 찾는다.
+    // 주간 감시는 제목 일치 여비·출장 전담 규정만 본다(전담 제목이 없으면 빈 결과).
     rows.length = 0; channel = 'content';
     await search('article_text', queries[0]);
     candidates = currentSkkuRules(rows, todayKst(now));
