@@ -129,7 +129,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope, selectRuleEditions } = require('./lookup.js');
+const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope } = require('./lookup.js');
 const {
   parseSearch,
   parseContent,
@@ -153,6 +153,8 @@ const {
   TOOL_OUTPUT_SCHEMA,
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
+const { rankRules, rankingMethod } = require('./fusion.js');
+const { createFacetSignal } = require('./ontology.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
 const { normalizeName, createResolver, extractReferences, summarizeExternalLaws } = require('./references.js');
@@ -734,24 +736,27 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
     const body=hit.articles[0]&&!hit.articles[0].supplementary;
     const rankedArticles=hit.articles.filter(item=>item.article&&!item.supplementary).map(item=>item.article);
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
-      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,edition:hit.edition,family:hit.family,
+      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,semanticRuleRank:hit.semanticRuleRank,edition:hit.edition,family:hit.family,
       priorityArticles:excerptPriority(body?rankedArticles.slice(0,1):[],hit.semanticArticle,[hit.wordArticle,...(body?rankedArticles.slice(1,2):[])]),rankedArticles,
       // Only the institution or campus name matched; no article is about the topic.
       scopeNameOnly:hit.matchedConcepts.length>0&&hit.matchedConcepts.every(term=>SCOPE_WORD.test(term))};
     if(!families.has(hit.family)) families.set(hit.family,[]);
     families.get(hit.family).push(entry);
   }
-  const scope=requestedRuleScope(scopeQuery,campus);
-  let ranked=[...families.values()].flatMap(members=>selectRuleEditions(members,scope))
-    .sort((a,b)=>Number(b.scopeMatch)-Number(a.scopeMatch)||b.score-a.score||a.lawId-b.lawId);
-  // A specified, available scope must not be padded with unrelated editions.
-  if(scope.specified&&!scope.ambiguous&&ranked.some(hit=>hit.scopeMatch)) ranked=ranked.filter(hit=>hit.scopeMatch);
+  // Order and edition choice are decided in fusion.js; `method` is the one it actually used.
+  const corpus=loadCorpus(publicCacheDir());
+  const requested=rankingMethod();
+  const {method,ranked:fused}=rankRules({candidates:[...families.values()].flat(),scope:requestedRuleScope(scopeQuery,campus),query:scopeQuery,campus,
+    facets:requested==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery}),semantic:found.semantic,method:requested});
+  let ranked=fused;
   // A rule that shares only the institution's name with the question comes after every rule
   // with a matching topic. It stays a candidate: its answer may sit in an appendix the index lacks.
   if(ranked.some(hit=>!hit.scopeNameOnly)) ranked=[...ranked.filter(hit=>!hit.scopeNameOnly),...ranked.filter(hit=>hit.scopeNameOnly)];
   // A rule named after a question word (위임전결규정 for "누가 전결해") is previewed even when another
   // rule's articles match more words: its answer may sit in an appendix the index does not cover.
-  const titleFamilies=term=>new Set(ranked.filter(x=>x.title.includes(term)).map(x=>x.family)).size;
+  // Outside the legacy order, rules of other places stay in the list; a title word is rare when
+  // few families of the leading rule's place carry it.
+  const titleFamilies=term=>new Set(ranked.filter(x=>(method==='legacy'||x.scopeMatch===ranked[0].scopeMatch)&&x.title.includes(term)).map(x=>x.family)).size;
   const anchored=ranked.slice(1).filter(x=>!x.scopeNameOnly&&x.scopeMatch===ranked[0].scopeMatch&&x.score>=ranked[0].score*0.4&&found.tokens.some(term=>term.length>=2&&x.title.includes(term)&&titleFamilies(term)<=2&&!ranked[0].title.includes(term)));
   const leading=ranked.slice(0,INDEX_PREVIEW_RULES);
   for(const extra of anchored.slice(0,1)) if(!leading.includes(extra)) leading.splice(INDEX_PREVIEW_RULES-1,1,extra);
@@ -760,8 +765,8 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // How clearly the first rule leads is judged by word scores. The semantic lift orders rules;
   // it is not evidence that one rule alone answers the question.
   const searchable=found.tokens.length-found.missingTerms.length;
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||first.scopeMatch!==second.scopeMatch||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3);
-  return {hits,dominant};
+  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3);
+  return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
 // Semantic scores for a question, and for the question with its keywords. Null when semantic
@@ -784,7 +789,7 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
   const found=searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords,semantic:keywords?.length?semantic?.keyed:semantic?.question});
   if(!found.hits.length) return null;
   // Campus and institution are read from the question, never from the keywords.
-  let {hits,dominant}=rankIndexHits(found,{top,campus,scopeQuery});
+  let {hits,dominant,method}=rankIndexHits(found,{top,campus,scopeQuery});
   // Keywords can be off the mark. The rule the question alone would have chosen stays among
   // the previews, and its article stays in the excerpt of a rule both searches found.
   let keywordInfo=null;
@@ -811,7 +816,7 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
       if(hits[0].lawId!==chosen.lawId||!question.dominant) dominant=false;
     }
   }
-  return {total:hits.length,hits,semantic:found.semantic,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
+  return {total:hits.length,hits,semantic:found.semantic,ranking:method,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
     ...(keywordInfo?{keywordInfo}:{}),
     indexedAt:corpus.builtAt,stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
 }
@@ -1181,7 +1186,7 @@ async function hLookup(rawKeyword, {
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
-      ...(indexMode?{semantic:!!result.semantic,selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
+      ...(indexMode?{semantic:!!result.semantic,ranking:result.ranking,selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
         otherCandidates:result.hits.slice(hits.length,hits.length+3).map(x=>({lawId:x.lawId,title:x.title,matchedTerms:x.matchedTerms,topArticle:x.topArticle}))}:{})},
     rules,
     evidenceStatus:rules.some(rule=>rule.evidenceStatus==='partial')?'partial':'retrieved',
