@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { FEATURE_NAMES, evidenceFeatures, reciprocalRankFusion, aggregateRules, createRetriever, rerank } = require('../src/jev');
+const { assertFullVectorCoverage } = require('../scripts/collect-jev-evidence');
 
 async function main() {
   // Golden values generated with upstream features.py at 13ae4cc.
@@ -39,6 +40,13 @@ async function main() {
   const index = {meta:{dims:2,rows:2,rules:corpus.rules.map(r=>({lawId:r.lawId,blocks:[[0,hash(r.title,r.blocks[0].content),1]]}))},vectors:new Float32Array([1,0,0,1])};
   const retriever = createRetriever(corpus,index);
   assert.equal(retriever.coverage.vectorArticles,2);
+  assert.doesNotThrow(()=>assertFullVectorCoverage(retriever));
+  const repaired = structuredClone(corpus);
+  repaired.rules[0].blocks[0].content += ' 복구된 본문';
+  const partiallyAligned = createRetriever(repaired,index);
+  assert.equal(partiallyAligned.coverage.vectorArticles,1);
+  assert.throws(()=>assertFullVectorCoverage(partiallyAligned),/JEV_VECTOR_COVERAGE_INCOMPLETE: 1\/2/);
+  assert.throws(()=>assertFullVectorCoverage({coverage:{articles:0,vectorArticles:0}}),/INCOMPLETE/);
   const evidence = await retriever.gather('출장비를 지급받으려면', async()=>new Float32Array([1,0]));
   assert(evidence.keys.length<=4); assert.equal(evidence.keys[0],'출장비를 지급받으려면');
   assert(evidence.candidates.every(c=>c.features.length===16 && c.features.every(Number.isFinite)));

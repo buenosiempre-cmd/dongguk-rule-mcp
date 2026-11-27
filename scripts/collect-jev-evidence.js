@@ -10,6 +10,13 @@ const { loadSemanticIndex, createEmbedder } = require('../src/semantic');
 const { createRetriever, FEATURE_NAMES, experimentFingerprint } = require('../src/jev');
 const sha = data => crypto.createHash('sha256').update(data).digest('hex');
 
+function assertFullVectorCoverage(retriever) {
+  const { articles, vectorArticles } = retriever.coverage;
+  if (!articles || vectorArticles !== articles) {
+    throw new Error(`JEV_VECTOR_COVERAGE_INCOMPLETE: ${vectorArticles}/${articles}`);
+  }
+}
+
 async function main(argv = process.argv.slice(2)) {
   const options = {};
   for (let i = 0; i < argv.length; i += 2) {
@@ -27,6 +34,9 @@ async function main(argv = process.argv.slice(2)) {
   const corpus = loadCorpus(options['corpus-dir']), index = loadSemanticIndex(options['vector-dir']);
   if (!index) throw new Error('SEMANTIC_INDEX_MISSING');
   const start = performance.now(), retriever = createRetriever(corpus, index);
+  // A partial vector alignment is a runtime fallback, not a comparable experiment.
+  // Refuse old vectors paired with a repaired corpus before any query inference.
+  assertFullVectorCoverage(retriever);
   // Existing operator models use a local model tree rather than an HF HTTP cache.
   if (process.env.DONGGUK_MCP_SEMANTIC_RUNTIME && process.env.DONGGUK_MCP_SEMANTIC_MODEL_DIR) {
     const runtimePath = createRequire(path.join(process.env.DONGGUK_MCP_SEMANTIC_RUNTIME, 'package.json')).resolve('@huggingface/transformers');
@@ -58,4 +68,4 @@ async function main(argv = process.argv.slice(2)) {
   fs.writeFileSync(options.output, JSON.stringify(report) + '\n', { flag: 'wx' });
 }
 if (require.main === module) main().catch(e => { console.error(e.message); process.exitCode = 1; });
-module.exports = { main };
+module.exports = { main, assertFullVectorCoverage };
