@@ -117,7 +117,8 @@ async function createEmbedder({ directory, model = modelName(), download = false
 }
 
 // === building ===
-async function buildSemanticIndex({ corpus, directory, embedder, previous = null, batchSize = 16, onProgress = () => {}, now = () => new Date() }) {
+// A passage must not depend on padding introduced by unrelated passages in its batch.
+async function buildSemanticIndex({ corpus, directory, embedder, previous = null, batchSize = 1, onProgress = () => {}, now = () => new Date() }) {
   if (!Number.isSafeInteger(batchSize) || batchSize < 1) throw new Error('Invalid semantic batch size');
   const reusable = new Map();
   if (previous && validMeta(previous.meta) && previous.meta.model === embedder.model) {
