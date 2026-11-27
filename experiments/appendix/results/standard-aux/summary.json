@@ -1,0 +1,942 @@
+{
+  "identity": {
+    "commit": "29bbf6625a46593797ffedeb348a00a99d71c44f",
+    "manifest": "dbc6d1faa9b83f08e80784b1ff53b7b76708ebc0e5f20266230b0b452ae219e7",
+    "corpus": "830b69968e8f212450a9f152b890d6c78a4724d56d4b0a4e9b41caa18bdbd227",
+    "vector": "fd7d662bb55c82f6d45f102866bc8e8837b046fdf7ac5658830c217a34de5def",
+    "public": "/Users/bueno/Documents/Codex/d1-final-handoff-20261127/handoff-final/dongguk-rule-mcp/v2/public",
+    "files": 733,
+    "bytes": 42451819,
+    "vectorFile": "semantic-v1.fd7d662bb55c82f6d45f102866bc8e8837b046fdf7ac5658830c217a34de5def.bin"
+  },
+  "auxiliary": {
+    "manifest": "cc3c9fd1c09456c928d6444188b83e246941ec06756a0cbffe92e15fb52b6bf0",
+    "files": 673,
+    "harness": "c24eb47a2515f29f9486f78a86c22680ce9f31990adc376db9ae3a6b8e799792",
+    "launcher": "eae9b6bfbcb29ae018cc7a0591cdda0bfed7f851be2e085210a61d11fdab9602"
+  },
+  "harnessSha256": "c24eb47a2515f29f9486f78a86c22680ce9f31990adc376db9ae3a6b8e799792",
+  "experimentCommit": "e08bb74b4f361975f77206e15fbc7fa16139dc77",
+  "baselineCommit": "29bbf6625a46593797ffedeb348a00a99d71c44f",
+  "inputs": {
+    "harness-d1.js": "c24eb47a2515f29f9486f78a86c22680ce9f31990adc376db9ae3a6b8e799792",
+    "sets/train.json": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+    "sets/dev.json": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+    "sets/probe1.json": "4b12ff7be41f287b4f2efd01ec9337a0048d3731ccc98b435b42ebe313553971",
+    "sets/probe2.json": "e732b77617e419cf6d9bb8127b2dd0643437c8d4bc8c72b4623967dbcb3bcbee",
+    "sets/probe3.json": "d75f51390760b1d8c450972bf70cb2070ded560f430df5a085ad011e88800e9f",
+    "sets/probe4.json": "1aa7426f08c436c50b997afd91df46f158fafebf9f576c59c25bff6d2aed40d9",
+    "sets/probe5.json": "d732de670389d326106fbeffaa696f3aae92e8c4ecd61d15293fd5d7d4448efc",
+    "sets/probe6.json": "273addf0d91cb352386d794e317788e64a015df21a476b107eb80961e35cd68a",
+    "sets/probe7.json": "1288cfa318effacbf1e2ee16a95e969ba008bc63614de40fa1356ce412fc2688",
+    "sets/probe8.json": "ad9d64b143daa0f9b2c17d1dd6372bea9bda60b31412e38d5c74a35e562ace3a",
+    "sets/probe9.json": "397446c02c585e5d1cb8b74d93a06c741eee73fca3e0df459750a04551e9cc69",
+    "gen/kw-all-sonnet.json": "797b448bd31784319502d79b826793087e96e6c8d8cf6cbeeaa7058a941855a5",
+    "gen/kw-all-haiku.json": "4ea88cf5bace97f50cb20ffa363b09defec390d7ad39774b0a3da7d949f107a6",
+    "run2.sh": "eae9b6bfbcb29ae018cc7a0591cdda0bfed7f851be2e085210a61d11fdab9602",
+    "cmp.js": "43425b35da282e78c1f49d8722b6ffa91869214c4e776348f1e907ebf9cac807",
+    "dev_open.original": "977def756d89605ffbad21b23c242ad24dbb9880791b61502d62706f909d85ed",
+    "dev_open.query-only": "7eb73855374b311372ab238592d965a389960b3197f9eeb9685012006ebe03d2"
+  },
+  "trainingOrTuning": false,
+  "sourceUnchanged": true,
+  "network": "NL_OFFLINE=1; no live requests",
+  "cachePolicy": "733 pinned files + 669 auxiliary catalog/search files per run; corpus-derived history",
+  "runs": [
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-off-query-baseline.rows.json",
+      "sha256": "f624593bc0a492df582c78b0942955c83a5d06f91b0f3982a24fcb8bc11d0b4d",
+      "total": 251,
+      "strict": 229,
+      "top3": 235,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe2:Q06",
+        "probe3:R04",
+        "probe3:R19",
+        "probe3:R21",
+        "probe4:S03",
+        "probe4:S17",
+        "probe4:S18",
+        "probe5:U19",
+        "probe6:V06",
+        "probe6:V07",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W04",
+        "probe7:W06",
+        "probe7:W14",
+        "probe7:W20",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-off-query-appendix.rows.json",
+      "sha256": "f624593bc0a492df582c78b0942955c83a5d06f91b0f3982a24fcb8bc11d0b4d",
+      "total": 251,
+      "strict": 229,
+      "top3": 235,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe2:Q06",
+        "probe3:R04",
+        "probe3:R19",
+        "probe3:R21",
+        "probe4:S03",
+        "probe4:S17",
+        "probe4:S18",
+        "probe5:U19",
+        "probe6:V06",
+        "probe6:V07",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W04",
+        "probe7:W06",
+        "probe7:W14",
+        "probe7:W20",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-off-sonnet-baseline.rows.json",
+      "sha256": "915b5e01318d820fdc1d8f65e897ef7d0e5c82be9e99824ba6ee26ab291a1348",
+      "total": 251,
+      "strict": 244,
+      "top3": 246,
+      "wrong": [
+        "dev:H04",
+        "probe2:Q06",
+        "probe2:Q10",
+        "probe2:Q23",
+        "probe4:S18",
+        "probe6:V18",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-off-sonnet-appendix.rows.json",
+      "sha256": "915b5e01318d820fdc1d8f65e897ef7d0e5c82be9e99824ba6ee26ab291a1348",
+      "total": 251,
+      "strict": 244,
+      "top3": 246,
+      "wrong": [
+        "dev:H04",
+        "probe2:Q06",
+        "probe2:Q10",
+        "probe2:Q23",
+        "probe4:S18",
+        "probe6:V18",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-off-haiku-baseline.rows.json",
+      "sha256": "3220b5b428d2e041d2dd891f05e5c434d3a38bb6cc1fbbaa52fbdc14e54507c3",
+      "total": 251,
+      "strict": 243,
+      "top3": 245,
+      "wrong": [
+        "dev:H21",
+        "dev:H25",
+        "probe1:P11",
+        "probe1:P27",
+        "probe3:R24",
+        "probe6:V23",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-off-haiku-appendix.rows.json",
+      "sha256": "3220b5b428d2e041d2dd891f05e5c434d3a38bb6cc1fbbaa52fbdc14e54507c3",
+      "total": 251,
+      "strict": 243,
+      "top3": 245,
+      "wrong": [
+        "dev:H21",
+        "dev:H25",
+        "probe1:P11",
+        "probe1:P27",
+        "probe3:R24",
+        "probe6:V23",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-on-query-baseline.rows.json",
+      "sha256": "e861766e3e5bf42581f34a51604d70d8927b7c88cd6960be64be88cd4c503256",
+      "total": 251,
+      "strict": 239,
+      "top3": 242,
+      "wrong": [
+        "dev:H21",
+        "probe1:P10",
+        "probe3:R04",
+        "probe4:S17",
+        "probe4:S18",
+        "probe6:V06",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W20",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-on-query-appendix.rows.json",
+      "sha256": "e861766e3e5bf42581f34a51604d70d8927b7c88cd6960be64be88cd4c503256",
+      "total": 251,
+      "strict": 239,
+      "top3": 242,
+      "wrong": [
+        "dev:H21",
+        "probe1:P10",
+        "probe3:R04",
+        "probe4:S17",
+        "probe4:S18",
+        "probe6:V06",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W20",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-on-sonnet-baseline.rows.json",
+      "sha256": "5792c444cf857e2edb41800550abdbe99884762c2b66b38fc3c8c380e26c9075",
+      "total": 251,
+      "strict": 247,
+      "top3": 249,
+      "wrong": [
+        "probe2:Q06",
+        "probe4:S02",
+        "probe4:S18",
+        "probe6:V18"
+      ],
+      "errors": [],
+      "semanticUsed": 251
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-on-sonnet-appendix.rows.json",
+      "sha256": "5792c444cf857e2edb41800550abdbe99884762c2b66b38fc3c8c380e26c9075",
+      "total": 251,
+      "strict": 247,
+      "top3": 249,
+      "wrong": [
+        "probe2:Q06",
+        "probe4:S02",
+        "probe4:S18",
+        "probe6:V18"
+      ],
+      "errors": [],
+      "semanticUsed": 251
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-on-haiku-baseline.rows.json",
+      "sha256": "93a141200f886e1305f3af18b544d2c6e6e599e9d1351a35f1d381a771755be4",
+      "total": 251,
+      "strict": 246,
+      "top3": 248,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe3:R01",
+        "probe4:S02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-on-haiku-appendix.rows.json",
+      "sha256": "93a141200f886e1305f3af18b544d2c6e6e599e9d1351a35f1d381a771755be4",
+      "total": 251,
+      "strict": 246,
+      "top3": 248,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe3:R01",
+        "probe4:S02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "probe9-off-query-baseline.rows.json",
+      "sha256": "8f1f9c0366c2d1df08aa3be9820251e62cac28b1b838a29ef311154e27b2b87a",
+      "total": 36,
+      "strict": 25,
+      "top3": 30,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y06",
+        "probe9:Y11",
+        "probe9:Y12",
+        "probe9:Y14",
+        "probe9:Y25",
+        "probe9:Y28",
+        "probe9:Y32",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "probe9-off-query-appendix.rows.json",
+      "sha256": "8f1f9c0366c2d1df08aa3be9820251e62cac28b1b838a29ef311154e27b2b87a",
+      "total": 36,
+      "strict": 25,
+      "top3": 30,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y06",
+        "probe9:Y11",
+        "probe9:Y12",
+        "probe9:Y14",
+        "probe9:Y25",
+        "probe9:Y28",
+        "probe9:Y32",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "probe9-on-query-baseline.rows.json",
+      "sha256": "0662b44ecbc7d8bdadb1117f758d15979fb5c34fa6ba87dd5842c05f6838560f",
+      "total": 36,
+      "strict": 29,
+      "top3": 32,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y14",
+        "probe9:Y28",
+        "probe9:Y31",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 36
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "probe9-on-query-appendix.rows.json",
+      "sha256": "0662b44ecbc7d8bdadb1117f758d15979fb5c34fa6ba87dd5842c05f6838560f",
+      "total": 36,
+      "strict": 29,
+      "top3": 32,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y14",
+        "probe9:Y28",
+        "probe9:Y31",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 36
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "dev_open-off-query-baseline.rows.json",
+      "sha256": "c8d311a05ae1b8cd07d38aaeabce70791e9ee1054e60708b51d6f6e39108534b",
+      "total": 20,
+      "strict": 16,
+      "top3": 19,
+      "wrong": [
+        "dev_open:RT13",
+        "dev_open:RT22",
+        "dev_open:RT28",
+        "dev_open:RT30"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "dev_open-off-query-appendix.rows.json",
+      "sha256": "c8d311a05ae1b8cd07d38aaeabce70791e9ee1054e60708b51d6f6e39108534b",
+      "total": 20,
+      "strict": 16,
+      "top3": 19,
+      "wrong": [
+        "dev_open:RT13",
+        "dev_open:RT22",
+        "dev_open:RT28",
+        "dev_open:RT30"
+      ],
+      "errors": [],
+      "semanticUsed": 0
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "dev_open-on-query-baseline.rows.json",
+      "sha256": "ba09b27c51fa5ea9bfffbafa31a586127f9b8435a6b5db4c5572d772ecd1aef4",
+      "total": 20,
+      "strict": 19,
+      "top3": 20,
+      "wrong": [
+        "dev_open:RT28"
+      ],
+      "errors": [],
+      "semanticUsed": 20
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "dev_open-on-query-appendix.rows.json",
+      "sha256": "ba09b27c51fa5ea9bfffbafa31a586127f9b8435a6b5db4c5572d772ecd1aef4",
+      "total": 20,
+      "strict": 19,
+      "top3": 20,
+      "wrong": [
+        "dev_open:RT28"
+      ],
+      "errors": [],
+      "semanticUsed": 20
+    }
+  ],
+  "comparisons": [
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    }
+  ],
+  "commonReferenceComparisons": [
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "file": "fin-off-q.json",
+      "sha256": "fbebf3de73408b9661c978b0aa8eddd5ffb8f59ab572d331044e884ec6535185",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "file": "fin-off-s.json",
+      "sha256": "d2a7052d3534c4333768ca6445792a1942742af6eabee09b44000e9889f92856",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "file": "fin-off-h.json",
+      "sha256": "6ce271877cce0d00d0f84caed6e4213feac03d524691a86eee6546cc4809f054",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "file": "fin-on-q.json",
+      "sha256": "da17b002254ad0ae66d177dcfec509e4a5c77301084fbe7da9d4fd745f2724b7",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "file": "fin-on-s.json",
+      "sha256": "9ecc0b86e144adb8bbe5facba104f7ed0ed799bf1e23d4ff05fe506831df1858",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "file": "fin-on-h.json",
+      "sha256": "63090c27060af556dd6c3cfc9dbd5dbfe456a5ef2ae62c8fa8822828cf0f21dd",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "file": "fin-off-y.json",
+      "sha256": "01630d93b68ec74c53f02dd1ded5683ab8964077a56dda849b198a3a2e905c60",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "file": "fin-on-y.json",
+      "sha256": "7858b00721ad2af5f3fe9e1d1d298ad70e61c0e278c642aec4836f261e76151f",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "file": "fin-off-do-none.json",
+      "sha256": "cbd6e6f32b11871be4d82bb0ec7f7dcf2dde21980f5d0986830aacbd33cc26be",
+      "strictDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "file": "fin-on-do-none.json",
+      "sha256": "cc1a4042b98aaef688af168ed33d2731341f5353a00dbb5e2ed0474019588f54",
+      "strictDifferences": []
+    }
+  ],
+  "withoutAuxComparisons": [
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "strictDifferences": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "strictDifferences": [],
+      "responseDifferences": []
+    }
+  ],
+  "artifactHashes": {
+    "public251-off-query-baseline.rows.json.gz": {
+      "sha256": "701344a8f8dfa65afa52f1342ed6742b343d9d9fc00a45bbbe3e2b8afbdb86f8",
+      "jsonSha256": "c44ef08d7c41080e1078f67f01709f9789499ad5b5043934a4c1bc403fdb7d08"
+    },
+    "public251-off-query-appendix.rows.json.gz": {
+      "sha256": "701344a8f8dfa65afa52f1342ed6742b343d9d9fc00a45bbbe3e2b8afbdb86f8",
+      "jsonSha256": "c44ef08d7c41080e1078f67f01709f9789499ad5b5043934a4c1bc403fdb7d08"
+    },
+    "public251-off-sonnet-baseline.rows.json.gz": {
+      "sha256": "f4ee3750d031f471824c281bd172ca16638043c0dfb083837a32251d32cc909b",
+      "jsonSha256": "4c072fdb6ecb7a9ec2b88d821d14ebc5275b7cb966b9a61b2fa106bf012ab6a9"
+    },
+    "public251-off-sonnet-appendix.rows.json.gz": {
+      "sha256": "f4ee3750d031f471824c281bd172ca16638043c0dfb083837a32251d32cc909b",
+      "jsonSha256": "4c072fdb6ecb7a9ec2b88d821d14ebc5275b7cb966b9a61b2fa106bf012ab6a9"
+    },
+    "public251-off-haiku-baseline.rows.json.gz": {
+      "sha256": "e168786ac38de36628b3562c7f4775a384c4305c2a85e83b2b6cd04d45bbdcfb",
+      "jsonSha256": "b859f51a78ca1595b9407ace8b73952c449d4f9fae0dc44ac56c0a5b0df1729c"
+    },
+    "public251-off-haiku-appendix.rows.json.gz": {
+      "sha256": "e168786ac38de36628b3562c7f4775a384c4305c2a85e83b2b6cd04d45bbdcfb",
+      "jsonSha256": "b859f51a78ca1595b9407ace8b73952c449d4f9fae0dc44ac56c0a5b0df1729c"
+    },
+    "public251-on-query-baseline.rows.json.gz": {
+      "sha256": "f6a201a4b28e84fd869c9b17b7e07114b51ab07b27fe2eaccd37bb327f1a13eb",
+      "jsonSha256": "665720423f5216a4ab4232b23b5e7324bb48b0dbb9ce72d20ad49c8dc9a4e037"
+    },
+    "public251-on-query-appendix.rows.json.gz": {
+      "sha256": "f6a201a4b28e84fd869c9b17b7e07114b51ab07b27fe2eaccd37bb327f1a13eb",
+      "jsonSha256": "665720423f5216a4ab4232b23b5e7324bb48b0dbb9ce72d20ad49c8dc9a4e037"
+    },
+    "public251-on-sonnet-baseline.rows.json.gz": {
+      "sha256": "2260e9dad9bcd9984c444ae0ce161dba9c0103a52ccbd9d073442d0c0fe46562",
+      "jsonSha256": "aaf3ac5228bea8ded9f8285d4788e9c542274f1bd72711d6bc424ce761c5e062"
+    },
+    "public251-on-sonnet-appendix.rows.json.gz": {
+      "sha256": "2260e9dad9bcd9984c444ae0ce161dba9c0103a52ccbd9d073442d0c0fe46562",
+      "jsonSha256": "aaf3ac5228bea8ded9f8285d4788e9c542274f1bd72711d6bc424ce761c5e062"
+    },
+    "public251-on-haiku-baseline.rows.json.gz": {
+      "sha256": "1ff1d1dce5948f11bdc1c4bac409ab11ac85bf1016b966c7a7991373b3d1743a",
+      "jsonSha256": "2ad1439b8fbdd4bc51dcfa8c3e2202240d499db0885b2569fd2654d1d8c0dba1"
+    },
+    "public251-on-haiku-appendix.rows.json.gz": {
+      "sha256": "1ff1d1dce5948f11bdc1c4bac409ab11ac85bf1016b966c7a7991373b3d1743a",
+      "jsonSha256": "2ad1439b8fbdd4bc51dcfa8c3e2202240d499db0885b2569fd2654d1d8c0dba1"
+    },
+    "probe9-off-query-baseline.rows.json.gz": {
+      "sha256": "241515ec7f1674eb6c514f624c4d9a32a1114e83e753ff58b226190a3610b2ec",
+      "jsonSha256": "cc7ed529c972e5115757c521329fbb7d32583d8511556aa0c42faa2a373b0484"
+    },
+    "probe9-off-query-appendix.rows.json.gz": {
+      "sha256": "241515ec7f1674eb6c514f624c4d9a32a1114e83e753ff58b226190a3610b2ec",
+      "jsonSha256": "cc7ed529c972e5115757c521329fbb7d32583d8511556aa0c42faa2a373b0484"
+    },
+    "probe9-on-query-baseline.rows.json.gz": {
+      "sha256": "54651035b07e1a22f1e41f03cfe08c6c6d428ffa16569bbade7e6f6e566e3ab1",
+      "jsonSha256": "06948550a8503efa0ee4d4c2b608e10147cb466a56396ebbd3a5659168375221"
+    },
+    "probe9-on-query-appendix.rows.json.gz": {
+      "sha256": "54651035b07e1a22f1e41f03cfe08c6c6d428ffa16569bbade7e6f6e566e3ab1",
+      "jsonSha256": "06948550a8503efa0ee4d4c2b608e10147cb466a56396ebbd3a5659168375221"
+    },
+    "dev_open-off-query-baseline.rows.json.gz": {
+      "sha256": "627cc17ab3b576c119e18c9db06eddb1651d288d7241fd343540ebeca14c1e81",
+      "jsonSha256": "1f4c227ac240930d147941512952ecad65417bb67b5e70632ea450c293ca61e2"
+    },
+    "dev_open-off-query-appendix.rows.json.gz": {
+      "sha256": "627cc17ab3b576c119e18c9db06eddb1651d288d7241fd343540ebeca14c1e81",
+      "jsonSha256": "1f4c227ac240930d147941512952ecad65417bb67b5e70632ea450c293ca61e2"
+    },
+    "dev_open-on-query-baseline.rows.json.gz": {
+      "sha256": "3148adfd6b0702bdf63acfb8123bb1f3d111647306b83eeadede5411dc2f87d0",
+      "jsonSha256": "0d6ff9e8a3d95e2e37448f8051f57a9e5dfb893211027f7dbcb8e9913b1426b1"
+    },
+    "dev_open-on-query-appendix.rows.json.gz": {
+      "sha256": "3148adfd6b0702bdf63acfb8123bb1f3d111647306b83eeadede5411dc2f87d0",
+      "jsonSha256": "0d6ff9e8a3d95e2e37448f8051f57a9e5dfb893211027f7dbcb8e9913b1426b1"
+    }
+  },
+  "codeHashes": {
+    "scripts/evaluate-appendix-final.js": "06347c9f4bffd929256a1aa8d6418ff2c79be9c7f83fd13200545f699ce10312",
+    "scripts/appendix-final-input.js": "cc6bed5a62091f133ca7f3fd62acd479469f2c0a598528d09114a644a6b213c8",
+    "scripts/appendix-t10w-recorder.js": "1a87c4378e1843fdf0ba39fa1e9016bbf4f87d7b0334e2233c7bc934f9922a0b"
+  }
+}

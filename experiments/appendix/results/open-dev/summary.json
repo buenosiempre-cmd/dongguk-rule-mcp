@@ -1,0 +1,1209 @@
+{
+  "baselineCommit": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+  "experimentCommit": "77943b6c36247877119d6380e245219ca1e9193e",
+  "corpusSha256": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+  "vectorFile": "semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin",
+  "vectorSha256": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e",
+  "textVersion": 3,
+  "questionFiles": [
+    {
+      "split": "open-dev",
+      "file": "experiments/appendix/fixtures/dev-open-t3y-20261127.json",
+      "sha256": "4ac646c4c649bb00c37bdb28cb78e557a2c418ae98f3fef09c627ad276ffded3",
+      "count": 20
+    }
+  ],
+  "policy": "동일 query vector 1회, 조문별 max cosine, 규정별 max cosine 상위3, 규정별 증거 상위3; 가중치 조정 없음.",
+  "trainingOrTuning": false,
+  "tagGroupsOverlap": true,
+  "sourceHashes": {
+    "/Users/bueno/Documents/Codex/d1-artifacts-20261127/rebuilt/dongguk-rule-mcp/v2/public/corpus/corpus-v1.json": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+    "/Users/bueno/Documents/Codex/d1-artifacts-20261127/rebuilt/dongguk-rule-mcp/v2/public/semantic/semantic-v1.json": "c90991991401d6f1f08f2b62006cbb5648ecb41b3a0e549a543ceb7b1a22e983",
+    "/Users/bueno/Documents/Codex/d1-artifacts-20261127/rebuilt/dongguk-rule-mcp/v2/public/semantic/semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e"
+  },
+  "counts": {
+    "rules": 513,
+    "articles": 9790,
+    "vectors": 11422,
+    "coordinates": 24,
+    "kordoc": 43,
+    "graphNodes": 47,
+    "graphEdges": 46
+  },
+  "production": {
+    "public-off": {
+      "beforeCommit": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+      "afterCommit": "77943b6c36247877119d6380e245219ca1e9193e",
+      "before": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 5,
+          "meanRules": 2,
+          "meanCharacters": 2452.6
+        },
+        "total": 20,
+        "scored": 20,
+        "bodyIncluded": {
+          "hits": 16,
+          "total": 20,
+          "rate": 0.8
+        },
+        "top3": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        },
+        "top1": {
+          "hits": 17,
+          "total": 20,
+          "rate": 0.85
+        },
+        "medianMs": 1500.8400204999998,
+        "p95Ms": 2004.6099159999994,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 16,
+          "total": 20,
+          "rate": 0.8
+        },
+        "articleGivenTop3": {
+          "hits": 16,
+          "total": 19,
+          "rate": 0.8421052631578947
+        }
+      },
+      "after": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 5,
+          "meanRules": 2,
+          "meanCharacters": 2452.6
+        },
+        "total": 20,
+        "scored": 20,
+        "bodyIncluded": {
+          "hits": 16,
+          "total": 20,
+          "rate": 0.8
+        },
+        "top3": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        },
+        "top1": {
+          "hits": 17,
+          "total": 20,
+          "rate": 0.85
+        },
+        "medianMs": 1501.7881455000024,
+        "p95Ms": 2002.253208000002,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 16,
+          "total": 20,
+          "rate": 0.8
+        },
+        "articleGivenTop3": {
+          "hits": 16,
+          "total": 19,
+          "rate": 0.8421052631578947
+        }
+      },
+      "byTag": {
+        "S": {
+          "before": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 3,
+              "meanRules": 1.9333333333333333,
+              "meanCharacters": 2190.4
+            },
+            "total": 15,
+            "scored": 15,
+            "bodyIncluded": {
+              "hits": 12,
+              "total": 15,
+              "rate": 0.8
+            },
+            "top3": {
+              "hits": 15,
+              "total": 15,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 13,
+              "total": 15,
+              "rate": 0.8666666666666667
+            },
+            "medianMs": 1500.0817080000015,
+            "p95Ms": 2500.0242499999986,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 12,
+              "total": 15,
+              "rate": 0.8
+            },
+            "articleGivenTop3": {
+              "hits": 12,
+              "total": 15,
+              "rate": 0.8
+            }
+          },
+          "after": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 3,
+              "meanRules": 1.9333333333333333,
+              "meanCharacters": 2190.4
+            },
+            "total": 15,
+            "scored": 15,
+            "bodyIncluded": {
+              "hits": 12,
+              "total": 15,
+              "rate": 0.8
+            },
+            "top3": {
+              "hits": 15,
+              "total": 15,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 13,
+              "total": 15,
+              "rate": 0.8666666666666667
+            },
+            "medianMs": 1502.2323749999996,
+            "p95Ms": 2497.0183749999997,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 12,
+              "total": 15,
+              "rate": 0.8
+            },
+            "articleGivenTop3": {
+              "hits": 12,
+              "total": 15,
+              "rate": 0.8
+            }
+          },
+          "diff": {
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "bodyIncluded": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "C": {
+          "before": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 1,
+              "meanRules": 2,
+              "meanCharacters": 2697.875
+            },
+            "total": 8,
+            "scored": 8,
+            "bodyIncluded": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "top3": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "top1": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "medianMs": 1500.8400204999998,
+            "p95Ms": 2001.6112500000017,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            }
+          },
+          "after": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 1,
+              "meanRules": 2,
+              "meanCharacters": 2697.875
+            },
+            "total": 8,
+            "scored": 8,
+            "bodyIncluded": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "top3": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "top1": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "medianMs": 1501.7172914999974,
+            "p95Ms": 1998.5994169999976,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 7,
+              "total": 8,
+              "rate": 0.875
+            },
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            }
+          },
+          "diff": {
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "bodyIncluded": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "D": {
+          "before": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 4,
+              "meanRules": 2.142857142857143,
+              "meanCharacters": 2505.8571428571427
+            },
+            "total": 7,
+            "scored": 7,
+            "bodyIncluded": {
+              "hits": 6,
+              "total": 7,
+              "rate": 0.8571428571428571
+            },
+            "top3": {
+              "hits": 6,
+              "total": 7,
+              "rate": 0.8571428571428571
+            },
+            "top1": {
+              "hits": 5,
+              "total": 7,
+              "rate": 0.7142857142857143
+            },
+            "medianMs": 1501.2889159999995,
+            "p95Ms": 2004.6099159999994,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 6,
+              "total": 7,
+              "rate": 0.8571428571428571
+            },
+            "articleGivenTop3": {
+              "hits": 6,
+              "total": 6,
+              "rate": 1
+            }
+          },
+          "after": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 4,
+              "meanRules": 2.142857142857143,
+              "meanCharacters": 2505.8571428571427
+            },
+            "total": 7,
+            "scored": 7,
+            "bodyIncluded": {
+              "hits": 6,
+              "total": 7,
+              "rate": 0.8571428571428571
+            },
+            "top3": {
+              "hits": 6,
+              "total": 7,
+              "rate": 0.8571428571428571
+            },
+            "top1": {
+              "hits": 5,
+              "total": 7,
+              "rate": 0.7142857142857143
+            },
+            "medianMs": 1501.2022079999952,
+            "p95Ms": 2002.253208000002,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 6,
+              "total": 7,
+              "rate": 0.8571428571428571
+            },
+            "articleGivenTop3": {
+              "hits": 6,
+              "total": 6,
+              "rate": 1
+            }
+          },
+          "diff": {
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "bodyIncluded": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        }
+      },
+      "diff": {
+        "strict": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "bodyIncluded": {
+          "newWrong": [],
+          "fixed": []
+        }
+      },
+      "responseDifferences": [],
+      "misses": [
+        "R13",
+        "R22",
+        "R28",
+        "R30"
+      ],
+      "semanticUsedQuestions": 0,
+      "blockedNetworkAttempts": 25,
+      "sourceUnchanged": true
+    },
+    "public-on": {
+      "beforeCommit": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+      "afterCommit": "77943b6c36247877119d6380e245219ca1e9193e",
+      "before": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 5,
+          "meanRules": 2,
+          "meanCharacters": 2787.25
+        },
+        "total": 20,
+        "scored": 20,
+        "bodyIncluded": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        },
+        "top3": {
+          "hits": 20,
+          "total": 20,
+          "rate": 1
+        },
+        "top1": {
+          "hits": 20,
+          "total": 20,
+          "rate": 1
+        },
+        "medianMs": 501.1393750000061,
+        "p95Ms": 1004.2675420000014,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        },
+        "articleGivenTop3": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        }
+      },
+      "after": {
+        "excerptQuality": {
+          "enforcementHeadingRules": 0,
+          "enforcementHeadingQuestions": 0,
+          "shortExpectedRules": 5,
+          "meanRules": 2,
+          "meanCharacters": 2787.25
+        },
+        "total": 20,
+        "scored": 20,
+        "bodyIncluded": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        },
+        "top3": {
+          "hits": 20,
+          "total": 20,
+          "rate": 1
+        },
+        "top1": {
+          "hits": 20,
+          "total": 20,
+          "rate": 1
+        },
+        "medianMs": 499.50208349999593,
+        "p95Ms": 1005.9339159999945,
+        "errors": {},
+        "choiceOnly": 0,
+        "strict": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        },
+        "articleGivenTop3": {
+          "hits": 19,
+          "total": 20,
+          "rate": 0.95
+        }
+      },
+      "byTag": {
+        "S": {
+          "before": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 3,
+              "meanRules": 1.8,
+              "meanCharacters": 2406.6
+            },
+            "total": 15,
+            "scored": 15,
+            "bodyIncluded": {
+              "hits": 14,
+              "total": 15,
+              "rate": 0.9333333333333333
+            },
+            "top3": {
+              "hits": 15,
+              "total": 15,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 15,
+              "total": 15,
+              "rate": 1
+            },
+            "medianMs": 499.51416599999357,
+            "p95Ms": 1000.6927089999954,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 14,
+              "total": 15,
+              "rate": 0.9333333333333333
+            },
+            "articleGivenTop3": {
+              "hits": 14,
+              "total": 15,
+              "rate": 0.9333333333333333
+            }
+          },
+          "after": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 3,
+              "meanRules": 1.8,
+              "meanCharacters": 2406.6
+            },
+            "total": 15,
+            "scored": 15,
+            "bodyIncluded": {
+              "hits": 14,
+              "total": 15,
+              "rate": 0.9333333333333333
+            },
+            "top3": {
+              "hits": 15,
+              "total": 15,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 15,
+              "total": 15,
+              "rate": 1
+            },
+            "medianMs": 498.5920000000042,
+            "p95Ms": 999.5586249999906,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 14,
+              "total": 15,
+              "rate": 0.9333333333333333
+            },
+            "articleGivenTop3": {
+              "hits": 14,
+              "total": 15,
+              "rate": 0.9333333333333333
+            }
+          },
+          "diff": {
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "bodyIncluded": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "C": {
+          "before": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 1,
+              "meanRules": 2.25,
+              "meanCharacters": 3111.25
+            },
+            "total": 8,
+            "scored": 8,
+            "bodyIncluded": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "top3": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "medianMs": 727.328958500002,
+            "p95Ms": 1201.2852080000011,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "articleGivenTop3": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            }
+          },
+          "after": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 1,
+              "meanRules": 2.25,
+              "meanCharacters": 3111.25
+            },
+            "total": 8,
+            "scored": 8,
+            "bodyIncluded": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "top3": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "medianMs": 731.7198329999956,
+            "p95Ms": 1200.3091659999918,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            },
+            "articleGivenTop3": {
+              "hits": 8,
+              "total": 8,
+              "rate": 1
+            }
+          },
+          "diff": {
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "bodyIncluded": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "D": {
+          "before": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 4,
+              "meanRules": 2.4285714285714284,
+              "meanCharacters": 3206.714285714286
+            },
+            "total": 7,
+            "scored": 7,
+            "bodyIncluded": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "top3": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "medianMs": 503.3763750000071,
+            "p95Ms": 1201.2852080000011,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            }
+          },
+          "after": {
+            "excerptQuality": {
+              "enforcementHeadingRules": 0,
+              "enforcementHeadingQuestions": 0,
+              "shortExpectedRules": 4,
+              "meanRules": 2.4285714285714284,
+              "meanCharacters": 3206.714285714286
+            },
+            "total": 7,
+            "scored": 7,
+            "bodyIncluded": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "top3": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "top1": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "medianMs": 506.4800840000098,
+            "p95Ms": 1200.3091659999918,
+            "errors": {},
+            "choiceOnly": 0,
+            "strict": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            },
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7,
+              "rate": 1
+            }
+          },
+          "diff": {
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "bodyIncluded": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        }
+      },
+      "diff": {
+        "strict": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "bodyIncluded": {
+          "newWrong": [],
+          "fixed": []
+        }
+      },
+      "responseDifferences": [],
+      "misses": [
+        "R28"
+      ],
+      "semanticUsedQuestions": 20,
+      "blockedNetworkAttempts": 24,
+      "sourceUnchanged": true
+    }
+  },
+  "signals": {
+    "summary": {
+      "open-dev": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 20,
+            "top3": 20,
+            "strict": 18,
+            "articleGivenTop3": {
+              "hits": 18,
+              "total": 20
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Coordinates": {
+            "questions": 20,
+            "top3": 20,
+            "strict": 18,
+            "articleGivenTop3": {
+              "hits": 18,
+              "total": 20
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Kordoc": {
+            "questions": 20,
+            "top3": 20,
+            "strict": 18,
+            "articleGivenTop3": {
+              "hits": 18,
+              "total": 20
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        }
+      },
+      "S": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 15,
+            "top3": 15,
+            "strict": 13,
+            "articleGivenTop3": {
+              "hits": 13,
+              "total": 15
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Coordinates": {
+            "questions": 15,
+            "top3": 15,
+            "strict": 13,
+            "articleGivenTop3": {
+              "hits": 13,
+              "total": 15
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Kordoc": {
+            "questions": 15,
+            "top3": 15,
+            "strict": 13,
+            "articleGivenTop3": {
+              "hits": 13,
+              "total": 15
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        }
+      },
+      "C": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 8,
+            "top3": 8,
+            "strict": 8,
+            "articleGivenTop3": {
+              "hits": 8,
+              "total": 8
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Coordinates": {
+            "questions": 8,
+            "top3": 8,
+            "strict": 8,
+            "articleGivenTop3": {
+              "hits": 8,
+              "total": 8
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Kordoc": {
+            "questions": 8,
+            "top3": 8,
+            "strict": 8,
+            "articleGivenTop3": {
+              "hits": 8,
+              "total": 8
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        }
+      },
+      "D": {
+        "conditions": {
+          "d1Dense": {
+            "questions": 7,
+            "top3": 7,
+            "strict": 7,
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Coordinates": {
+            "questions": 7,
+            "top3": 7,
+            "strict": 7,
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          },
+          "d1Kordoc": {
+            "questions": 7,
+            "top3": 7,
+            "strict": 7,
+            "articleGivenTop3": {
+              "hits": 7,
+              "total": 7
+            },
+            "rowEvidence": {
+              "hits": 0,
+              "total": 0
+            }
+          }
+        },
+        "deltaVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "deltaVsCoordinates": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        },
+        "coordinatesVsDense": {
+          "top3": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "strict": {
+            "newWrong": [],
+            "fixed": []
+          },
+          "evidenceHit": {
+            "newWrong": [],
+            "fixed": []
+          }
+        }
+      }
+    },
+    "timing": {
+      "embeddedMs": {
+        "median": 3.8654579999997623,
+        "p95": 6.767875000000004
+      },
+      "denseMs": {
+        "median": 4.067500000000109,
+        "p95": 5.544791999999688
+      },
+      "sideMs": {
+        "median": 2.471832999999606,
+        "p95": 4.464625000000069
+      }
+    },
+    "codeHashes": {
+      "scripts/evaluate-appendix-d1.js": "667efe50add3cf97107cca479b5d38c8f76801b97bcdfb3ee0f8f118ee040fad",
+      "src/appendix-kordoc.js": "796e8d3915ab464a44ff75e34cd26912e54ac7e57fe4a87915f05500072221f9",
+      "src/appendix-index.js": "efacfdb009e514fdd64f6e7a916ec371f004e341d01583f416fa8203882a5dad",
+      "src/semantic.js": "36be79667af34cd76032008b90975acbf726bdbcccccae6fc46d956707ccf9bb"
+    },
+    "identicalSelectedEvidence": true,
+    "appendixSelectedQuestions": []
+  },
+  "artifacts": {
+    "public-off": {
+      "jsonSha256": "fc0acb93140c3ae61d0dec42e1c78e35ca21aef99856e17e5cd09ab31802aeac",
+      "gzipSha256": "6aedef788dc73a5cc555a03a5713ab3f2bcbae9de86a3c7ed907ead537797f1b"
+    },
+    "public-on": {
+      "jsonSha256": "060be874b11032c4a2d3192548b1334497d7e5629ca473d7ddd012a2600673bb",
+      "gzipSha256": "638006b2ae11129db2ec4441946543f90bc5a38eedfc41aa9e151c0144da402e"
+    },
+    "dense-signals": {
+      "jsonSha256": "479d7ef64d8c73f81e724636d592ab724f4f0745b3c8817a9e8d322b15685ade",
+      "gzipSha256": "691751a33319252a95d9f0743dc993d225a6504425df2398d44369e192c55478"
+    }
+  },
+  "inputUnchanged": true
+}

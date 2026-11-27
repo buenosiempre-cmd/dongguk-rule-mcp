@@ -1,0 +1,1474 @@
+{
+  "identity": {
+    "commit": "29bbf6625a46593797ffedeb348a00a99d71c44f",
+    "manifest": "dbc6d1faa9b83f08e80784b1ff53b7b76708ebc0e5f20266230b0b452ae219e7",
+    "corpus": "830b69968e8f212450a9f152b890d6c78a4724d56d4b0a4e9b41caa18bdbd227",
+    "vector": "fd7d662bb55c82f6d45f102866bc8e8837b046fdf7ac5658830c217a34de5def",
+    "public": "/Users/bueno/Documents/Codex/d1-final-handoff-20261127/handoff-final/dongguk-rule-mcp/v2/public",
+    "files": 733,
+    "bytes": 42451819,
+    "vectorFile": "semantic-v1.fd7d662bb55c82f6d45f102866bc8e8837b046fdf7ac5658830c217a34de5def.bin"
+  },
+  "harnessSha256": "c24eb47a2515f29f9486f78a86c22680ce9f31990adc376db9ae3a6b8e799792",
+  "experimentCommit": "f34d08a6b9f3f17bf0c96bd55e6ad11fd712d479",
+  "baselineCommit": "29bbf6625a46593797ffedeb348a00a99d71c44f",
+  "inputs": {
+    "harness-d1.js": "c24eb47a2515f29f9486f78a86c22680ce9f31990adc376db9ae3a6b8e799792",
+    "sets/train.json": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+    "sets/dev.json": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+    "sets/probe1.json": "4b12ff7be41f287b4f2efd01ec9337a0048d3731ccc98b435b42ebe313553971",
+    "sets/probe2.json": "e732b77617e419cf6d9bb8127b2dd0643437c8d4bc8c72b4623967dbcb3bcbee",
+    "sets/probe3.json": "d75f51390760b1d8c450972bf70cb2070ded560f430df5a085ad011e88800e9f",
+    "sets/probe4.json": "1aa7426f08c436c50b997afd91df46f158fafebf9f576c59c25bff6d2aed40d9",
+    "sets/probe5.json": "d732de670389d326106fbeffaa696f3aae92e8c4ecd61d15293fd5d7d4448efc",
+    "sets/probe6.json": "273addf0d91cb352386d794e317788e64a015df21a476b107eb80961e35cd68a",
+    "sets/probe7.json": "1288cfa318effacbf1e2ee16a95e969ba008bc63614de40fa1356ce412fc2688",
+    "sets/probe8.json": "ad9d64b143daa0f9b2c17d1dd6372bea9bda60b31412e38d5c74a35e562ace3a",
+    "sets/probe9.json": "397446c02c585e5d1cb8b74d93a06c741eee73fca3e0df459750a04551e9cc69",
+    "gen/kw-all-sonnet.json": "797b448bd31784319502d79b826793087e96e6c8d8cf6cbeeaa7058a941855a5",
+    "gen/kw-all-haiku.json": "4ea88cf5bace97f50cb20ffa363b09defec390d7ad39774b0a3da7d949f107a6",
+    "dev_open.original": "4ac646c4c649bb00c37bdb28cb78e557a2c418ae98f3fef09c627ad276ffded3",
+    "dev_open.query-only": "706b8f3f6b43d219c2f6f0b99020b0856d9f9f176e486019b0ab85ac471e04d3"
+  },
+  "trainingOrTuning": false,
+  "sourceUnchanged": true,
+  "network": "NL_OFFLINE=1; no live requests",
+  "cachePolicy": "733 byte-identical files per run; catalog/history derived from fixed corpus; no prior search cache",
+  "runs": [
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-off-query-baseline.rows.json",
+      "sha256": "f624593bc0a492df582c78b0942955c83a5d06f91b0f3982a24fcb8bc11d0b4d",
+      "total": 251,
+      "strict": 229,
+      "top3": 235,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe2:Q06",
+        "probe3:R04",
+        "probe3:R19",
+        "probe3:R21",
+        "probe4:S03",
+        "probe4:S17",
+        "probe4:S18",
+        "probe5:U19",
+        "probe6:V06",
+        "probe6:V07",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W04",
+        "probe7:W06",
+        "probe7:W14",
+        "probe7:W20",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H21"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-off-query-appendix.rows.json",
+      "sha256": "f624593bc0a492df582c78b0942955c83a5d06f91b0f3982a24fcb8bc11d0b4d",
+      "total": 251,
+      "strict": 229,
+      "top3": 235,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe2:Q06",
+        "probe3:R04",
+        "probe3:R19",
+        "probe3:R21",
+        "probe4:S03",
+        "probe4:S17",
+        "probe4:S18",
+        "probe5:U19",
+        "probe6:V06",
+        "probe6:V07",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W04",
+        "probe7:W06",
+        "probe7:W14",
+        "probe7:W20",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H21"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-off-sonnet-baseline.rows.json",
+      "sha256": "915b5e01318d820fdc1d8f65e897ef7d0e5c82be9e99824ba6ee26ab291a1348",
+      "total": 251,
+      "strict": 244,
+      "top3": 246,
+      "wrong": [
+        "dev:H04",
+        "probe2:Q06",
+        "probe2:Q10",
+        "probe2:Q23",
+        "probe4:S18",
+        "probe6:V18",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H04"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-off-sonnet-appendix.rows.json",
+      "sha256": "915b5e01318d820fdc1d8f65e897ef7d0e5c82be9e99824ba6ee26ab291a1348",
+      "total": 251,
+      "strict": 244,
+      "top3": 246,
+      "wrong": [
+        "dev:H04",
+        "probe2:Q06",
+        "probe2:Q10",
+        "probe2:Q23",
+        "probe4:S18",
+        "probe6:V18",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H04"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-off-haiku-baseline.rows.json",
+      "sha256": "3220b5b428d2e041d2dd891f05e5c434d3a38bb6cc1fbbaa52fbdc14e54507c3",
+      "total": 251,
+      "strict": 243,
+      "top3": 245,
+      "wrong": [
+        "dev:H21",
+        "dev:H25",
+        "probe1:P11",
+        "probe1:P27",
+        "probe3:R24",
+        "probe6:V23",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": {
+        "total": 71,
+        "strict": 69,
+        "wrong": [
+          "dev:H21",
+          "dev:H25"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-off-haiku-appendix.rows.json",
+      "sha256": "3220b5b428d2e041d2dd891f05e5c434d3a38bb6cc1fbbaa52fbdc14e54507c3",
+      "total": 251,
+      "strict": 243,
+      "top3": 245,
+      "wrong": [
+        "dev:H21",
+        "dev:H25",
+        "probe1:P11",
+        "probe1:P27",
+        "probe3:R24",
+        "probe6:V23",
+        "probe8:X02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": {
+        "total": 71,
+        "strict": 69,
+        "wrong": [
+          "dev:H21",
+          "dev:H25"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-on-query-baseline.rows.json",
+      "sha256": "e861766e3e5bf42581f34a51604d70d8927b7c88cd6960be64be88cd4c503256",
+      "total": 251,
+      "strict": 239,
+      "top3": 242,
+      "wrong": [
+        "dev:H21",
+        "probe1:P10",
+        "probe3:R04",
+        "probe4:S17",
+        "probe4:S18",
+        "probe6:V06",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W20",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H21"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-on-query-appendix.rows.json",
+      "sha256": "e861766e3e5bf42581f34a51604d70d8927b7c88cd6960be64be88cd4c503256",
+      "total": 251,
+      "strict": 239,
+      "top3": 242,
+      "wrong": [
+        "dev:H21",
+        "probe1:P10",
+        "probe3:R04",
+        "probe4:S17",
+        "probe4:S18",
+        "probe6:V06",
+        "probe6:V08",
+        "probe6:V23",
+        "probe7:W02",
+        "probe7:W03",
+        "probe7:W20",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H21"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-on-sonnet-baseline.rows.json",
+      "sha256": "5792c444cf857e2edb41800550abdbe99884762c2b66b38fc3c8c380e26c9075",
+      "total": 251,
+      "strict": 247,
+      "top3": 249,
+      "wrong": [
+        "probe2:Q06",
+        "probe4:S02",
+        "probe4:S18",
+        "probe6:V18"
+      ],
+      "errors": [],
+      "semanticUsed": 251,
+      "regression71": {
+        "total": 71,
+        "strict": 71,
+        "wrong": []
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-on-sonnet-appendix.rows.json",
+      "sha256": "5792c444cf857e2edb41800550abdbe99884762c2b66b38fc3c8c380e26c9075",
+      "total": 251,
+      "strict": 247,
+      "top3": 249,
+      "wrong": [
+        "probe2:Q06",
+        "probe4:S02",
+        "probe4:S18",
+        "probe6:V18"
+      ],
+      "errors": [],
+      "semanticUsed": 251,
+      "regression71": {
+        "total": 71,
+        "strict": 71,
+        "wrong": []
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "public251-on-haiku-baseline.rows.json",
+      "sha256": "93a141200f886e1305f3af18b544d2c6e6e599e9d1351a35f1d381a771755be4",
+      "total": 251,
+      "strict": 246,
+      "top3": 248,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe3:R01",
+        "probe4:S02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H21"
+        ]
+      }
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "public251-on-haiku-appendix.rows.json",
+      "sha256": "93a141200f886e1305f3af18b544d2c6e6e599e9d1351a35f1d381a771755be4",
+      "total": 251,
+      "strict": 246,
+      "top3": 248,
+      "wrong": [
+        "dev:H21",
+        "probe1:P11",
+        "probe3:R01",
+        "probe4:S02",
+        "probe8:X06"
+      ],
+      "errors": [],
+      "semanticUsed": 251,
+      "regression71": {
+        "total": 71,
+        "strict": 70,
+        "wrong": [
+          "dev:H21"
+        ]
+      }
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "probe9-off-query-baseline.rows.json",
+      "sha256": "8f1f9c0366c2d1df08aa3be9820251e62cac28b1b838a29ef311154e27b2b87a",
+      "total": 36,
+      "strict": 25,
+      "top3": 30,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y06",
+        "probe9:Y11",
+        "probe9:Y12",
+        "probe9:Y14",
+        "probe9:Y25",
+        "probe9:Y28",
+        "probe9:Y32",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": null
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "probe9-off-query-appendix.rows.json",
+      "sha256": "8f1f9c0366c2d1df08aa3be9820251e62cac28b1b838a29ef311154e27b2b87a",
+      "total": 36,
+      "strict": 25,
+      "top3": 30,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y06",
+        "probe9:Y11",
+        "probe9:Y12",
+        "probe9:Y14",
+        "probe9:Y25",
+        "probe9:Y28",
+        "probe9:Y32",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": null
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "probe9-on-query-baseline.rows.json",
+      "sha256": "0662b44ecbc7d8bdadb1117f758d15979fb5c34fa6ba87dd5842c05f6838560f",
+      "total": 36,
+      "strict": 29,
+      "top3": 32,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y14",
+        "probe9:Y28",
+        "probe9:Y31",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 36,
+      "regression71": null
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "probe9-on-query-appendix.rows.json",
+      "sha256": "0662b44ecbc7d8bdadb1117f758d15979fb5c34fa6ba87dd5842c05f6838560f",
+      "total": 36,
+      "strict": 29,
+      "top3": 32,
+      "wrong": [
+        "probe9:Y01",
+        "probe9:Y02",
+        "probe9:Y03",
+        "probe9:Y14",
+        "probe9:Y28",
+        "probe9:Y31",
+        "probe9:Y36"
+      ],
+      "errors": [],
+      "semanticUsed": 36,
+      "regression71": null
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "dev_open-off-query-baseline.rows.json",
+      "sha256": "eb73542d4105703cdd6c01c47a9c4574d1da33b8841c40def5c8de37ec11007e",
+      "total": 20,
+      "strict": 16,
+      "top3": 19,
+      "wrong": [
+        "dev_open:R13",
+        "dev_open:R22",
+        "dev_open:R28",
+        "dev_open:R30"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": null
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "dev_open-off-query-appendix.rows.json",
+      "sha256": "eb73542d4105703cdd6c01c47a9c4574d1da33b8841c40def5c8de37ec11007e",
+      "total": 20,
+      "strict": 16,
+      "top3": 19,
+      "wrong": [
+        "dev_open:R13",
+        "dev_open:R22",
+        "dev_open:R28",
+        "dev_open:R30"
+      ],
+      "errors": [],
+      "semanticUsed": 0,
+      "regression71": null
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "baseline",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix-baseline-final",
+      "file": "dev_open-on-query-baseline.rows.json",
+      "sha256": "0fab391f1609eafaeaee794db10d350814001d7384b55751a90f861313e569bf",
+      "total": 20,
+      "strict": 19,
+      "top3": 20,
+      "wrong": [
+        "dev_open:R28"
+      ],
+      "errors": [],
+      "semanticUsed": 20,
+      "regression71": null
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "branch": "appendix",
+      "worktree": "/Users/bueno/Documents/Codex/dongguk-rule-appendix",
+      "file": "dev_open-on-query-appendix.rows.json",
+      "sha256": "0fab391f1609eafaeaee794db10d350814001d7384b55751a90f861313e569bf",
+      "total": 20,
+      "strict": 19,
+      "top3": 20,
+      "wrong": [
+        "dev_open:R28"
+      ],
+      "errors": [],
+      "semanticUsed": 20,
+      "regression71": null
+    }
+  ],
+  "comparisons": [
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "sonnet",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "off",
+      "keywords": "haiku",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "sonnet",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "public251",
+      "semantic": "on",
+      "keywords": "haiku",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "off",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "probe9",
+      "semantic": "on",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "off",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    },
+    {
+      "dataset": "dev_open",
+      "semantic": "on",
+      "keywords": "query",
+      "newWrong": [],
+      "fixed": [],
+      "responseDifferences": []
+    }
+  ],
+  "artifactHashes": {
+    "public251-off-query-baseline.rows.json.gz": {
+      "sha256": "701344a8f8dfa65afa52f1342ed6742b343d9d9fc00a45bbbe3e2b8afbdb86f8",
+      "jsonSha256": "c44ef08d7c41080e1078f67f01709f9789499ad5b5043934a4c1bc403fdb7d08"
+    },
+    "public251-off-query-appendix.rows.json.gz": {
+      "sha256": "701344a8f8dfa65afa52f1342ed6742b343d9d9fc00a45bbbe3e2b8afbdb86f8",
+      "jsonSha256": "c44ef08d7c41080e1078f67f01709f9789499ad5b5043934a4c1bc403fdb7d08"
+    },
+    "public251-off-sonnet-baseline.rows.json.gz": {
+      "sha256": "f4ee3750d031f471824c281bd172ca16638043c0dfb083837a32251d32cc909b",
+      "jsonSha256": "4c072fdb6ecb7a9ec2b88d821d14ebc5275b7cb966b9a61b2fa106bf012ab6a9"
+    },
+    "public251-off-sonnet-appendix.rows.json.gz": {
+      "sha256": "f4ee3750d031f471824c281bd172ca16638043c0dfb083837a32251d32cc909b",
+      "jsonSha256": "4c072fdb6ecb7a9ec2b88d821d14ebc5275b7cb966b9a61b2fa106bf012ab6a9"
+    },
+    "public251-off-haiku-baseline.rows.json.gz": {
+      "sha256": "e168786ac38de36628b3562c7f4775a384c4305c2a85e83b2b6cd04d45bbdcfb",
+      "jsonSha256": "b859f51a78ca1595b9407ace8b73952c449d4f9fae0dc44ac56c0a5b0df1729c"
+    },
+    "public251-off-haiku-appendix.rows.json.gz": {
+      "sha256": "e168786ac38de36628b3562c7f4775a384c4305c2a85e83b2b6cd04d45bbdcfb",
+      "jsonSha256": "b859f51a78ca1595b9407ace8b73952c449d4f9fae0dc44ac56c0a5b0df1729c"
+    },
+    "public251-on-query-baseline.rows.json.gz": {
+      "sha256": "f6a201a4b28e84fd869c9b17b7e07114b51ab07b27fe2eaccd37bb327f1a13eb",
+      "jsonSha256": "665720423f5216a4ab4232b23b5e7324bb48b0dbb9ce72d20ad49c8dc9a4e037"
+    },
+    "public251-on-query-appendix.rows.json.gz": {
+      "sha256": "f6a201a4b28e84fd869c9b17b7e07114b51ab07b27fe2eaccd37bb327f1a13eb",
+      "jsonSha256": "665720423f5216a4ab4232b23b5e7324bb48b0dbb9ce72d20ad49c8dc9a4e037"
+    },
+    "public251-on-sonnet-baseline.rows.json.gz": {
+      "sha256": "2260e9dad9bcd9984c444ae0ce161dba9c0103a52ccbd9d073442d0c0fe46562",
+      "jsonSha256": "aaf3ac5228bea8ded9f8285d4788e9c542274f1bd72711d6bc424ce761c5e062"
+    },
+    "public251-on-sonnet-appendix.rows.json.gz": {
+      "sha256": "2260e9dad9bcd9984c444ae0ce161dba9c0103a52ccbd9d073442d0c0fe46562",
+      "jsonSha256": "aaf3ac5228bea8ded9f8285d4788e9c542274f1bd72711d6bc424ce761c5e062"
+    },
+    "public251-on-haiku-baseline.rows.json.gz": {
+      "sha256": "1ff1d1dce5948f11bdc1c4bac409ab11ac85bf1016b966c7a7991373b3d1743a",
+      "jsonSha256": "2ad1439b8fbdd4bc51dcfa8c3e2202240d499db0885b2569fd2654d1d8c0dba1"
+    },
+    "public251-on-haiku-appendix.rows.json.gz": {
+      "sha256": "1ff1d1dce5948f11bdc1c4bac409ab11ac85bf1016b966c7a7991373b3d1743a",
+      "jsonSha256": "2ad1439b8fbdd4bc51dcfa8c3e2202240d499db0885b2569fd2654d1d8c0dba1"
+    },
+    "probe9-off-query-baseline.rows.json.gz": {
+      "sha256": "241515ec7f1674eb6c514f624c4d9a32a1114e83e753ff58b226190a3610b2ec",
+      "jsonSha256": "cc7ed529c972e5115757c521329fbb7d32583d8511556aa0c42faa2a373b0484"
+    },
+    "probe9-off-query-appendix.rows.json.gz": {
+      "sha256": "241515ec7f1674eb6c514f624c4d9a32a1114e83e753ff58b226190a3610b2ec",
+      "jsonSha256": "cc7ed529c972e5115757c521329fbb7d32583d8511556aa0c42faa2a373b0484"
+    },
+    "probe9-on-query-baseline.rows.json.gz": {
+      "sha256": "54651035b07e1a22f1e41f03cfe08c6c6d428ffa16569bbade7e6f6e566e3ab1",
+      "jsonSha256": "06948550a8503efa0ee4d4c2b608e10147cb466a56396ebbd3a5659168375221"
+    },
+    "probe9-on-query-appendix.rows.json.gz": {
+      "sha256": "54651035b07e1a22f1e41f03cfe08c6c6d428ffa16569bbade7e6f6e566e3ab1",
+      "jsonSha256": "06948550a8503efa0ee4d4c2b608e10147cb466a56396ebbd3a5659168375221"
+    },
+    "dev_open-off-query-baseline.rows.json.gz": {
+      "sha256": "8f6750fd8fa9a454c61537530396a1bdcf1cbcd017559674737b714b78f8f4a2",
+      "jsonSha256": "f74b93e0994409428b56a0e59c412915cb109f84a11069519cd2506ad1d2367d"
+    },
+    "dev_open-off-query-appendix.rows.json.gz": {
+      "sha256": "8f6750fd8fa9a454c61537530396a1bdcf1cbcd017559674737b714b78f8f4a2",
+      "jsonSha256": "f74b93e0994409428b56a0e59c412915cb109f84a11069519cd2506ad1d2367d"
+    },
+    "dev_open-on-query-baseline.rows.json.gz": {
+      "sha256": "f72cfe5ec2ae437e38bfb24dfae020ed7a5d7ece491e9ce740829a6dbad7c6d6",
+      "jsonSha256": "38cfa9f0164ab5c3b11156de37ff25f45181c288969d7d68f65dd0ff3811588d"
+    },
+    "dev_open-on-query-appendix.rows.json.gz": {
+      "sha256": "f72cfe5ec2ae437e38bfb24dfae020ed7a5d7ece491e9ce740829a6dbad7c6d6",
+      "jsonSha256": "38cfa9f0164ab5c3b11156de37ff25f45181c288969d7d68f65dd0ff3811588d"
+    },
+    "dense-signals.json.gz": {
+      "sha256": "4ec7daa539e16de34d77338828cb3b97c538d84ef7248c09dd2c7019af973326",
+      "jsonSha256": "5ddff60038193d649a26fe5000915451adbfd5287dfdc0e4f8463f65f6ceab94"
+    },
+    "dense-open-signals.json.gz": {
+      "sha256": "e219869a2c8a989fe41bcbb85eca61fa4d73fa3cf71ffe69d6b97033d64c0414",
+      "jsonSha256": "e254616f882bb71257b229fdc0b49c4ca32a7a750897a4c8750c748ec3808af6"
+    }
+  },
+  "diagnostics": [
+    {
+      "file": "dense-signals.json.gz",
+      "summary": {
+        "train": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 46,
+              "top3": 43,
+              "strict": 41,
+              "articleGivenTop3": {
+                "hits": 41,
+                "total": 43
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Coordinates": {
+              "questions": 46,
+              "top3": 43,
+              "strict": 41,
+              "articleGivenTop3": {
+                "hits": 41,
+                "total": 43
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Kordoc": {
+              "questions": 46,
+              "top3": 43,
+              "strict": 40,
+              "articleGivenTop3": {
+                "hits": 40,
+                "total": 43
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [
+                "train:A02"
+              ],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [
+                "train:A02"
+              ],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "dev": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 25,
+              "top3": 19,
+              "strict": 18,
+              "articleGivenTop3": {
+                "hits": 18,
+                "total": 19
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Coordinates": {
+              "questions": 25,
+              "top3": 19,
+              "strict": 17,
+              "articleGivenTop3": {
+                "hits": 17,
+                "total": 19
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Kordoc": {
+              "questions": 25,
+              "top3": 19,
+              "strict": 18,
+              "articleGivenTop3": {
+                "hits": 18,
+                "total": 19
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": [
+                "dev:H23"
+              ]
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [
+                "dev:H23"
+              ],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "new-dev": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 14,
+              "top3": 9,
+              "strict": 0,
+              "articleGivenTop3": {
+                "hits": 0,
+                "total": 9
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 14
+              }
+            },
+            "d1Coordinates": {
+              "questions": 14,
+              "top3": 14,
+              "strict": 6,
+              "articleGivenTop3": {
+                "hits": 6,
+                "total": 14
+              },
+              "rowEvidence": {
+                "hits": 3,
+                "total": 14
+              }
+            },
+            "d1Kordoc": {
+              "questions": 14,
+              "top3": 14,
+              "strict": 9,
+              "articleGivenTop3": {
+                "hits": 9,
+                "total": 14
+              },
+              "rowEvidence": {
+                "hits": 8,
+                "total": 14
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N04",
+                "new-dev:N08",
+                "new-dev:N10",
+                "new-dev:N12",
+                "new-dev:N13"
+              ]
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N01",
+                "new-dev:N02",
+                "new-dev:N03",
+                "new-dev:N04",
+                "new-dev:N10",
+                "new-dev:N11",
+                "new-dev:N12",
+                "new-dev:N13",
+                "new-dev:N14"
+              ]
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N01",
+                "new-dev:N02",
+                "new-dev:N04",
+                "new-dev:N10",
+                "new-dev:N11",
+                "new-dev:N12",
+                "new-dev:N13",
+                "new-dev:N14"
+              ]
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N01",
+                "new-dev:N02",
+                "new-dev:N03"
+              ]
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N01",
+                "new-dev:N02",
+                "new-dev:N11",
+                "new-dev:N12",
+                "new-dev:N14"
+              ]
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N04",
+                "new-dev:N08",
+                "new-dev:N10",
+                "new-dev:N12",
+                "new-dev:N13"
+              ]
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N04",
+                "new-dev:N10",
+                "new-dev:N11",
+                "new-dev:N12",
+                "new-dev:N13",
+                "new-dev:N14"
+              ]
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": [
+                "new-dev:N04",
+                "new-dev:N10",
+                "new-dev:N13"
+              ]
+            }
+          }
+        }
+      },
+      "counts": {
+        "rules": 513,
+        "articles": 9790,
+        "vectors": 11422,
+        "coordinates": 24,
+        "kordoc": 43,
+        "graphNodes": 47,
+        "graphEdges": 46
+      }
+    },
+    {
+      "file": "dense-open-signals.json.gz",
+      "summary": {
+        "open-dev": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 20,
+              "top3": 20,
+              "strict": 18,
+              "articleGivenTop3": {
+                "hits": 18,
+                "total": 20
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Coordinates": {
+              "questions": 20,
+              "top3": 20,
+              "strict": 18,
+              "articleGivenTop3": {
+                "hits": 18,
+                "total": 20
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Kordoc": {
+              "questions": 20,
+              "top3": 20,
+              "strict": 18,
+              "articleGivenTop3": {
+                "hits": 18,
+                "total": 20
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "S": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 15,
+              "top3": 15,
+              "strict": 13,
+              "articleGivenTop3": {
+                "hits": 13,
+                "total": 15
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Coordinates": {
+              "questions": 15,
+              "top3": 15,
+              "strict": 13,
+              "articleGivenTop3": {
+                "hits": 13,
+                "total": 15
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Kordoc": {
+              "questions": 15,
+              "top3": 15,
+              "strict": 13,
+              "articleGivenTop3": {
+                "hits": 13,
+                "total": 15
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "C": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 8,
+              "top3": 8,
+              "strict": 8,
+              "articleGivenTop3": {
+                "hits": 8,
+                "total": 8
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Coordinates": {
+              "questions": 8,
+              "top3": 8,
+              "strict": 8,
+              "articleGivenTop3": {
+                "hits": 8,
+                "total": 8
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Kordoc": {
+              "questions": 8,
+              "top3": 8,
+              "strict": 8,
+              "articleGivenTop3": {
+                "hits": 8,
+                "total": 8
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "D": {
+          "conditions": {
+            "d1Dense": {
+              "questions": 7,
+              "top3": 7,
+              "strict": 7,
+              "articleGivenTop3": {
+                "hits": 7,
+                "total": 7
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Coordinates": {
+              "questions": 7,
+              "top3": 7,
+              "strict": 7,
+              "articleGivenTop3": {
+                "hits": 7,
+                "total": 7
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            },
+            "d1Kordoc": {
+              "questions": 7,
+              "top3": 7,
+              "strict": 7,
+              "articleGivenTop3": {
+                "hits": 7,
+                "total": 7
+              },
+              "rowEvidence": {
+                "hits": 0,
+                "total": 0
+              }
+            }
+          },
+          "deltaVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "deltaVsCoordinates": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          },
+          "coordinatesVsDense": {
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "strict": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "evidenceHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        }
+      },
+      "counts": {
+        "rules": 513,
+        "articles": 9790,
+        "vectors": 11422,
+        "coordinates": 24,
+        "kordoc": 43,
+        "graphNodes": 47,
+        "graphEdges": 46
+      }
+    }
+  ],
+  "codeHashes": {
+    "scripts/evaluate-appendix-final.js": "1d69ff109aa42e530dc9711f546ceb13ae7b3faf5678f02a975591cb2b5526f4",
+    "scripts/appendix-final-input.js": "0ab07f1a9b900a677e4465d4d81a65ff68cdecd2b4a0dfc40c361bacd4d0ab2c",
+    "scripts/appendix-t10w-recorder.js": "1a87c4378e1843fdf0ba39fa1e9016bbf4f87d7b0334e2233c7bc934f9922a0b",
+    "scripts/evaluate-appendix-d1.js": "09eadf82e8687420837edcf25a34ca7ac3cd3507a83eb5a7b0a101c9b7ec9f63"
+  }
+}
