@@ -10,6 +10,7 @@
 
 const { normalizeMiddots } = require('./aliases.js');
 const { scanDatedAddenda, preserveDatedAddendum } = require('./citation-dates.js');
+const { DETAIL_START_SOURCE, collectDetailRange } = require('./citation-scope.js');
 const { listArticleBlocks, normalizeArticleSelector, supplementarySelector } = require('./parsers.js');
 const { searchVariants, selectRuleCandidate } = require('./lookup.js');
 
@@ -18,14 +19,25 @@ const STANDALONE_NAMES = new Set(['학칙', '정관', '헌장']);
 const DEMONSTRATIVES = ['같은', '해당', '당해', '아래', '우리', '이', '그', '본', '동', '위'];
 const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 
-// Only an adjacent bracket group or date can extend a 부칙 prefix.
-// Prose such as "부칙에 따라 ... 제3조" must leave 제3조 in the main body.
+// Scan the full citation before deciding which part this verifier supports.
+// Unbounded digits plus numeric boundaries prevent matching only a number prefix.
 const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?(?:(?:의|중)\s*)?`;
+// The article parser only reads the supported prefix. A separate lexical pass
+// collects detail candidates before any existence/summary decision is made.
 const ARTICLE_RE = new RegExp(
-  String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d{1,3})\s*조(?:\s*의\s*(\d{1,2}))?` +
-  String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d{1,2})\s*항)?`,
+  String.raw`(${ADDENDUM_PREFIX_SOURCE})?제\s*(\d+)(?!\d)\s*조(?:\s*의\s*(\d+)(?!\d))?` +
+  String.raw`(?:\s*\(([^)\n]{1,40})\))?(?:\s*제\s*(\d+)(?!\d)\s*항)?()` +
+  String.raw`|(?<![가-힣A-Za-z0-9])(${DETAIL_START_SOURCE}|제\s*\d+\s*항)`,
   'g'
 );
+
+function supportedNumber(value, maximum) {
+  return Number.isSafeInteger(value) && value > 0 && value <= maximum;
+}
+
+function citationRange(segment, start, text) {
+  return { start: segment.offset + start, end: segment.offset + start + text.length, text };
+}
 
 function nkey(value) {
   return normalizeMiddots(value).replace(/\s+/g, '').toLowerCase();
@@ -125,10 +137,11 @@ function extractRuleCitations(text) {
   const source = String(text || '');
   const segments = [];
   let offset = 0;
-  for (const part of source.split(/\n\s*\n/)) {
-    segments.push({ text: part, offset });
-    offset += part.length + 2; // 대략적 오프셋(보고용)
+  for (const separator of source.matchAll(/\n\s*\n/g)) {
+    segments.push({ text: source.slice(offset, separator.index), offset });
+    offset = separator.index + separator[0].length;
   }
+  segments.push({ text: source.slice(offset), offset });
 
   const citations = [];
   const floating = [];
@@ -144,29 +157,64 @@ function extractRuleCitations(text) {
     let previousArticleEnd = 0;
     ARTICLE_RE.lastIndex = 0;
     let m;
+    let previousArticle = null;
     while ((m = ARTICLE_RE.exec(segment.text)) !== null) {
-      const connectionUnverified = preserveDatedAddendum(m, segment.text, datedAddenda, mentions, previousArticleEnd);
-      previousArticleEnd = ARTICLE_RE.lastIndex;
-      const supplementary = !!m[1];
-      const number = parseInt(m[2], 10);
-      const subNumber = m[3] ? parseInt(m[3], 10) : null;
+      if (overlaps(mentions, m.index, ARTICLE_RE.lastIndex)) continue;
+      const standaloneParagraph = m[7] && /^제\s*\d+\s*항$/.test(m[7]);
+      if (standaloneParagraph && /^(?:목|구)/.test(segment.text.slice(ARTICLE_RE.lastIndex))) continue;
+      const standaloneDetail = m[7] && !standaloneParagraph;
+      const scope = collectDetailRange(segment.text, standaloneDetail ? m.index : ARTICLE_RE.lastIndex,
+        { standalone: !!standaloneDetail });
+      if (standaloneDetail && !scope) continue; // a noun, not a detail candidate
+      if (scope) {
+        const end = scope.end;
+        if (!standaloneDetail) m[6] = segment.text.slice(ARTICLE_RE.lastIndex, end);
+        m[0] = segment.text.slice(m.index, end);
+        ARTICLE_RE.lastIndex = end;
+      }
+      const connectionUnverified = !!m[2] && preserveDatedAddendum(m, segment.text, datedAddenda, mentions, previousArticleEnd);
+      if (m[2]) previousArticleEnd = ARTICLE_RE.lastIndex;
+      const owner = [...mentions].reverse().find(x => x.end <= m.index);
+      const paragraph = m[7] && /^제\s*(\d+)\s*항$/.exec(m[7]);
+      const bridge = previousArticle ? segment.text.slice(previousArticle.end, m.index) : '';
+      const inherited = paragraph && previousArticle && owner === previousArticle.owner
+        && /^\s*(?:(?:및|또는|,|·)\s*)?(?:같은\s*조\s*)?$/.test(bridge)
+        ? previousArticle : null;
+      const supplementary = inherited ? inherited.article.supplementary : !!m[1];
+      const number = inherited ? inherited.article.number : (m[2] ? Number(m[2]) : null);
+      const subNumber = inherited ? inherited.article.subNumber : (m[3] ? Number(m[3]) : null);
       const rawParen = m[4] ? m[4].trim() : null;
       const citedTitle = rawParen && !isAnnotationParen(rawParen) ? rawParen : null;
-      const hang = m[5] ? parseInt(m[5], 10) : null;
-      if (!number) continue;
-      // Consume the complete addendum prefix before interpreting it. An invalid
-      // date/prefix must never fall through to a main-body article match.
-      const selectorText = `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
-      const selector = m.dateSyntaxUnverified ? null : normalizeArticleSelector(selectorText);
-      const originalSelector = `${m.sourcePrefix ?? (m[1] || '')}제${number}조${subNumber ? `의${subNumber}` : ''}`;
-      const canonical = selector?.label || originalSelector.trim();
+      const hangToken = paragraph ? paragraph[1] : m[5];
+      const hang = hangToken ? Number(hangToken) : null;
+      const originalRange = citationRange(segment, m.index, m[0]);
+      const unsupportedReasons = [];
+      if (paragraph && !inherited) unsupportedReasons.push('UNBOUND_PARAGRAPH');
+      else if (m[7] && !paragraph) unsupportedReasons.push('UNSUPPORTED_DETAIL');
+      if (m[2] && (!supportedNumber(number, 999) || (m[3] && !supportedNumber(subNumber, 99)))) {
+        unsupportedReasons.push('UNSUPPORTED_ARTICLE_NUMBER');
+      }
+      const selectorText = m[2] ? `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${m[2]}조${m[3] ? `의${m[3]}` : ''}` : null;
+      const selector = selectorText && !m.dateSyntaxUnverified ? normalizeArticleSelector(selectorText) : null;
+      const selectorUnverified = inherited ? inherited.selectorUnverified : connectionUnverified || (!!m[1] && !selector);
+      const originalSelector = m[2] ? `${m.sourcePrefix ?? (m[1] || '')}제${m[2]}조${m[3] ? `의${m[3]}` : ''}`.trim() : null;
+      const canonical = inherited ? inherited.article.canonical : (selector?.label || originalSelector);
+      const article = inherited ? { ...inherited.article } : m[2]
+        ? { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical }
+        : null;
+      let parsedText = unsupportedReasons.length || selectorUnverified ? '' : m[0].slice(0, m[6] ? -m[6].length : undefined);
+      if (hangToken && !supportedNumber(hang, 50)) {
+        unsupportedReasons.push('UNSUPPORTED_PARAGRAPH_NUMBER');
+        parsedText = parsedText.replace(/\s*제\s*\d+\s*항$/, '');
+      }
+      if (m[6]) unsupportedReasons.push(/^\s*의\s*\d/.test(m[6]) ? 'UNSUPPORTED_SELECTOR_SUFFIX' : 'UNSUPPORTED_DETAIL');
+      const parsedRange = parsedText ? citationRange(segment, m.index, parsedText) : null;
       const raw = m[0].replace(/\s+/g, ' ').trim();
 
-      // 같은 문단에서 이 조문 앞에 있는 가장 가까운 멘션에 결속
-      const owner = [...mentions].reverse().find(x => x.end <= m.index);
       if (!owner || !owner.resolved) {
+        previousArticle = null;
         floating.push({
-          raw, canonical,
+          raw, canonical, originalRange, parsedRange, unsupportedReasons,
           reason: owner && !owner.resolved
             ? `조응(${owner.raw}) 선행 규정명 없음`
             : '같은 문단에 규정명 없음',
@@ -175,16 +223,18 @@ function extractRuleCitations(text) {
       }
       owner.boundCount = (owner.boundCount || 0) + 1;
       bound.add(owner);
-
-      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || '', connectionUnverified].join('|');
+      previousArticle = article && !unsupportedReasons.length
+        ? { article, selectorUnverified, owner, end: ARTICLE_RE.lastIndex }
+        : null;
+      const key = [nkey(owner.resolved), canonical, hang || 0, citedTitle || '', selectorUnverified, unsupportedReasons.length ? raw : ''].join('|');
       if (seen.has(key)) continue;
       seen.add(key);
       citations.push({
-        raw: `${owner.kind === 'anaphora' ? owner.raw : owner.resolved} ${raw}`,
+        raw: `${owner.kind === 'anaphora' ? owner.raw : owner.resolved} ${inherited ? `${canonical} ` : ''}${raw}`,
+        originalRange, parsedRange, unsupportedReasons,
         ruleName: owner.resolved,
         anaphora: owner.kind === 'anaphora',
-        article: { number, subNumber, supplementary, supplementaryDate: selector?.supplementaryDate || null, canonical },
-        selectorUnverified: connectionUnverified || !selector,
+        article, selectorUnverified, inheritedArticle: !!inherited,
         hang, citedTitle,
       });
     }
@@ -196,7 +246,10 @@ function extractRuleCitations(text) {
       if (seen.has(key)) continue;
       seen.add(key);
       citations.push({
-        raw: `「${mention.name}」`,
+        raw: segment.text.slice(mention.start, mention.end),
+        originalRange: citationRange(segment, mention.start, segment.text.slice(mention.start, mention.end)),
+        parsedRange: citationRange(segment, mention.start, segment.text.slice(mention.start, mention.end)),
+        unsupportedReasons: [],
         ruleName: mention.name,
         anaphora: false,
         article: null,
@@ -289,6 +342,12 @@ function headingTitleOf(block) {
 
 // 인용 1건 판정
 function judgeCitation(citation, rec) {
+  if (citation.unsupportedReasons?.length) {
+    const note = citation.unsupportedReasons.includes('UNBOUND_PARAGRAPH')
+      ? '항 인용의 앞 조문을 특정할 수 없음 — 조문 번호와 함께 적어 확인 필요'
+      : '별표·서식·호·목·중첩 접미부 또는 지원 범위 밖 번호는 미검증 — 해당 원문 확인 필요';
+    return { status: 'UNSUPPORTED_CITATION', symbol: '⚠', note };
+  }
   if (citation.selectorUnverified) {
     return { status: 'ARTICLE_SELECTOR_UNVERIFIED', symbol: '⚠', note: '부칙 날짜·조문 선택자를 해석할 수 없음 — 원문 위치 확인 필요' };
   }
@@ -416,9 +475,13 @@ async function verifyRuleCitations(text, deps, options = {}) {
     const verdict = judgeCitation(citation, rec);
     return {
       raw: citation.raw,
+      originalRange: citation.originalRange,
+      parsedRange: citation.parsedRange,
+      unsupportedReasons: citation.unsupportedReasons,
       ruleName: citation.ruleName,
       article: citation.article ? citation.article.canonical : null,
       hang: citation.hang,
+      inheritedArticle: !!citation.inheritedArticle,
       citedTitle: citation.citedTitle,
       actualTitle: verdict.actualTitle || null,
       status: verdict.status,
@@ -435,7 +498,7 @@ async function verifyRuleCitations(text, deps, options = {}) {
   // (HANG_NOT_FOUND는 인용된 항 자체가 없으므로 notFound에만 계수)
   const ARTICLE_EXISTS = new Set(['EXISTS', 'RULE_EXISTS', 'CONTENT_MISMATCH', 'TITLE_SIMILAR', 'TITLE_UNVERIFIED', 'HANG_UNVERIFIED']);
   const summary = {
-    verified: results.filter(r => r.symbol === '✓').length,
+    verified: results.filter(r => ['EXISTS', 'RULE_EXISTS'].includes(r.status) && !r.unsupportedReasons.length).length,
     exists: results.filter(r => ARTICLE_EXISTS.has(r.status)).length,
     notFound: results.filter(r => r.symbol === '✗').length,
     needsReview: results.filter(r => r.symbol === '⚠').length,
