@@ -129,6 +129,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { excerptPolicy, excerptInputs } = require('./excerpt-policy.js');
 const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope } = require('./lookup.js');
 const {
   parseSearch,
@@ -1072,11 +1073,15 @@ async function hLookup(rawKeyword, {
   // Topic words sent as terms beside a rule_keyword that names no rule: the excerpt keeps those
   // terms and also gets the vocabulary and articles the index chose, as for keywords.
   const topicTerms=indexMode&&!autoTerms&&!!topicAsRuleKeyword&&!articleSelectors(rawTerms).length&&!appendixSelectors(rawTerms).length;
-  const effectiveTerms=focus ? [...new Set([...(namedRule?[rawTerms]:[]),...focus.searchTerms,...keywordSelectors])].join(', ')
+  const excerptMode=excerptPolicy();
+  const expandedTerms=focus ? [...new Set([...(namedRule?[rawTerms]:[]),...focus.searchTerms,...keywordSelectors])].join(', ')
     : indexMode&&autoTerms
     ? [...new Set([...result.searchTerms,...articleSelectors(rawTerms||keyword),...appendixSelectors(rawTerms||keyword),...keywordSelectors])].join(', ')
     : topicTerms ? [...new Set([rawTerms,...result.searchTerms])].join(', ')
     : rawTerms;
+  const literalSource=namedRule?rawTerms:(scopeQuery||rawTerms||keyword);
+  const literalTerms=autoTerms ? [...new Set([...queryContentTokens(literalSource),...articleSelectors(literalSource),...appendixSelectors(literalSource),...keywordPhrases.flat(),...keywordSelectors])].join(', ') : rawTerms;
+  const effectiveTerms=excerptInputs(excerptMode,{expandedTerms,literalTerms}).terms;
   let out=`# 통합 규정 조회: '${keyword}'\n\n` +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
     `- 검색 방식: ${searchMode}${result.semantic||focus?.semantic?' + 의미검색(조문 임베딩)':''}\n` +
@@ -1129,7 +1134,8 @@ async function hLookup(rawKeyword, {
     const preferredArticles=!noSelectors?[]:focus?focus.priorityArticles:indexMode&&(autoTerms||topicTerms)?hit.priorityArticles:[];
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
       maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
-      ...(preferredArticles.length?{priorityArticles:preferredArticles}:{}),
+      policy:excerptMode.name,
+      priorityArticles:excerptInputs(excerptMode,{priorityArticles:preferredArticles}).priorityArticles,
     });
     let historyText='';
     let history=[];
@@ -1185,7 +1191,7 @@ async function hLookup(rawKeyword, {
     });
   }
   return success(out,{
-    query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
+    query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(excerptMode.name!=='legacy'?{excerptPolicy:excerptMode.name}:{}),...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
       ...(indexMode?{semantic:!!result.semantic,ranking:result.ranking,selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,

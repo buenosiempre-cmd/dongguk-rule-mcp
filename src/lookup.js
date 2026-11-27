@@ -2,6 +2,7 @@
 
 const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
+const { excerptPolicy, articleUnits, articleScoreText } = require('./excerpt-policy.js');
 
 function clampNumber(value, fallback, min, max) {
   const n = Number(value);
@@ -221,7 +222,8 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const source = String(markdown || '').replace(/\r\n?/g, '\n');
   const lines = source.split('\n');
   const blocks = [];
-  const appendBlocks = text => blocks.push(...text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean));
+  const policy = excerptPolicy(options.policy);
+  const appendBlocks = text => blocks.push(...(policy.article ? articleUnits(text) : text.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean)));
   let cursor = 0;
   // A table's following notes can span many HWP paragraphs. Rank and return
   // the entire appendix, stopping at the next appendix or body boundary.
@@ -267,12 +269,13 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
       // Supplementary provisions restart article numbering. Once their boundary
       // (or an attachment) is reached, the same number is not a main article.
       if (block.split('\n').some(line => isBodyBoundary(line) === 'supplementary' || appendixHeading(line))) outsideBody = true;
-      const context = index > 0 ? blocks[index - 1] : '';
+      const wholeArticle = policy.article && isBodyBoundary(block.split('\n', 1)[0]) === 'article';
+      const context = index > 0 && !wholeArticle ? blocks[index - 1] : '';
       const heading = /^(?:#{1,6}[ \t]*)?(?:\*\*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)[ \t]*[(（]([^)）]+)[)）]/.exec(block);
       const article = heading?.[1].replace(/[ \t]/g, '');
       const genericHeading = heading && /^(?:목적|정의|용어의정의)$/.test(heading[2].replace(/\s/g, ''));
       const priority = !outsideBody && !genericHeading && priorityOrder.includes(article) && !priorityAssigned.has(article);
-      const result = scoreBlock(block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
+      const result = scoreBlock(wholeArticle ? articleScoreText(block) : block, tokens, context) || (priority ? { score: 0, matched: [] } : null);
       if (priority) priorityAssigned.add(article);
       return result ? { block, index, ...result, priority: !!priority, priorityRank: priority ? priorityOrder.indexOf(article) : Infinity } : null;
     })
@@ -325,7 +328,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
   const selectedIndexes = new Set(selectedMatches.map(x => x.index));
   for (const item of selectedMatches) {
     for (const index of articleContexts[item.index] || []) selectedIndexes.add(index);
-    if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0])) {
+    if (/^\|.+\|/m.test(item.block) && !appendixHeading(item.block.split('\n', 1)[0]) && !(policy.article && isBodyBoundary(item.block.split('\n', 1)[0]) === 'article')) {
       if (item.index > 0) selectedIndexes.add(item.index - 1);
       if (item.index + 1 < blocks.length) {
         const next = blocks[item.index + 1];
