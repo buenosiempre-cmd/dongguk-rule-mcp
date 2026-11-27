@@ -16,7 +16,9 @@
 // - jev     a relevance probability per rule, when the caller supplies one; hybrid otherwise.
 const { placeRequest, placeAgreement } = require('./ontology');
 
-const METHODS = ['legacy', 'hybrid', 'rrf', 'jev'];
+const METHODS = ['legacy', 'hybrid', 'rrf', 'jev', 'hybrid-graph'];
+// Frozen before evaluation. Positive contribution is capped at 25% of hybrid score.
+const GRAPH_SHARE = 0.25;
 const DEFAULT_METHOD = 'legacy';
 function rankingMethod(value = process.env.DONGGUK_MCP_RANKING) {
   const name = String(value || '').trim().toLowerCase();
@@ -131,7 +133,7 @@ const scoresOf = signal => signal instanceof Map ? signal : null;
 // graph, probability: Map(lawId → score) from a caller that has them, or null.
 // Returns { method, ranked } where each ranked rule carries scopeMatch, scopeAmbiguous,
 // editions, and `order` (larger is earlier). `method` is the one actually used.
-function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, method = rankingMethod() }) {
+function rankRules({ candidates, scope, query = '', campus = 'all', facets = null, semantic = false, graph = null, probability = null, method = rankingMethod(), graphCorpus }) {
   let used = METHODS.includes(method) ? method : DEFAULT_METHOD;
   if (used === 'jev' && !scoresOf(probability)) used = 'hybrid';
   if (used === 'legacy') {
@@ -163,7 +165,14 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
     if (used === 'rrf') used = 'hybrid';
     order = lifted;
   }
-  return { method: used, ranked: ranked.map(hit => ({ ...hit, order: order(hit) })).sort((a, b) => b.order - a.order || a.lawId - b.lawId) };
+  const ordered = ranked.map(hit => ({ ...hit, order: order(hit) })).sort((a, b) => b.order - a.order || a.lawId - b.lawId);
+  if (used === 'hybrid-graph') {
+    const { scores, audit } = require('./graph-fusion').graphSignal(ordered, { corpus: graphCorpus });
+    return { method: used, graphAudit: audit, ranked: ordered.map(hit => ({ ...hit,
+      graphScore: scores.get(hit.lawId) || 0, order: hit.order * (1 + GRAPH_SHARE * (scores.get(hit.lawId) || 0)),
+    })).sort((a,b)=>b.order-a.order||a.lawId-b.lawId) };
+  }
+  return { method: used, ranked: ordered };
 }
 
-module.exports = { METHODS, DEFAULT_METHOD, RRF_K, rankingMethod, ranksOf, reciprocalRankFusion, rankRules };
+module.exports = { METHODS, DEFAULT_METHOD, RRF_K, GRAPH_SHARE, rankingMethod, ranksOf, reciprocalRankFusion, rankRules };
