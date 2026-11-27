@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 function parseArgs(args) {
-  const options = { questions: [], ranking: null, keywords: null, cache: null, out: null, compare: null, offline: true };
+  const options = { questions: [], ranking: null, keywords: null, cache: null, out: null, compare: null, offline: true, queryOnly: false };
   for (let i = 0; i < args.length; i++) {
     const name = args[i], value = () => { if (i + 1 >= args.length) throw new Error(`MISSING_VALUE ${name}`); return args[++i]; };
     if (name === '--cache') options.cache = value();
@@ -25,6 +25,7 @@ function parseArgs(args) {
     else if (name === '--out') options.out = value();
     else if (name === '--compare') options.compare = value();
     else if (name === '--online') options.offline = false;
+    else if (name === '--query-only') options.queryOnly = true;
     else throw new Error(`UNKNOWN_OPTION ${name}`);
   }
   if (!options.cache || !options.questions.length) throw new Error('USAGE --cache <dir> --questions <file[,file]>');
@@ -147,7 +148,7 @@ async function main(args = process.argv.slice(2)) {
     const set = path.basename(file).replace(/\.json$/, '');
     const questions = validateQuestions(JSON.parse(fs.readFileSync(file, 'utf8')));
     for (const [index, question] of questions.entries()) {
-      const given = keywords ? keywords[question.id] : question.args;
+      const given = options.queryOnly ? null : keywords ? keywords[question.id] : question.args;
       const extra = typeof given === 'string' ? (given ? { keywords: given } : {}) : (given || {});
       const started = performance.now();
       const response = await client.callTool({ name: 'lookup_dongguk_rule', arguments: { query: question.q, ...extra } });

@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { listArticleBlocks } = require('./parsers.js');
+const { listArticleBlocks, CONTENT_PARSER_VERSION } = require('./parsers.js');
 const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
 const { queryConcepts, keywordConcepts, ruleFamily } = require('./lookup.js');
 
@@ -29,7 +29,9 @@ async function buildCorpus({ catalog, loadContent, previous = null, onProgress =
   if (previous?.catalogTotal && catalog.length < previous.catalogTotal * 0.8) {
     throw new Error(`규정 목록이 이전 색인(${previous.catalogTotal}건)보다 크게 줄었습니다(${catalog.length}건). 원문 사이트 응답을 확인하세요.`);
   }
-  const reusable = new Map((previous?.rules || []).map(rule => [`${rule.lawId}_${rule.historyId}`, rule]));
+  // Matching history IDs do not make bodies from an older parser complete.
+  const reusableRules = previous?.contentVersion === CONTENT_PARSER_VERSION ? previous.rules || [] : [];
+  const reusable = new Map(reusableRules.map(rule => [`${rule.lawId}_${rule.historyId}`, rule]));
   const rules = [], failed = [];
   let reused = 0;
   for (let i = 0; i < catalog.length; i++) {
@@ -50,7 +52,7 @@ async function buildCorpus({ catalog, loadContent, previous = null, onProgress =
     }
     onProgress({ done: i + 1, total: catalog.length, failed: failed.length, reused });
   }
-  return { version: CORPUS_VERSION, builtAt: now().toISOString(), catalogTotal: catalog.length, reused, rules, failed };
+  return { version: CORPUS_VERSION, contentVersion: CONTENT_PARSER_VERSION, builtAt: now().toISOString(), catalogTotal: catalog.length, reused, rules, failed };
 }
 
 function corpusPath(directory) { return path.join(directory, 'corpus', CORPUS_FILE); }
@@ -67,17 +69,18 @@ function saveCorpus(directory, corpus) {
 }
 
 const loaded = new Map();
-function loadCorpus(directory) {
+function loadCorpus(directory, { allowStaleParser = false } = {}) {
   const filename = corpusPath(directory);
   let stat;
   try { stat = fs.statSync(filename); } catch { return null; }
   const memo = loaded.get(filename);
-  if (memo && memo.mtimeMs === stat.mtimeMs) return memo.corpus;
+  const usable = corpus => allowStaleParser || corpus.contentVersion === CONTENT_PARSER_VERSION ? corpus : null;
+  if (memo && memo.mtimeMs === stat.mtimeMs) return usable(memo.corpus);
   try {
     const corpus = JSON.parse(fs.readFileSync(filename, 'utf8'));
     if (corpus?.version !== CORPUS_VERSION || !Array.isArray(corpus.rules)) return null;
     loaded.set(filename, { mtimeMs: stat.mtimeMs, corpus });
-    return corpus;
+    return usable(corpus);
   } catch { return null; }
 }
 
