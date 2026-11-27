@@ -387,7 +387,8 @@ const QUESTION_STOPWORDS = new Set([
   '전에', '후에', '먼저', '나중에', '대신', '다른', '걸로', '자기', '사람', '하루', '관련된', '때도', '그냥', '혹시', '아니면',
   '원래', '말고', '받은', '남는', '거야', '건가요', '때문에', '다시', '것들', '무슨', '일을',
 ]);
-const PARTICLE_SUFFIX = /(?:에서는|에서|으로|에게|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
+// Two particles together come first ("센터에는", "직원에게도"), so the noun is left whole.
+const PARTICLE_SUFFIX = /(?:에서는|에서도|에게는|에게도|한테는|한테도|으로는|으로도|까지는|부터는|에는|에도|에서|으로|에게|한테|까지|부터|이란|란|은|는|이|가|을|를|의|에|로|과|와|도|만)$/;
 // "겸직하려면" → 겸직, "전결해" → 전결: the noun before a 하다/되다/받다 ending.
 const VERB_ENDING = /(?:하다가|받다가|하다|한다|했다|했어요|했어|하려면|하려고|하려는|하고자|하면서|하면|하여야|해야|하여|해서|해도|하는지|하는|하기|하나요|합니까|합니다|했는데|한다면|할까요|할지|하고|해요|해|할|되나요|되는지|되려면|되면|되는|받으려면|받아야|받으면|받는|받을|받아)$/;
 // Nouns that end in 해; not "noun + 해".
@@ -401,7 +402,7 @@ const NOUN_ENDING_DO = /(?:연도|년도|제도|한도|용도|양도|빈도|정�
 const SUBJECTS_BEFORE_GA = new Set(['교수', '강사', '조교', '부서', '학교', '이사', '감사', '회계', '근로자']);
 
 // One-syllable nouns that carry the topic of a question ("책 연체", "상 받을 때").
-const ONE_SYLLABLE_NOUNS = new Set(['책', '상', '돈']);
+const ONE_SYLLABLE_NOUNS = new Set(['책', '상', '돈', '술']);
 // A counter with its particle ("시부터야", "년이", "명까지") is not a topic word.
 const COUNTER_REMNANT = /^(?:시|분|일|년|월|주|번|회|명|개|살|점|원|배)(?:부터|까지|동안|이나|씩|마다|이내|안에)?(?:이|야|이야|이에요|예요|인가요|이죠|인지)?$/;
 function contentToken(raw) {

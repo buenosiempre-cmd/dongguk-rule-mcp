@@ -2536,5 +2536,423 @@
       "강사": "강사",
       "조교": "조교(?!수)"
     }
-  }
+  },
+  "labels": [
+    {
+      "id": "label-001",
+      "kind": "subject",
+      "everyday": [
+        "미화원",
+        "청소원",
+        "환경미화원"
+      ],
+      "rule": [
+        "미화직"
+      ]
+    },
+    {
+      "id": "label-002",
+      "kind": "subject",
+      "everyday": [
+        "계약직"
+      ],
+      "rule": [
+        "한시계약직",
+        "계약직"
+      ]
+    },
+    {
+      "id": "label-003",
+      "kind": "subject",
+      "everyday": [
+        "무기직",
+        "공무직"
+      ],
+      "rule": [
+        "무기계약직"
+      ]
+    },
+    {
+      "id": "label-004",
+      "kind": "subject",
+      "everyday": [
+        "포닥",
+        "박사후연구원"
+      ],
+      "rule": [
+        "박사후"
+      ]
+    },
+    {
+      "id": "label-005",
+      "kind": "subject",
+      "everyday": [
+        "임상교수"
+      ],
+      "rule": [
+        "임상교원"
+      ]
+    },
+    {
+      "id": "label-006",
+      "kind": "subject",
+      "everyday": [
+        "겸임교수",
+        "초빙교수",
+        "객원교수",
+        "석좌교수"
+      ],
+      "rule": [
+        "비전임교원"
+      ]
+    },
+    {
+      "id": "label-007",
+      "kind": "subject",
+      "everyday": [
+        "유학생",
+        "외국인학생"
+      ],
+      "rule": [
+        "외국인 유학생",
+        "유학생"
+      ]
+    },
+    {
+      "id": "label-008",
+      "kind": "subject",
+      "everyday": [
+        "새내기"
+      ],
+      "rule": [
+        "신입생"
+      ]
+    },
+    {
+      "id": "label-009",
+      "kind": "subject",
+      "everyday": [
+        "의대생"
+      ],
+      "rule": [
+        "의학과"
+      ]
+    },
+    {
+      "id": "label-010",
+      "kind": "subject",
+      "everyday": [
+        "기숙사생"
+      ],
+      "rule": [
+        "사생"
+      ]
+    },
+    {
+      "id": "label-011",
+      "kind": "subject",
+      "everyday": [
+        "운동부",
+        "운동선수"
+      ],
+      "rule": [
+        "체육특기생",
+        "체육특기자"
+      ]
+    },
+    {
+      "id": "label-012",
+      "kind": "body",
+      "everyday": [
+        "의대"
+      ],
+      "rule": [
+        "의과대학"
+      ]
+    },
+    {
+      "id": "label-013",
+      "kind": "body",
+      "everyday": [
+        "한의대"
+      ],
+      "rule": [
+        "한의과대학"
+      ]
+    },
+    {
+      "id": "label-014",
+      "kind": "body",
+      "everyday": [
+        "의전원"
+      ],
+      "rule": [
+        "의학전문대학원"
+      ]
+    },
+    {
+      "id": "label-015",
+      "kind": "body",
+      "everyday": [
+        "상담센터",
+        "심리상담"
+      ],
+      "rule": [
+        "카운슬링센터",
+        "학생상담센터",
+        "상담"
+      ]
+    },
+    {
+      "id": "label-016",
+      "kind": "body",
+      "everyday": [
+        "보건소",
+        "보건실",
+        "양호실"
+      ],
+      "rule": [
+        "건강증진센터",
+        "보건진료센터"
+      ]
+    },
+    {
+      "id": "label-017",
+      "kind": "body",
+      "everyday": [
+        "학군단",
+        "ROTC"
+      ],
+      "rule": [
+        "학생군사교육단"
+      ]
+    },
+    {
+      "id": "label-018",
+      "kind": "body",
+      "everyday": [
+        "노조"
+      ],
+      "rule": [
+        "노동조합"
+      ]
+    },
+    {
+      "id": "label-019",
+      "kind": "body",
+      "everyday": [
+        "총학"
+      ],
+      "rule": [
+        "총학생회"
+      ]
+    },
+    {
+      "id": "label-020",
+      "kind": "body",
+      "everyday": [
+        "어학당",
+        "한국어학당"
+      ],
+      "rule": [
+        "한국어교육원"
+      ]
+    },
+    {
+      "id": "label-021",
+      "kind": "body",
+      "everyday": [
+        "영재원"
+      ],
+      "rule": [
+        "과학영재교육원"
+      ]
+    },
+    {
+      "id": "label-022",
+      "kind": "body",
+      "everyday": [
+        "법당"
+      ],
+      "rule": [
+        "정각원"
+      ]
+    },
+    {
+      "id": "label-023",
+      "kind": "thing",
+      "everyday": [
+        "킥보드",
+        "전동킥보드",
+        "전기자전거",
+        "전동휠",
+        "전동스쿠터"
+      ],
+      "rule": [
+        "개인형 이동장치",
+        "이동장치"
+      ]
+    },
+    {
+      "id": "label-024",
+      "kind": "thing",
+      "everyday": [
+        "헬멧",
+        "안전모"
+      ],
+      "rule": [
+        "인명보호 장구"
+      ]
+    },
+    {
+      "id": "label-025",
+      "kind": "thing",
+      "everyday": [
+        "술"
+      ],
+      "rule": [
+        "음주"
+      ]
+    },
+    {
+      "id": "label-026",
+      "kind": "thing",
+      "everyday": [
+        "담배"
+      ],
+      "rule": [
+        "흡연"
+      ]
+    },
+    {
+      "id": "label-027",
+      "kind": "thing",
+      "everyday": [
+        "전염병",
+        "감염병"
+      ],
+      "rule": [
+        "전염성",
+        "감염병"
+      ]
+    },
+    {
+      "id": "label-028",
+      "kind": "thing",
+      "everyday": [
+        "온라인수업",
+        "온라인강의",
+        "인터넷강의",
+        "비대면수업",
+        "인강",
+        "사이버강의",
+        "녹화강의"
+      ],
+      "rule": [
+        "원격수업",
+        "사전녹화강의"
+      ]
+    },
+    {
+      "id": "label-029",
+      "kind": "thing",
+      "everyday": [
+        "졸업작품"
+      ],
+      "rule": [
+        "캡스톤디자인"
+      ]
+    },
+    {
+      "id": "label-030",
+      "kind": "thing",
+      "everyday": [
+        "특허",
+        "저작권"
+      ],
+      "rule": [
+        "지식재산권",
+        "산업재산권",
+        "직무발명"
+      ]
+    },
+    {
+      "id": "label-031",
+      "kind": "thing",
+      "everyday": [
+        "자기표절",
+        "중복게재"
+      ],
+      "rule": [
+        "중복게재"
+      ]
+    },
+    {
+      "id": "label-032",
+      "kind": "thing",
+      "everyday": [
+        "명퇴",
+        "희망퇴직"
+      ],
+      "rule": [
+        "명예퇴직"
+      ]
+    },
+    {
+      "id": "label-033",
+      "kind": "thing",
+      "everyday": [
+        "마이크로디그리",
+        "나노디그리"
+      ],
+      "rule": [
+        "모듈형",
+        "마이크로 디그리"
+      ]
+    },
+    {
+      "id": "label-034",
+      "kind": "thing",
+      "everyday": [
+        "복사",
+        "스캔"
+      ],
+      "rule": [
+        "복제"
+      ]
+    },
+    {
+      "id": "label-035",
+      "kind": "thing",
+      "everyday": [
+        "카드키"
+      ],
+      "rule": [
+        "출입카드"
+      ]
+    },
+    {
+      "id": "label-036",
+      "kind": "thing",
+      "everyday": [
+        "차점자",
+        "예비합격자"
+      ],
+      "rule": [
+        "차점자",
+        "충원"
+      ]
+    },
+    {
+      "id": "label-037",
+      "kind": "thing",
+      "everyday": [
+        "방사능"
+      ],
+      "rule": [
+        "방사선",
+        "방사성동위원소"
+      ]
+    }
+  ]
 }
