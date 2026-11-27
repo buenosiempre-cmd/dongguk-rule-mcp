@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { SOURCES, parsePairs, parseTree, parseFolderListing, PUBLIC_ONLY_NOTICE, htmlToArticleMarkdown, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective } = require('../src/university-rules');
+const { SOURCES, parsePairs, parseTree, parseFolderListing, PUBLIC_ONLY_NOTICE, htmlToArticleMarkdown, parseUniversitySearch, parseExternalContent, createPublicClient, compareUniversityRules, formatComparison, validateArguments, loadExternal, expandTopic, cleanListTitle, latestAddendaEffective, parseHtmlArticleContent, selectArticles } = require('../src/university-rules');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -397,6 +397,50 @@ async function main() {
     const p=parseExternalContent(html);
     assert.equal(p.title,'교직원 여비 규정');assert.match(p.markdown,/### 제 2 조 \(여비의 종류\)/);
     assert(!p.markdown.includes('버튼'));assert.equal(latestAddendaEffective(p.markdown),'2026-11-01');
+  });
+  await check('B3 HTML 참조 구문은 제9조로 승격하지 않고 앞 조문 본문 보존', () => {
+    const {listArticleBlocks}=require('../src/parsers');
+    for(const reference of ['제9조(일비)에서 정한 기준을 적용한다.', '제9조(일비) 에서 정한 기준을 적용한다.', '제9조(일비) 의 지급 기준을 적용한다.', '제9조(일비)에 따른다.']) {
+      for(const wrapped of [reference, '<br>'+reference, reference.replace(')',')</span><span>'), reference.replace(')',')</p><p>')]) {
+        const input=`<p>제1조(지급) 국내출장 일비는 ${wrapped}</p><p>제2조(정산) 증빙을 제출한다.</p>`;
+        const md=htmlToArticleMarkdown(input), blocks=listArticleBlocks(md);
+        assert.deepEqual(blocks.map(b=>b.canonical),['제1조','제2조'],input);
+        assert(blocks[0].content.replace(/\s+/g,'').includes(reference.replace(/\s+/g,'')),input);
+      }
+    }
+  });
+  await check('B3 정상 제목·이 규정 본문·flat HTML 조문·부칙 유지', () => {
+    const {listArticleBlocks}=require('../src/parsers');
+    for(const input of ['<p>제1조(목적) 이 규정은 여비를 정한다.</p><p>제2조(지급)</p><p>이 규정은 일비를 지급한다.</p>', '여비규정&nbsp;&nbsp;제1조(목적) 이 규정은 여비를 정한다.&nbsp;&nbsp;제2조(지급) 일비를 지급한다.']) {
+      const md=htmlToArticleMarkdown(input+'<p>부칙</p><p>제1조(시행일) 이 규정은 2023.5.26.부터 시행한다.</p>');
+      const blocks=listArticleBlocks(md);assert.deepEqual(blocks.map(b=>b.canonical),['제1조','제2조','제1조']);
+      assert.equal(blocks[2].supplementary,true); assert.equal(latestAddendaEffective(md),'2023-05-26');
+    }
+  });
+  await check('B3 독립 부속 표제 이후 조문·금액은 비교 근거에서 제외', () => {
+    for(const label of ['〔별표〕','〔부록〕','[서식]','[별표 1] 여비 지급표','별지 제1호 서식']) {
+      const parsed=parseHtmlArticleContent(`<p>제1조(여비) 출장 여비를 지급한다.</p><p>${label}</p><p>제99조(금액) 여비 999원을 지급한다.</p>`);
+      assert.equal(parsed.tailExcluded,true,label);assert(!parsed.markdown.includes('999원'));
+      const selected=selectArticles([{title:'여비규정',lawId:1,markdown:parsed.markdown}],['여비'],5);
+      assert.deepEqual(selected.articles.map(a=>a.article),['제1조']);
+    }
+  });
+  await check('B3 본문 별표·서식 참조는 부속 시작이 아니며 후속 조문 보존', () => {
+    const {listArticleBlocks}=require('../src/parsers');
+    for(const ref of ['별표 1에 따른 여비를 지급한다.', '[별표 1]에 따른 여비를 지급한다.', '[서식]을 작성한다.', '별표 1 에 따른 여비를 지급한다.']) {
+      const parsed=parseHtmlArticleContent(`<p>제1조(여비) 출장 여비를 정한다.</p><p>${ref}</p><p>제2조(정산) 출장 여비를 정산한다.</p>`);
+      assert.equal(parsed.tailExcluded,false,ref);assert.deepEqual(listArticleBlocks(parsed.markdown).map(b=>b.canonical),['제1조','제2조']);
+      assert(parsed.markdown.includes(ref));
+    }
+  });
+  await check('B3 서강 로더→비교→표시: 부속 조문 제외·잘림 표시·본문 날짜 미확인', async () => {
+    const content='<p>제6조(간접비) 연구비 중앙관리에 필요한 경비에 간접비를 사용한다.</p><p>부칙</p><p>이 규정은 2020.1.1.부터 시행한다.</p><p>〔별표〕</p><p>제99조(연구비) 연구비 999원을 지급한다.</p><p>부칙</p><p>이 규정은 2024.1.1.부터 시행한다.</p>';
+    const client={request:async()=>JSON.stringify({data:{list:[{pkid:548,title:'연구 간접비 운영에 관한 지침',content}]}})};
+    const data=await compareUniversityRules({topic:'연구비',universities:['sogang']},{loadDongguk:dongguk,client});
+    const col=data.columns.find(c=>c.university==='sogang');assert.equal(col.status,'partial');
+    assert.deepEqual(col.articles.map(a=>a.article),['제6조']);const article=col.articles[0];
+    assert.equal(article.appendicesExcluded,true);assert.equal(article.effectiveAt,null);assert.equal(article.effectiveSource,null);
+    assert(!formatComparison(data).includes('999원'));assert.match(formatComparison(data),/독립 부속 문서 표제 이후는 비교에서 제외/);
   });
   await check('고려대 공개 분류 목록: 페이지 넘김·제목 대조·공개 범위 표시', async () => {
     const listing=(total,rows)=>`<p>전체: ${total} 건&nbsp; 페이지:</p>`+rows.map(([id,h,t])=>`<a href="/lmxsrv/law/lawFullView.do?SEQ=${id}&amp;SEQ_HISTORY=${h}">${t}</a>`).join('');
