@@ -1,0 +1,1072 @@
+{
+  "commonBase": "907b998a095ffbe7c490fdb961dc90b090ddbf5e",
+  "mergeCommit": "b201253",
+  "decision": "생산 searchCorpus 대비 악화로 현재 JEV 대체 비권고",
+  "conditions": {
+    "single": {
+      "metadata": {
+        "version": 1,
+        "createdAt": "2026-11-27T00:53:31.974Z",
+        "gitHead": "b0a2b4766cdeae69f1b542e21c308c34b67335f6",
+        "featureNames": [
+          "bm25_full",
+          "bm25_full_z",
+          "bm25_full_rank",
+          "dense_full",
+          "dense_full_z",
+          "dense_full_rank",
+          "dense_rocchio",
+          "bm25_keys_max",
+          "bm25_keys_mean",
+          "dense_keys_max",
+          "dense_keys_mean",
+          "bm25_votes",
+          "dense_votes",
+          "coverage",
+          "rrf",
+          "n_keys"
+        ],
+        "model": "Xenova/multilingual-e5-small",
+        "corpusHash": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+        "vectorHash": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e",
+        "vectorFile": "semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin",
+        "textVersion": 3,
+        "keyEncoding": "single",
+        "fingerprint": "947b290e5e959e9370880fcf10783055dce897ac6b384aa56915ff1feb5f59b6",
+        "codeHashes": {
+          "src/jev.js": "7974c7786fd4275ca38296ed5b8871a95c95fa13e8ed48818366874aa73947bd",
+          "scripts/collect-jev-evidence.js": "78f46fc3a8f2f020351ffd584d00fa8c4956a9de2689d15cb4983f2c92f7be6f",
+          "src/lookup.js": "83791df3ebd6b067f5eb97a8caf0b8ca67d3c2de7cb89e195b37560b1a652426",
+          "src/aliases.js": "22572c8deda57057bc026117af5045fa56ea668081d06dd7e4d8d12747994930",
+          "src/corpus.js": "a7524907e5f012d0817882d489ec50e2fc1b5342b86153cebcdeb3a4626cc2f8",
+          "src/semantic.js": "36be79667af34cd76032008b90975acbf726bdbcccccae6fc46d956707ccf9bb"
+        },
+        "sources": [
+          {
+            "split": "train",
+            "file": "test/fixtures/natural-language-benchmark.train.json",
+            "sha256": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+            "count": 46
+          },
+          {
+            "split": "dev",
+            "file": "test/fixtures/natural-language-benchmark.dev.json",
+            "sha256": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+            "count": 25
+          }
+        ],
+        "coverage": {
+          "articles": 9790,
+          "vectorArticles": 9790,
+          "chunks": 11422
+        },
+        "startupMs": 515.3105,
+        "peakRssMb": 857.703125,
+        "timingScope": "Warm local e5-small inference included; first-use lexical term cache; no MCP/network/excerpt rendering; JEV includes RRF shared first stage. No query embedding cache."
+      },
+      "evaluatorGitHead": "f931bc7427d5a6ccfd97f1a55a06502c20aa512d",
+      "evaluatorSha256": "4b52517e5861ca76c2238d6d3e51123fc9f86c9d4979ce30961057ee5c92f437",
+      "summary": {
+        "rrf": {
+          "top1": {
+            "hits": 51,
+            "total": 71,
+            "rate": 0.7183098591549296
+          },
+          "top3": {
+            "hits": 62,
+            "total": 71,
+            "rate": 0.8732394366197183
+          },
+          "articleTop3": {
+            "hits": 52,
+            "total": 71,
+            "rate": 0.7323943661971831
+          },
+          "selectedArticleHit": {
+            "hits": 58,
+            "total": 71,
+            "rate": 0.8169014084507042
+          },
+          "candidateHit": {
+            "hits": 71,
+            "total": 71,
+            "rate": 1.0
+          }
+        },
+        "expandedRrf": {
+          "top1": {
+            "hits": 43,
+            "total": 71,
+            "rate": 0.6056338028169014
+          },
+          "top3": {
+            "hits": 61,
+            "total": 71,
+            "rate": 0.8591549295774648
+          },
+          "articleTop3": {
+            "hits": 50,
+            "total": 71,
+            "rate": 0.704225352112676
+          },
+          "selectedArticleHit": {
+            "hits": 57,
+            "total": 71,
+            "rate": 0.8028169014084507
+          },
+          "candidateHit": {
+            "hits": 71,
+            "total": 71,
+            "rate": 1.0
+          }
+        },
+        "jevOOF": {
+          "top1": {
+            "hits": 51,
+            "total": 71,
+            "rate": 0.7183098591549296
+          },
+          "top3": {
+            "hits": 65,
+            "total": 71,
+            "rate": 0.9154929577464789
+          },
+          "articleTop3": {
+            "hits": 58,
+            "total": 71,
+            "rate": 0.8169014084507042
+          },
+          "selectedArticleHit": {
+            "hits": 63,
+            "total": 71,
+            "rate": 0.8873239436619719
+          },
+          "candidateHit": {
+            "hits": 71,
+            "total": 71,
+            "rate": 1.0
+          }
+        },
+        "train46ToDev25": {
+          "top1": {
+            "hits": 17,
+            "total": 25,
+            "rate": 0.68
+          },
+          "top3": {
+            "hits": 23,
+            "total": 25,
+            "rate": 0.92
+          },
+          "articleTop3": {
+            "hits": 18,
+            "total": 25,
+            "rate": 0.72
+          },
+          "selectedArticleHit": {
+            "hits": 22,
+            "total": 25,
+            "rate": 0.88
+          },
+          "candidateHit": {
+            "hits": 25,
+            "total": 25,
+            "rate": 1.0
+          }
+        },
+        "dev25ToTrain46": {
+          "top1": {
+            "hits": 31,
+            "total": 46,
+            "rate": 0.6739130434782609
+          },
+          "top3": {
+            "hits": 44,
+            "total": 46,
+            "rate": 0.9565217391304348
+          },
+          "articleTop3": {
+            "hits": 38,
+            "total": 46,
+            "rate": 0.8260869565217391
+          },
+          "selectedArticleHit": {
+            "hits": 41,
+            "total": 46,
+            "rate": 0.8913043478260869
+          },
+          "candidateHit": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1.0
+          }
+        },
+        "rrfDev25": {
+          "top1": {
+            "hits": 15,
+            "total": 25,
+            "rate": 0.6
+          },
+          "top3": {
+            "hits": 21,
+            "total": 25,
+            "rate": 0.84
+          },
+          "articleTop3": {
+            "hits": 17,
+            "total": 25,
+            "rate": 0.68
+          },
+          "selectedArticleHit": {
+            "hits": 20,
+            "total": 25,
+            "rate": 0.8
+          },
+          "candidateHit": {
+            "hits": 25,
+            "total": 25,
+            "rate": 1.0
+          }
+        }
+      },
+      "latencyMs": {
+        "rrfGather": {
+          "p50": 14.940957999999682,
+          "p95": 21.52160399999991
+        },
+        "jevGather": {
+          "p50": 24.931499999999687,
+          "p95": 32.682729500000164
+        },
+        "featureConstruction": {
+          "p50": 0.2701250000000073,
+          "p95": 0.5772919999999431
+        },
+        "pythonPredictionAndSelection": {
+          "p50": 0.32445904798805714,
+          "p95": 0.4394374554976821
+        }
+      },
+      "newWrongVsRrf": {
+        "top1": {
+          "newWrong": [
+            "A09",
+            "T01",
+            "T05"
+          ],
+          "fixed": [
+            "A12",
+            "H06",
+            "H16"
+          ]
+        },
+        "top3": {
+          "newWrong": [
+            "H02"
+          ],
+          "fixed": [
+            "A12",
+            "A24",
+            "H09",
+            "H25"
+          ]
+        },
+        "articleTop3": {
+          "newWrong": [
+            "H15"
+          ],
+          "fixed": [
+            "A02",
+            "A08",
+            "A12",
+            "A23",
+            "A24",
+            "H06",
+            "H25"
+          ]
+        },
+        "selectedArticleHit": {
+          "newWrong": [
+            "H02"
+          ],
+          "fixed": [
+            "A02",
+            "A12",
+            "A23",
+            "A24",
+            "H09",
+            "H25"
+          ]
+        }
+      },
+      "sensitivityC": {
+        "0.5": {
+          "summary": {
+            "top1": {
+              "hits": 50,
+              "total": 71,
+              "rate": 0.704225352112676
+            },
+            "top3": {
+              "hits": 66,
+              "total": 71,
+              "rate": 0.9295774647887324
+            },
+            "articleTop3": {
+              "hits": 58,
+              "total": 71,
+              "rate": 0.8169014084507042
+            },
+            "selectedArticleHit": {
+              "hits": 64,
+              "total": 71,
+              "rate": 0.9014084507042254
+            },
+            "candidateHit": {
+              "hits": 71,
+              "total": 71,
+              "rate": 1.0
+            }
+          },
+          "vsDefault": {
+            "top1": {
+              "newWrong": [
+                "H06"
+              ],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": [
+                "T02"
+              ]
+            },
+            "articleTop3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [],
+              "fixed": [
+                "T02"
+              ]
+            }
+          }
+        },
+        "1.0": {
+          "summary": {
+            "top1": {
+              "hits": 51,
+              "total": 71,
+              "rate": 0.7183098591549296
+            },
+            "top3": {
+              "hits": 65,
+              "total": 71,
+              "rate": 0.9154929577464789
+            },
+            "articleTop3": {
+              "hits": 58,
+              "total": 71,
+              "rate": 0.8169014084507042
+            },
+            "selectedArticleHit": {
+              "hits": 63,
+              "total": 71,
+              "rate": 0.8873239436619719
+            },
+            "candidateHit": {
+              "hits": 71,
+              "total": 71,
+              "rate": 1.0
+            }
+          },
+          "vsDefault": {
+            "top1": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "articleTop3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "2.0": {
+          "summary": {
+            "top1": {
+              "hits": 51,
+              "total": 71,
+              "rate": 0.7183098591549296
+            },
+            "top3": {
+              "hits": 65,
+              "total": 71,
+              "rate": 0.9154929577464789
+            },
+            "articleTop3": {
+              "hits": 57,
+              "total": 71,
+              "rate": 0.8028169014084507
+            },
+            "selectedArticleHit": {
+              "hits": 63,
+              "total": 71,
+              "rate": 0.8873239436619719
+            },
+            "candidateHit": {
+              "hits": 71,
+              "total": 71,
+              "rate": 1.0
+            }
+          },
+          "vsDefault": {
+            "top1": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "articleTop3": {
+              "newWrong": [
+                "H13"
+              ],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        }
+      },
+      "productionSearchCorpus": {
+        "off": {
+          "scope": "Unchanged production searchCorpus only; top3 rules with 3 selected blocks; no index.js final ranking/excerpt pipeline",
+          "top3": {
+            "hits": 70,
+            "total": 71
+          },
+          "selectedArticleHit": {
+            "hits": 68,
+            "total": 71
+          },
+          "latencyMs": {
+            "p50": 17.23083399999996,
+            "p95": 32.80470800000012
+          },
+          "latencyScope": "scorer only; semantic map precomputed; excludes query encoding and vector scoring",
+          "jevVsProduction": {
+            "top3": {
+              "newWrong": [
+                "A19",
+                "A34",
+                "T02",
+                "H02",
+                "H14"
+              ],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [
+                "A11",
+                "A19",
+                "A34",
+                "T02",
+                "H02",
+                "H14"
+              ],
+              "fixed": [
+                "A02"
+              ]
+            }
+          }
+        },
+        "on": {
+          "scope": "Unchanged production searchCorpus only; top3 rules with 3 selected blocks; no index.js final ranking/excerpt pipeline",
+          "top3": {
+            "hits": 70,
+            "total": 71
+          },
+          "selectedArticleHit": {
+            "hits": 68,
+            "total": 71
+          },
+          "latencyMs": {
+            "p50": 19.220957999999882,
+            "p95": 32.29129149999994
+          },
+          "latencyScope": "scorer only; semantic map precomputed; excludes query encoding and vector scoring",
+          "jevVsProduction": {
+            "top3": {
+              "newWrong": [
+                "A19",
+                "A34",
+                "T02",
+                "H02",
+                "H14"
+              ],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [
+                "A11",
+                "A19",
+                "A34",
+                "T02",
+                "H02",
+                "H14"
+              ],
+              "fixed": [
+                "A02"
+              ]
+            }
+          }
+        }
+      },
+      "sourceReportSha256": "db88764d6a16dcc3510bd2b0393b32bc592436d5ee97385f39a85d8414b39f7b"
+    },
+    "full": {
+      "metadata": {
+        "version": 1,
+        "createdAt": "2026-11-27T00:53:54.786Z",
+        "gitHead": "b0a2b4766cdeae69f1b542e21c308c34b67335f6",
+        "featureNames": [
+          "bm25_full",
+          "bm25_full_z",
+          "bm25_full_rank",
+          "dense_full",
+          "dense_full_z",
+          "dense_full_rank",
+          "dense_rocchio",
+          "bm25_keys_max",
+          "bm25_keys_mean",
+          "dense_keys_max",
+          "dense_keys_mean",
+          "bm25_votes",
+          "dense_votes",
+          "coverage",
+          "rrf",
+          "n_keys"
+        ],
+        "model": "Xenova/multilingual-e5-small",
+        "corpusHash": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+        "vectorHash": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e",
+        "vectorFile": "semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin",
+        "textVersion": 3,
+        "keyEncoding": "full",
+        "fingerprint": "8a30e9d521310fc6f535ebb345679d9e54ec5a54904b4bee2a18568d3c2ba338",
+        "codeHashes": {
+          "src/jev.js": "7974c7786fd4275ca38296ed5b8871a95c95fa13e8ed48818366874aa73947bd",
+          "scripts/collect-jev-evidence.js": "78f46fc3a8f2f020351ffd584d00fa8c4956a9de2689d15cb4983f2c92f7be6f",
+          "src/lookup.js": "83791df3ebd6b067f5eb97a8caf0b8ca67d3c2de7cb89e195b37560b1a652426",
+          "src/aliases.js": "22572c8deda57057bc026117af5045fa56ea668081d06dd7e4d8d12747994930",
+          "src/corpus.js": "a7524907e5f012d0817882d489ec50e2fc1b5342b86153cebcdeb3a4626cc2f8",
+          "src/semantic.js": "36be79667af34cd76032008b90975acbf726bdbcccccae6fc46d956707ccf9bb"
+        },
+        "sources": [
+          {
+            "split": "train",
+            "file": "test/fixtures/natural-language-benchmark.train.json",
+            "sha256": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+            "count": 46
+          },
+          {
+            "split": "dev",
+            "file": "test/fixtures/natural-language-benchmark.dev.json",
+            "sha256": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+            "count": 25
+          }
+        ],
+        "coverage": {
+          "articles": 9790,
+          "vectorArticles": 9790,
+          "chunks": 11422
+        },
+        "startupMs": 528.2827500000001,
+        "peakRssMb": 833.671875,
+        "timingScope": "Warm local e5-small inference included; first-use lexical term cache; no MCP/network/excerpt rendering; JEV includes RRF shared first stage. No query embedding cache."
+      },
+      "evaluatorGitHead": "f931bc7427d5a6ccfd97f1a55a06502c20aa512d",
+      "evaluatorSha256": "4b52517e5861ca76c2238d6d3e51123fc9f86c9d4979ce30961057ee5c92f437",
+      "summary": {
+        "rrf": {
+          "top1": {
+            "hits": 51,
+            "total": 71,
+            "rate": 0.7183098591549296
+          },
+          "top3": {
+            "hits": 62,
+            "total": 71,
+            "rate": 0.8732394366197183
+          },
+          "articleTop3": {
+            "hits": 52,
+            "total": 71,
+            "rate": 0.7323943661971831
+          },
+          "selectedArticleHit": {
+            "hits": 58,
+            "total": 71,
+            "rate": 0.8169014084507042
+          },
+          "candidateHit": {
+            "hits": 71,
+            "total": 71,
+            "rate": 1.0
+          }
+        },
+        "expandedRrf": {
+          "top1": {
+            "hits": 43,
+            "total": 71,
+            "rate": 0.6056338028169014
+          },
+          "top3": {
+            "hits": 61,
+            "total": 71,
+            "rate": 0.8591549295774648
+          },
+          "articleTop3": {
+            "hits": 50,
+            "total": 71,
+            "rate": 0.704225352112676
+          },
+          "selectedArticleHit": {
+            "hits": 57,
+            "total": 71,
+            "rate": 0.8028169014084507
+          },
+          "candidateHit": {
+            "hits": 71,
+            "total": 71,
+            "rate": 1.0
+          }
+        },
+        "jevOOF": {
+          "top1": {
+            "hits": 49,
+            "total": 71,
+            "rate": 0.6901408450704225
+          },
+          "top3": {
+            "hits": 66,
+            "total": 71,
+            "rate": 0.9295774647887324
+          },
+          "articleTop3": {
+            "hits": 58,
+            "total": 71,
+            "rate": 0.8169014084507042
+          },
+          "selectedArticleHit": {
+            "hits": 63,
+            "total": 71,
+            "rate": 0.8873239436619719
+          },
+          "candidateHit": {
+            "hits": 71,
+            "total": 71,
+            "rate": 1.0
+          }
+        },
+        "train46ToDev25": {
+          "top1": {
+            "hits": 15,
+            "total": 25,
+            "rate": 0.6
+          },
+          "top3": {
+            "hits": 21,
+            "total": 25,
+            "rate": 0.84
+          },
+          "articleTop3": {
+            "hits": 18,
+            "total": 25,
+            "rate": 0.72
+          },
+          "selectedArticleHit": {
+            "hits": 19,
+            "total": 25,
+            "rate": 0.76
+          },
+          "candidateHit": {
+            "hits": 25,
+            "total": 25,
+            "rate": 1.0
+          }
+        },
+        "dev25ToTrain46": {
+          "top1": {
+            "hits": 32,
+            "total": 46,
+            "rate": 0.6956521739130435
+          },
+          "top3": {
+            "hits": 44,
+            "total": 46,
+            "rate": 0.9565217391304348
+          },
+          "articleTop3": {
+            "hits": 39,
+            "total": 46,
+            "rate": 0.8478260869565217
+          },
+          "selectedArticleHit": {
+            "hits": 42,
+            "total": 46,
+            "rate": 0.9130434782608695
+          },
+          "candidateHit": {
+            "hits": 46,
+            "total": 46,
+            "rate": 1.0
+          }
+        },
+        "rrfDev25": {
+          "top1": {
+            "hits": 15,
+            "total": 25,
+            "rate": 0.6
+          },
+          "top3": {
+            "hits": 21,
+            "total": 25,
+            "rate": 0.84
+          },
+          "articleTop3": {
+            "hits": 17,
+            "total": 25,
+            "rate": 0.68
+          },
+          "selectedArticleHit": {
+            "hits": 20,
+            "total": 25,
+            "rate": 0.8
+          },
+          "candidateHit": {
+            "hits": 25,
+            "total": 25,
+            "rate": 1.0
+          }
+        }
+      },
+      "latencyMs": {
+        "rrfGather": {
+          "p50": 15.515415999999732,
+          "p95": 22.1953125
+        },
+        "jevGather": {
+          "p50": 31.721416999999747,
+          "p95": 40.40312550000016
+        },
+        "featureConstruction": {
+          "p50": 0.37333399999988615,
+          "p95": 0.6371664999999211
+        },
+        "pythonPredictionAndSelection": {
+          "p50": 0.31929207034409046,
+          "p95": 0.43260399252176285
+        }
+      },
+      "newWrongVsRrf": {
+        "top1": {
+          "newWrong": [
+            "A09",
+            "T01",
+            "T05"
+          ],
+          "fixed": [
+            "A12"
+          ]
+        },
+        "top3": {
+          "newWrong": [
+            "H02"
+          ],
+          "fixed": [
+            "A12",
+            "A24",
+            "T02",
+            "H09",
+            "H25"
+          ]
+        },
+        "articleTop3": {
+          "newWrong": [
+            "H15"
+          ],
+          "fixed": [
+            "A02",
+            "A08",
+            "A12",
+            "A23",
+            "A24",
+            "H06",
+            "H25"
+          ]
+        },
+        "selectedArticleHit": {
+          "newWrong": [
+            "H02",
+            "H22"
+          ],
+          "fixed": [
+            "A02",
+            "A12",
+            "A23",
+            "A24",
+            "T02",
+            "H09",
+            "H25"
+          ]
+        }
+      },
+      "sensitivityC": {
+        "0.5": {
+          "summary": {
+            "top1": {
+              "hits": 49,
+              "total": 71,
+              "rate": 0.6901408450704225
+            },
+            "top3": {
+              "hits": 67,
+              "total": 71,
+              "rate": 0.9436619718309859
+            },
+            "articleTop3": {
+              "hits": 59,
+              "total": 71,
+              "rate": 0.8309859154929577
+            },
+            "selectedArticleHit": {
+              "hits": 64,
+              "total": 71,
+              "rate": 0.9014084507042254
+            },
+            "candidateHit": {
+              "hits": 71,
+              "total": 71,
+              "rate": 1.0
+            }
+          },
+          "vsDefault": {
+            "top1": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": [
+                "H02"
+              ]
+            },
+            "articleTop3": {
+              "newWrong": [],
+              "fixed": [
+                "H02"
+              ]
+            },
+            "selectedArticleHit": {
+              "newWrong": [],
+              "fixed": [
+                "H02"
+              ]
+            }
+          }
+        },
+        "1.0": {
+          "summary": {
+            "top1": {
+              "hits": 49,
+              "total": 71,
+              "rate": 0.6901408450704225
+            },
+            "top3": {
+              "hits": 66,
+              "total": 71,
+              "rate": 0.9295774647887324
+            },
+            "articleTop3": {
+              "hits": 58,
+              "total": 71,
+              "rate": 0.8169014084507042
+            },
+            "selectedArticleHit": {
+              "hits": 63,
+              "total": 71,
+              "rate": 0.8873239436619719
+            },
+            "candidateHit": {
+              "hits": 71,
+              "total": 71,
+              "rate": 1.0
+            }
+          },
+          "vsDefault": {
+            "top1": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "articleTop3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        },
+        "2.0": {
+          "summary": {
+            "top1": {
+              "hits": 49,
+              "total": 71,
+              "rate": 0.6901408450704225
+            },
+            "top3": {
+              "hits": 66,
+              "total": 71,
+              "rate": 0.9295774647887324
+            },
+            "articleTop3": {
+              "hits": 58,
+              "total": 71,
+              "rate": 0.8169014084507042
+            },
+            "selectedArticleHit": {
+              "hits": 63,
+              "total": 71,
+              "rate": 0.8873239436619719
+            },
+            "candidateHit": {
+              "hits": 71,
+              "total": 71,
+              "rate": 1.0
+            }
+          },
+          "vsDefault": {
+            "top1": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "top3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "articleTop3": {
+              "newWrong": [],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [],
+              "fixed": []
+            }
+          }
+        }
+      },
+      "productionSearchCorpus": {
+        "off": {
+          "scope": "Unchanged production searchCorpus only; top3 rules with 3 selected blocks; no index.js final ranking/excerpt pipeline",
+          "top3": {
+            "hits": 70,
+            "total": 71
+          },
+          "selectedArticleHit": {
+            "hits": 68,
+            "total": 71
+          },
+          "latencyMs": {
+            "p50": 17.42729099999997,
+            "p95": 33.905291499999976
+          },
+          "latencyScope": "scorer only; semantic map precomputed; excludes query encoding and vector scoring",
+          "jevVsProduction": {
+            "top3": {
+              "newWrong": [
+                "A19",
+                "A34",
+                "H02",
+                "H14"
+              ],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [
+                "A11",
+                "A19",
+                "A34",
+                "H02",
+                "H14",
+                "H22"
+              ],
+              "fixed": [
+                "A02"
+              ]
+            }
+          }
+        },
+        "on": {
+          "scope": "Unchanged production searchCorpus only; top3 rules with 3 selected blocks; no index.js final ranking/excerpt pipeline",
+          "top3": {
+            "hits": 70,
+            "total": 71
+          },
+          "selectedArticleHit": {
+            "hits": 68,
+            "total": 71
+          },
+          "latencyMs": {
+            "p50": 19.327000000000226,
+            "p95": 33.06072900000015
+          },
+          "latencyScope": "scorer only; semantic map precomputed; excludes query encoding and vector scoring",
+          "jevVsProduction": {
+            "top3": {
+              "newWrong": [
+                "A19",
+                "A34",
+                "H02",
+                "H14"
+              ],
+              "fixed": []
+            },
+            "selectedArticleHit": {
+              "newWrong": [
+                "A11",
+                "A19",
+                "A34",
+                "H02",
+                "H14",
+                "H22"
+              ],
+              "fixed": [
+                "A02"
+              ]
+            }
+          }
+        }
+      },
+      "sourceReportSha256": "c01c5c0b922b5e6ed172ed14e8156eddfb1482fbd0f78aa1525ccf3a8cba96e5"
+    }
+  }
+}

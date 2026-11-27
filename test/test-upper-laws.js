@@ -30,23 +30,23 @@ function seed(category, key, data) {
 }
 seed('catalog', 'all', Array.from({ length: 120 }, (_, i) => ({ lawId: i + 1, historyId: 20, title: ['재무회계규정', '여비규정', '교원인사규정'][i] || `합성규정${i}`, code: '', revisedAt: '2021.03.02' })));
 for (const id of [1, 2]) seed('history', String(id), [{ historyId: 20, revisedAt: '2021.03.02' }]);
-seed('content-v3', '1_20', { title: '재무회계규정', markdown: [
+seed('content-v4', '1_20', { title: '재무회계규정', markdown: [
   '### 제7조(자금의 관리)', '사립학교법 제32조의2 제3항에 따른 기금은 심의를 거친다.(2018.11.12. 개정)',
   '### 제9조(회계처리)', '회계는 「사학기관 재무ㆍ회계 규칙에 대한 특례규칙」 제5조에 따른다.\n① 부서장은 월별 증빙을 모은다.\n② 장부 검토를 마친 뒤 결산자료를 제출한다. 앞의 인용 문구 밖에 있는 규정원문끝표지.',
   '### 제29조(평가)', '시가는 『지가공시 및 토지 등의 평가에 관한 법률』에 의한 감정평가액으로 하되 동법 제4조를 따른다.',
   '### 제30조(훈련)', '「향토예비군설치법」 제6조와 「없는가상법」 제1조, 「교원인사규정」 제3조를 따른다.',
   '### 제31조(예산)', '「사립학교법」 제29조, 제31조 및 제99조에 따른다.',
 ].join('\n') });
-seed('content-v3', '2_20', { title: '여비규정', markdown: '### 제1조(목적)\n이 규정은 여비를 정한다.' });
+seed('content-v4', '2_20', { title: '여비규정', markdown: '### 제1조(목적)\n이 규정은 여비를 정한다.' });
 // 본문 완전성(textCoverage) 반례용 합성 규정: 본문 응답 오류, 조문 수 상한 초과, 긴 본문.
 for (const id of [101, 102, 103]) seed('history', String(id), [{ historyId: 20, revisedAt: '2021.03.02' }]);
-seed('content-v3', '101_20', { title: '합성규정100', markdown: '### 제1조(합성)\n「사립학교법」 제101조를 따른다.' });
-seed('content-v3', '102_20', { title: '합성규정101', markdown: '### 제1조(합성)\n' + Array.from({ length: 9 }, (_, i) => `「사립학교법」 제${i + 1}조`).join(' 및 ') + '를 따른다.' });
-seed('content-v3', '103_20', { title: '합성규정102', markdown: '### 제1조(합성)\n「사립학교법」 제50조를 따른다.' });
+seed('content-v4', '101_20', { title: '합성규정100', markdown: '### 제1조(합성)\n「사립학교법」 제101조를 따른다.' });
+seed('content-v4', '102_20', { title: '합성규정101', markdown: '### 제1조(합성)\n' + Array.from({ length: 9 }, (_, i) => `「사립학교법」 제${i + 1}조`).join(' 및 ') + '를 따른다.' });
+seed('content-v4', '103_20', { title: '합성규정102', markdown: '### 제1조(합성)\n「사립학교법」 제50조를 따른다.' });
 
 // Paired-text fixtures (all synthetic; no actual legal interpretation).
 for (const id of [104, 105, 106, 107, 108, 109, 110, 111]) seed('history', String(id), [{ historyId: 20, revisedAt: '2021.03.02' }, { historyId: 19, revisedAt: '2019.01.01' }]);
-const setRule = (id, markdown, historyId = 20) => seed('content-v3', `${id}_${historyId}`, { title: `합성규정${id-1}`, markdown });
+const setRule = (id, markdown, historyId = 20) => seed('content-v4', `${id}_${historyId}`, { title: `합성규정${id-1}`, markdown });
 setRule(104, '### 제1조(장문)\n「사립학교법」 제29조를 따른다.\n' + '가'.repeat(6100) + '장문끝');
 setRule(105, Array.from({length:30}, (_,i) => `### 제${i+1}조(절차)\n「사립학교법」 제29조를 따른다. 본문${i+1}`).join('\n'));
 setRule(106, '### 제1조(근거)\n「사립학교법」을 따른다. 조문을 특정하지 않았다.');
@@ -426,7 +426,7 @@ async function main() {
     lawCalls.length = 0;
     await call('get_rule_upper_laws', { law_id: 2 });
     assert.equal(lawCalls.length, 0);
-    seed('content-v3', '2_20', { title: '여비규정', markdown: '### 제1조(목적)\n「사립학교교직원 연금법」 제3조를 따른다.' });
+    seed('content-v4', '2_20', { title: '여비규정', markdown: '### 제1조(목적)\n「사립학교교직원 연금법」 제3조를 따른다.' });
     mode = 'maintenance';
     const down = await call('get_rule_upper_laws', { law_id: 2, include_candidates: false });
     assert.deepEqual([down.ok, down.data.lookup.status, down.data.laws[0].identity.status, down.data.laws[0].signals[0].code], [true, 'unavailable', 'unavailable', 'LAW_LOOKUP_FAILED']);

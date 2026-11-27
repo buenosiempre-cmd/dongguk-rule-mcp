@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {score,compare,summarize,validateInputs}=require('../scripts/evaluate-jev-frozen');
+const {readPublicSources}=require('../scripts/collect-jev-evidence');
+const r={gt:[{lawId:2,articles:['제2조']}]};
+const s=score(r,[{lawId:1,articles:[{id:0,score:.9,label:0}]},{lawId:2,probability:.7,articles:[{id:1,score:.8,label:1}]}]);
+assert.equal(s.top1,false);assert.equal(s.top3,true);assert.equal(s.selectedArticleHit,true);
+const rows=[{id:'wrong',on:{top1:true,top3:true,selectedArticleHit:true},jev:{top1:false,top3:false,selectedArticleHit:false}},{id:'fixed',on:{top1:false,top3:false,selectedArticleHit:false},jev:s}];
+assert.deepEqual(compare(rows,'on','jev').top3,{newWrong:['wrong'],fixed:['fixed']});
+assert.deepEqual(summarize(rows,'jev').conditionalArticle,{hits:1,total:1});
+assert.equal(summarize(rows,'jev').fullMcpStrict,null);
+assert.throws(()=>validateInputs({keyEncoding:'single'}, {}, Buffer.from('{}')),/NOT_FROZEN_D1_MODEL/);
+assert.throws(()=>readPublicSources(`${__dirname}/fixtures/natural-language-benchmark.train.json`),/UNAPPROVED_DEV_OPEN_HASH/);
+assert.equal(readPublicSources().reduce((n,s)=>n+s.rows.length,0),71);
+console.log('✅ JEV frozen: wrong/fixed reconciliation, conditional scope, changed model and unapproved dataset rejected');

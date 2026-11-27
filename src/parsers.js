@@ -1,6 +1,8 @@
 'use strict';
 
 const cheerio = require('cheerio');
+// Parsed content and corpus reuse must advance together when body extraction changes.
+const CONTENT_PARSER_VERSION = 4;
 
 function parseSearch(html, page, pageShow) {
   const $ = cheerio.load(html);
@@ -96,10 +98,11 @@ function parseContent(html) {
     else if (classes.includes('chapter')) lines.push('', `## ${text}`, '');
     else if (classes.includes('section')) lines.push('', `### ${text}`, '');
     else if (classes.includes('article')) lines.push('', `### ${text}`);
-    else if (classes.includes('none')) lines.push(text);
-    else if (classes.includes('hang')) lines.push(text);
-    else if (classes.includes('ho')) lines.push(`  ${text}`);
-    else if (classes.includes('mok')) lines.push(`    ${text}`);
+    // The upstream uses *_none for unnumbered bodies and continuation paragraphs.
+    // They are body text, not headings, even when their prefix is "article".
+    else if (classes.some(name => ['none', 'article_none', 'hang', 'hang_none', 'addendacontent_none'].includes(name))) lines.push(text);
+    else if (classes.some(name => ['ho', 'ho_none'].includes(name))) lines.push(`  ${text}`);
+    else if (classes.some(name => ['mok', 'mok_none', 'dann', 'dann_none'].includes(name))) lines.push(`    ${text}`);
   });
   // A surviving title alone does not prove that the upstream body was parsed.
   const bodyLines = title ? lines.slice(2) : lines;
@@ -273,6 +276,7 @@ function rankArticlesByTokens(markdown, tokens) {
 }
 
 module.exports = {
+  CONTENT_PARSER_VERSION,
   rankArticlesByTokens,
   parseSearch,
   parseContent,

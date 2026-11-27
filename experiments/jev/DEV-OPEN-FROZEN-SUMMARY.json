@@ -1,0 +1,682 @@
+{
+  "single": {
+    "scope": "Development comparison only; weakness-targeted public 20. Frozen 71-question model; no fitting/tuning on these 20. Not box-held-out effectiveness evidence; not full MCP.",
+    "split": {
+      "trainingQuestions": 71,
+      "trainingRules": 29,
+      "newRules": 18,
+      "overlap": []
+    },
+    "evidenceSha256": "0644632f8d6fc309d4b5a6be0c7f09a7a5eb0600fe2e655f08d6c14fc3973aa0",
+    "trainedReportSha256": "db88764d6a16dcc3510bd2b0393b32bc592436d5ee97385f39a85d8414b39f7b",
+    "evaluatorSha256": "11df352e8e5cb1b666ff064c154119d38797d0529231f5807c00d67bfcb4a7ec",
+    "gitHead": "80c6fafb16a5076cb7f59c0a413fdc866eac8f89",
+    "summary": {
+      "off": {
+        "total": 20,
+        "top1": 15,
+        "top3": 20,
+        "selectedArticleHit": 18,
+        "conditionalArticle": {
+          "hits": 18,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      },
+      "on": {
+        "total": 20,
+        "top1": 19,
+        "top3": 20,
+        "selectedArticleHit": 18,
+        "conditionalArticle": {
+          "hits": 18,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      },
+      "rrf": {
+        "total": 20,
+        "top1": 17,
+        "top3": 20,
+        "selectedArticleHit": 19,
+        "conditionalArticle": {
+          "hits": 19,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      },
+      "expandedRrf": {
+        "total": 20,
+        "top1": 17,
+        "top3": 19,
+        "selectedArticleHit": 17,
+        "conditionalArticle": {
+          "hits": 17,
+          "total": 19
+        },
+        "fullMcpStrict": null
+      },
+      "jev": {
+        "total": 20,
+        "top1": 17,
+        "top3": 20,
+        "selectedArticleHit": 19,
+        "conditionalArticle": {
+          "hits": 19,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      }
+    },
+    "tags": {
+      "S": {
+        "off": {
+          "total": 15,
+          "top1": 13,
+          "top3": 15,
+          "selectedArticleHit": 13,
+          "conditionalArticle": {
+            "hits": 13,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        },
+        "on": {
+          "total": 15,
+          "top1": 15,
+          "top3": 15,
+          "selectedArticleHit": 13,
+          "conditionalArticle": {
+            "hits": 13,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        },
+        "rrf": {
+          "total": 15,
+          "top1": 14,
+          "top3": 15,
+          "selectedArticleHit": 14,
+          "conditionalArticle": {
+            "hits": 14,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        },
+        "expandedRrf": {
+          "total": 15,
+          "top1": 13,
+          "top3": 14,
+          "selectedArticleHit": 12,
+          "conditionalArticle": {
+            "hits": 12,
+            "total": 14
+          },
+          "fullMcpStrict": null
+        },
+        "jev": {
+          "total": 15,
+          "top1": 14,
+          "top3": 15,
+          "selectedArticleHit": 14,
+          "conditionalArticle": {
+            "hits": 14,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        }
+      },
+      "C": {
+        "off": {
+          "total": 8,
+          "top1": 5,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "on": {
+          "total": 8,
+          "top1": 7,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "rrf": {
+          "total": 8,
+          "top1": 5,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "expandedRrf": {
+          "total": 8,
+          "top1": 7,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "jev": {
+          "total": 8,
+          "top1": 5,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        }
+      },
+      "D": {
+        "off": {
+          "total": 7,
+          "top1": 3,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "on": {
+          "total": 7,
+          "top1": 6,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "rrf": {
+          "total": 7,
+          "top1": 5,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "expandedRrf": {
+          "total": 7,
+          "top1": 5,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "jev": {
+          "total": 7,
+          "top1": 5,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        }
+      }
+    },
+    "comparisons": {
+      "off": {
+        "top1": {
+          "newWrong": [
+            "RT40"
+          ],
+          "fixed": [
+            "RT13",
+            "RT19",
+            "RT26"
+          ]
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": [
+            "RT22"
+          ]
+        }
+      },
+      "on": {
+        "top1": {
+          "newWrong": [
+            "RT14",
+            "RT40"
+          ],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": [
+            "RT22"
+          ]
+        }
+      },
+      "rrf": {
+        "top1": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": []
+        }
+      },
+      "expandedRrf": {
+        "top1": {
+          "newWrong": [
+            "RT14",
+            "RT40"
+          ],
+          "fixed": [
+            "RT19",
+            "RT34"
+          ]
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": [
+            "RT34"
+          ]
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": [
+            "RT22",
+            "RT34"
+          ]
+        }
+      }
+    },
+    "latencyMs": {
+      "rrfGatherMs": {
+        "p50": 29.02345799999989,
+        "p95": 42.484170849999906
+      },
+      "jevGatherMs": {
+        "p50": 41.83377100000007,
+        "p95": 59.932754799999884
+      },
+      "predictionMs": {
+        "p50": 0.08739550000001373,
+        "p95": 0.4716211500000045
+      }
+    },
+    "latencyScope": "Warm sequential single pass. RRF/JEV gathering includes query inference. Prediction separate. Production scoring excludes query inference; full MCP latency unmeasured."
+  },
+  "full": {
+    "scope": "Development comparison only; weakness-targeted public 20. Frozen 71-question model; no fitting/tuning on these 20. Not box-held-out effectiveness evidence; not full MCP.",
+    "split": {
+      "trainingQuestions": 71,
+      "trainingRules": 29,
+      "newRules": 18,
+      "overlap": []
+    },
+    "evidenceSha256": "8c89bc0d9e55611ae14f00400b618a651b9f86054bfe633161b1c7b5a0ff9a52",
+    "trainedReportSha256": "c01c5c0b922b5e6ed172ed14e8156eddfb1482fbd0f78aa1525ccf3a8cba96e5",
+    "evaluatorSha256": "11df352e8e5cb1b666ff064c154119d38797d0529231f5807c00d67bfcb4a7ec",
+    "gitHead": "80c6fafb16a5076cb7f59c0a413fdc866eac8f89",
+    "summary": {
+      "off": {
+        "total": 20,
+        "top1": 15,
+        "top3": 20,
+        "selectedArticleHit": 18,
+        "conditionalArticle": {
+          "hits": 18,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      },
+      "on": {
+        "total": 20,
+        "top1": 19,
+        "top3": 20,
+        "selectedArticleHit": 18,
+        "conditionalArticle": {
+          "hits": 18,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      },
+      "rrf": {
+        "total": 20,
+        "top1": 17,
+        "top3": 20,
+        "selectedArticleHit": 19,
+        "conditionalArticle": {
+          "hits": 19,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      },
+      "expandedRrf": {
+        "total": 20,
+        "top1": 17,
+        "top3": 19,
+        "selectedArticleHit": 17,
+        "conditionalArticle": {
+          "hits": 17,
+          "total": 19
+        },
+        "fullMcpStrict": null
+      },
+      "jev": {
+        "total": 20,
+        "top1": 17,
+        "top3": 20,
+        "selectedArticleHit": 19,
+        "conditionalArticle": {
+          "hits": 19,
+          "total": 20
+        },
+        "fullMcpStrict": null
+      }
+    },
+    "tags": {
+      "S": {
+        "off": {
+          "total": 15,
+          "top1": 13,
+          "top3": 15,
+          "selectedArticleHit": 13,
+          "conditionalArticle": {
+            "hits": 13,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        },
+        "on": {
+          "total": 15,
+          "top1": 15,
+          "top3": 15,
+          "selectedArticleHit": 13,
+          "conditionalArticle": {
+            "hits": 13,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        },
+        "rrf": {
+          "total": 15,
+          "top1": 14,
+          "top3": 15,
+          "selectedArticleHit": 14,
+          "conditionalArticle": {
+            "hits": 14,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        },
+        "expandedRrf": {
+          "total": 15,
+          "top1": 13,
+          "top3": 14,
+          "selectedArticleHit": 12,
+          "conditionalArticle": {
+            "hits": 12,
+            "total": 14
+          },
+          "fullMcpStrict": null
+        },
+        "jev": {
+          "total": 15,
+          "top1": 14,
+          "top3": 15,
+          "selectedArticleHit": 14,
+          "conditionalArticle": {
+            "hits": 14,
+            "total": 15
+          },
+          "fullMcpStrict": null
+        }
+      },
+      "C": {
+        "off": {
+          "total": 8,
+          "top1": 5,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "on": {
+          "total": 8,
+          "top1": 7,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "rrf": {
+          "total": 8,
+          "top1": 5,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "expandedRrf": {
+          "total": 8,
+          "top1": 7,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        },
+        "jev": {
+          "total": 8,
+          "top1": 5,
+          "top3": 8,
+          "selectedArticleHit": 8,
+          "conditionalArticle": {
+            "hits": 8,
+            "total": 8
+          },
+          "fullMcpStrict": null
+        }
+      },
+      "D": {
+        "off": {
+          "total": 7,
+          "top1": 3,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "on": {
+          "total": 7,
+          "top1": 6,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "rrf": {
+          "total": 7,
+          "top1": 5,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "expandedRrf": {
+          "total": 7,
+          "top1": 5,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        },
+        "jev": {
+          "total": 7,
+          "top1": 5,
+          "top3": 7,
+          "selectedArticleHit": 7,
+          "conditionalArticle": {
+            "hits": 7,
+            "total": 7
+          },
+          "fullMcpStrict": null
+        }
+      }
+    },
+    "comparisons": {
+      "off": {
+        "top1": {
+          "newWrong": [
+            "RT40"
+          ],
+          "fixed": [
+            "RT13",
+            "RT19",
+            "RT26"
+          ]
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": [
+            "RT22"
+          ]
+        }
+      },
+      "on": {
+        "top1": {
+          "newWrong": [
+            "RT14",
+            "RT40"
+          ],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": [
+            "RT22"
+          ]
+        }
+      },
+      "rrf": {
+        "top1": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": []
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": []
+        }
+      },
+      "expandedRrf": {
+        "top1": {
+          "newWrong": [
+            "RT14",
+            "RT40"
+          ],
+          "fixed": [
+            "RT19",
+            "RT34"
+          ]
+        },
+        "top3": {
+          "newWrong": [],
+          "fixed": [
+            "RT34"
+          ]
+        },
+        "selectedArticleHit": {
+          "newWrong": [],
+          "fixed": [
+            "RT22",
+            "RT34"
+          ]
+        }
+      }
+    },
+    "latencyMs": {
+      "rrfGatherMs": {
+        "p50": 24.19856300000015,
+        "p95": 37.995952100000004
+      },
+      "jevGatherMs": {
+        "p50": 47.74402099999975,
+        "p95": 62.003849999999915
+      },
+      "predictionMs": {
+        "p50": 0.06204149999999942,
+        "p95": 0.3523684499999996
+      }
+    },
+    "latencyScope": "Warm sequential single pass. RRF/JEV gathering includes query inference. Prediction separate. Production scoring excludes query inference; full MCP latency unmeasured."
+  }
+}
