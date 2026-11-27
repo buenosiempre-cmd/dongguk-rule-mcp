@@ -14,3 +14,5 @@
 summary 키와 기존 상태의 의미는 유지한다. 확인필요는 검증 성공이 아니다. 재무 검토 소비자는 `needsReview`·`notFound`·`floating`·`truncated`를 함께 확인한다.
 
 날짜 선택자 미해석은 `ARTICLE_SELECTOR_UNVERIFIED` 하나로 나타낸다. 일반 미지원 상세 인용은 `UNSUPPORTED_CITATION`이다. 원문 위치와 지원 범위는 [구조화 요약 계약](REFERENCE.md#verify_rule_citations-구조화-요약-계약)을 따른다.
+
+`부칙(날짜)의 제1조`와 `부칙(날짜) 중 제1조`도 날짜를 유지해 부칙을 검증한다. `부칙의 취지를 고려해 제1조`와 같은 일반 문장과 구분한다.

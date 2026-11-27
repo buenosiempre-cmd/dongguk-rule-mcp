@@ -19,7 +19,7 @@ const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
 
 // Scan the full citation before deciding which part this verifier supports.
 // Unbounded digits plus numeric boundaries prevent matching only a number prefix.
-const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?`;
+const ADDENDUM_PREFIX_SOURCE = String.raw`부\s*칙\s*(?:[(（<〈\[](?:(?!제\s*\d+\s*조)[^)）>〉\]「」\n]){0,100}[)）>〉\]]?\s*|\d{4}[\d\s.\-/년월일]*(?:(?:개정|제정|신설)\s*)?)?(?:(?:의|중)\s*)?`;
 const DETAIL_END = String.raw`(?=$|[^가-힣A-Za-z0-9]|(?:에(?:서|는|도)?|의|을|를|은|는|이|가|과|와|으로|까지|부터)(?=\s|$|[,.!?]))`;
 const DETAIL_NUMBER = String.raw`\s*(?:제\s*)?\d+(?:\s*호)?(?:\s*의\s*\d+)?`;
 const APPENDIX_SOURCE = String.raw`(?:별\s*표(?:${DETAIL_NUMBER})?|별\s*지(?:\s*서\s*식)?(?:${DETAIL_NUMBER})?(?:\s*서\s*식)?|서\s*식${DETAIL_NUMBER})${DETAIL_END}`;
@@ -182,7 +182,7 @@ function extractRuleCitations(text) {
       if (m[2] && (!supportedNumber(number, 999) || (m[3] && !supportedNumber(subNumber, 99)))) {
         unsupportedReasons.push('UNSUPPORTED_ARTICLE_NUMBER');
       }
-      const selectorText = m[2] ? `${m[1] || ''}제${m[2]}조${m[3] ? `의${m[3]}` : ''}` : null;
+      const selectorText = m[2] ? `${(m[1] || '').replace(/(?:의|중)\s*$/, '')}제${m[2]}조${m[3] ? `의${m[3]}` : ''}` : null;
       const selector = selectorText ? normalizeArticleSelector(selectorText) : null;
       const selectorUnverified = inherited ? inherited.selectorUnverified : !!m[1] && !selector;
       const canonical = inherited ? inherited.article.canonical : (selector?.label || selectorText);
