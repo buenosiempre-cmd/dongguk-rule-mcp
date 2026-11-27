@@ -381,3 +381,33 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 순위는 적용 여부를 확정하지 않습니다. 세칙이나 다른 캠퍼스 규정도 확인해야 하며, 판본 후보의 미확정 표시는 그대로 유지합니다.
 
 업무 용어 사전은 `src/aliases.js`에서 관리합니다. 강사료↔강의료, 출장비↔여비, 법카↔법인카드는 타대학 비교에도 사용합니다. 자연어 자동 발췌에는 목적·정의를 제외한 본칙 대표 조문을 기존 발췌 한도 안에서 우선 포함합니다. 대표 조문은 순위가 고른 조문, 질문 낱말이 가장 많이 든 조문, 순위의 다음 조문 순서이며(핵심어가 있으면 핵심어가 고른 조문, 질문만으로 고른 조문, 핵심어의 다음 조문 순서), 블록 수 한도를 넘기지 않습니다. 부칙의 같은 번호와 본문 속 조문 번호 언급에는 우선순위를 주지 않으며, 대표 조문의 여러 문단은 한 자리를 차지하고 남는 자리는 기존 순위로 채웁니다. 대표 조문 추가로 기존 별표가 밀리면 같은 한도 안에서 낮은 순위의 일반 블록 대신 별표를 보존하고, 대표 조문이 자리를 다 채운 경우에는 마지막 대표 조문 하나가 별표에 자리를 내줍니다. 사용자가 명시한 조문·별표·검색어가 있으면 그 조건을 우선합니다.
+
+## `verify_rule_citations` 구조화 요약 계약
+
+`data.citations`는 규정명과 인용 범위를 함께 판정한다. 규정만 인용한 `「검수규정」`의 `RULE_EXISTS`와, `「검수규정」 별표999`를 구별한다. 후자는 별표 본체를 검증하지 않으므로 `UNSUPPORTED_CITATION` / `⚠`이며 성공으로 집계하지 않는다. `ok:true`는 도구 호출 성공이지 모든 인용의 검증 성공이 아니다.
+
+| 필드 | 의미 |
+|---|---|
+| `raw` | 해당 규정명 멘션부터 인용 끝까지의 원문. 중간의 다른 인용·연결어가 포함될 수 있다. |
+| `originalRange` | 요청한 조문·항·별표 등 선택자의 원문 `{start,end,text}`. 규정명만 요청하면 규정명 멘션 범위다. |
+| `parsedRange` | 지원 문법으로 파싱한 연속 접두 범위 `{start,end,text}`, 또는 `null`. 파싱은 실존 검증 성공을 뜻하지 않는다. |
+| `unsupportedReasons` | 미지원 범위 사유 목록. `UNSUPPORTED_DETAIL`, `UNSUPPORTED_ARTICLE_NUMBER`, `UNSUPPORTED_PARAGRAPH_NUMBER`, `UNSUPPORTED_ADDENDUM_SELECTOR`. |
+| `status` | 인용 전체에 대한 판정. 일부 범위가 미지원이면 `UNSUPPORTED_CITATION`이다. |
+
+범위는 입력 문자열의 0부터 시작하는 UTF-16 오프셋이며 `end`는 제외한다. `input.slice(start,end) === text`가 성립한다. 문단의 빈 줄·공백과 원래 숫자는 보존한다. 결과는 동일 규정·동일 인용을 중복 제거하므로 모든 출현 위치를 나열하는 API는 아니다.
+
+- 본칙·날짜 없는 부칙 제1~999조, 가지번호 1~99, 원문자 ①~㊿로 확인할 수 있는 항 1~50을 지원한다. 번호는 전체 숫자를 소비한 뒤 지원 여부를 판정한다. 따라서 `제1조의123`은 `제1조의12`로 바뀌지 않는다.
+- 별표·별지·서식·호·목과 범위 밖 번호는 `UNSUPPORTED_CITATION`이다. 예: `제1조 제999항`은 `originalRange.text="제1조 제999항"`, `parsedRange.text="제1조"`로 남으며 성공은 0건이다.
+- 이 독립 I03 브랜치에서 날짜 부칙 선택자는 미지원으로 보존한다. 날짜를 실제 부칙과 대조하는 I02(#68)를 함께 적용할 때는 그 선택자 해석·날짜 필터를 유지해야 한다. 미지원 범위 보존 때문에 날짜를 버리고 본칙으로 판정해서는 안 된다.
+- 지원되는 항이라도 원문 항 표기를 확인하지 못하면 `HANG_UNVERIFIED`; 확인한 항 목록에 없으면 `HANG_NOT_FOUND`다. 존재 여부와 실제 사안의 적용 적합성은 별개다.
+
+| 요약 | 집계 계약 |
+|---|---|
+| `summary.verified` | 미지원 범위가 없고 `EXISTS` 또는 `RULE_EXISTS`인 인용 수. `UNSUPPORTED_CITATION`은 항상 제외한다. |
+| `summary.exists` | `EXISTS`, `RULE_EXISTS`, `CONTENT_MISMATCH`, `TITLE_SIMILAR`, `TITLE_UNVERIFIED`, `HANG_UNVERIFIED` 수. 일부만 확인된 결과도 포함하므로 전체 검증 수가 아니다. |
+| `summary.notFound` | `NOT_FOUND`, `HANG_NOT_FOUND` 수. |
+| `summary.needsReview` | `⚠` 결과 수. 미지원 인용·검색 실패·최신본 미확인·제목/항 미검증 등을 포함한다. |
+| `summary.total` | 이번 호출에서 반환한 중복 제거 인용 수. 상한으로 생략한 인용은 `truncated`에 별도 표시한다. |
+| `summary.floating` | 같은 문단에 규정명을 확정하지 못한 선택자 수. `floating`에 사유와 범위를 반환하며 `verified`에 넣지 않는다. |
+
+`exists`와 `needsReview`는 중복될 수 있다. 검토 게이트는 `verified`뿐 아니라 `needsReview`, `notFound`, `floating`, `truncated`를 함께 확인해야 한다. 별표 본체·서식·호·목을 확인하지 않은 결과를 규정명 실존만으로 승인 근거로 사용하지 않는다.

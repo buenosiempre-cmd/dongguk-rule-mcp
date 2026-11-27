@@ -122,6 +122,59 @@ const deps = {
   check('보고서 헤더·경고 문구', /규정 인용 검증/.test(r.text) && /통과가 아닙니다/.test(r.text));
   check('규정 메타 동봉', r.citations.find(c => c.ruleName === '보수규정')?.rule?.lawId === 491);
 
+  // Red-team fixtures retain the complete requested scope, including unsupported parts.
+  const redteamBody = '### 제1조(목적)\n① 첫 항\n㊿ 마지막 항\n\n### 제1조의12(특례)\n가지조문\n\n## 부칙(2020.1.1.)\n\n### 제1조(시행일)\n부칙';
+  const redteamDeps = {
+    searchRule: async () => ({ hits: [{ lawId: 1, historyId: 2, title: '검수규정' }] }),
+    resolveLatest: async () => ({ historyId: 2, revisedAt: '2026.01.01' }),
+    getRuleMarkdown: async () => redteamBody,
+  };
+  for (const scope of [
+    '별표999', '별표 제999호', '별지 제999호 서식', '별지서식999', '서식999',
+    '제1조의123', '제1조의120', '제1000조', '제0조', '제1조의0',
+    '제1조 제999항', '제1조제100항', '제1조 제51항', '제1조 제0항',
+    '제1조 제1항 제999호', '제1조 제1항 가목', '제1조 별표999',
+    '제1조(목적) 제999항', '제999항', '제999호',
+    '제999999999999999999999조', '제1조의999999999999999999999',
+    '부칙(2099.1.1.) 제1조',
+  ]) {
+    const text = `「검수규정」 ${scope}`;
+    const result = await verifyRuleCitations(text, redteamDeps);
+    check(`I03 ${scope}: 확인필요, 성공 제외`, result.citations.length > 0
+      && result.citations.every(c => c.status === 'UNSUPPORTED_CITATION' && c.unsupportedReasons.length)
+      && result.summary.verified === 0 && result.summary.exists === 0
+      && result.summary.needsReview === result.summary.total, JSON.stringify(result.citations));
+    check(`I03 ${scope}: 원래 범위 보존`, result.citations.every(c =>
+      text.slice(c.originalRange.start, c.originalRange.end) === c.originalRange.text
+      && (!c.parsedRange || text.slice(c.parsedRange.start, c.parsedRange.end) === c.parsedRange.text))
+      && result.citations.map(c => c.originalRange.text).join(' ').includes(scope));
+  }
+  for (const scope of ['제1조', '제1조의12', '부칙 제1조', '제1조 제1항', '제1조 제50항', '제1조(목적)']) {
+    const result = await verifyRuleCitations(`「검수규정」 ${scope}`, redteamDeps);
+    check(`I03 정상 대조군 ${scope}`, result.citations.length === 1
+      && result.citations[0].status === 'EXISTS' && result.summary.verified === 1
+      && result.citations[0].originalRange.text === scope && result.citations[0].parsedRange.text === scope);
+  }
+  const partial = await verifyRuleCitations('「검수규정」 제1조 제999항', redteamDeps);
+  check('I03 원래 범위와 지원 파싱 범위를 구분', partial.citations[0].originalRange.text === '제1조 제999항'
+    && partial.citations[0].parsedRange.text === '제1조' && partial.citations[0].hang === 999);
+  const numeric = await verifyRuleCitations('「검수규정」 제1조의123', redteamDeps);
+  check('I03 가지조문 숫자의 앞자리만 파싱하지 않음', numeric.citations[0].article === '제1조의123'
+    && numeric.citations[0].parsedRange === null);
+  const mixed = await verifyRuleCitations('「검수규정」 제1조 및 제1조 제999항, 별표999', redteamDeps);
+  check('I03 혼합 인용 성공/확인필요 분리', mixed.summary.total === 3 && mixed.summary.verified === 1 && mixed.summary.needsReview === 2);
+  const offsetsText = '도입\n \n\n「검수규정」 제1조 제999항';
+  const offsets = await verifyRuleCitations(offsetsText, redteamDeps);
+  check('I03 문단 공백 뒤 오프셋 정확', offsetsText.slice(offsets.citations[0].originalRange.start, offsets.citations[0].originalRange.end) === '제1조 제999항');
+  const prose = await verifyRuleCitations('「검수규정」 제1조의 제목을 확인한다.', redteamDeps);
+  check('I03 일반 문장의 제목을 목 인용으로 오인하지 않음', prose.citations.length === 1 && prose.summary.verified === 1);
+  const ruleOnly = await verifyRuleCitations('「검수규정」에 따른다.', redteamDeps);
+  check('I03 규정명만 요청하면 RULE_EXISTS 유지', ruleOnly.summary.verified === 1 && ruleOnly.citations[0].status === 'RULE_EXISTS');
+  for (const kind of ['searchRule', 'resolveLatest', 'getRuleMarkdown']) {
+    const unavailable = await verifyRuleCitations('「검수규정」 제1조', { ...redteamDeps, [kind]: async () => { throw Error('synthetic outage'); } });
+    check(`I03 레드팀 장애 ${kind}: 성공 제외`, unavailable.summary.verified === 0 && unavailable.summary.needsReview === 1);
+  }
+
   const empty = await verifyRuleCitations('규정 인용이 전혀 없는 평문입니다.', deps);
   check('인용 없음 처리', empty.citations.length === 0 && empty.summary.total === 0);
 
