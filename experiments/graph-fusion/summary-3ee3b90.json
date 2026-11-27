@@ -1,0 +1,1475 @@
+{
+  "provenance": {
+    "gitHead": "712a4ce3d2cd9e32a3de7fe943e5829bb3c67a7e",
+    "corpusHash": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
+    "vectorFile": "semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin",
+    "vectorHash": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e",
+    "textVersion": 3,
+    "sources": [
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/train.json",
+        "sha256": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
+        "count": 46
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/dev.json",
+        "sha256": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
+        "count": 25
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe1.json",
+        "sha256": "4b12ff7be41f287b4f2efd01ec9337a0048d3731ccc98b435b42ebe313553971",
+        "count": 28
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe2.json",
+        "sha256": "e732b77617e419cf6d9bb8127b2dd0643437c8d4bc8c72b4623967dbcb3bcbee",
+        "count": 28
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe3.json",
+        "sha256": "d75f51390760b1d8c450972bf70cb2070ded560f430df5a085ad011e88800e9f",
+        "count": 26
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe4.json",
+        "sha256": "1aa7426f08c436c50b997afd91df46f158fafebf9f576c59c25bff6d2aed40d9",
+        "count": 24
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe5.json",
+        "sha256": "d732de670389d326106fbeffaa696f3aae92e8c4ecd61d15293fd5d7d4448efc",
+        "count": 20
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe6.json",
+        "sha256": "273addf0d91cb352386d794e317788e64a015df21a476b107eb80961e35cd68a",
+        "count": 24
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe7.json",
+        "sha256": "1288cfa318effacbf1e2ee16a95e969ba008bc63614de40fa1356ce412fc2688",
+        "count": 22
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe8.json",
+        "sha256": "ad9d64b143daa0f9b2c17d1dd6372bea9bda60b31412e38d5c74a35e562ace3a",
+        "count": 8
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe9.json",
+        "sha256": "397446c02c585e5d1cb8b74d93a06c741eee73fca3e0df459750a04551e9cc69",
+        "count": 36
+      },
+      {
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/dev_open.json",
+        "sha256": "977def756d89605ffbad21b23c242ad24dbb9880791b61502d62706f909d85ed",
+        "count": 20
+      }
+    ],
+    "queryOnly": true,
+    "keywordSha256": null
+  },
+  "conditions": {
+    "q": {
+      "changes": {
+        "answered": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleInTop3": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleFirst": {
+          "wrong": [
+            "train:A16"
+          ],
+          "fixed": []
+        }
+      },
+      "orders": [
+        {
+          "id": "train:A16",
+          "before": [
+            173,
+            453,
+            70
+          ],
+          "after": [
+            453,
+            173,
+            70
+          ]
+        },
+        {
+          "id": "probe4:S11",
+          "before": [
+            162,
+            170,
+            169
+          ],
+          "after": [
+            162,
+            169,
+            170
+          ]
+        }
+      ],
+      "baseline": {
+        "total": {
+          "questions": 307,
+          "answered": 286,
+          "answeredShare": 93.2,
+          "ruleInTop3": 296,
+          "ruleInTop3Share": 96.4,
+          "articleGivenRule": 286,
+          "articleGivenRuleShare": 96.6,
+          "singleRule": 88,
+          "singleRuleShare": 28.7,
+          "singleRuleRight": 83,
+          "singleRuleAnswered": 78,
+          "medianMs": 46,
+          "p95Ms": 78
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 45,
+            "answeredShare": 97.8,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 45,
+            "articleGivenRuleShare": 97.8,
+            "singleRule": 14,
+            "singleRuleShare": 30.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 13,
+            "medianMs": 42,
+            "p95Ms": 62
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 24,
+            "answeredShare": 96,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 96,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 8,
+            "singleRuleShare": 32,
+            "singleRuleRight": 8,
+            "singleRuleAnswered": 8,
+            "medianMs": 43,
+            "p95Ms": 57
+          },
+          "probe1": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 27,
+            "ruleInTop3Share": 96.4,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 100,
+            "singleRule": 8,
+            "singleRuleShare": 28.6,
+            "singleRuleRight": 8,
+            "singleRuleAnswered": 8,
+            "medianMs": 45,
+            "p95Ms": 65
+          },
+          "probe2": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 27,
+            "ruleInTop3Share": 96.4,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 21.4,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 40,
+            "p95Ms": 61
+          },
+          "probe3": {
+            "questions": 26,
+            "answered": 24,
+            "answeredShare": 92.3,
+            "ruleInTop3": 25,
+            "ruleInTop3Share": 96.2,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 96,
+            "singleRule": 5,
+            "singleRuleShare": 19.2,
+            "singleRuleRight": 5,
+            "singleRuleAnswered": 4,
+            "medianMs": 46,
+            "p95Ms": 73
+          },
+          "probe4": {
+            "questions": 24,
+            "answered": 22,
+            "answeredShare": 91.7,
+            "ruleInTop3": 23,
+            "ruleInTop3Share": 95.8,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 95.7,
+            "singleRule": 7,
+            "singleRuleShare": 29.2,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 39,
+            "p95Ms": 51
+          },
+          "probe5": {
+            "questions": 20,
+            "answered": 20,
+            "answeredShare": 100,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 20,
+            "articleGivenRuleShare": 100,
+            "singleRule": 7,
+            "singleRuleShare": 35,
+            "singleRuleRight": 7,
+            "singleRuleAnswered": 7,
+            "medianMs": 53,
+            "p95Ms": 67
+          },
+          "probe6": {
+            "questions": 24,
+            "answered": 22,
+            "answeredShare": 91.7,
+            "ruleInTop3": 22,
+            "ruleInTop3Share": 91.7,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 100,
+            "singleRule": 2,
+            "singleRuleShare": 8.3,
+            "singleRuleRight": 0,
+            "singleRuleAnswered": 0,
+            "medianMs": 43,
+            "p95Ms": 72
+          },
+          "probe7": {
+            "questions": 22,
+            "answered": 19,
+            "answeredShare": 86.4,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 90.9,
+            "articleGivenRule": 19,
+            "articleGivenRuleShare": 95,
+            "singleRule": 4,
+            "singleRuleShare": 18.2,
+            "singleRuleRight": 4,
+            "singleRuleAnswered": 4,
+            "medianMs": 57,
+            "p95Ms": 79
+          },
+          "probe8": {
+            "questions": 8,
+            "answered": 7,
+            "answeredShare": 87.5,
+            "ruleInTop3": 8,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 7,
+            "articleGivenRuleShare": 87.5,
+            "singleRule": 2,
+            "singleRuleShare": 25,
+            "singleRuleRight": 2,
+            "singleRuleAnswered": 2,
+            "medianMs": 54,
+            "p95Ms": 81
+          },
+          "probe9": {
+            "questions": 36,
+            "answered": 30,
+            "answeredShare": 83.3,
+            "ruleInTop3": 34,
+            "ruleInTop3Share": 94.4,
+            "articleGivenRule": 30,
+            "articleGivenRuleShare": 88.2,
+            "singleRule": 16,
+            "singleRuleShare": 44.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 12,
+            "medianMs": 46,
+            "p95Ms": 76
+          },
+          "dev_open": {
+            "questions": 20,
+            "answered": 19,
+            "answeredShare": 95,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 19,
+            "articleGivenRuleShare": 95,
+            "singleRule": 9,
+            "singleRuleShare": 45,
+            "singleRuleRight": 9,
+            "singleRuleAnswered": 8,
+            "medianMs": 75,
+            "p95Ms": 97
+          }
+        }
+      },
+      "graph": {
+        "total": {
+          "questions": 307,
+          "answered": 286,
+          "answeredShare": 93.2,
+          "ruleInTop3": 296,
+          "ruleInTop3Share": 96.4,
+          "articleGivenRule": 286,
+          "articleGivenRuleShare": 96.6,
+          "singleRule": 88,
+          "singleRuleShare": 28.7,
+          "singleRuleRight": 83,
+          "singleRuleAnswered": 78,
+          "medianMs": 51,
+          "p95Ms": 87
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 45,
+            "answeredShare": 97.8,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 45,
+            "articleGivenRuleShare": 97.8,
+            "singleRule": 14,
+            "singleRuleShare": 30.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 13,
+            "medianMs": 46,
+            "p95Ms": 86
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 24,
+            "answeredShare": 96,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 96,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 8,
+            "singleRuleShare": 32,
+            "singleRuleRight": 8,
+            "singleRuleAnswered": 8,
+            "medianMs": 49,
+            "p95Ms": 82
+          },
+          "probe1": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 27,
+            "ruleInTop3Share": 96.4,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 100,
+            "singleRule": 8,
+            "singleRuleShare": 28.6,
+            "singleRuleRight": 8,
+            "singleRuleAnswered": 8,
+            "medianMs": 45,
+            "p95Ms": 71
+          },
+          "probe2": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 27,
+            "ruleInTop3Share": 96.4,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 21.4,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 46,
+            "p95Ms": 69
+          },
+          "probe3": {
+            "questions": 26,
+            "answered": 24,
+            "answeredShare": 92.3,
+            "ruleInTop3": 25,
+            "ruleInTop3Share": 96.2,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 96,
+            "singleRule": 5,
+            "singleRuleShare": 19.2,
+            "singleRuleRight": 5,
+            "singleRuleAnswered": 4,
+            "medianMs": 54,
+            "p95Ms": 93
+          },
+          "probe4": {
+            "questions": 24,
+            "answered": 22,
+            "answeredShare": 91.7,
+            "ruleInTop3": 23,
+            "ruleInTop3Share": 95.8,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 95.7,
+            "singleRule": 7,
+            "singleRuleShare": 29.2,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 43,
+            "p95Ms": 66
+          },
+          "probe5": {
+            "questions": 20,
+            "answered": 20,
+            "answeredShare": 100,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 20,
+            "articleGivenRuleShare": 100,
+            "singleRule": 7,
+            "singleRuleShare": 35,
+            "singleRuleRight": 7,
+            "singleRuleAnswered": 7,
+            "medianMs": 61,
+            "p95Ms": 92
+          },
+          "probe6": {
+            "questions": 24,
+            "answered": 22,
+            "answeredShare": 91.7,
+            "ruleInTop3": 22,
+            "ruleInTop3Share": 91.7,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 100,
+            "singleRule": 2,
+            "singleRuleShare": 8.3,
+            "singleRuleRight": 0,
+            "singleRuleAnswered": 0,
+            "medianMs": 48,
+            "p95Ms": 69
+          },
+          "probe7": {
+            "questions": 22,
+            "answered": 19,
+            "answeredShare": 86.4,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 90.9,
+            "articleGivenRule": 19,
+            "articleGivenRuleShare": 95,
+            "singleRule": 4,
+            "singleRuleShare": 18.2,
+            "singleRuleRight": 4,
+            "singleRuleAnswered": 4,
+            "medianMs": 61,
+            "p95Ms": 81
+          },
+          "probe8": {
+            "questions": 8,
+            "answered": 7,
+            "answeredShare": 87.5,
+            "ruleInTop3": 8,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 7,
+            "articleGivenRuleShare": 87.5,
+            "singleRule": 2,
+            "singleRuleShare": 25,
+            "singleRuleRight": 2,
+            "singleRuleAnswered": 2,
+            "medianMs": 63,
+            "p95Ms": 87
+          },
+          "probe9": {
+            "questions": 36,
+            "answered": 30,
+            "answeredShare": 83.3,
+            "ruleInTop3": 34,
+            "ruleInTop3Share": 94.4,
+            "articleGivenRule": 30,
+            "articleGivenRuleShare": 88.2,
+            "singleRule": 16,
+            "singleRuleShare": 44.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 12,
+            "medianMs": 52,
+            "p95Ms": 88
+          },
+          "dev_open": {
+            "questions": 20,
+            "answered": 19,
+            "answeredShare": 95,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 19,
+            "articleGivenRuleShare": 95,
+            "singleRule": 9,
+            "singleRuleShare": 45,
+            "singleRuleRight": 9,
+            "singleRuleAnswered": 8,
+            "medianMs": 75,
+            "p95Ms": 108
+          }
+        }
+      },
+      "directions": {
+        "downwardApplied": 56,
+        "upwardBlocked": 23,
+        "referenceBlocked": 6783,
+        "missingCandidates": 15
+      },
+      "semantic": [
+        307,
+        307
+      ],
+      "rssMb": [
+        1229,
+        1010
+      ]
+    },
+    "sonnet": {
+      "changes": {
+        "answered": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleInTop3": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleFirst": {
+          "wrong": [],
+          "fixed": []
+        }
+      },
+      "orders": [
+        {
+          "id": "probe4:S11",
+          "before": [
+            162,
+            161,
+            169
+          ],
+          "after": [
+            162,
+            169,
+            161
+          ]
+        }
+      ],
+      "baseline": {
+        "total": {
+          "questions": 251,
+          "answered": 247,
+          "answeredShare": 98.4,
+          "ruleInTop3": 249,
+          "ruleInTop3Share": 99.2,
+          "articleGivenRule": 247,
+          "articleGivenRuleShare": 99.2,
+          "singleRule": 42,
+          "singleRuleShare": 16.7,
+          "singleRuleRight": 42,
+          "singleRuleAnswered": 42,
+          "medianMs": 92,
+          "p95Ms": 135
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 46,
+            "answeredShare": 100,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 46,
+            "articleGivenRuleShare": 100,
+            "singleRule": 12,
+            "singleRuleShare": 26.1,
+            "singleRuleRight": 12,
+            "singleRuleAnswered": 12,
+            "medianMs": 94,
+            "p95Ms": 170
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 25,
+            "answeredShare": 100,
+            "ruleInTop3": 25,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 25,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 24,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 91,
+            "p95Ms": 135
+          },
+          "probe1": {
+            "questions": 28,
+            "answered": 28,
+            "answeredShare": 100,
+            "ruleInTop3": 28,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 28,
+            "articleGivenRuleShare": 100,
+            "singleRule": 5,
+            "singleRuleShare": 17.9,
+            "singleRuleRight": 5,
+            "singleRuleAnswered": 5,
+            "medianMs": 86,
+            "p95Ms": 121
+          },
+          "probe2": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 27,
+            "ruleInTop3Share": 96.4,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 10.7,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 79,
+            "p95Ms": 116
+          },
+          "probe3": {
+            "questions": 26,
+            "answered": 26,
+            "answeredShare": 100,
+            "ruleInTop3": 26,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 26,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 11.5,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 98,
+            "p95Ms": 130
+          },
+          "probe4": {
+            "questions": 24,
+            "answered": 22,
+            "answeredShare": 91.7,
+            "ruleInTop3": 23,
+            "ruleInTop3Share": 95.8,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 95.7,
+            "singleRule": 6,
+            "singleRuleShare": 25,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 71,
+            "p95Ms": 103
+          },
+          "probe5": {
+            "questions": 20,
+            "answered": 20,
+            "answeredShare": 100,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 20,
+            "articleGivenRuleShare": 100,
+            "singleRule": 4,
+            "singleRuleShare": 20,
+            "singleRuleRight": 4,
+            "singleRuleAnswered": 4,
+            "medianMs": 109,
+            "p95Ms": 128
+          },
+          "probe6": {
+            "questions": 24,
+            "answered": 23,
+            "answeredShare": 95.8,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 23,
+            "articleGivenRuleShare": 95.8,
+            "singleRule": 0,
+            "singleRuleShare": 0,
+            "singleRuleRight": 0,
+            "singleRuleAnswered": 0,
+            "medianMs": 86,
+            "p95Ms": 128
+          },
+          "probe7": {
+            "questions": 22,
+            "answered": 22,
+            "answeredShare": 100,
+            "ruleInTop3": 22,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 100,
+            "singleRule": 2,
+            "singleRuleShare": 9.1,
+            "singleRuleRight": 2,
+            "singleRuleAnswered": 2,
+            "medianMs": 116,
+            "p95Ms": 154
+          },
+          "probe8": {
+            "questions": 8,
+            "answered": 8,
+            "answeredShare": 100,
+            "ruleInTop3": 8,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 8,
+            "articleGivenRuleShare": 100,
+            "singleRule": 1,
+            "singleRuleShare": 12.5,
+            "singleRuleRight": 1,
+            "singleRuleAnswered": 1,
+            "medianMs": 106,
+            "p95Ms": 154
+          }
+        }
+      },
+      "graph": {
+        "total": {
+          "questions": 251,
+          "answered": 247,
+          "answeredShare": 98.4,
+          "ruleInTop3": 249,
+          "ruleInTop3Share": 99.2,
+          "articleGivenRule": 247,
+          "articleGivenRuleShare": 99.2,
+          "singleRule": 42,
+          "singleRuleShare": 16.7,
+          "singleRuleRight": 42,
+          "singleRuleAnswered": 42,
+          "medianMs": 76,
+          "p95Ms": 121
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 46,
+            "answeredShare": 100,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 46,
+            "articleGivenRuleShare": 100,
+            "singleRule": 12,
+            "singleRuleShare": 26.1,
+            "singleRuleRight": 12,
+            "singleRuleAnswered": 12,
+            "medianMs": 70,
+            "p95Ms": 108
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 25,
+            "answeredShare": 100,
+            "ruleInTop3": 25,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 25,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 24,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 75,
+            "p95Ms": 102
+          },
+          "probe1": {
+            "questions": 28,
+            "answered": 28,
+            "answeredShare": 100,
+            "ruleInTop3": 28,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 28,
+            "articleGivenRuleShare": 100,
+            "singleRule": 5,
+            "singleRuleShare": 17.9,
+            "singleRuleRight": 5,
+            "singleRuleAnswered": 5,
+            "medianMs": 71,
+            "p95Ms": 101
+          },
+          "probe2": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 27,
+            "ruleInTop3Share": 96.4,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 10.7,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 66,
+            "p95Ms": 92
+          },
+          "probe3": {
+            "questions": 26,
+            "answered": 26,
+            "answeredShare": 100,
+            "ruleInTop3": 26,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 26,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 11.5,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 83,
+            "p95Ms": 111
+          },
+          "probe4": {
+            "questions": 24,
+            "answered": 22,
+            "answeredShare": 91.7,
+            "ruleInTop3": 23,
+            "ruleInTop3Share": 95.8,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 95.7,
+            "singleRule": 6,
+            "singleRuleShare": 25,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 66,
+            "p95Ms": 95
+          },
+          "probe5": {
+            "questions": 20,
+            "answered": 20,
+            "answeredShare": 100,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 20,
+            "articleGivenRuleShare": 100,
+            "singleRule": 4,
+            "singleRuleShare": 20,
+            "singleRuleRight": 4,
+            "singleRuleAnswered": 4,
+            "medianMs": 100,
+            "p95Ms": 112
+          },
+          "probe6": {
+            "questions": 24,
+            "answered": 23,
+            "answeredShare": 95.8,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 23,
+            "articleGivenRuleShare": 95.8,
+            "singleRule": 0,
+            "singleRuleShare": 0,
+            "singleRuleRight": 0,
+            "singleRuleAnswered": 0,
+            "medianMs": 75,
+            "p95Ms": 105
+          },
+          "probe7": {
+            "questions": 22,
+            "answered": 22,
+            "answeredShare": 100,
+            "ruleInTop3": 22,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 100,
+            "singleRule": 2,
+            "singleRuleShare": 9.1,
+            "singleRuleRight": 2,
+            "singleRuleAnswered": 2,
+            "medianMs": 109,
+            "p95Ms": 151
+          },
+          "probe8": {
+            "questions": 8,
+            "answered": 8,
+            "answeredShare": 100,
+            "ruleInTop3": 8,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 8,
+            "articleGivenRuleShare": 100,
+            "singleRule": 1,
+            "singleRuleShare": 12.5,
+            "singleRuleRight": 1,
+            "singleRuleAnswered": 1,
+            "medianMs": 99,
+            "p95Ms": 144
+          }
+        }
+      },
+      "directions": {
+        "downwardApplied": 119,
+        "upwardBlocked": 42,
+        "referenceBlocked": 11442,
+        "missingCandidates": 16
+      },
+      "semantic": [
+        251,
+        251
+      ],
+      "rssMb": [
+        857,
+        934
+      ]
+    },
+    "haiku": {
+      "changes": {
+        "answered": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleInTop3": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleFirst": {
+          "wrong": [],
+          "fixed": []
+        }
+      },
+      "orders": [
+        {
+          "id": "probe1:P17",
+          "before": [
+            173,
+            732,
+            453
+          ],
+          "after": [
+            173,
+            453,
+            732
+          ]
+        },
+        {
+          "id": "probe4:S11",
+          "before": [
+            162,
+            161,
+            169
+          ],
+          "after": [
+            162,
+            169,
+            161
+          ]
+        }
+      ],
+      "baseline": {
+        "total": {
+          "questions": 251,
+          "answered": 247,
+          "answeredShare": 98.4,
+          "ruleInTop3": 249,
+          "ruleInTop3Share": 99.2,
+          "articleGivenRule": 247,
+          "articleGivenRuleShare": 99.2,
+          "singleRule": 44,
+          "singleRuleShare": 17.5,
+          "singleRuleRight": 44,
+          "singleRuleAnswered": 44,
+          "medianMs": 77,
+          "p95Ms": 122
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 46,
+            "answeredShare": 100,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 46,
+            "articleGivenRuleShare": 100,
+            "singleRule": 14,
+            "singleRuleShare": 30.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 14,
+            "medianMs": 73,
+            "p95Ms": 105
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 24,
+            "answeredShare": 96,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 96,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 12,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 75,
+            "p95Ms": 93
+          },
+          "probe1": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 28,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 96.4,
+            "singleRule": 5,
+            "singleRuleShare": 17.9,
+            "singleRuleRight": 5,
+            "singleRuleAnswered": 5,
+            "medianMs": 76,
+            "p95Ms": 108
+          },
+          "probe2": {
+            "questions": 28,
+            "answered": 28,
+            "answeredShare": 100,
+            "ruleInTop3": 28,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 28,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 10.7,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 72,
+            "p95Ms": 106
+          },
+          "probe3": {
+            "questions": 26,
+            "answered": 25,
+            "answeredShare": 96.2,
+            "ruleInTop3": 25,
+            "ruleInTop3Share": 96.2,
+            "articleGivenRule": 25,
+            "articleGivenRuleShare": 100,
+            "singleRule": 4,
+            "singleRuleShare": 15.4,
+            "singleRuleRight": 4,
+            "singleRuleAnswered": 4,
+            "medianMs": 81,
+            "p95Ms": 110
+          },
+          "probe4": {
+            "questions": 24,
+            "answered": 24,
+            "answeredShare": 100,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 25,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 69,
+            "p95Ms": 94
+          },
+          "probe5": {
+            "questions": 20,
+            "answered": 20,
+            "answeredShare": 100,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 20,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 30,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 96,
+            "p95Ms": 122
+          },
+          "probe6": {
+            "questions": 24,
+            "answered": 24,
+            "answeredShare": 100,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 0,
+            "singleRuleShare": 0,
+            "singleRuleRight": 0,
+            "singleRuleAnswered": 0,
+            "medianMs": 77,
+            "p95Ms": 112
+          },
+          "probe7": {
+            "questions": 22,
+            "answered": 22,
+            "answeredShare": 100,
+            "ruleInTop3": 22,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 100,
+            "singleRule": 1,
+            "singleRuleShare": 4.5,
+            "singleRuleRight": 1,
+            "singleRuleAnswered": 1,
+            "medianMs": 107,
+            "p95Ms": 140
+          },
+          "probe8": {
+            "questions": 8,
+            "answered": 7,
+            "answeredShare": 87.5,
+            "ruleInTop3": 8,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 7,
+            "articleGivenRuleShare": 87.5,
+            "singleRule": 2,
+            "singleRuleShare": 25,
+            "singleRuleRight": 2,
+            "singleRuleAnswered": 2,
+            "medianMs": 51,
+            "p95Ms": 86
+          }
+        }
+      },
+      "graph": {
+        "total": {
+          "questions": 251,
+          "answered": 247,
+          "answeredShare": 98.4,
+          "ruleInTop3": 249,
+          "ruleInTop3Share": 99.2,
+          "articleGivenRule": 247,
+          "articleGivenRuleShare": 99.2,
+          "singleRule": 44,
+          "singleRuleShare": 17.5,
+          "singleRuleRight": 44,
+          "singleRuleAnswered": 44,
+          "medianMs": 77,
+          "p95Ms": 118
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 46,
+            "answeredShare": 100,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 46,
+            "articleGivenRuleShare": 100,
+            "singleRule": 14,
+            "singleRuleShare": 30.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 14,
+            "medianMs": 69,
+            "p95Ms": 102
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 24,
+            "answeredShare": 96,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 96,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 12,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 77,
+            "p95Ms": 95
+          },
+          "probe1": {
+            "questions": 28,
+            "answered": 27,
+            "answeredShare": 96.4,
+            "ruleInTop3": 28,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 27,
+            "articleGivenRuleShare": 96.4,
+            "singleRule": 5,
+            "singleRuleShare": 17.9,
+            "singleRuleRight": 5,
+            "singleRuleAnswered": 5,
+            "medianMs": 77,
+            "p95Ms": 115
+          },
+          "probe2": {
+            "questions": 28,
+            "answered": 28,
+            "answeredShare": 100,
+            "ruleInTop3": 28,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 28,
+            "articleGivenRuleShare": 100,
+            "singleRule": 3,
+            "singleRuleShare": 10.7,
+            "singleRuleRight": 3,
+            "singleRuleAnswered": 3,
+            "medianMs": 69,
+            "p95Ms": 104
+          },
+          "probe3": {
+            "questions": 26,
+            "answered": 25,
+            "answeredShare": 96.2,
+            "ruleInTop3": 25,
+            "ruleInTop3Share": 96.2,
+            "articleGivenRule": 25,
+            "articleGivenRuleShare": 100,
+            "singleRule": 4,
+            "singleRuleShare": 15.4,
+            "singleRuleRight": 4,
+            "singleRuleAnswered": 4,
+            "medianMs": 81,
+            "p95Ms": 126
+          },
+          "probe4": {
+            "questions": 24,
+            "answered": 24,
+            "answeredShare": 100,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 25,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 68,
+            "p95Ms": 93
+          },
+          "probe5": {
+            "questions": 20,
+            "answered": 20,
+            "answeredShare": 100,
+            "ruleInTop3": 20,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 20,
+            "articleGivenRuleShare": 100,
+            "singleRule": 6,
+            "singleRuleShare": 30,
+            "singleRuleRight": 6,
+            "singleRuleAnswered": 6,
+            "medianMs": 96,
+            "p95Ms": 114
+          },
+          "probe6": {
+            "questions": 24,
+            "answered": 24,
+            "answeredShare": 100,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 0,
+            "singleRuleShare": 0,
+            "singleRuleRight": 0,
+            "singleRuleAnswered": 0,
+            "medianMs": 76,
+            "p95Ms": 110
+          },
+          "probe7": {
+            "questions": 22,
+            "answered": 22,
+            "answeredShare": 100,
+            "ruleInTop3": 22,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 22,
+            "articleGivenRuleShare": 100,
+            "singleRule": 1,
+            "singleRuleShare": 4.5,
+            "singleRuleRight": 1,
+            "singleRuleAnswered": 1,
+            "medianMs": 110,
+            "p95Ms": 144
+          },
+          "probe8": {
+            "questions": 8,
+            "answered": 7,
+            "answeredShare": 87.5,
+            "ruleInTop3": 8,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 7,
+            "articleGivenRuleShare": 87.5,
+            "singleRule": 2,
+            "singleRuleShare": 25,
+            "singleRuleRight": 2,
+            "singleRuleAnswered": 2,
+            "medianMs": 50,
+            "p95Ms": 79
+          }
+        }
+      },
+      "directions": {
+        "downwardApplied": 122,
+        "upwardBlocked": 49,
+        "referenceBlocked": 11470,
+        "missingCandidates": 15
+      },
+      "semantic": [
+        251,
+        251
+      ],
+      "rssMb": [
+        1100,
+        1404
+      ]
+    },
+    "regoff": {
+      "changes": {
+        "answered": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleInTop3": {
+          "wrong": [],
+          "fixed": []
+        },
+        "ruleFirst": {
+          "wrong": [
+            "train:A16"
+          ],
+          "fixed": []
+        }
+      },
+      "orders": [
+        {
+          "id": "train:A16",
+          "before": [
+            173,
+            176,
+            70
+          ],
+          "after": [
+            453,
+            173,
+            176
+          ]
+        }
+      ],
+      "baseline": {
+        "total": {
+          "questions": 71,
+          "answered": 69,
+          "answeredShare": 97.2,
+          "ruleInTop3": 70,
+          "ruleInTop3Share": 98.6,
+          "articleGivenRule": 69,
+          "articleGivenRuleShare": 98.6,
+          "singleRule": 23,
+          "singleRuleShare": 32.4,
+          "singleRuleRight": 23,
+          "singleRuleAnswered": 22,
+          "medianMs": 29,
+          "p95Ms": 46
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 45,
+            "answeredShare": 97.8,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 45,
+            "articleGivenRuleShare": 97.8,
+            "singleRule": 14,
+            "singleRuleShare": 30.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 13,
+            "medianMs": 29,
+            "p95Ms": 46
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 24,
+            "answeredShare": 96,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 96,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 9,
+            "singleRuleShare": 36,
+            "singleRuleRight": 9,
+            "singleRuleAnswered": 9,
+            "medianMs": 29,
+            "p95Ms": 39
+          }
+        }
+      },
+      "graph": {
+        "total": {
+          "questions": 71,
+          "answered": 69,
+          "answeredShare": 97.2,
+          "ruleInTop3": 70,
+          "ruleInTop3Share": 98.6,
+          "articleGivenRule": 69,
+          "articleGivenRuleShare": 98.6,
+          "singleRule": 23,
+          "singleRuleShare": 32.4,
+          "singleRuleRight": 23,
+          "singleRuleAnswered": 22,
+          "medianMs": 29,
+          "p95Ms": 44
+        },
+        "sets": {
+          "train": {
+            "questions": 46,
+            "answered": 45,
+            "answeredShare": 97.8,
+            "ruleInTop3": 46,
+            "ruleInTop3Share": 100,
+            "articleGivenRule": 45,
+            "articleGivenRuleShare": 97.8,
+            "singleRule": 14,
+            "singleRuleShare": 30.4,
+            "singleRuleRight": 14,
+            "singleRuleAnswered": 13,
+            "medianMs": 30,
+            "p95Ms": 44
+          },
+          "dev": {
+            "questions": 25,
+            "answered": 24,
+            "answeredShare": 96,
+            "ruleInTop3": 24,
+            "ruleInTop3Share": 96,
+            "articleGivenRule": 24,
+            "articleGivenRuleShare": 100,
+            "singleRule": 9,
+            "singleRuleShare": 36,
+            "singleRuleRight": 9,
+            "singleRuleAnswered": 9,
+            "medianMs": 28,
+            "p95Ms": 42
+          }
+        }
+      },
+      "directions": {
+        "downwardApplied": 24,
+        "upwardBlocked": 3,
+        "referenceBlocked": 1849,
+        "missingCandidates": 5
+      },
+      "semantic": [
+        0,
+        0
+      ],
+      "rssMb": [
+        231,
+        243
+      ]
+    }
+  },
+  "errors": {
+    "q": {
+      "hybrid": [],
+      "hybrid-graph": []
+    },
+    "sonnet": {
+      "hybrid": [],
+      "hybrid-graph": []
+    },
+    "haiku": {
+      "hybrid": [],
+      "hybrid-graph": []
+    },
+    "regoff": {
+      "hybrid": [],
+      "hybrid-graph": []
+    }
+  }
+}

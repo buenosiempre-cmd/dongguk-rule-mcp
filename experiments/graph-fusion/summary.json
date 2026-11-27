@@ -1,68 +1,68 @@
 {
   "provenance": {
-    "gitHead": "712a4ce3d2cd9e32a3de7fe943e5829bb3c67a7e",
+    "gitHead": "b99c6e850672ed46330b17325fa572945f154bef",
     "corpusHash": "59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15",
     "vectorFile": "semantic-v1.c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e.bin",
     "vectorHash": "c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e",
     "textVersion": 3,
     "sources": [
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/train.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/train.json",
         "sha256": "a294bc474ea6b584d49c954818a8f9ec83cb4cd9a386a35f18da1c98175c1d00",
         "count": 46
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/dev.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/dev.json",
         "sha256": "a9278a5b8897b1a9393a6578aa52af1e875a0dc9088d959bbecb1e9277b8c13b",
         "count": 25
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe1.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe1.json",
         "sha256": "4b12ff7be41f287b4f2efd01ec9337a0048d3731ccc98b435b42ebe313553971",
         "count": 28
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe2.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe2.json",
         "sha256": "e732b77617e419cf6d9bb8127b2dd0643437c8d4bc8c72b4623967dbcb3bcbee",
         "count": 28
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe3.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe3.json",
         "sha256": "d75f51390760b1d8c450972bf70cb2070ded560f430df5a085ad011e88800e9f",
         "count": 26
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe4.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe4.json",
         "sha256": "1aa7426f08c436c50b997afd91df46f158fafebf9f576c59c25bff6d2aed40d9",
         "count": 24
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe5.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe5.json",
         "sha256": "d732de670389d326106fbeffaa696f3aae92e8c4ecd61d15293fd5d7d4448efc",
         "count": 20
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe6.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe6.json",
         "sha256": "273addf0d91cb352386d794e317788e64a015df21a476b107eb80961e35cd68a",
         "count": 24
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe7.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe7.json",
         "sha256": "1288cfa318effacbf1e2ee16a95e969ba008bc63614de40fa1356ce412fc2688",
         "count": 22
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe8.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe8.json",
         "sha256": "ad9d64b143daa0f9b2c17d1dd6372bea9bda60b31412e38d5c74a35e562ace3a",
         "count": 8
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/probe9.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/probe9.json",
         "sha256": "397446c02c585e5d1cb8b74d93a06c741eee73fca3e0df459750a04551e9cc69",
         "count": 36
       },
       {
-        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/inputs/dev_open.json",
+        "file": "/Users/bueno/Documents/Codex/graph-fusion-artifacts-20261127/latest-f0b355f/inputs/dev_open.json",
         "sha256": "977def756d89605ffbad21b23c242ad24dbb9880791b61502d62706f909d85ed",
         "count": 20
       }
@@ -119,18 +119,20 @@
       "baseline": {
         "total": {
           "questions": 307,
-          "answered": 286,
-          "answeredShare": 93.2,
+          "answered": 287,
+          "answeredShare": 93.5,
           "ruleInTop3": 296,
           "ruleInTop3Share": 96.4,
-          "articleGivenRule": 286,
-          "articleGivenRuleShare": 96.6,
-          "singleRule": 88,
-          "singleRuleShare": 28.7,
-          "singleRuleRight": 83,
+          "articleGivenRule": 287,
+          "articleGivenRuleShare": 97,
+          "singleRule": 87,
+          "singleRuleShare": 28.3,
+          "singleRuleRight": 82,
           "singleRuleAnswered": 78,
-          "medianMs": 46,
-          "p95Ms": 78
+          "semanticUsed": 307,
+          "errors": 0,
+          "medianMs": 41,
+          "p95Ms": 67
         },
         "sets": {
           "train": {
@@ -145,8 +147,10 @@
             "singleRuleShare": 30.4,
             "singleRuleRight": 14,
             "singleRuleAnswered": 13,
-            "medianMs": 42,
-            "p95Ms": 62
+            "semanticUsed": 46,
+            "errors": 0,
+            "medianMs": 39,
+            "p95Ms": 60
           },
           "dev": {
             "questions": 25,
@@ -160,7 +164,9 @@
             "singleRuleShare": 32,
             "singleRuleRight": 8,
             "singleRuleAnswered": 8,
-            "medianMs": 43,
+            "semanticUsed": 25,
+            "errors": 0,
+            "medianMs": 40,
             "p95Ms": 57
           },
           "probe1": {
@@ -175,8 +181,10 @@
             "singleRuleShare": 28.6,
             "singleRuleRight": 8,
             "singleRuleAnswered": 8,
-            "medianMs": 45,
-            "p95Ms": 65
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 39,
+            "p95Ms": 59
           },
           "probe2": {
             "questions": 28,
@@ -190,23 +198,27 @@
             "singleRuleShare": 21.4,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 40,
-            "p95Ms": 61
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 36,
+            "p95Ms": 55
           },
           "probe3": {
             "questions": 26,
-            "answered": 24,
-            "answeredShare": 92.3,
+            "answered": 25,
+            "answeredShare": 96.2,
             "ruleInTop3": 25,
             "ruleInTop3Share": 96.2,
-            "articleGivenRule": 24,
-            "articleGivenRuleShare": 96,
+            "articleGivenRule": 25,
+            "articleGivenRuleShare": 100,
             "singleRule": 5,
             "singleRuleShare": 19.2,
             "singleRuleRight": 5,
-            "singleRuleAnswered": 4,
-            "medianMs": 46,
-            "p95Ms": 73
+            "singleRuleAnswered": 5,
+            "semanticUsed": 26,
+            "errors": 0,
+            "medianMs": 40,
+            "p95Ms": 55
           },
           "probe4": {
             "questions": 24,
@@ -220,8 +232,10 @@
             "singleRuleShare": 29.2,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 39,
-            "p95Ms": 51
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 31,
+            "p95Ms": 44
           },
           "probe5": {
             "questions": 20,
@@ -235,8 +249,10 @@
             "singleRuleShare": 35,
             "singleRuleRight": 7,
             "singleRuleAnswered": 7,
-            "medianMs": 53,
-            "p95Ms": 67
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 49,
+            "p95Ms": 69
           },
           "probe6": {
             "questions": 24,
@@ -250,8 +266,10 @@
             "singleRuleShare": 8.3,
             "singleRuleRight": 0,
             "singleRuleAnswered": 0,
-            "medianMs": 43,
-            "p95Ms": 72
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 37,
+            "p95Ms": 55
           },
           "probe7": {
             "questions": 22,
@@ -265,8 +283,10 @@
             "singleRuleShare": 18.2,
             "singleRuleRight": 4,
             "singleRuleAnswered": 4,
-            "medianMs": 57,
-            "p95Ms": 79
+            "semanticUsed": 22,
+            "errors": 0,
+            "medianMs": 52,
+            "p95Ms": 64
           },
           "probe8": {
             "questions": 8,
@@ -280,8 +300,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 2,
             "singleRuleAnswered": 2,
-            "medianMs": 54,
-            "p95Ms": 81
+            "semanticUsed": 8,
+            "errors": 0,
+            "medianMs": 53,
+            "p95Ms": 77
           },
           "probe9": {
             "questions": 36,
@@ -291,12 +313,14 @@
             "ruleInTop3Share": 94.4,
             "articleGivenRule": 30,
             "articleGivenRuleShare": 88.2,
-            "singleRule": 16,
-            "singleRuleShare": 44.4,
-            "singleRuleRight": 14,
-            "singleRuleAnswered": 12,
-            "medianMs": 46,
-            "p95Ms": 76
+            "singleRule": 15,
+            "singleRuleShare": 41.7,
+            "singleRuleRight": 13,
+            "singleRuleAnswered": 11,
+            "semanticUsed": 36,
+            "errors": 0,
+            "medianMs": 41,
+            "p95Ms": 70
           },
           "dev_open": {
             "questions": 20,
@@ -310,26 +334,30 @@
             "singleRuleShare": 45,
             "singleRuleRight": 9,
             "singleRuleAnswered": 8,
-            "medianMs": 75,
-            "p95Ms": 97
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 58,
+            "p95Ms": 87
           }
         }
       },
       "graph": {
         "total": {
           "questions": 307,
-          "answered": 286,
-          "answeredShare": 93.2,
+          "answered": 287,
+          "answeredShare": 93.5,
           "ruleInTop3": 296,
           "ruleInTop3Share": 96.4,
-          "articleGivenRule": 286,
-          "articleGivenRuleShare": 96.6,
-          "singleRule": 88,
-          "singleRuleShare": 28.7,
-          "singleRuleRight": 83,
+          "articleGivenRule": 287,
+          "articleGivenRuleShare": 97,
+          "singleRule": 87,
+          "singleRuleShare": 28.3,
+          "singleRuleRight": 82,
           "singleRuleAnswered": 78,
-          "medianMs": 51,
-          "p95Ms": 87
+          "semanticUsed": 307,
+          "errors": 0,
+          "medianMs": 39,
+          "p95Ms": 65
         },
         "sets": {
           "train": {
@@ -344,8 +372,10 @@
             "singleRuleShare": 30.4,
             "singleRuleRight": 14,
             "singleRuleAnswered": 13,
-            "medianMs": 46,
-            "p95Ms": 86
+            "semanticUsed": 46,
+            "errors": 0,
+            "medianMs": 35,
+            "p95Ms": 51
           },
           "dev": {
             "questions": 25,
@@ -359,8 +389,10 @@
             "singleRuleShare": 32,
             "singleRuleRight": 8,
             "singleRuleAnswered": 8,
-            "medianMs": 49,
-            "p95Ms": 82
+            "semanticUsed": 25,
+            "errors": 0,
+            "medianMs": 39,
+            "p95Ms": 50
           },
           "probe1": {
             "questions": 28,
@@ -374,8 +406,10 @@
             "singleRuleShare": 28.6,
             "singleRuleRight": 8,
             "singleRuleAnswered": 8,
-            "medianMs": 45,
-            "p95Ms": 71
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 38,
+            "p95Ms": 56
           },
           "probe2": {
             "questions": 28,
@@ -389,23 +423,27 @@
             "singleRuleShare": 21.4,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 46,
-            "p95Ms": 69
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 34,
+            "p95Ms": 52
           },
           "probe3": {
             "questions": 26,
-            "answered": 24,
-            "answeredShare": 92.3,
+            "answered": 25,
+            "answeredShare": 96.2,
             "ruleInTop3": 25,
             "ruleInTop3Share": 96.2,
-            "articleGivenRule": 24,
-            "articleGivenRuleShare": 96,
+            "articleGivenRule": 25,
+            "articleGivenRuleShare": 100,
             "singleRule": 5,
             "singleRuleShare": 19.2,
             "singleRuleRight": 5,
-            "singleRuleAnswered": 4,
-            "medianMs": 54,
-            "p95Ms": 93
+            "singleRuleAnswered": 5,
+            "semanticUsed": 26,
+            "errors": 0,
+            "medianMs": 38,
+            "p95Ms": 56
           },
           "probe4": {
             "questions": 24,
@@ -419,8 +457,10 @@
             "singleRuleShare": 29.2,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 43,
-            "p95Ms": 66
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 33,
+            "p95Ms": 45
           },
           "probe5": {
             "questions": 20,
@@ -434,8 +474,10 @@
             "singleRuleShare": 35,
             "singleRuleRight": 7,
             "singleRuleAnswered": 7,
-            "medianMs": 61,
-            "p95Ms": 92
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 47,
+            "p95Ms": 65
           },
           "probe6": {
             "questions": 24,
@@ -449,8 +491,10 @@
             "singleRuleShare": 8.3,
             "singleRuleRight": 0,
             "singleRuleAnswered": 0,
-            "medianMs": 48,
-            "p95Ms": 69
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 39,
+            "p95Ms": 55
           },
           "probe7": {
             "questions": 22,
@@ -464,8 +508,10 @@
             "singleRuleShare": 18.2,
             "singleRuleRight": 4,
             "singleRuleAnswered": 4,
-            "medianMs": 61,
-            "p95Ms": 81
+            "semanticUsed": 22,
+            "errors": 0,
+            "medianMs": 52,
+            "p95Ms": 64
           },
           "probe8": {
             "questions": 8,
@@ -479,8 +525,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 2,
             "singleRuleAnswered": 2,
-            "medianMs": 63,
-            "p95Ms": 87
+            "semanticUsed": 8,
+            "errors": 0,
+            "medianMs": 46,
+            "p95Ms": 75
           },
           "probe9": {
             "questions": 36,
@@ -490,12 +538,14 @@
             "ruleInTop3Share": 94.4,
             "articleGivenRule": 30,
             "articleGivenRuleShare": 88.2,
-            "singleRule": 16,
-            "singleRuleShare": 44.4,
-            "singleRuleRight": 14,
-            "singleRuleAnswered": 12,
-            "medianMs": 52,
-            "p95Ms": 88
+            "singleRule": 15,
+            "singleRuleShare": 41.7,
+            "singleRuleRight": 13,
+            "singleRuleAnswered": 11,
+            "semanticUsed": 36,
+            "errors": 0,
+            "medianMs": 39,
+            "p95Ms": 66
           },
           "dev_open": {
             "questions": 20,
@@ -509,15 +559,17 @@
             "singleRuleShare": 45,
             "singleRuleRight": 9,
             "singleRuleAnswered": 8,
-            "medianMs": 75,
-            "p95Ms": 108
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 60,
+            "p95Ms": 85
           }
         }
       },
       "directions": {
         "downwardApplied": 56,
         "upwardBlocked": 23,
-        "referenceBlocked": 6783,
+        "referenceBlocked": 6782,
         "missingCandidates": 15
       },
       "semantic": [
@@ -525,8 +577,8 @@
         307
       ],
       "rssMb": [
-        1229,
-        1010
+        1236,
+        1244
       ]
     },
     "sonnet": {
@@ -572,8 +624,10 @@
           "singleRuleShare": 16.7,
           "singleRuleRight": 42,
           "singleRuleAnswered": 42,
-          "medianMs": 92,
-          "p95Ms": 135
+          "semanticUsed": 251,
+          "errors": 0,
+          "medianMs": 77,
+          "p95Ms": 121
         },
         "sets": {
           "train": {
@@ -588,8 +642,10 @@
             "singleRuleShare": 26.1,
             "singleRuleRight": 12,
             "singleRuleAnswered": 12,
-            "medianMs": 94,
-            "p95Ms": 170
+            "semanticUsed": 46,
+            "errors": 0,
+            "medianMs": 74,
+            "p95Ms": 114
           },
           "dev": {
             "questions": 25,
@@ -603,8 +659,10 @@
             "singleRuleShare": 24,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 91,
-            "p95Ms": 135
+            "semanticUsed": 25,
+            "errors": 0,
+            "medianMs": 79,
+            "p95Ms": 104
           },
           "probe1": {
             "questions": 28,
@@ -618,8 +676,10 @@
             "singleRuleShare": 17.9,
             "singleRuleRight": 5,
             "singleRuleAnswered": 5,
-            "medianMs": 86,
-            "p95Ms": 121
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 76,
+            "p95Ms": 105
           },
           "probe2": {
             "questions": 28,
@@ -633,8 +693,10 @@
             "singleRuleShare": 10.7,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
-            "medianMs": 79,
-            "p95Ms": 116
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 67,
+            "p95Ms": 100
           },
           "probe3": {
             "questions": 26,
@@ -648,8 +710,10 @@
             "singleRuleShare": 11.5,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
-            "medianMs": 98,
-            "p95Ms": 130
+            "semanticUsed": 26,
+            "errors": 0,
+            "medianMs": 80,
+            "p95Ms": 110
           },
           "probe4": {
             "questions": 24,
@@ -663,8 +727,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 71,
-            "p95Ms": 103
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 63,
+            "p95Ms": 90
           },
           "probe5": {
             "questions": 20,
@@ -678,8 +744,10 @@
             "singleRuleShare": 20,
             "singleRuleRight": 4,
             "singleRuleAnswered": 4,
-            "medianMs": 109,
-            "p95Ms": 128
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 97,
+            "p95Ms": 106
           },
           "probe6": {
             "questions": 24,
@@ -693,8 +761,10 @@
             "singleRuleShare": 0,
             "singleRuleRight": 0,
             "singleRuleAnswered": 0,
-            "medianMs": 86,
-            "p95Ms": 128
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 74,
+            "p95Ms": 111
           },
           "probe7": {
             "questions": 22,
@@ -708,8 +778,10 @@
             "singleRuleShare": 9.1,
             "singleRuleRight": 2,
             "singleRuleAnswered": 2,
-            "medianMs": 116,
-            "p95Ms": 154
+            "semanticUsed": 22,
+            "errors": 0,
+            "medianMs": 107,
+            "p95Ms": 151
           },
           "probe8": {
             "questions": 8,
@@ -723,8 +795,10 @@
             "singleRuleShare": 12.5,
             "singleRuleRight": 1,
             "singleRuleAnswered": 1,
-            "medianMs": 106,
-            "p95Ms": 154
+            "semanticUsed": 8,
+            "errors": 0,
+            "medianMs": 109,
+            "p95Ms": 149
           }
         }
       },
@@ -741,8 +815,10 @@
           "singleRuleShare": 16.7,
           "singleRuleRight": 42,
           "singleRuleAnswered": 42,
-          "medianMs": 76,
-          "p95Ms": 121
+          "semanticUsed": 251,
+          "errors": 0,
+          "medianMs": 77,
+          "p95Ms": 117
         },
         "sets": {
           "train": {
@@ -757,8 +833,10 @@
             "singleRuleShare": 26.1,
             "singleRuleRight": 12,
             "singleRuleAnswered": 12,
-            "medianMs": 70,
-            "p95Ms": 108
+            "semanticUsed": 46,
+            "errors": 0,
+            "medianMs": 76,
+            "p95Ms": 116
           },
           "dev": {
             "questions": 25,
@@ -772,8 +850,10 @@
             "singleRuleShare": 24,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 75,
-            "p95Ms": 102
+            "semanticUsed": 25,
+            "errors": 0,
+            "medianMs": 78,
+            "p95Ms": 103
           },
           "probe1": {
             "questions": 28,
@@ -787,8 +867,10 @@
             "singleRuleShare": 17.9,
             "singleRuleRight": 5,
             "singleRuleAnswered": 5,
-            "medianMs": 71,
-            "p95Ms": 101
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 74,
+            "p95Ms": 109
           },
           "probe2": {
             "questions": 28,
@@ -802,8 +884,10 @@
             "singleRuleShare": 10.7,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
-            "medianMs": 66,
-            "p95Ms": 92
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 67,
+            "p95Ms": 98
           },
           "probe3": {
             "questions": 26,
@@ -817,8 +901,10 @@
             "singleRuleShare": 11.5,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
-            "medianMs": 83,
-            "p95Ms": 111
+            "semanticUsed": 26,
+            "errors": 0,
+            "medianMs": 82,
+            "p95Ms": 109
           },
           "probe4": {
             "questions": 24,
@@ -832,8 +918,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 66,
-            "p95Ms": 95
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 65,
+            "p95Ms": 97
           },
           "probe5": {
             "questions": 20,
@@ -847,8 +935,10 @@
             "singleRuleShare": 20,
             "singleRuleRight": 4,
             "singleRuleAnswered": 4,
-            "medianMs": 100,
-            "p95Ms": 112
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 103,
+            "p95Ms": 117
           },
           "probe6": {
             "questions": 24,
@@ -862,8 +952,10 @@
             "singleRuleShare": 0,
             "singleRuleRight": 0,
             "singleRuleAnswered": 0,
-            "medianMs": 75,
-            "p95Ms": 105
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 73,
+            "p95Ms": 108
           },
           "probe7": {
             "questions": 22,
@@ -877,8 +969,10 @@
             "singleRuleShare": 9.1,
             "singleRuleRight": 2,
             "singleRuleAnswered": 2,
-            "medianMs": 109,
-            "p95Ms": 151
+            "semanticUsed": 22,
+            "errors": 0,
+            "medianMs": 104,
+            "p95Ms": 141
           },
           "probe8": {
             "questions": 8,
@@ -892,15 +986,17 @@
             "singleRuleShare": 12.5,
             "singleRuleRight": 1,
             "singleRuleAnswered": 1,
-            "medianMs": 99,
-            "p95Ms": 144
+            "semanticUsed": 8,
+            "errors": 0,
+            "medianMs": 93,
+            "p95Ms": 142
           }
         }
       },
       "directions": {
         "downwardApplied": 119,
         "upwardBlocked": 42,
-        "referenceBlocked": 11442,
+        "referenceBlocked": 11452,
         "missingCandidates": 16
       },
       "semantic": [
@@ -908,8 +1004,8 @@
         251
       ],
       "rssMb": [
-        857,
-        934
+        1365,
+        1383
       ]
     },
     "haiku": {
@@ -968,8 +1064,10 @@
           "singleRuleShare": 17.5,
           "singleRuleRight": 44,
           "singleRuleAnswered": 44,
-          "medianMs": 77,
-          "p95Ms": 122
+          "semanticUsed": 251,
+          "errors": 0,
+          "medianMs": 74,
+          "p95Ms": 114
         },
         "sets": {
           "train": {
@@ -984,8 +1082,10 @@
             "singleRuleShare": 30.4,
             "singleRuleRight": 14,
             "singleRuleAnswered": 14,
-            "medianMs": 73,
-            "p95Ms": 105
+            "semanticUsed": 46,
+            "errors": 0,
+            "medianMs": 72,
+            "p95Ms": 101
           },
           "dev": {
             "questions": 25,
@@ -999,8 +1099,10 @@
             "singleRuleShare": 12,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
+            "semanticUsed": 25,
+            "errors": 0,
             "medianMs": 75,
-            "p95Ms": 93
+            "p95Ms": 92
           },
           "probe1": {
             "questions": 28,
@@ -1014,8 +1116,10 @@
             "singleRuleShare": 17.9,
             "singleRuleRight": 5,
             "singleRuleAnswered": 5,
+            "semanticUsed": 28,
+            "errors": 0,
             "medianMs": 76,
-            "p95Ms": 108
+            "p95Ms": 109
           },
           "probe2": {
             "questions": 28,
@@ -1029,8 +1133,10 @@
             "singleRuleShare": 10.7,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
-            "medianMs": 72,
-            "p95Ms": 106
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 68,
+            "p95Ms": 99
           },
           "probe3": {
             "questions": 26,
@@ -1044,8 +1150,10 @@
             "singleRuleShare": 15.4,
             "singleRuleRight": 4,
             "singleRuleAnswered": 4,
-            "medianMs": 81,
-            "p95Ms": 110
+            "semanticUsed": 26,
+            "errors": 0,
+            "medianMs": 74,
+            "p95Ms": 106
           },
           "probe4": {
             "questions": 24,
@@ -1059,8 +1167,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 69,
-            "p95Ms": 94
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 63,
+            "p95Ms": 92
           },
           "probe5": {
             "questions": 20,
@@ -1074,8 +1184,10 @@
             "singleRuleShare": 30,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 96,
-            "p95Ms": 122
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 91,
+            "p95Ms": 113
           },
           "probe6": {
             "questions": 24,
@@ -1089,8 +1201,10 @@
             "singleRuleShare": 0,
             "singleRuleRight": 0,
             "singleRuleAnswered": 0,
-            "medianMs": 77,
-            "p95Ms": 112
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 72,
+            "p95Ms": 108
           },
           "probe7": {
             "questions": 22,
@@ -1104,8 +1218,10 @@
             "singleRuleShare": 4.5,
             "singleRuleRight": 1,
             "singleRuleAnswered": 1,
-            "medianMs": 107,
-            "p95Ms": 140
+            "semanticUsed": 22,
+            "errors": 0,
+            "medianMs": 102,
+            "p95Ms": 132
           },
           "probe8": {
             "questions": 8,
@@ -1119,8 +1235,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 2,
             "singleRuleAnswered": 2,
-            "medianMs": 51,
-            "p95Ms": 86
+            "semanticUsed": 8,
+            "errors": 0,
+            "medianMs": 48,
+            "p95Ms": 74
           }
         }
       },
@@ -1137,8 +1255,10 @@
           "singleRuleShare": 17.5,
           "singleRuleRight": 44,
           "singleRuleAnswered": 44,
+          "semanticUsed": 251,
+          "errors": 0,
           "medianMs": 77,
-          "p95Ms": 118
+          "p95Ms": 115
         },
         "sets": {
           "train": {
@@ -1153,7 +1273,9 @@
             "singleRuleShare": 30.4,
             "singleRuleRight": 14,
             "singleRuleAnswered": 14,
-            "medianMs": 69,
+            "semanticUsed": 46,
+            "errors": 0,
+            "medianMs": 72,
             "p95Ms": 102
           },
           "dev": {
@@ -1168,6 +1290,8 @@
             "singleRuleShare": 12,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
+            "semanticUsed": 25,
+            "errors": 0,
             "medianMs": 77,
             "p95Ms": 95
           },
@@ -1183,8 +1307,10 @@
             "singleRuleShare": 17.9,
             "singleRuleRight": 5,
             "singleRuleAnswered": 5,
-            "medianMs": 77,
-            "p95Ms": 115
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 78,
+            "p95Ms": 117
           },
           "probe2": {
             "questions": 28,
@@ -1198,8 +1324,10 @@
             "singleRuleShare": 10.7,
             "singleRuleRight": 3,
             "singleRuleAnswered": 3,
-            "medianMs": 69,
-            "p95Ms": 104
+            "semanticUsed": 28,
+            "errors": 0,
+            "medianMs": 72,
+            "p95Ms": 103
           },
           "probe3": {
             "questions": 26,
@@ -1213,8 +1341,10 @@
             "singleRuleShare": 15.4,
             "singleRuleRight": 4,
             "singleRuleAnswered": 4,
-            "medianMs": 81,
-            "p95Ms": 126
+            "semanticUsed": 26,
+            "errors": 0,
+            "medianMs": 77,
+            "p95Ms": 106
           },
           "probe4": {
             "questions": 24,
@@ -1228,8 +1358,10 @@
             "singleRuleShare": 25,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 68,
-            "p95Ms": 93
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 64,
+            "p95Ms": 89
           },
           "probe5": {
             "questions": 20,
@@ -1243,8 +1375,10 @@
             "singleRuleShare": 30,
             "singleRuleRight": 6,
             "singleRuleAnswered": 6,
-            "medianMs": 96,
-            "p95Ms": 114
+            "semanticUsed": 20,
+            "errors": 0,
+            "medianMs": 92,
+            "p95Ms": 110
           },
           "probe6": {
             "questions": 24,
@@ -1258,8 +1392,10 @@
             "singleRuleShare": 0,
             "singleRuleRight": 0,
             "singleRuleAnswered": 0,
-            "medianMs": 76,
-            "p95Ms": 110
+            "semanticUsed": 24,
+            "errors": 0,
+            "medianMs": 73,
+            "p95Ms": 108
           },
           "probe7": {
             "questions": 22,
@@ -1273,8 +1409,10 @@
             "singleRuleShare": 4.5,
             "singleRuleRight": 1,
             "singleRuleAnswered": 1,
-            "medianMs": 110,
-            "p95Ms": 144
+            "semanticUsed": 22,
+            "errors": 0,
+            "medianMs": 106,
+            "p95Ms": 152
           },
           "probe8": {
             "questions": 8,
@@ -1288,15 +1426,17 @@
             "singleRuleShare": 25,
             "singleRuleRight": 2,
             "singleRuleAnswered": 2,
-            "medianMs": 50,
-            "p95Ms": 79
+            "semanticUsed": 8,
+            "errors": 0,
+            "medianMs": 47,
+            "p95Ms": 74
           }
         }
       },
       "directions": {
         "downwardApplied": 122,
         "upwardBlocked": 49,
-        "referenceBlocked": 11470,
+        "referenceBlocked": 11469,
         "missingCandidates": 15
       },
       "semantic": [
@@ -1304,8 +1444,8 @@
         251
       ],
       "rssMb": [
-        1100,
-        1404
+        1125,
+        1122
       ]
     },
     "regoff": {
@@ -1353,7 +1493,9 @@
           "singleRuleShare": 32.4,
           "singleRuleRight": 23,
           "singleRuleAnswered": 22,
-          "medianMs": 29,
+          "semanticUsed": 0,
+          "errors": 0,
+          "medianMs": 28,
           "p95Ms": 46
         },
         "sets": {
@@ -1369,7 +1511,9 @@
             "singleRuleShare": 30.4,
             "singleRuleRight": 14,
             "singleRuleAnswered": 13,
-            "medianMs": 29,
+            "semanticUsed": 0,
+            "errors": 0,
+            "medianMs": 28,
             "p95Ms": 46
           },
           "dev": {
@@ -1384,8 +1528,10 @@
             "singleRuleShare": 36,
             "singleRuleRight": 9,
             "singleRuleAnswered": 9,
-            "medianMs": 29,
-            "p95Ms": 39
+            "semanticUsed": 0,
+            "errors": 0,
+            "medianMs": 27,
+            "p95Ms": 41
           }
         }
       },
@@ -1402,8 +1548,10 @@
           "singleRuleShare": 32.4,
           "singleRuleRight": 23,
           "singleRuleAnswered": 22,
-          "medianMs": 29,
-          "p95Ms": 44
+          "semanticUsed": 0,
+          "errors": 0,
+          "medianMs": 27,
+          "p95Ms": 45
         },
         "sets": {
           "train": {
@@ -1418,8 +1566,10 @@
             "singleRuleShare": 30.4,
             "singleRuleRight": 14,
             "singleRuleAnswered": 13,
-            "medianMs": 30,
-            "p95Ms": 44
+            "semanticUsed": 0,
+            "errors": 0,
+            "medianMs": 27,
+            "p95Ms": 45
           },
           "dev": {
             "questions": 25,
@@ -1433,7 +1583,9 @@
             "singleRuleShare": 36,
             "singleRuleRight": 9,
             "singleRuleAnswered": 9,
-            "medianMs": 28,
+            "semanticUsed": 0,
+            "errors": 0,
+            "medianMs": 27,
             "p95Ms": 42
           }
         }
@@ -1449,8 +1601,8 @@
         0
       ],
       "rssMb": [
-        231,
-        243
+        234,
+        245
       ]
     }
   },

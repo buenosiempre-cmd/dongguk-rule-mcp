@@ -19,4 +19,6 @@ assert.equal(graphSignal(baseline.ranked,{corpus:{rules:null}}).audit.status,'fa
 const mismatch=graphSignal(baseline.ranked.map(r=>({...r,scopeMatch:r.lawId===2?false:null})),{corpus});assert.equal(mismatch.scores.size,0);
 const absent=graphSignal(baseline.ranked.filter(r=>r.lawId!==2),{corpus});assert.equal(absent.scores.size,0);assert(absent.audit.missingCandidates.some(x=>x.to===2));
 const newer=graphSignal(baseline.ranked.map(r=>r.lawId===2?{...r,historyId:999}:r),{corpus});assert.equal(newer.scores.size,0);
+const sameSize=structuredClone(corpus);sameSize.rules[0].blocks=sameSize.rules[0].blocks.slice(0,1);assert.equal(graphSignal(baseline.ranked,{corpus:sameSize}).scores.size,0);
+const otherKind=structuredClone(corpus);otherKind.rules[1].title='표본규정 시행규정';assert.equal(graphSignal(baseline.ranked,{corpus:otherKind}).scores.size,0);
 console.log('✅ graph fusion: downward only, no citation/upward boost, 25% cap, legacy unchanged, missing/corrupt fallback, scope/version/candidate guards');
