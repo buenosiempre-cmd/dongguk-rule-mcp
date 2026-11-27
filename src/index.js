@@ -132,6 +132,7 @@ const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCand
 const {
   parseSearch,
   parseContent,
+  CONTENT_PARSER_VERSION,
   parseHistory,
   searchResultMetrics,
   normalizeArticleSelector,
@@ -165,8 +166,8 @@ const MAIN_URL = `${BASE_URL}/lmxsrv/main/main.srv`;
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)';
 // LAWGROUP is document type, not campus (official screen verified 2026-09-08).
 // Bump when parseContent output changes; parsed bodies are cached for 30 days.
-// v3: 부칙(div.addenda) headings are now kept.
-const CONTENT_CACHE = 'content-v3';
+// v4: unnumbered article bodies and paragraph continuations are now kept.
+const CONTENT_CACHE = `content-v${CONTENT_PARSER_VERSION}`;
 const TTL = { search: 3600, searchFull: 86400, history: 600, content: 30*86400, catalog: 600 };
 // A local index older than this is ignored unless the caller asks for it.
 const INDEX_MAX_AGE_MS = 8*86400*1000;
@@ -320,7 +321,8 @@ async function loadCatalog() {
 async function buildRuleIndex({onProgress}={}) {
   return withProfile('rules',async()=>{
     const catalog=await loadCatalog();
-    const previous=loadCorpus(publicCacheDir());
+    // Keep the catalog-size guard while rejecting old parser bodies for search/reuse.
+    const previous=loadCorpus(publicCacheDir(),{allowStaleParser:true});
     const corpus=await buildCorpus({
       catalog,previous,onProgress,
       loadContent:(lawId,historyId)=>cached(CONTENT_CACHE,`${lawId}_${historyId}`,TTL.content,()=>getContent(lawId,historyId)),
@@ -1720,7 +1722,8 @@ function startHttp() {
       finally{indexRunning=false;}
     };
     indexTimer=setInterval(refresh,refreshHours*3600*1000);indexTimer.unref();
-    setTimeout(refresh,30000).unref();
+    // Start migration after HTTP begins listening; refresh handles failures and retries.
+    server.once('listening',()=>{void refresh();});
   }
   const withWarmStatus=server.getStatus;
   server.getStatus=()=>({...withWarmStatus(),fullTextIndex:{...indexStatus(),autoRefreshHours:indexTimer?refreshHours:0,running:indexRunning,lastRefresh:indexLast}});

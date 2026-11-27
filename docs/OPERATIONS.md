@@ -171,6 +171,8 @@ node src/index.js --http --profile rules --host 127.0.0.1 --port 3845 --token-fi
 
 ### 전문 색인 운영 (v0.13.0)
 
+본문 파서 변경 후에는 같은 계정·`XDG_CACHE_HOME`에서 `--build-index`를 실행하고 `/status`의 `fullTextIndex.available`·실패 규정 수를 확인합니다. 구 파서 색인은 검색과 동일 연혁 재사용에서 제외됩니다. [content-v4 계약·이행 절차](content-parser-repair.md)를 따르세요.
+
 전문 색인은 전체 공개 규정의 HTML 본문을 조문 단위로 모은 파일입니다. `search_rule_deep`의 후보 탐색, `get_rule_references`의 역방향 조회, 그리고 규정명이 없는 자연어 질문에 대한 `lookup_dongguk_rule`의 후보 선정에 씁니다. 색인이 없어도 다른 도구는 그대로 동작하지만, 자연어 질문은 공식 사이트 전문검색(요청당 약 10초)으로 돌아가 느리고 복합어를 놓치기 쉽습니다.
 
 ```bash
@@ -182,7 +184,7 @@ dongguk-rule-mcp --build-index
 - 파일 위치는 `~/.cache/dongguk-rule-mcp/v2/public/corpus/`입니다(`XDG_CACHE_HOME`을 지정하면 그 아래). 서버와 색인 명령이 같은 계정·같은 캐시 경로를 써야 합니다.
 - 로그인 쿠키 없이 공개 규정만 색인합니다. 쿠키를 쓰는 `finance` 요청은 색인을 쓰지 않고 공식 사이트를 검색합니다.
 - 공개용과 토큰용 프로세스는 같은 공개 캐시 폴더의 색인을 함께 읽습니다. 자동 갱신은 한 프로세스에만 지정합니다.
-- 공용 HTTP 서버는 `DONGGUK_MCP_INDEX_REFRESH_HOURS=24`를 지정하면 기동 30초 뒤와 이후 24시간마다 스스로 갱신합니다. `/status`의 `fullTextIndex`에서 마지막 갱신 결과를 확인합니다.
+- 공용 HTTP 서버는 `DONGGUK_MCP_INDEX_REFRESH_HOURS=24`를 지정하면 HTTP 수신 시작 직후 비동기로 한 번, 이후 24시간마다 스스로 갱신합니다. 첫 갱신이 실패해도 서버는 응답하며 다음 주기에 재시도합니다. `/status`의 `fullTextIndex`에서 마지막 갱신 결과를 확인합니다.
 - 규정 목록이 이전 색인보다 20% 넘게 줄면 색인을 덮어쓰지 않고 실패합니다. 일부 규정의 본문 조회가 실패하면 그 규정을 누락으로 기록하고 `complete:false`로 표시합니다.
 - 색인이 8일을 넘기면 `search_rule_deep`은 공식 사이트 검색으로 돌아갑니다. `get_service_info`의 `fullTextIndex.stale`로 확인합니다. `lookup_dongguk_rule`은 오래된 색인도 후보를 찾는 데 쓰되 본문은 항상 현행 개정본을 다시 읽고, 결과에 색인 기준일과 "8일 초과"를 표시합니다.
 - stdio로 쓰는 개인 설치(Claude Code·Claude Desktop 등)에는 자동 갱신이 없습니다. launchd 또는 cron으로 `dongguk-rule-mcp --build-index`를 주 1~2회 실행합니다. 예: `~/Library/LaunchAgents/com.dongguk-rule-mcp.build-index.plist`에 `ProgramArguments`로 `node <설치경로>/src/index.js --build-index`, `StartCalendarInterval`로 `Weekday 1, Hour 6`를 두고 `launchctl bootstrap gui/$(id -u) <plist>`로 등록합니다. 서버가 쓰는 계정·`XDG_CACHE_HOME`과 같아야 하며, 색인은 공개 규정만 담으므로 로그인 쿠키는 필요하지 않습니다.
