@@ -1,0 +1,61 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
+const { createRequire } = require('node:module');
+const { pathToFileURL } = require('node:url');
+const { loadCorpus, corpusPath } = require('../src/corpus');
+const { loadSemanticIndex, createEmbedder } = require('../src/semantic');
+const { createRetriever, FEATURE_NAMES, experimentFingerprint } = require('../src/jev');
+const sha = data => crypto.createHash('sha256').update(data).digest('hex');
+
+async function main(argv = process.argv.slice(2)) {
+  const options = {};
+  for (let i = 0; i < argv.length; i += 2) {
+    if (!['--corpus-dir', '--vector-dir', '--output'].includes(argv[i]) || !argv[i + 1]) throw new Error('INVALID_OPTIONS');
+    options[argv[i].slice(2)] = path.resolve(argv[i + 1]);
+  }
+  if (!options['corpus-dir'] || !options['vector-dir'] || !options.output) throw new Error('REQUIRED_OPTIONS');
+  if (fs.existsSync(options.output)) throw new Error('OUTPUT_EXISTS');
+  // Deliberate allowlist: no arbitrary question path, external DB or held-out set.
+  const sources = ['train', 'dev'].map(split => {
+    const file = path.join(__dirname, `../test/fixtures/natural-language-benchmark.${split}.json`), bytes = fs.readFileSync(file);
+    return { split, file: path.relative(path.join(__dirname, '..'), file), sha256: sha(bytes), rows: JSON.parse(bytes) };
+  });
+  const corpusBytes = fs.readFileSync(corpusPath(options['corpus-dir']));
+  const corpus = loadCorpus(options['corpus-dir']), index = loadSemanticIndex(options['vector-dir']);
+  if (!index) throw new Error('SEMANTIC_INDEX_MISSING');
+  const start = performance.now(), retriever = createRetriever(corpus, index);
+  // Existing operator models use a local model tree rather than an HF HTTP cache.
+  if (process.env.DONGGUK_MCP_SEMANTIC_RUNTIME && process.env.DONGGUK_MCP_SEMANTIC_MODEL_DIR) {
+    const runtimePath = createRequire(path.join(process.env.DONGGUK_MCP_SEMANTIC_RUNTIME, 'package.json')).resolve('@huggingface/transformers');
+    const runtime = await import(pathToFileURL(runtimePath).href);
+    runtime.env.localModelPath = process.env.DONGGUK_MCP_SEMANTIC_MODEL_DIR;
+  }
+  const embedder = await createEmbedder({ directory: options['vector-dir'], model: index.meta.model, download: false });
+  await embedder.embedQuery('검색 준비');
+  const startupMs = performance.now() - start;
+  const records = [];
+  for (const source of sources) for (const question of source.rows) {
+    const ev = await retriever.gather(question.q, q => embedder.embedQuery(q));
+    // Compare explicit article identities in the same rule. No title-only credit.
+    const canonical = s => String(s || '').replace(/\s/g, '');
+    for (const c of ev.candidates) c.label = Number(question.gt.some(g => g.lawId === c.lawId && g.articles.some(a => canonical(a) === canonical(c.article))));
+    records.push({ ...question, split: source.split, ...ev });
+    console.log(`${records.length}/71 ${question.id} candidates=${ev.candidates.length} rrf=${ev.rrfMs.toFixed(1)}ms jev=${ev.jevMs.toFixed(1)}ms`);
+  }
+  const corpusHash = sha(corpusBytes), vectorHash = index.meta.vectorHash;
+  if (sha(fs.readFileSync(corpusPath(options['corpus-dir']))) !== corpusHash) throw new Error('CORPUS_CHANGED');
+  const report = { version: 1, createdAt: new Date().toISOString(), gitHead: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    featureNames: FEATURE_NAMES, model: index.meta.model, corpusHash, vectorHash,
+    fingerprint: experimentFingerprint(corpusHash, vectorHash),
+    codeHashes: Object.fromEntries(['src/jev.js', 'scripts/collect-jev-evidence.js', 'src/lookup.js', 'src/aliases.js'].map(f => [f, sha(fs.readFileSync(path.join(__dirname, '..', f)))])),
+    sources: sources.map(({ rows, ...s }) => ({ ...s, count: rows.length })),
+    coverage: retriever.coverage, startupMs, peakRssMb: process.resourceUsage().maxRSS / 1024,
+    timingScope: 'Warm local e5-small inference included; first-use lexical term cache; no MCP/network/excerpt rendering; JEV includes RRF shared first stage. No query embedding cache.', records };
+  fs.mkdirSync(path.dirname(options.output), { recursive: true });
+  fs.writeFileSync(options.output, JSON.stringify(report) + '\n', { flag: 'wx' });
+}
+if (require.main === module) main().catch(e => { console.error(e.message); process.exitCode = 1; });
+module.exports = { main };
