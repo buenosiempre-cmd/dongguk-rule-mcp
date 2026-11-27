@@ -118,7 +118,11 @@ function latestAddendaEffective(markdown) {
   if (!heads.length) return null;
   // Keep inline commencement text, but remove an optional addendum date label.
   const last = source.slice(heads[heads.length - 1].index)
-    .replace(/^#{0,3}\s*부\s*칙\s*(?:[（(<\[][^）)>\]\n]*[）)>\]])?/, '');
+    .replace(/^#{0,3}\s*부\s*칙\s*(?:[（(<\[][^）)>\]\n]*[）)>\]])?/, '')
+    // These explicit nominal references do not declare another effective date.
+    // Mask only the keyword for this parser; returned source text is untouched.
+    .replace(/((?:이|본)\s*(?:규정|지침|규칙|세칙|내규|학칙|규약|요령|기준)(?:의)?\s*)시행(?=\s*(?:(?:이전|이후|전|후)(?=\s|에|의|부터|까지|[.,)）])|에\s*필요한))/g, '$1기준시점')
+    .replace(/([（(])시행(?=\s*에\s*필요한\s*사항\s*[）)])/g, '$1기준시점');
   const datePattern = /^(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?\s*\.?\s*(?:부터|에)?\s*(?:개정\s*)?$/;
   const generalSubject = /^(?:이|본)?(?:개정)?(?:규정|지침|규칙|세칙|내규|학칙|규약|요령|기준)(?:은|는)/;
   const provision = String.raw`제\d+조(?:의\d+)?(?:제\d+항)?(?:[（(][^（）()]+[）)])?`;
@@ -129,7 +133,10 @@ function latestAddendaEffective(markdown) {
     end = match.index + match[0].length;
     // Strip completed preceding sentences and structural labels, never arbitrary
     // text before a date. An unrecognised subject must not become a general date.
-    const clause = match[1].replace(/^[\s\S]*(?:한다|함)[.。]/, '')
+    const preceding = /^[\s\S]*(?:다|함)[.。]/.exec(match[1])?.[0] || '';
+    // An unsupported earlier declaration cannot be discarded as explanatory text.
+    if (/시행/.test(preceding)) return null;
+    const clause = match[1].slice(preceding.length)
       .replace(/\s+/g, '').replace(/^[.。,]+/, '').replace(/^다만[,，]?/, '')
       .replace(/^#{1,3}/, '').replace(/^[①-⑳]/, '')
       .replace(/^(?:제\d+조)?[（(]시행일[）)]/, '');
