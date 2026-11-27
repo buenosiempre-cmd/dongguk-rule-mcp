@@ -52,3 +52,19 @@ node scripts/measure-natural-language.js --cache <캐시 사본> --questions 문
 - 기본은 오프라인입니다. 제목 검색은 색인으로 대신 답하고 그 밖의 원문 요청은 실패시킵니다. 캐시에 없는 원문을 받으려면 `--online`.
 - 내는 값: 정답 조문 포함(엄격), 정답 규정 상위 3, 규정이 맞을 때 조문 포함, 한 규정만 보여 준 수와 그 정확도, 지연 중앙값·p95, RSS. 세트(파일)별로 나눠 냅니다. `--compare`는 새로 틀린 문항과 정답 규정이 상위 3에서 빠진 문항을 모두 적습니다.
 - 지연은 이 프로세스 안의 조회 시간입니다. 원문 사이트 왕복은 들어 있지 않습니다.
+
+## 그래프 연결 실험 (2026-11-27, #60의 3ee3b90 + #54의 9318ad4)
+
+`DONGGUK_MCP_RANKING=hybrid-graph`만 새 연결을 사용한다. 기본 `legacy`, 기존 `hybrid`, 비교용 `jev` 동작은 유지한다. `src/index.js`·`src/corpus.js`의 순위 코드는 이 실험에서 변경하지 않았다. 병합으로 들어온 D1 파서·캐시 버전 변경은 별도 선행 변경이다.
+
+`src/graph-fusion.js`가 공개 corpus 객체마다 그래프를 한 번 로드/생성하고 `rankRelatedRules`를 호출한다. 별도 디스크 쓰기·네트워크는 없다. corpus 갱신 시 새 객체로 다시 준비한다. 설정은 문항 측정 전에 고정했다.
+
+- hybrid 정렬의 상위 3개를 seed로 쓰며 seed 점수는 1, 1/2, 1/3이다.
+- 명시적 `implements` 간선은 하위→상위로 저장된다. **가점은 반대 탐색인 상위→하위만** 허용한다. 단순 제목 유사성을 위계로 추정하지 않는다.
+- 하위 대상 제목은 `시행세칙` 또는 `내규`로 끝나고, 상위 규정의 본칙 블록 수가 하위보다 많아야 한다. 이는 법적 효력 판정이 아닌 보수적 검색 제한이다.
+- 상향·일반 인용/준용·부칙·별표·개정 관계는 가점하지 않는다. 방향별 적용/차단 횟수와 근거를 실험 하네스가 기록한다. 금지된 방향의 양의 가점 조건은 측정하지 않는다.
+- 기존 후보에 있는 규정만 조정하고, 명시적 캠퍼스/기관 불일치 또는 버전 불일치는 건너뛴다. 후보를 추가하거나 선택 조문을 교체하지 않는다. `getRelatedArticles`는 이 범위에서 호출하지 않는다.
+- 규정 점수는 `hybrid order × (1 + 0.25 × graphScore)`이며 합산 graphScore는 1을 넘지 않는다. 상향 등 다른 방향의 계수는 0이다. 이미 큰 규정에 모이던 일반 인용 신호는 섞지 않는다.
+- corpus·그래프 없음/손상/예외는 가점 0으로 hybrid 순서를 보존한다. 반환 `graphAudit`은 상태와 방향별 근거를 담는다. 실제 MCP의 `search.ranking`은 선택 방식이고, 세부 그래프 audit은 실험 하네스에 저장한다.
+
+`node scripts/measure-graph-fusion.js --cache <자체 캐시> --questions <공개 문항들> --ranking hybrid|hybrid-graph --query-only --out <새 JSON>`으로 실제 MCP를 오프라인 측정한다. `--keywords`와 함께 측정할 때는 `--query-only`를 빼야 한다. wrapper는 고정 corpus/벡터 SHA·TEXT3을 검사하고 입력 해시·커밋·방향 trace를 결과에 보존한다. `--query-only`는 fixture의 args.keywords도 무시한다. 문항별 의미검색 사용 여부도 기록한다.
