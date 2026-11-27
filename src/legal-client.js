@@ -628,12 +628,9 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
       try{
         const arguments_={mst:current.mst,efYd:current.effectiveAt,jo:selector};
         const response=await call('get_law_text',arguments_,{
-          validationKey:stable({consumer:'upper-laws',name:normalize(current.name),effectiveAt:current.effectiveAt,selector}),
-          validate:response=>{
-            const text=textOf(response),header=/^법령명:\s*(.+)$/m.exec(text)?.[1];
-            return !responseFailed(response)&&!errorText(text)&&normalize(header)===normalize(current.name)
-              &&!bodyVersionProblem(text,current)&&Boolean(articleFacts(text,selector));
-          },
+          // Version 2 excludes title-only bodies cached by the old facts check.
+          validationKey:stable({consumer:'upper-laws',bodyValidation:2,name:normalize(current.name),effectiveAt:current.effectiveAt,selector}),
+          validate:response=>!bodyProblem(response,current,selector),
         });
         const text=textOf(response);
         const header=/^법령명:\s*(.+)$/m.exec(text)?.[1];
@@ -650,6 +647,11 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
         // "Missing" needs the law's own header plus the provider's explicit statement.
         if(/^\[NOT_FOUND\][^\r\n]*조문(?: 내용)?을 찾을 수 없습니다/m.test(text)){Object.assign(article,{status:'missing',code:'LEGAL_ARTICLE_MISSING'});continue;}
         if(responseFailed(response)||errorText(text)) throw failure('LEGAL_BODY_ERROR');
+        // Finding an article heading is metadata, not proof that its body was
+        // retrieved. Keep verified deletion text as evidence, but reject TOCs,
+        // bare/repeated headings and provider notices without statutory prose.
+        const problem=bodyProblem(response,current,selector);
+        if(problem) throw failure(problem);
         const facts=articleFacts(text,selector);
         if(!facts) throw failure('LEGAL_ARTICLE_UNVERIFIED');
         const content=clipped(facts.body,maxTextChars);

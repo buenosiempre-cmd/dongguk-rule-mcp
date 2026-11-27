@@ -18,7 +18,7 @@ require(fetchPath);
 require.cache[fetchPath].exports = async () => { throw new Error('Network disabled in offline regression test'); };
 const { createServer } = require('../src/index.js');
 const { createHttpServer } = require('../src/http-server.js');
-const { closeLegalClient, inspectLaws, articleFacts } = require('../src/legal-client.js');
+const { closeLegalClient, inspectLaws, articleFacts, callCacheKey } = require('../src/legal-client.js');
 const { createResolver, extractReferences, summarizeExternalLaws } = require('../src/references.js');
 const { buildUpperLaws, planLaws, signalsFor, topicCandidates, latestAnnotatedDate } = require('../src/upper-laws.js');
 const { titleInQuery, withoutRuleName } = require('../src/lookup.js');
@@ -218,6 +218,32 @@ async function main() {
       inspectLaws:async(requests,opts)=>{checked++;return inspectLaws(requests,{...opts,client:injected});}});
     assert.equal(checked,1);assert.equal(result.lookup.status,'retrieved');assert.match(result.laws[0].articles[0].text,/현재 합성본문/);
   });
+  await check('A3 제목·목차·안내문은 본문이 아니며 정상 본문·삭제는 유지', async () => {
+    const head='법령명: 사립학교법\n시행일: 20240301\n\n';
+    const cases=[
+      ['제29조(합성)', 'unavailable'],
+      ['제29조 합성', 'unavailable'],
+      ['제29조 합성\n제29조(합성)', 'unavailable'],
+      ['목차(총 1개 조문)\n제29조(합성)', 'unavailable'],
+      ['제29조(합성)\n⚠ 본문은 별도 확인하세요.\nℹ 안내입니다.', 'unavailable'],
+      ['제29조(합성)\n123 ---', 'unavailable'],
+      ['제29조(합성) ① 합성 본문이다.', 'found'],
+      ['제29조 합성\n제29조(합성)\n① 합성 본문이다.', 'found'],
+      ['제29조 삭제 <2022.1.4>', 'deleted'],
+      ['제29조(합성)\n삭제 <2022.1.4>', 'deleted'],
+      ['제29조(합성)\n①본문이다.\n7. 삭제<2022.1.4>', 'found'],
+    ];
+    for (const [body,status] of cases) {
+      const fake={callTool:async r=>r.name==='search_law'?{content:[{type:'text',text:listing(['사립학교법'])}]}:{content:[{type:'text',text:head+body}]}};
+      const result=await inspectLaws([{name:'사립학교법',articles:['제29조']}],{client:fake});
+      const article=result.laws[0].articles[0];
+      assert.equal(article.status,status,body);
+      assert.equal(result.status,status==='unavailable'?'partial':'retrieved');
+      if(status==='unavailable') assert.equal(article.text,undefined);
+    }
+    assert(articleFacts(head+'제29조(합성)','제29조'), 'heading metadata may exist without a retrieved body');
+  });
+
   await check('빈 응답·점검 페이지는 없음이 아니라 확인 실패', async () => {
     for (const broken of ['empty', 'maintenance']) {
       mode = broken;
@@ -333,6 +359,37 @@ async function main() {
       assert.equal(withoutText.evidenceStatus,'partial');
     }
   });
+  await check('A3 최상위 상태·두 구 캐시 우회·정상화 후 회복과 재사용', async () => {
+    const crypto=require('node:crypto'), day=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+    seed('history','112',[{historyId:20,revisedAt:'2021.03.02'}]);
+    setRule(112,'### 제1조(근거)\n「사립학교법」 제112조를 따른다.');
+    LAWS.사립학교법.articles.제112조='제112조(합성)';
+    const rawKey=callCacheKey('get_law_text',{mst:'9001',efYd:'20240301',jo:'제112조'});
+    const validation=JSON.stringify({consumer:'upper-laws',effectiveAt:'20240301',name:'사립학교법',selector:'제112조'});
+    const oldBodyKey=crypto.createHash('sha256').update(`${rawKey}|validated-body-v1|${validation}`).digest('hex');
+    const oldUpperKey=crypto.createHash('md5').update(['effective-date-v2','사립학교법','name','제112조',day].join('|')).digest('hex');
+    seed('legal-call',oldBodyKey,{fetchedAt:'2026-11-27T00:00:00Z',response:{content:[{type:'text',text:'법령명: 사립학교법\n시행일: 20240301\n\n제112조(합성)'}]}});
+    seed('upper-law',oldUpperKey,{identity:{status:'current',name:'사립학교법',effectiveAt:'2024-03-01'},articles:[{article:'제112조',status:'found',text:'제112조(합성)',truncated:false}]});
+    const oldFiles=[path.join(dir,'legal-call',oldBodyKey+'.json'),path.join(dir,'upper-law',oldUpperKey+'.json')];
+    const oldBytes=oldFiles.map(f=>fs.readFileSync(f,'utf8'));
+    const bodyCount=()=>lawCalls.filter(x=>x.name==='get_law_text'&&x.args.jo==='제112조').length;
+    for(const include_text of [true,false]){
+      const raw=await client.callTool({name:'get_rule_upper_laws',arguments:{law_id:112,include_text}});
+      const d=raw.structuredContent.data;
+      assert.equal(d.evidenceStatus,'partial');assert.equal(d.lookup.status,'partial');
+      assert.equal(d.laws[0].articles[0].text,undefined);
+      if(include_text) assert.deepEqual([d.textCoverage.status,d.comparison.status],['unavailable','unavailable']);
+    }
+    assert.equal(bodyCount(),2,'bad body is retried, neither old cache is trusted');
+    LAWS.사립학교법.articles.제112조='제112조(합성)\n① 복구된 합성 본문이다.';
+    const repaired=await call('get_rule_upper_laws',{law_id:112,include_text:true});
+    assert.deepEqual([repaired.data.lookup.status,repaired.data.textCoverage.status,repaired.data.comparison.status,repaired.data.evidenceStatus],['retrieved','complete','complete','retrieved']);
+    assert.match(repaired.data.laws[0].articles[0].text,/복구된 합성 본문/);
+    await call('get_rule_upper_laws',{law_id:112,include_text:true});
+    assert.equal(bodyCount(),3,'one repaired body, then warm cache');
+    assert.deepEqual(oldFiles.map(f=>fs.readFileSync(f,'utf8')),oldBytes,'legacy files are preserved byte for byte');
+  });
+
   await check('규정 전체: 법령별 현행 여부와 점검 신호', async () => {
     const raw = await client.callTool({ name: 'get_rule_upper_laws', arguments: { law_id: 1, max_laws: 12 } });
     const data = raw.structuredContent.data;

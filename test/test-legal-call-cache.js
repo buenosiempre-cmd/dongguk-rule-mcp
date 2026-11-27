@@ -123,6 +123,19 @@ test('validated bodies recover after provider repair, while successful bodies st
     assert.equal((await query()).status,'retrieved');assert.equal(bodies,2,'one rejected call, one repair, then cache');
   }
 });
+test('title and TOC bodies are not persisted; repair survives a fresh disk-cache instance',async()=>{
+  for(const fragment of ['제29조(검수)','목차(총 1개 조문)\n제29조(검수)']){
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'legal-body-evidence-'));
+    let cache=createDiskCache({directory:()=>dir}),broken=true,bodies=0;
+    const client={async callTool({name,arguments:a}){if(name==='search_law')return listing('사립학교법');bodies++;
+      return broken?text('법령명: 사립학교법\n시행일: 20240301\n\n'+fragment):body('사립학교법',a.jo);}};
+    const query=()=>inspectLaws([{name:'사립학교법',articles:['제29조']}],{client,cache});
+    const first=await query();assert.equal(first.status,'partial');assert.equal(first.laws[0].articles[0].status,'unavailable');
+    assert.equal(fs.readdirSync(path.join(dir,'legal-call')).length,1,'only the successful listing is stored');
+    broken=false;assert.equal((await query()).status,'retrieved');
+    cache=createDiskCache({directory:()=>dir});assert.equal((await query()).status,'retrieved');assert.equal(bodies,2);
+  }
+});
 test('legacy unvalidated body files are bypassed and retained, not deleted',async()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'legal-legacy-'));
   const cache=createDiskCache({directory:()=>dir});
