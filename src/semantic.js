@@ -37,6 +37,9 @@ const RETRY_AFTER_INFERENCE_MS = 60 * 1000;
 // One inference (a question, or one batch while refreshing vectors) that runs longer than this
 // is given up: the model is dropped so it cannot hold the queue.
 const INFERENCE_LIMIT_MS = 20 * 1000;
+// Loading the model (importing the runtime, reading the model files) that takes longer than this
+// is given up the same way, so questions and vector refreshes do not queue behind it.
+const LOAD_LIMIT_MS = 60 * 1000;
 
 function semanticSetting() {
   const value = String(process.env.DONGGUK_MCP_SEMANTIC || '').trim().toLowerCase();
@@ -335,7 +338,7 @@ function scoreBlocks(index, corpus, queryVector) {
 // One embedder is loaded on first use and shared. Questions are embedded one
 // at a time: a caller that has stopped waiting does not start a second
 // inference beside the first.
-const state = { embedder: null, loading: null, pausedUntil: 0, lastCode: null, chain: Promise.resolve(), waiting: 0, override: null, inferenceLimitMs: INFERENCE_LIMIT_MS };
+const state = { embedder: null, loading: null, pausedUntil: 0, lastCode: null, chain: Promise.resolve(), waiting: 0, override: null, inferenceLimitMs: INFERENCE_LIMIT_MS, loadLimitMs: LOAD_LIMIT_MS, loader: null, attempt: 0 };
 const MAX_WAITING = 8;
 const queryCache = new Map();
 const coded = (error, code) => Object.assign(error instanceof Error ? error : new Error(String(error)), { semanticCode: error?.code === 'SEMANTIC_RUNTIME_MISSING' ? error.code : code });
@@ -346,10 +349,21 @@ function loadEmbedder(directory, model) {
   if (state.override) return Promise.resolve(state.override);
   if (state.embedder?.model === model) return Promise.resolve(state.embedder);
   if (!state.loading) {
-    state.loading = createEmbedder({ directory, model })
-      .then(embedder => { state.embedder = embedder; return embedder; })
-      .catch(error => { pause(coded(error, 'SEMANTIC_MODEL_UNAVAILABLE'), RETRY_AFTER_LOAD_MS); throw error; })
-      .finally(() => { state.loading = null; });
+    // A load cannot be cancelled. One that outlives the limit is abandoned: its attempt number
+    // no longer matches, so finishing late neither installs its model nor changes the pause.
+    const attempt = ++state.attempt;
+    let timer = null;
+    const loading = Promise.race([
+      (state.loader || createEmbedder)({ directory, model }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(new Error('semantic model load stalled'), { stalled: true })), state.loadLimitMs); }),
+    ])
+      .then(embedder => { if (state.attempt === attempt) state.embedder = embedder; return embedder; })
+      .catch(error => {
+        if (state.attempt === attempt) { if (error.stalled) state.attempt++; pause(coded(error, error.stalled ? 'SEMANTIC_MODEL_LOAD_STALLED' : 'SEMANTIC_MODEL_UNAVAILABLE'), RETRY_AFTER_LOAD_MS); }
+        throw error;
+      })
+      .finally(() => { clearTimeout(timer); if (state.loading === loading) state.loading = null; });
+    state.loading = loading;
     state.loading.catch(() => {});
   }
   return state.loading;
@@ -447,10 +461,12 @@ function semanticStatus(directory, corpus = null) {
   };
 }
 
-// Tests supply a deterministic embedder instead of a model, and may shorten the stall limit.
-function setEmbedderForTests(embedder, { inferenceLimitMs = INFERENCE_LIMIT_MS } = {}) {
+// Tests supply a deterministic embedder instead of a model (or a loader standing in for the
+// model load), and may shorten the stall limits.
+function setEmbedderForTests(embedder, { inferenceLimitMs = INFERENCE_LIMIT_MS, loadLimitMs = LOAD_LIMIT_MS, loader = null } = {}) {
   state.override = embedder || null;
   state.embedder = null; state.pausedUntil = 0; state.lastCode = null; state.inferenceLimitMs = inferenceLimitMs;
+  state.loadLimitMs = loadLimitMs; state.loader = loader; state.loading = null; state.attempt++;
   queryCache.clear();
 }
 

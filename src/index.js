@@ -742,7 +742,7 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
     const body=hit.articles[0]&&!hit.articles[0].supplementary;
     const rankedArticles=hit.articles.filter(item=>item.article&&!item.supplementary).map(item=>item.article);
     const entry={lawId:hit.lawId,historyId:hit.historyId,title:hit.title,code:hit.code,revisedAt:hit.revisedAt,
-      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,wordScore:hit.wordScore,edition:hit.edition,family:hit.family,
+      matchedTerms:hit.matchedTerms,matchedConcepts:hit.matchedConcepts,matchCount:hit.matchCount,topArticle:hit.articles[0]?.article||null,topArticleInBody:!!body,score:hit.score,edition:hit.edition,family:hit.family,
       priorityArticles:excerptPriority(body?rankedArticles.slice(0,1):[],hit.semanticArticle,[hit.wordArticle,...(body?rankedArticles.slice(1,2):[])]),rankedArticles,
       // Only the institution or campus name matched; no article is about the topic.
       scopeNameOnly:hit.matchedConcepts.length>0&&hit.matchedConcepts.every(term=>SCOPE_WORD.test(term))};
@@ -769,10 +769,14 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   for(const extra of anchored.slice(0,1)) if(!leading.includes(extra)) leading.splice(INDEX_PREVIEW_RULES-1,1,extra);
   const hits=[...leading,...ranked.filter(x=>!leading.includes(x))].slice(0,top);
   const [first,second]=hits;
-  // How clearly the first rule leads is judged by word scores. The semantic lift orders rules;
-  // it is not evidence that one rule alone answers the question.
+  // Without semantic scores the first rule leads when it clearly outscores the second, as before.
+  // With them the lift orders rules but is not evidence that one rule alone answers the question:
+  // the first rule must then lead every other candidate by its word score.
+  const wordScore=new Map(found.hits.map(hit=>[hit.lawId,hit.wordScore]));
   const searchable=found.tokens.length-found.missingTerms.length;
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||first.wordScore>=Math.max(...hits.slice(1).map(hit=>hit.wordScore))*1.3);
+  // Under hybrid the order is not the score order, so the first rule is compared with every
+  // other candidate whether or not semantic scores were applied (the two scores are equal without them).
+  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;

@@ -302,6 +302,24 @@ async function main() {
     && semantic.semanticStatus(dir, shortened).indexAvailable === true);
 
   // ── 멈춤·실패·동시 실행 ──
+  // A model load that never finishes (runtime import or model files hanging).
+  semantic.setEmbedderForTests(null, { loadLimitMs: 60, loader: () => new Promise(() => {}) });
+  const loadStalledAt = Date.now();
+  const whileLoading = await Promise.all(Array.from({ length: 10 }, (_, i) => semantic.semanticScores({ corpus: loaded, directory: dir, text: `로딩 중 질문 ${i}`, limitMs: 20 })));
+  check('멈춘 모델 로딩: 질문은 시간 한도에 폴백', whileLoading.every(value => value === null) && Date.now() - loadStalledAt < 200);
+  await new Promise(resolve => setTimeout(resolve, 120));
+  check('멈춘 모델 로딩을 한도 뒤 포기: 대기열이 비고 상태에 사유와 재시도 시각을 표시',
+    semantic.semanticStatus(dir).waiting === 0 && semantic.semanticStatus(dir).lastError === 'SEMANTIC_MODEL_LOAD_STALLED'
+    && Date.parse(semantic.semanticStatus(dir).pausedUntil) > Date.now() + 9 * 60 * 1000 && semantic.semanticStatus(dir).runtimeLoaded === false);
+  semantic.setEmbedderForTests(null, { loadLimitMs: 40, loader: () => new Promise(resolve => setTimeout(() => resolve(fakeEmbedder()), 120)) });
+  await semantic.semanticScores({ corpus: loaded, directory: dir, text: '늦게 끝나는 로딩', limitMs: 20 });
+  await new Promise(resolve => setTimeout(resolve, 200));
+  check('포기한 로딩이 늦게 끝나도 모델을 올리거나 멈춤 상태를 지우지 않음',
+    semantic.semanticStatus(dir).runtimeLoaded === false && semantic.semanticStatus(dir).lastError === 'SEMANTIC_MODEL_LOAD_STALLED');
+  semantic.setEmbedderForTests(null, { loader: async () => fakeEmbedder() });
+  check('로딩이 한도 안에 끝나면 그대로 사용', (await semantic.semanticScores({ corpus: loaded, directory: dir, text: '돌려줘', limitMs: 1000 }))?.size > 0
+    && semantic.semanticStatus(dir).runtimeLoaded === true && semantic.semanticStatus(dir).lastError === undefined);
+
   const never = { model: semantic.DEFAULT_MODEL, embedQuery: () => new Promise(() => {}), embedPassages: async texts => texts.map(fakeVector) };
   semantic.setEmbedderForTests(never, { inferenceLimitMs: 60 });
   const stalledAt = Date.now();
