@@ -494,6 +494,26 @@ const deps = {
     }
   }
 
+  // The 29 drafting phrases from the reviewer's words.cjs, unchanged.
+  const draftingPhrases = ['별지와 같이 시행한다','별지 참조','별지 목록의 물품을 검수한다','별지 계획에 따라 시행한다','붙임 서식으로 제출한다','별첨 서식으로 제출한다','소정 서식으로 제출한다','별표와 같이 지급한다','2호 안건으로 상정한다','제1호 의안으로 상정한다','1호 의안으로 상정한다','3호차를 배차한다','5호관에서 개최한다','2호기를 가동한다','4호봉을 부여한다','101호에서 개최한다','제3호 서식으로 제출한다','1호 서식으로 제출한다','가목재를 구입한다','나목을 식재한다','다목적 강당에서 개최한다','10호 태풍에 대비한다','3호선 역에서 집결한다','7호 광장에서 개최한다','1호 법안을 검토한다','2개 호실을 배정한다','각 호의 사항을 확인한다','다음 각 호와 같이 처리한다','동 조 단서에 따라 처리한다'];
+  const stillNeedsReview = new Set(['별표와 같이 지급한다', '제1호 의안으로 상정한다', '제3호 서식으로 제출한다', '나목을 식재한다']);
+  for (const phrase of draftingPhrases) {
+    const result = await verifyRuleCitations(`「검수규정」 제1조에 따라 ${phrase}.`, suffixDeps);
+    check(`기안문 일반 문구: ${phrase}`, result.summary.verified === 1
+      && result.summary.needsReview === (stillNeedsReview.has(phrase) ? 1 : 0)
+      && result.citations[0].article === '제1조', JSON.stringify(result.citations));
+  }
+  for (const scope of ['별지 제99호', '별지 서식', '별지서식999', '제1조 별지 제99호', '제1조 별지 서식',
+    '제1조 99호', '제1조제1항99호', '제1조 제1항 99호', '제99호', '별표']) {
+    const result = await verifyRuleCitations(`「검수규정」 ${scope}`, suffixDeps);
+    check(`명시적 별지·조항 뒤 N호는 계속 확인필요: ${scope}`, result.citations.length === 1
+      && result.citations[0].status === 'UNSUPPORTED_CITATION' && result.summary.verified === 0);
+  }
+  const inheritedDetail = await verifyRuleCitations('「검수규정」 제1조제1항 및 제2항 99호', suffixDeps);
+  check('앞 조문을 이어받은 항 뒤의 N호도 미지원 범위 유지', inheritedDetail.citations.length === 2
+    && inheritedDetail.citations[1].status === 'UNSUPPORTED_CITATION'
+    && inheritedDetail.citations[1].originalRange.text === '제2항 99호' && inheritedDetail.summary.needsReview === 1);
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📊 인용 검증: ${pass}개 통과 / ${fail}개 실패`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

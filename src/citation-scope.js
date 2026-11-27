@@ -5,7 +5,7 @@
 // when the verifier cannot interpret the remainder.
 const ITEM = String.raw`(?:제\s*)?\d+\s*호`;
 const MOK = String.raw`(?:["'“‘\[(（<〈]\s*)?[가나다라마바사아자차카타파하](?:\s*["'”’\])）>〉])?\s*목`;
-const APPENDIX = String.raw`(?:별\s*표|별\s*지(?:\s*서\s*식)?|서\s*식(?=\s*(?:제\s*)?\d))`;
+const APPENDIX = String.raw`(?:별\s*표|별\s*지(?:\s*서\s*식|(?=\s*제\s*\d+\s*호))|서\s*식(?=\s*(?:제\s*)?\d))`;
 const DETAIL_START_SOURCE = String.raw`(?:${APPENDIX}|${ITEM}|${MOK})`;
 const START = new RegExp(`^(?:${DETAIL_START_SOURCE})`);
 
@@ -44,6 +44,9 @@ function readDetail(text, start, { suffix = false, paragraph = false } = {}) {
 }
 
 function collectDetailRange(text, start, { standalone = false } = {}) {
+  // Bare N호 is a detail only when attached to an article/paragraph, not
+  // an independent room, agenda or other ordinary phrase in the paragraph.
+  if (standalone && /^\s*\d+\s*호/.test(text.slice(start))) return null;
   let end = start, first = true;
   const tokens = [];
   while (true) {
