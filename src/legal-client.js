@@ -25,6 +25,8 @@ const responseFailed=response=>!response||response.isError===true||Boolean(respo
 //   never changes; kept 30 days.
 // - legal_analysis / applicable_law: the version in force on a past date; 7 days.
 // Error, empty, maintenance and "not found" answers are never cached.
+// Body consumers additionally validate the requested law/version/article before
+// persistence. Their versioned keys cannot reuse old, unvalidated raw bodies.
 const CALL_CACHE_POLICY={
   search_law:{ttl:6*3600,daily:true},
   get_annexes:{ttl:6*3600,daily:true},
@@ -83,17 +85,19 @@ function resilientCaller(raw,{cache=defaultCallCache,deadline=()=>Infinity,sleep
       await sleep(waitMs);
     }
   };
-  return async(name,args)=>{
-    const key=cache?callCacheKey(name,args,now()):null;
+  return async(name,args,{validate,validationKey}={})=>{
+    const rawKey=cache?callCacheKey(name,args,now()):null;
+    const key=rawKey&&(validate?validationKey&&createHash('sha256').update(`${rawKey}|validated-body-v1|${validationKey}`).digest('hex'):rawKey);
     if(!key) return live(name,args);
     let loaded=false;
     try{
-      const value=await cache('legal-call',key,CALL_CACHE_POLICY[name].ttl,async()=>{
+      const load=async()=>{
         loaded=true;
         const response=await live(name,args);
-        if(!cacheable(response)) throw Object.assign(new Error('not cacheable'),{uncached:response});
+        if(!cacheable(response)||(validate&&!validate(response))) throw Object.assign(new Error('not cacheable'),{uncached:response});
         return {fetchedAt:new Date(now()).toISOString(),response};
-      });
+      };
+      const value=await cache('legal-call',key,CALL_CACHE_POLICY[name].ttl,load);
       if(loaded) stats.cacheMisses++; else stats.cacheHits++;
       return Object.assign({},value.response,{[FETCHED_AT]:value.fetchedAt});
     }catch(error){
@@ -476,7 +480,10 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
         if(resolved.search) result.search_text=resolved.search.text;
         if(resolved.resolution) result.dateResolution={...resolved.resolution,tool:resolved.tool};
         const arguments_={mst:law.mst,efYd:law.effectiveAt,...(selector?{jo:selector}:{})};
-        const response=await call('get_law_text',arguments_);
+        const response=await call('get_law_text',arguments_,{
+          validationKey:stable({consumer:'references',name:normalize(law.name),effectiveAt:law.effectiveAt,selector}),
+          validate:response=>!bodyProblem(response,law,selector),
+        });
         article.source={provider:'Korean Law MCP',tool:'get_law_text',lawName:law.name,lawId:law.lawId,mst:law.mst,effectiveAt:law.effectiveAt,baseDate:date.iso,retrievedAt:fetchedAt(response),url:law.sourceUrl,arguments:arguments_};
         const problem=bodyProblem(response,law,selector);
         if(problem&&problem!=='LEGAL_TOC_ONLY') throw failure(problem);
@@ -653,7 +660,14 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
       articleBudget--;
       try{
         const arguments_={mst:current.mst,efYd:current.effectiveAt,jo:selector};
-        const response=await call('get_law_text',arguments_);
+        const response=await call('get_law_text',arguments_,{
+          validationKey:stable({consumer:'upper-laws',name:normalize(current.name),effectiveAt:current.effectiveAt,selector}),
+          validate:response=>{
+            const text=textOf(response),header=/^법령명:\s*(.+)$/m.exec(text)?.[1];
+            return !responseFailed(response)&&!errorText(text)&&normalize(header)===normalize(current.name)
+              &&!bodyVersionProblem(text,current)&&Boolean(articleFacts(text,selector));
+          },
+        });
         const text=textOf(response);
         const header=/^법령명:\s*(.+)$/m.exec(text)?.[1];
         if(!header||normalize(header)!==normalize(current.name)) throw failure(header?'LEGAL_BODY_LAW_MISMATCH':'LEGAL_BODY_ERROR');
