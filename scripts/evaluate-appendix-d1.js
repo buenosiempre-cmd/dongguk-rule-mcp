@@ -16,9 +16,6 @@ const root = path.resolve(__dirname, '..');
 const fixture = require('../experiments/appendix/fixtures/travel-3856.json');
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const readHash = file => hash(fs.readFileSync(file));
-const EXPECTED_CORPUS = '59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15';
-const EXPECTED_VECTOR = 'c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e';
-const BASE_COMMIT = '907b998a095ffbe7c490fdb961dc90b090ddbf5e';
 const clean = text => String(text || '').replace(/<br\s*\/?>/gi, '').replace(/\\([\W])/g, '$1').replace(/\s+/g, '');
 
 function alignArticles(index, corpus) {
@@ -89,9 +86,13 @@ function compare(results, left, right) {
 }
 
 async function main() {
-  const [cache, output, option, ...extra] = process.argv.slice(2);
-  if (extra.length || option !== undefined && option !== '--open-dev') throw new Error('INVALID_OPTIONS');
-  const openQuestions = option === '--open-dev' ? require('./appendix-open-questions').loadOpenQuestions() : null;
+  const [cache, output, ...options] = process.argv.slice(2);
+  if (new Set(options).size !== options.length || options.some(x => !['--open-dev', '--final-handoff'].includes(x))) throw new Error('INVALID_OPTIONS');
+  const finalInput = options.includes('--final-handoff') ? require('./appendix-final-input').verifyHandoff(path.resolve(cache, '../../..')) : null;
+  const EXPECTED_CORPUS = finalInput ? finalInput.corpus : '59c2e11fe66e57af1ad2e88d732b12e42233ec1446e9a9d43784754e464dcb15';
+  const EXPECTED_VECTOR = finalInput ? finalInput.vector : 'c76feb89f199072fecf644f59f1c880519595276b8ec3af54f7a539388da2f7e';
+  const BASE_COMMIT = finalInput ? finalInput.commit : '907b998a095ffbe7c490fdb961dc90b090ddbf5e';
+  const openQuestions = options.includes('--open-dev') ? require('./appendix-open-questions').loadOpenQuestions() : null;
   if (!cache || !output || fs.existsSync(output) || fs.existsSync(output + '.index.json')) throw new Error('NEW_OUTPUT_AND_D1_CACHE_REQUIRED');
   const corpusPath = path.join(cache, 'corpus/corpus-v1.json'), metaPath = path.join(cache, 'semantic/semantic-v1.json');
   if (readHash(corpusPath) !== EXPECTED_CORPUS) throw new Error('D1_CORPUS_MISMATCH');
@@ -139,6 +140,7 @@ async function main() {
       d1Kordoc: scoreQuestion(question, selectCandidates([...base, ...side])), timing: { embeddedMs, denseMs, sideMs } });
   }
   for (const [file, expected] of Object.entries(sourceHashes)) if (readHash(file) !== expected) throw new Error('READONLY_SOURCE_CHANGED');
+  if (finalInput) require('./appendix-final-input').verifyHandoff(path.resolve(cache, '../../..'));
   const conditions = ['d1Dense', 'd1Coordinates', 'd1Kordoc'];
   const summary = Object.fromEntries((openQuestions ? ['open-dev', 'S', 'C', 'D'] : ['train', 'dev', 'new-dev']).map(split => {
     const rows = results.filter(row => row.split === split || row.tags.includes(split));
@@ -150,7 +152,7 @@ async function main() {
     const values = results.map(row => row.timing[key]).sort((a, b) => a - b);
     return [key, { median: values[Math.floor(values.length / 2)], p95: values[Math.ceil(values.length * .95) - 1] }];
   }));
-  const report = { scope: 'D1 전체 corpus의 dense 후보 신호 실험. 실제 MCP strict70/71 기준선 및 운영 fusion과 다른 지표.',
+  const report = { scope: '전체 corpus의 dense 후보 신호 진단. t10w/t10x MCP 및 운영 fusion과 다른 지표.', manifestSha256: finalInput?.manifest || null,
     policy: '동일 query vector 1회, 조문별 max cosine, 규정별 max cosine 상위3, 규정별 증거 상위3; 가중치 조정 없음.',
     argsMode: 'query-only; question args ignored', trainingOrTuning: false, tagGroupsOverlap: !!openQuestions,
     baselineCommit: BASE_COMMIT, experimentCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
