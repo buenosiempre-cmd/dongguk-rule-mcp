@@ -218,6 +218,15 @@ async function main() {
     }
     check('한 판만 반환하면 single_candidate', wise.sc.data.rules.length === 1 && wise.sc.data.search.selection === 'single_candidate');
 
+    // 범위 판별 설정: 기본은 꺼짐이고 응답에 표시가 없음. 켠 때만 표시하고 정렬 값은 내보내지 않음.
+    const withEnv = async (env, fn) => { const before = Object.fromEntries(Object.keys(env).map(k => [k, process.env[k]])); Object.assign(process.env, env); try { return await fn(); } finally { for (const [k, v] of Object.entries(before)) if (v === undefined) delete process.env[k]; else process.env[k] = v; } };
+    const plainScope = await call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' });
+    check('범위 판별 기본 꺼짐: search.ranking·search.labels·rules[].order 없음', !('ranking' in plainScope.sc.data.search) && !('labels' in plainScope.sc.data.search) && plainScope.sc.data.rules.every(r => !('order' in r)));
+    const hybridScope = await withEnv({ DONGGUK_MCP_RANKING: 'hybrid', DONGGUK_MCP_LABELS: '1' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
+    check('범위 판별 켬: search.ranking=hybrid, search.labels=true, 정렬 값은 응답에 없음', hybridScope.sc.ok === true && hybridScope.sc.data.search.ranking === 'hybrid' && hybridScope.sc.data.search.labels === true && hybridScope.sc.data.rules.every(r => !('order' in r)) && hybridScope.sc.data.rules[0].edition.includes('산학협력단'));
+    const unknownScope = await withEnv({ DONGGUK_MCP_RANKING: 'rrf', DONGGUK_MCP_LABELS: '0' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
+    check('모르는 순위 방식·꺼진 사전은 기본 응답과 같음', JSON.stringify({ ...unknownScope.sc.data, source: null }) === JSON.stringify({ ...plainScope.sc.data, source: null }));
+
     const named = await call('lookup_dongguk_rule', { query: '여비규정에서 밥값은 얼마 나와?' });
     check('규정 이름을 말한 질문도 일상어를 규정 용어로 읽어 조문 선택', named.sc.data.rules.length === 1 && named.sc.data.rules[0].lawId === 1 && named.sc.data.rules[0].excerpt.text.includes('제9조('));
     const explicitTerms = await call('lookup_dongguk_rule', { rule_keyword: '여비규정', terms: '밥값' });
