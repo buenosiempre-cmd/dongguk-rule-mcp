@@ -68,12 +68,24 @@ function rateLimitOf(error,response){
 }
 const cacheable=response=>!responseFailed(response)&&!errorText(textOf(response))&&textOf(response).trim().length>0;
 const fetchedAt=response=>response?.[FETCHED_AT]||new Date().toISOString();
+// One budget can span all lookups in a tool request; a child additionally caps
+// name discovery. Charge real upstream attempts, including 429 retries, not hits.
+function createLegalCallBudget(maxCalls=32,parent=null){
+  if(!Number.isInteger(maxCalls)||maxCalls<0) throw new TypeError('invalid legal call budget');
+  return {maxCalls,used:0,parent};
+}
+function consumeCallBudget(budget){
+  const chain=[];
+  for(let b=budget;b;b=b.parent){if(b.used>=b.maxCalls) throw failure('LEGAL_CALL_LIMIT');chain.push(b);}
+  for(const b of chain) b.used++;
+}
 // raw(name,args) performs one provider call. deadline() is the epoch ms after
 // which no retry may start.
-function resilientCaller(raw,{cache=defaultCallCache,deadline=()=>Infinity,sleep=ms=>new Promise(r=>setTimeout(r,ms)),now=Date.now}={}){
+function resilientCaller(raw,{cache=defaultCallCache,callBudget,deadline=()=>Infinity,sleep=ms=>new Promise(r=>setTimeout(r,ms)),now=Date.now}={}){
   const live=async(name,args)=>{
     for(let attempt=0;;attempt++){
       let response,error;
+      consumeCallBudget(callBudget);
       stats.upstreamCalls++;
       try{response=await raw(name,args);}catch(e){error=e;}
       const limited=rateLimitOf(error,response);
@@ -353,7 +365,7 @@ function summarize(results,baseDate,limits,extra={}){
  * body for historical evidence. Dated annexes require advertised date support
  * and matching version metadata; legacy annexes remain explicit current references.
  */
-async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,totalTimeoutMs=DEFAULT_TOTAL_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date(),cache,sleep}={}){
+async function queryLegalReferences(requests,{baseDate,client:injectedClient,timeoutMs=DEFAULT_TIMEOUT_MS,totalTimeoutMs=DEFAULT_TOTAL_TIMEOUT_MS,maxRequests=MAX_REQUESTS,maxTextChars=MAX_TEXT_CHARS,now=new Date(),cache,sleep,callBudget}={}){
   const limits={maxRequests,maxTextChars,timeoutMs,totalTimeoutMs};
   const deadline=Date.now()+totalTimeoutMs;
   let totalExpired=false;
@@ -397,7 +409,7 @@ async function queryLegalReferences(requests,{baseDate,client:injectedClient,tim
   };
   // Injected (test) clients are cached only when a cache is passed explicitly.
   const call=resilientCaller((name,args)=>deadlineCall((signal,allowed)=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal})),
-    {cache:cache!==undefined?cache:injectedClient?null:defaultCallCache,deadline:()=>deadline,...(sleep?{sleep}:{})});
+    {cache:cache!==undefined?cache:injectedClient?null:defaultCallCache,callBudget,deadline:()=>deadline,...(sleep?{sleep}:{})});
   let discoveredTools;
   const toolDefinitions=()=>{
     if(!discoveredTools)discoveredTools=(async()=>{
@@ -598,7 +610,7 @@ function articleFacts(text,selector){
  * except `suffixMatch` names (written without 낫표, so earlier words may have
  * been swept in): the longest listed name that ends the given name is taken.
  */
-async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,totalTimeoutMs=40000,maxLaws=12,maxArticles=8,maxTextChars=3000,now=new Date(),cache,sleep}={}){
+async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,totalTimeoutMs=40000,maxLaws=12,maxArticles=8,maxTextChars=3000,now=new Date(),cache,sleep,callBudget}={}){
   const limits={maxLaws,maxArticles,maxTextChars,timeoutMs,totalTimeoutMs};
   const todayCompact=compactDate(new Date(now).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}));
   const laws=(Array.isArray(requests)?requests:[]).map((request,i)=>({request,identity:{status:i<maxLaws?'unavailable':'not_checked',...(i<maxLaws?{}:{code:'LAW_LIMIT'})},articles:(request?.articles||[]).map(article=>({article,status:'not_checked'}))}));
@@ -620,7 +632,7 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
     if(left<500) throw failure('LEGAL_TOTAL_TIMEOUT');
     const allowed=Math.min(timeoutMs,left);
     return bounded(signal=>client.callTool({name,arguments:args},undefined,{timeout:allowed,signal}),allowed);
-  },{cache:cache!==undefined?cache:injectedClient?null:defaultCallCache,deadline:()=>deadline,...(sleep?{sleep}:{})});
+  },{cache:cache!==undefined?cache:injectedClient?null:defaultCallCache,callBudget,deadline:()=>deadline,...(sleep?{sleep}:{})});
   let articleBudget=maxArticles;
   for(const law of laws){
     if(law.identity.status==='not_checked') continue;
@@ -632,7 +644,7 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
       // start with prose. Try the original boundary first, then at most two shorter queries.
       const words=name.split(/\s+/);
       const queries=law.request.suffixMatch?[...new Set([name,words.slice(-3).join(' '),words.slice(-2).join(' ')])]:[name];
-      let text='',listed=[],listedAt=null;
+      let text='',listed=[],listedAt=null,allExplicitNotFound=true;
       for(const query of queries){
         const response=await call('search_law',{query,display:100});
         text=textOf(response);listedAt=fetchedAt(response);
@@ -640,6 +652,7 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
         // maintenance page says nothing about whether the law exists.
         const noResult=/^\[NOT_FOUND\][^\r\n]*검색 결과가 없습니다/m.test(text);
         if(responseFailed(response)&&!noResult) throw failure('LEGAL_LOOKUP_FAILED');
+        allExplicitNotFound=allExplicitNotFound&&noResult;
         listed=noResult?[]:listedLaws(text);
         if(!noResult&&!listed.length) throw failure('LEGAL_LISTING_UNVERIFIED');
         if(matchGuessedLaw(listed,name,law.request.suffixMatch?law.request.nameCandidate:null)) break;
@@ -656,7 +669,7 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
         if(renamed) current=listed.find(x=>normalize(x.name)===normalize(renamed.to))||(renamed.mst?{name:renamed.to,lawId:renamed.lawId,mst:renamed.mst,promulgatedAt:null,effectiveAt:null,kind:null,url:`https://www.law.go.kr/법령/${encodeURIComponent(renamed.to)}`}:null);
       }
       if(!current){
-        law.identity={status:'not_found',code:'LEGAL_EXACT_LAW_NOT_FOUND',similar:listed.slice(0,3).map(x=>x.name)};
+        law.identity={status:'not_found',code:'LEGAL_EXACT_LAW_NOT_FOUND',...(allExplicitNotFound?{notFoundConfirmed:true}:{}),similar:listed.slice(0,3).map(x=>x.name)};
         continue;
       }
       // A [현행] label or a rename notice alone does not prove an effective version.
@@ -710,4 +723,4 @@ async function inspectLaws(requests,{client:injectedClient,timeoutMs=15000,total
   return finish();
 }
 async function closeLegalClient(){const pending=connection;connection=null;if(pending){try{const client=await pending.promise;await client.close();}catch{ /* Failed connections already clean up their transport. */ }}}
-module.exports={setLegalCallCache,legalCallStats,resetLegalCallStats,callCacheKey,rateLimitOf,resilientCaller,CALL_CACHE_POLICY,queryLegalReferences,closeLegalClient,legalServerState,legalSetupGuide,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};
+module.exports={createLegalCallBudget,setLegalCallCache,legalCallStats,resetLegalCallStats,callCacheKey,rateLimitOf,resilientCaller,CALL_CACHE_POLICY,queryLegalReferences,closeLegalClient,legalServerState,legalSetupGuide,exactCurrentLaw,inspectLaws,listedLaws,renameNotice,pendingAmendments,articleFacts,amendmentDates};

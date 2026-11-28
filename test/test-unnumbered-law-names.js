@@ -1,0 +1,71 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {extractReferences,createResolver,summarizeExternalLaws}=require('../src/references');
+const {verifyLawNameMentions,LIMITS}=require('../src/law-name-mentions');
+const extract=s=>extractReferences(s,createResolver([]),{includeUnnumberedLaws:true});
+let checks=0;
+for(const text of ['방법에 따라 처리한다','평가방법에 따라 정한다','처리기법에 의한 검토','문법에 따른 표기','사과하는 법에 따라 진행한다','관련법률에 의하여 처리한다','같은 법에 따라 한다']){assert.deepEqual(extract(text),[],text);checks++;}
+const mention=extract('병역법에 의한 복무. 같은 법 제3조에 따라 처리한다.');
+assert.equal(mention.length,2);assert.equal(mention[1].article,'제3조');assert.equal(summarizeExternalLaws(mention).length,0);checks++;
+assert.equal(extractReferences('병역법에 의한 복무',createResolver([])).length,0);checks++;
+const internal=extractReferences('교육운영법에 따라 처리한다',createResolver([{lawId:99,title:'교육운영법'}]),{includeUnnumberedLaws:true});
+assert.equal(internal[0].scope,'dongguk_rule');checks++;
+const old='업무 처리 및 국가를 당사자로 하는 계약에 관한 법률 제7조 및 같은 법 제8조';
+assert.deepEqual(extractReferences(old,createResolver([])),extract(old));checks++;
+const identity=name=>({status:'current',name,effectiveAt:'2026-10-02',mst:'290783'});
+(async()=>{
+ let calls=0;const cache=new Map();
+ const cached=async(cat,key,ttl,fn)=>{if(cache.has(key))return cache.get(key);const value=await fn();cache.set(key,value);return value;};
+ const inspectLaws=async(req,options)=>{calls++;assert.equal(options.maxArticles,0);assert(req.every(x=>x.articles.length===0));return {laws:[{identity:identity('병역법')}]};};
+ let result=await verifyLawNameMentions(mention,{configured:false,cached,inspectLaws});
+ assert.equal(calls,0);assert.equal(result.unverified.length,2);assert.equal(summarizeExternalLaws(result.references).length,0);checks++;
+ result=await verifyLawNameMentions(mention,{configured:true,cached,inspectLaws});
+ assert.equal(calls,1);assert.equal(result.unverified.length,0);assert.equal(result.references[0].scope,'external_law');
+ await verifyLawNameMentions(mention,{configured:true,cached,inspectLaws});assert.equal(calls,1);checks++;
+ result=await verifyLawNameMentions(extract('가짜병역법에 의한 복무'),{configured:true,cached,inspectLaws});
+ assert.equal(result.unverified.length,1);assert.equal(summarizeExternalLaws(result.references).length,0);checks++;
+ const failed=async()=>{throw Error('offline')};
+ const unresolved=extract('미확인법에 따라 처리한다');
+ result=await verifyLawNameMentions(unresolved,{configured:true,cached,inspectLaws:failed});assert.equal(result.unverified[0].code,'LAW_NAME_LOOKUP_FAILED');checks++;
+ result=await verifyLawNameMentions(unresolved,{configured:true,cached,inspectLaws:async()=>({laws:[{identity:identity('미확인법')}]})});assert.equal(result.unverified.length,0);checks++;
+ const limited=Array.from({length:10},(_,i)=>extract(`검수${i}법에 따라 처리한다`)[0]);let limitedCalls=0;
+ result=await verifyLawNameMentions(limited,{configured:true,cached,inspectLaws:async()=>{limitedCalls++;return {laws:[{identity:{status:'not_found'}}]};}});
+ assert.equal(limitedCalls,LIMITS.maxNames);assert.equal(result.unverified.length,10);assert.equal(result.unverified.at(-1).code,'LAW_NAME_CHECK_LIMIT');checks++;
+ const long='업무 처리 및 국가를 당사자로 하는 계약에 관한 법률에 의한 계약. 같은 법 제8조에 따른다.';
+ const longName='국가를 당사자로 하는 계약에 관한 법률';
+ result=await verifyLawNameMentions(extract(long),{configured:true,cached,inspectLaws:async()=>({laws:[{identity:identity(longName)}]})});
+ assert.equal(result.unverified.length,0);assert(result.references.every(x=>x.target.lawName===longName));assert.equal(result.references[1].article,'제8조');checks++;
+ const andName='교원의 노동조합 설립 및 운영 등에 관한 법률';
+ result=await verifyLawNameMentions(extract('교원의 노동조합 설립 및 운영 등에 관한 법률에 따라 처리한다'),{configured:true,cached,inspectLaws:async()=>({laws:[{identity:identity(andName)}]})});
+ assert.equal(result.unverified.length,0);assert.equal(result.references[0].target.lawName,andName);checks++;
+ const ambiguous=extractReferences('병역법에 따라 처리한다',createResolver([{lawId:98,title:'병역법'},{lawId:99,title:'병역법'}]),{includeUnnumberedLaws:true});
+ const beforeAmbiguous=calls;result=await verifyLawNameMentions(ambiguous,{configured:true,cached,inspectLaws});
+ assert.equal(result.unverified[0].code,'AMBIGUOUS_RULE_TITLE');assert.equal(calls,beforeAmbiguous);checks++;
+ // MCP handler tests: official listing is injected; regulation HTTP is forbidden.
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'dgu-unnumbered-'));
+ Object.assign(process.env,{XDG_CACHE_HOME:root,DONGGUK_RULE_COOKIE:'',DONGGUK_LEGAL_MCP_URL:'http://127.0.0.1:9/mcp',DONGGUK_LEGAL_MCP_ENABLED:'1',DONGGUK_PUBLIC_LAW_LINK:'1',DONGGUK_MCP_NO_CACHE:'0'});
+ const fetchPath=require.resolve('node-fetch');require(fetchPath);require.cache[fetchPath].exports=async()=>{throw Error('NETWORK_FORBIDDEN')};
+ const pub=path.join(root,'dongguk-rule-mcp/v2/public');
+ const seed=(cat,key,value)=>{fs.mkdirSync(path.join(pub,cat),{recursive:true});fs.writeFileSync(path.join(pub,cat,key+'.json'),JSON.stringify(value));};
+ const records=[{lawId:900,historyId:1,title:'병역인용검수규정',revisedAt:'2026.11.28'},{lawId:901,historyId:1,title:'미확인검수규정',revisedAt:'2026.11.28'},{lawId:902,historyId:1,title:'보통말검수규정',revisedAt:'2026.11.28'}];
+ seed('catalog','all',records);
+ for(const [i,r] of records.entries()){seed('history',r.lawId,[{historyId:1,revisedAt:r.revisedAt}]);seed('content-v4',r.lawId+'_1',{title:r.title,markdown:'### 제1조(검수)\n'+['병역법에 의한 병역의 복무를 위하여 징집 또는 소집된 때','미확인법에 따라 처리한다','방법에 따라 처리하고 사과하는 법을 적용한다'][i]});}
+ let legalCalls=0;
+ const legal=require('../src/legal-client');const inspect=legal.inspectLaws;
+ legal.inspectLaws=(requests,options)=>inspect(requests,{...options,now:new Date('2026-11-28T00:00:00Z'),client:{callTool:async req=>{legalCalls++;assert.equal(req.name,'search_law');return {content:[{type:'text',text:req.arguments.query==='병역법'?'1. 병역법 [현행]\n - 법령ID: 001622\n - MST: 290783\n - 공포일: 20260804 / 시행일: 20261002\n - 구분: 법률':'[NOT_FOUND] 검색 결과가 없습니다.'}]};}}});
+ const {Client}=require('@modelcontextprotocol/sdk/client/index.js'),{InMemoryTransport}=require('@modelcontextprotocol/sdk/inMemory.js');
+ const server=require('../src/index').createServer({profile:'rules'}),client=new Client({name:'unnumbered-law-test',version:'1'}),[a,b]=InMemoryTransport.createLinkedPair();await server.connect(a);await client.connect(b);
+ for(const tool of ['get_rule_references','get_rule_upper_laws']){
+  const args={law_id:900,article:1,...(tool==='get_rule_references'?{include_law_text:false}:{include_candidates:false})};
+  const d=(await client.callTool({name:tool,arguments:args})).structuredContent.data;
+  const laws=d.externalLaws||d.laws;assert.equal(laws[0].lawName,'병역법');assert.equal(d.evidenceStatus,'retrieved');assert(!d.unverifiedLawMentions);checks++;
+  const unknown=await client.callTool({name:tool,arguments:{...args,law_id:901}});const u=unknown.structuredContent.data;
+  assert.equal((u.externalLaws||u.laws).length,0);assert.equal(u.unverifiedLawMentions[0].name,'미확인법');assert.equal(u.evidenceStatus,'partial');assert(unknown.content[0].text.includes('법령명 확인 필요'));checks++;
+  process.env.DONGGUK_PUBLIC_LAW_LINK='0';const off=(await client.callTool({name:tool,arguments:args})).structuredContent.data;
+  assert.equal((off.externalLaws||off.laws).length,0);assert.equal(off.unverifiedLawMentions[0].code,'LAW_NAME_NOT_CONFIGURED');assert.equal(off.evidenceStatus,'partial');process.env.DONGGUK_PUBLIC_LAW_LINK='1';checks++;
+  const before=legalCalls;const normal=(await client.callTool({name:tool,arguments:{...args,law_id:902}})).structuredContent.data;
+  assert.equal((normal.externalLaws||normal.laws).length,0);assert(!normal.unverifiedLawMentions);assert.equal(legalCalls,before);checks++;
+ }
+ await client.close();await server.close();await legal.closeLegalClient();
+ console.log(`Unnumbered law names: ${checks} cases passed`);
+})().catch(e=>{console.error(e);process.exitCode=1});

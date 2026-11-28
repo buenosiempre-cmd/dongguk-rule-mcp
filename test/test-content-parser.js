@@ -75,7 +75,14 @@ async function main() {
   const fetchPath = require.resolve('node-fetch');
   require(fetchPath);
   let fetches = 0;
-  require.cache[fetchPath].exports = async url => {
+  // Title search for the synthetic rules that the citation check looks up by name.
+  const searchable = [[3, 30, '합성오기세칙'], [4, 40, '합성참조규정'], [5, 50, '합성계약규정'], [6, 60, '합성줄바꿈참조규정'], [7, 70, '합성참조뒤항규정'], [8, 80, '합성보통규정']];
+  require.cache[fetchPath].exports = async (url, options) => {
+    if (String(url).includes('/lmxsrv/search/')) {
+      const wanted = (new URLSearchParams(options.body).get('SEARCH_TEXT') || '').replace(/\s/g, '');
+      const rows = searchable.filter(([, , title]) => wanted && title.includes(wanted));
+      return { ok: true, status: 200, text: async () => `<p class="infoLeft"><span>${rows.length}</span>건</p><table><tbody class="tbody">${rows.map(([lawId, historyId, title]) => `<tr><td class="tbody_txt"><a href="javascript:lawSearchFullViewSrv('${lawId}','${historyId}');"><span onclick='showSearchText("3-1-${lawId}")'></span><span onclick='showSearchText("${title}")'></span></a></td></tr>`).join('')}</tbody></table>` };
+    }
     if (url.endsWith('lawFullContent.srv?SEQ=2&SEQ_HISTORY=20')) throw new Error('synthetic offline');
     assert.match(url, /lawFullContent\.srv\?SEQ=1&SEQ_HISTORY=10$/);
     fetches++;
@@ -101,6 +108,38 @@ async function main() {
     const unavailable = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 2, history_id: 20, article: 1 } });
     check('원문 재조회가 실패해도 무효화한 v3로 조용히 폴백하지 않음', unavailable.structuredContent.ok === false && !JSON.stringify(unavailable).includes('쓰면 안 되는 옛 본문'));
     check('실패 이행은 v3를 보존하고 불완전한 v4를 저장하지 않음', fs.readFileSync(staleFile, 'utf8') === staleBytes && !fs.existsSync(path.join(publicDir, 'content-v4/2_20.json')));
+
+    // The source misprints an article number as "제제3조(…)". Article boundaries stay as the source has them;
+    // the citation check and the article lookup only stop short of saying "does not exist". Never ✓.
+    const seed = (lawId, historyId, title, body) => {
+      fs.writeFileSync(path.join(publicDir, `history/${lawId}.json`), JSON.stringify([{ historyId, revisedAt: '2025.01.01' }]));
+      fs.writeFileSync(path.join(publicDir, `content-v${CONTENT_PARSER_VERSION}`, `${lawId}_${historyId}.json`), JSON.stringify({ title, markdown: `# ${title}\n\n${body}` }));
+    };
+    const frame = body => `### 제1조(목적)\n이 규정은 합성 검증용이다.\n\n### 제2조(신청)\n${body}\n\n### 제4조(심사)\n심사는 위원회에서 한다.`;
+    seed(3, 30, '합성오기세칙', frame('① 신청은 서면으로 한다.\n제제3조(창업휴학) ① 창업을 사유로 휴학할 수 있다.\n② 창업휴학은 4학기를 넘을 수 없다.'));
+    seed(4, 40, '합성참조규정', frame('제제3조(휴학)에서 정한 기준을 준용한다.'));
+    seed(5, 50, '합성계약규정', `${frame('신청은 서면으로 한다.')}\n\n## 별표 1\n표준 계약서\n제제3조(보수) ① 보수는 별도로 정한다.`);
+    seed(6, 60, '합성줄바꿈참조규정', frame('제제3조(휴학)\n에서 정한 기준을 준용한다.'));
+    seed(7, 70, '합성참조뒤항규정', frame('① 신청에는 다음 조문을 준용한다.\n제제3조(휴학)\n② 신청자는 학과장에게 신청서를 제출한다.'));
+    seed(8, 80, '합성보통규정', frame('신청은 서면으로 한다.'));
+    const verify = async text => (await client.callTool({ name: 'verify_rule_citations', arguments: { text } })).structuredContent.data;
+    for (const title of ['합성오기세칙', '합성참조규정', '합성계약규정', '합성줄바꿈참조규정', '합성참조뒤항규정']) {
+      const data = await verify(`「${title}」 제3조에 따름. 「${title}」 제2조 참조.`);
+      check(`인용 점검: ${title} 제3조는 ✗도 ✓도 아닌 ⚠`, data.citations.map(item => `${item.article} ${item.status} ${item.symbol}`).join() === '제3조 ARTICLE_MISPRINT_UNVERIFIED ⚠,제2조 EXISTS ✓'
+        && data.citations[0].sourceLines[0].startsWith('제제3조(') && data.summary.verified === 1 && data.summary.notFound === 0 && data.summary.needsReview === 1);
+    }
+    const ordinary = await verify('「합성보통규정」 제3조에 따름.');
+    check('인용 점검: 오기 표기가 없는 규정의 없는 조문은 그대로 ✗', ordinary.citations[0].status === 'NOT_FOUND' && ordinary.citations[0].symbol === '✗' && ordinary.summary.notFound === 1);
+    const lookup = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 3, history_id: 30, article: 3 } });
+    const lookupText = lookup.content.map(item => item.text || '').join('');
+    check('조문 조회: 찾지 못하되 원문의 제제3조 줄과 원문 확인 안내를 붙임', lookup.structuredContent.ok === false && lookup.structuredContent.error.code === 'NOT_FOUND'
+      && lookupText.includes('제3조를 찾을 수 없습니다') && lookupText.includes('"제제3조"로 적힌 줄이 있어 조문 여부를 확정하지 못함') && lookupText.includes('제제3조(창업휴학) ① 창업을 사유로'),
+    lookupText.slice(0, 300));
+    const plainLookup = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 8, history_id: 80, article: 3 } });
+    check('조문 조회: 오기 표기가 없으면 안내를 붙이지 않음', plainLookup.structuredContent.ok === false && !plainLookup.content.map(item => item.text || '').join('').includes('제제'));
+    const second = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 3, history_id: 30, article: 2 } });
+    check('조문 경계는 원문 그대로: 오기 줄은 앞 조문 본문에 남음', second.structuredContent.ok && second.structuredContent.data.contentMarkdown.includes('제제3조(창업휴학) ① 창업을 사유로')
+      && listArticleBlocks(JSON.parse(fs.readFileSync(path.join(publicDir, `content-v${CONTENT_PARSER_VERSION}`, '3_30.json'))).markdown).map(block => block.canonical).join() === '제1조,제2조,제4조');
 
 
   } finally { await client.close(); await server.close(); }

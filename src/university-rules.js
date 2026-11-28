@@ -65,6 +65,7 @@ const SOURCES = Object.freeze([
 const { FRAMES, resolveFrame, analyzeArticle, assignRoles, buildSlotMatrix, frameSummary, DROP_LABELS } = require('./issue-frames');
 // 등록 주제는 사안 프레임(issue-frames.js)에서 온다. terms: 조문 일치어(첫 항목이 대표어·검색어).
 // titleHints: 규정 제목 우선순위용(조문 일치에는 쓰지 않음).
+const { comparisonTopic, assessTopic } = require('./comparison-topics');
 const TOPICS = Object.freeze(Object.fromEntries(FRAMES.map(f => [f.topic, { terms: f.terms, titleHints: f.titleHints }])));
 const TOPIC_PREFIX = /^(교내|교외|학부|대학원|학사)/;
 const MAX_RULES = 5, MIN_TREE_RULES = 20, TOTAL_TIMEOUT_MS = 60000;
@@ -762,8 +763,9 @@ function safeCode(e) {
 // frame이 있으면 사안 프레임으로 조문을 거른다: 다른 사안의 규정·조문과 언급만 있는 조문은 dropped에
 // 사유별 건수로 남기고, 남은 조문에는 규율 요소(slots)·주체·인용 법령·규정 역할(주/보조)을 붙인다.
 // slotCells는 규율 요소별 대표 조문(상위 limit 밖의 조문도 포함)으로, 비교표를 만들 때 쓴다.
-function selectArticles(rules, terms, limit, hints = terms, frame = null) {
+function selectArticles(rules, terms, limit, hints = terms, frame = null, topic = null) {
   const matches = [], dropped = {};
+  const topicProfile = !frame && comparisonTopic(topic || terms.join(' '));
   const perRule = new Map();
   for (const rule of rules) {
     const titleScore = ruleTitleScore(rule.title, terms, hints), ruleBonus = titleScore * 0.5;
@@ -773,9 +775,14 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
       if (rule.academicFallback && !academicTopicMention(block.content, rule.academicTopic)) continue;
       const matchedTerms = terms.filter(t => block.content.includes(t));
       if (!matchedTerms.length) continue;
-      // 조문 제목(첫 줄)에 주제어가 있으면 그 조문이 주제를 직접 다룬다고 보고 앞에 둔다.
+      // Existing frames retain their scoring. The topic check uses only the actual
+      // heading and shares the existing two-point bonus across all query terms;
+      // a topic-name-only heading cannot outrank the other query constraints by fiat.
       const heading = block.content.split('\n')[0];
-      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + (terms.some(t => heading.includes(t)) ? 2 : 0) + ruleBonus;
+      const topicMatch = topicProfile ? assessTopic(block, topicProfile, terms) : null;
+      const headingBonus = topicMatch ? 2 * topicMatch.headingTerms.length / terms.length
+        : (terms.some(t => heading.includes(t)) ? 2 : 0);
+      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + headingBonus + ruleBonus;
       const analysis = frame ? analyzeArticle(block, rule, frame) : null;
       if (analysis?.excluded) { dropped[analysis.excluded] = (dropped[analysis.excluded] || 0) + 1; continue; }
       if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
@@ -787,10 +794,14 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null) {
         ...(rule.upcomingRevisionAt ? {upcomingRevisionAt:rule.upcomingRevisionAt} : {}),
         matchedTerms, url: rule.url, revisedAt: rule.revisedAt || null, effectiveAt: rule.effectiveAt || null,
         effectiveSource: rule.effectiveAt ? rule.effectiveSource || null : null,
+        ...(topicMatch ? { topicMatch } : {}),
         ...(analysis ? { slots: analysis.slots, subjects: analysis.subjects, anchorLaws: analysis.anchorLaws } : {}), _score: score });
     }
   }
-  matches.sort((a, b) => b._score - a._score);
+  // Missing core terms stay visibly weak. Heading/body labels are descriptive,
+  // never an absolute ordering that overrides action/constraint matches.
+  const weak = match => match?.basis === 'weak' ? 1 : 0;
+  matches.sort((a, b) => weak(a.topicMatch) - weak(b.topicMatch) || b._score - a._score);
   const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
   if (!frame) { for (const m of matches) delete m._score; return base; }
   const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);
@@ -844,8 +855,8 @@ async function compareUniversityRules(a, { loadDongguk, client = publicClient, n
     try {
       if (controller.signal.aborted) throw error('TOTAL_TIMEOUT');
       const result = await abortable(key === 'dongguk' ? loadDongguk(topic, terms, {signal:controller.signal, searchTerms:spec.searchTerms, titleHints:spec.titleHints}) : loadExternalImpl(source, topic, terms, client, controller.signal, spec), controller.signal);
-      const selected = selectArticles(result.rules, terms, a.max_articles || 3, spec.titleHints, spec.frame);
-      const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated);
+      const selected = selectArticles(result.rules, terms, a.max_articles || 3, spec.titleHints, spec.frame, topic);
+      const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated || x.topicMatch?.basis === 'weak');
       columns.push({ university: key, name: source.name, status: result.rules.length === 0 && result.failures.length ? 'unavailable' : selected.articles.length ? (partial ? 'partial' : 'retrieved') : 'no_match_in_scope', ...selected, coverage: result.coverage, failures: result.failures });
     } catch (e) { const code = safeCode(e), guide = COLUMN_GUIDES[code]; columns.push({ university: key, name: source.name, status: 'unavailable', code, ...(guide ? { notice: guide.notice, setup: { env: guide.env, ocApplyUrl: guide.ocApplyUrl } } : {}), articles: [] }); }
   }
@@ -868,6 +879,9 @@ function formatComparison(data) {
     '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
   const boundaryColumns = data.columns.filter(c => c.coverage?.articleBoundaryReview?.required || c.articles.some(a => a.articleBoundaryReview?.required));
   if (boundaryColumns.length) lines.splice(3, 0, `> ${boundaryColumns.map(c => c.name || c.university).join('·')}: ${BOUNDARY_NOTICE}`);
+  const topicTag = a => a.topicMatch ? `[${a.topicMatch.label}] ` : '';
+  if (data.columns.some(c => c.articles.some(a => a.topicMatch))) lines.splice(3, 0, '> 주제 핵심어와 질문의 나머지 검색어를 함께 평가한 조문 발췌입니다. 제목·본문 일치 표시는 문자열 대조이며 사안 확인 판정이 아닙니다. 주제 일치 약함은 핵심어 없이 일부 검색어만 겹친 후보이며 같은 사안의 비교 근거로 확정할 수 없습니다. 본문 일치도 단순 언급일 수 있으므로 원문을 확인하세요.');
+  for (const notice of new Set(data.columns.flatMap(c => c.articles.map(a => a.topicMatch?.contextNotice)).filter(Boolean))) lines.splice(3, 0, `> ${notice}`);
   const roleTag = a => a.role ? (a.role === 'primary' ? '[주규정] ' : '[보조] ') : '';
   if (data.issueFrame) {
     lines.push('| 주규정 | ' + data.columns.map(c => {
@@ -879,7 +893,7 @@ function formatComparison(data) {
   for (let i = 0; i < Math.max(0, ...data.columns.map(c => c.articles.length)); i++) {
     lines.push(`| 발췌 ${i + 1} | ` + data.columns.map(c => {
       const a = c.articles[i];
-      return a ? `${roleTag(a)}${esc(a.universityRule)} ${esc(a.article)}<br>${esc(a.text.slice(0,240))}${a.text.length>240 ? ' …(본문 아래)' : ''}<br>개정일 ${esc(a.revisedAt)} / ${effectiveLabel(a)}<br>[원문](${a.url})` : '범위 내 발췌 없음';
+      return a ? `${topicTag(a)}${roleTag(a)}${esc(a.universityRule)} ${esc(a.article)}<br>${esc(a.text.slice(0,240))}${a.text.length>240 ? ' …(본문 아래)' : ''}<br>개정일 ${esc(a.revisedAt)} / ${effectiveLabel(a)}<br>[원문](${a.url})` : '범위 내 발췌 없음';
     }).join(' | ') + ' |');
   }
   if (data.issueFrame && data.slotMatrix) {
@@ -904,7 +918,7 @@ function formatComparison(data) {
   for (const c of data.columns) {
     if (!c.articles.length) continue;
     lines.push('', `## ${c.name || c.university} 조문 본문`);
-    for (const a of c.articles) lines.push('', `### ${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`, a.originalPdfUrl ? `[${a.sourceType === '한글 파일 본문' ? '원문 파일' : 'PDF 원문'}](${a.originalPdfUrl})` : '', a.upcomingRevisionAt ? `시행 예정 개정본이 있습니다(${a.upcomingRevisionAt}). 여기 보인 것은 그 이전 개정본입니다.` : '');
+    for (const a of c.articles) lines.push('', `### ${topicTag(a)}${roleTag(a)}${a.universityRule} ${a.article}`, a.slots?.length ? `규율 요소: ${a.slots.map(s => s.label).join(', ')}` : '', a.text, a.textTruncated ? '[2,000자 제한으로 잘림]' : '', `[원문](${a.url})`, a.originalPdfUrl ? `[${a.sourceType === '한글 파일 본문' ? '원문 파일' : 'PDF 원문'}](${a.originalPdfUrl})` : '', a.upcomingRevisionAt ? `시행 예정 개정본이 있습니다(${a.upcomingRevisionAt}). 여기 보인 것은 그 이전 개정본입니다.` : '');
   }
   for (const c of data.columns) if (c.notice && c.status === 'unavailable') lines.push('', `- ${c.name || c.university}: ${c.notice}`);
   // 본문을 읽지 못한 조문과 현행본을 확인하지 못한 규정은 건수만이 아니라 무엇인지 적는다.
