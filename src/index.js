@@ -580,7 +580,8 @@ async function deepFromIndex(query,{top,perDoc,required}) {
   }
   const coverage={...corpusCoverage(corpus),stale,newRulesNotIndexed:current?[...current.keys()].filter(id=>!corpus.rules.some(rule=>rule.lawId===id)).length:null};
   const note={current:'색인과 현행 개정본 일치',refetched:'색인 이후 개정되어 현행 본문을 다시 읽음',unverified:'현행 개정본 여부를 확인하지 못함',not_in_current_catalog:'현행 목록에 없음(폐지·통합 가능)'};
-  let o=`# '${query}' 깊이 검색 (전문 색인)\n- 핵심어: ${found.tokens.join(', ')}`+(found.missingTerms.length?` / 어느 규정에도 없는 단어: ${found.missingTerms.join(', ')}`:'')+
+  const rewrittenTerms=rewriteDetails(found.rewrittenTerms);
+  let o=`# '${query}' 깊이 검색 (전문 색인)\n${rewriteWarning(rewrittenTerms)}- 핵심어: ${found.tokens.join(', ')}`+(found.missingTerms.length?` / 어느 규정에도 없는 단어: ${found.missingTerms.join(', ')}`:'')+
     `\n- 색인 기준 ${coverage.indexedAt}, ${coverage.indexedRules}/${coverage.totalRules}개 규정${coverage.complete?'':' (일부 누락)'}${stale?' — 색인이 오래되었습니다':''}\n\n`;
   documents.forEach((doc,i)=>{
     o+=`## [${i+1}] ${doc.title} (LAW_ID ${doc.lawId})\n- 일치 조문 ${doc.matchCount}건 / 일치 단어: ${doc.matchedTerms.join(', ')}\n\n`;
@@ -589,7 +590,7 @@ async function deepFromIndex(query,{top,perDoc,required}) {
   });
   o+='색인 검색은 단어가 많이 일치하는 조문 순의 후보입니다. 별표·금액표는 lookup_dongguk_rule(law_id 지정)로 원문을 확인하세요.';
   return success(o,{
-    query,searchMode:'index',terms:found.tokens,missingTerms:found.missingTerms,index:coverage,
+    query,searchMode:'index',terms:found.tokens,missingTerms:found.missingTerms,index:coverage,rewrittenTerms,
     counts:{returned:documents.length},documents,
     evidenceStatus:documents.every(doc=>['current','refetched'].includes(doc.versionCheck))?'retrieved':'partial',
     source:{name:'동국대학교 통합규정관리시스템',url:BASE_URL,returnedAt:new Date().toISOString()},
@@ -844,7 +845,7 @@ function focusWithinRule(lawId,question,keywords=null,semantic=null){
     const hit=found.hits.find(x=>x.lawId===lawId);
     if(!hit) return null;
     const top=hit.articles[0];
-    return {searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null,wordArticle:hit.wordArticle,semanticArticle:hit.semanticArticle,semantic:found.semantic,keywordInfo:found.keywords?{...found.keywords,applied:found.keywordMode}:null};
+    return {rewrittenTerms:found.rewrittenTerms,searchTerms:found.searchTerms,topArticle:top&&!top.supplementary?top.article:null,wordArticle:hit.wordArticle,semanticArticle:hit.semanticArticle,semantic:found.semantic,keywordInfo:found.keywords?{...found.keywords,applied:found.keywordMode}:null};
   };
   // The article the words chose stays first; the article closest in meaning follows it.
   const alone=validStr(question)?within({}):null;
@@ -854,6 +855,7 @@ function focusWithinRule(lawId,question,keywords=null,semantic=null){
   if(!keyed) return alone&&{...alone,priorityArticles:excerptPriority([alone.topArticle],alone.semanticArticle,[]),keywordInfo:{used:[],missing:[],rewritten:{},applied:false}};
   return {...keyed,priorityArticles:excerptPriority([keyed.topArticle],keyed.semanticArticle,[alone?.topArticle,keyed.wordArticle])};
 }
+const {rewriteDetails,rewriteWarning}=require('./rewrite-notice.js');
 const describeRewrites=map=>Object.keys(map||{}).length?Object.entries(map).map(([from,to])=>`${from}→${to}`).join(', '):'';
 
 // Keyword fallback for questions whose literal wording is absent. The upstream
@@ -1054,9 +1056,10 @@ async function hLookup(rawKeyword, {
       :'여러 규정 후보가 있습니다. 제목과 적용범위를 확인한 뒤 law_id로 선택하세요.';
     const describe=x=>`- ${x.title} (LAW_ID ${x.lawId}, 개정 ${x.revisedAt||'미상'})`+(x.matchedTerms?` — 일치어: ${x.matchedTerms.join(', ')}${x.topArticle?` / ${x.topArticle}`:''}`:'');
     const rewrites=describeRewrites(result.rewrittenTerms);
-    const text=`${message}\n\n`+candidates.map(describe).join('\n')+(rewrites?`\n\n규정 본문에 없는 단어는 짧은 형태로 바꿔 찾았습니다: ${rewrites}`:'');
+    const rewriteInfo=rewriteDetails(result.rewrittenTerms);
+    const text=rewriteWarning(rewriteInfo)+`${message}\n\n`+candidates.map(describe).join('\n')+(rewrites?`\n\n규정 본문에 없는 단어는 짧은 형태로 바꿔 찾았습니다: ${rewrites}`:'');
     return failure('AMBIGUOUS_RULE',message,{text,details:{
-      matchType:selection.matchType,searchMode,queryUsed,...(rewrites?{rewrittenTerms:result.rewrittenTerms}:{}),
+      matchType:selection.matchType,searchMode,queryUsed,rewriteDetails:rewriteInfo,...(rewrites?{rewrittenTerms:result.rewrittenTerms}:{}),
       candidates:candidates.map(x=>({lawId:x.lawId,title:x.title,revisedAt:x.revisedAt,...(x.matchedTerms?{matchedTerms:x.matchedTerms,topArticle:x.topArticle}:{})})),
       campus:campusScope(campus),
     }});
@@ -1087,7 +1090,8 @@ async function hLookup(rawKeyword, {
     ? [...new Set([...result.searchTerms,...articleSelectors(rawTerms||keyword),...appendixSelectors(rawTerms||keyword),...keywordSelectors])].join(', ')
     : topicTerms ? [...new Set([rawTerms,...result.searchTerms])].join(', ')
     : rawTerms;
-  let out=`# 통합 규정 조회: '${keyword}'\n\n` +
+  const rewrittenTerms=rewriteDetails(result.rewrittenTerms,focus?.rewrittenTerms,keywordInfo?.rewritten);
+  let out=`# 통합 규정 조회: '${keyword}'\n\n` + rewriteWarning(rewrittenTerms) +
     `> ${asOf ? `기준일 ${asOf}의 개정일 기준 후보를 조회했습니다. 시행일·경과조치를 확인하세요.` : '연혁의 최신 개정본을 조회했습니다(연혁 캐시 최대 10분).'} 원문 유형과 누락 경고를 확인하세요.\n\n` +
     `- 검색 방식: ${searchMode}${result.semantic||focus?.semantic?' + 의미검색(조문 임베딩)':''}\n` +
     (queryUsed!==keyword?`- 정규화 검색어: ${queryUsed}\n`:``) +
@@ -1202,7 +1206,7 @@ async function hLookup(rawKeyword, {
   return success(formatDelegationNotices(summary) + out,{
     ...(delegated.length ? { delegationNotices: delegated, delegationSummary: summary } : {}),
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
-    search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
+    search:{mode:searchMode,rewrittenTerms,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
       ...(indexMode?{semantic:!!result.semantic,...(result.ranking&&result.ranking!=='legacy'?{ranking:result.ranking}:{}),...(labelsEnabled()?{labels:true}:{}),selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
         otherCandidates:result.hits.slice(hits.length,hits.length+3).map(x=>({lawId:x.lawId,title:x.title,matchedTerms:x.matchedTerms,topArticle:x.topArticle}))}:{})},
@@ -1640,6 +1644,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         data.integrations={koreanLaw:{configured:profile==='finance'&&legalServer.state==='ready',transport:profile==='finance'?legalServer.transport:null},legalCalls:{quota:legalServer.quota,cache:noCache()?'off':'on',...legalCallStats()},jointWorkflows:profile==='finance'?['travel_expenses','external_honoraria']:[]};
         data.fullText={tool:'get_rule_full_text',defaultMaxChars:30000,maxChars:60000,continuation:'textCoverage.nextArguments',source:'HWP first; HTML fallback is partial',images:'no OCR'};
         data.fullTextIndex=indexStatus();
+        data.searchRewrites={lookupField:'search.rewrittenTerms',deepField:'rewrittenTerms',kinds:['head-drop','tail-cut','substitution','split'],warning:'앞부분을 떼어 찾으면 응답 앞쪽에 의미 변경 위험을 표시합니다. 검색·순위는 바꾸지 않습니다.'};
         data.integrations.universityComparison={configured:comparisonEnabled(),defaultEnabled:true,optOutEnv:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0',snuKeyConfigured:Boolean((process.env.DONGGUK_LAWGO_OC||'').trim()),snuKeyEnv:'DONGGUK_LAWGO_OC',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,topicMatch:{scope:'finance_topics_without_issue_frame',response:'columns[].articles[].topicMatch',basis:['heading','body','weak'],extraRequests:0},issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
         data.integrations.lawLink={configured:!lawGuide,state:lawGuide?lawGuide.state:'ready',defaultEnabled:true,...(lawGuide?{setup:{env:lawGuide.env,ocApplyUrl:lawGuide.ocApplyUrl},notice:lawGuide.message}:{}),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
         data.privacy.queryLog=require('./query-log').queryLogInfo();
@@ -1652,6 +1657,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- toolCount: '+data.toolCount,
           '- 규정 전문·별표: get_rule_full_text (긴 전문은 textCoverage.nextArguments로 이어받기)',
           '- 상위법령 조문 대조: get_rule_upper_laws(include_text=true), comparison에 규정 원문과 현행 법령 조문 연결 제공',
+          '- 축약 검색: '+data.searchRewrites.warning,
           '- 타대학 주제 일치: 질문 전체 검색어와 제목·본문 핵심어 대조(topicMatch), 단독 증빙은 용도 확인 필요, 추가 조회 없음',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
