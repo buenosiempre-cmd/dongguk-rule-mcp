@@ -1193,7 +1193,12 @@ async function hLookup(rawKeyword, {
       maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
       // A question answered from the index, with no terms of the caller's own: a short rule is
       // shown whole instead of a few chosen articles.
-      ...(indexMode&&noSelectors&&autoTerms&&!focus&&!sectionsSpecified?{wholeBodyChars:WHOLE_BODY_CHARS}:{}),
+      ...(indexMode&&noSelectors&&autoTerms&&!focus&&!sectionsSpecified?{
+        wholeBodyChars:WHOLE_BODY_CHARS,
+        // Number-only keywords are omitted by parseKeywords; still respect
+        // that explicit selector when deciding whether to add reference context.
+        ...(!articleSelectors(String(keywords||'')).length&&!appendixSelectors(String(keywords||'')).length?{referenceChars:WHOLE_BODY_CHARS}:{}),
+      }:{}),
       ...(preferredArticles.length?{priorityArticles:preferredArticles}:{}),
     });
     let historyText='';
@@ -1250,7 +1255,7 @@ async function hLookup(rawKeyword, {
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
       evidenceStatus,incompleteReasons,originalCoverage,
-      excerpt:{...(excerpt.wholeBody?{wholeBody:true}:{}),text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
+      excerpt:{...(excerpt.wholeBody?{wholeBody:true}:{}),...(excerpt.referencedArticles?{referencedArticles:excerpt.referencedArticles}:{}),text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
     });
   }
   const summary = delegationSummary(delegated, {identityStatus,requestedArticles:articleSelectors(rawTerms || keyword)});

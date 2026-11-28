@@ -371,6 +371,55 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
       selected = expandedText;
     }
   }
+  // Follow explicit bare references in the selected main articles once. Keep
+  // their full context after the existing evidence; never evict or clip it.
+  // Named sources, revision notes and attachments are not local references.
+  const referencedArticles = [];
+  if (options.referenceChars > 0 && selected.length <= maxChars) {
+    const headingOf = block => /^(?:#{1,6}[ \t]*)?(제[ \t]*\d+[ \t]*조(?:[ \t]*의[ \t]*\d+)?)[ \t]*[(（][^)）]+[)）]/.exec(block);
+    const articles = new Map();
+    for (let index = 0; index < bodyEnd; index++) {
+      const heading = headingOf(blocks[index]);
+      if (!heading) continue;
+      const article = heading[1].replace(/[ \t]/g, '');
+      const indexes = articleContexts[index];
+      // Repeated main-body numbers cannot safely be resolved by first match.
+      articles.set(article, articles.has(article) ? null : { index, indexes });
+    }
+    const references = new Map();
+    for (const [fromArticle, entry] of articles) {
+      if (!entry?.indexes?.every(index => selectedIndexes.has(index))) continue;
+      const sourceText = entry.indexes.map(index => blocks[index]).join('\n');
+      // A name or abbreviation introduced in an earlier paragraph can govern
+      // a later bare citation. Do not resolve such an article automatically.
+      if (/[「『]|(?:법|학칙|정관|규정|규칙|세칙|내규|지침|요령|시행령)(?:\s+제\s*\d|의\s*제\s*\d)|이하\s*["“'‘]/u.test(sourceText)) continue;
+      for (const index of entry.indexes) {
+        const paragraph = blocks[index].replace(headingOf(blocks[index])?.[0] || /^$/, '');
+        // This intentionally misses ambiguous references rather than treating
+        // another law's article, a quoted title or an old number as this rule.
+        if (/[「」『』“”"'‘’]|부\s*칙|개정|이동|삭제|신설|(?:법|학칙|정관|규정|규칙|세칙|내규|지침|요령|시행령|기준)(?:\s|[)）]|의|에|을|를|제\d)/u.test(paragraph)) continue;
+        for (const match of paragraph.matchAll(/제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?(?:[ \t]*제[ \t]*\d+[ \t]*항)?에[ \t]*(?:따라|따른|의하여|의한)/g)) {
+          const article = `제${Number(match[1])}조${match[2] ? `의${Number(match[2])}` : ''}`;
+          const target = articles.get(article);
+          if (!target?.indexes || target.indexes.some(index => selectedIndexes.has(index))) continue;
+          if (!references.has(article)) references.set(article, new Set());
+          references.get(article).add(fromArticle);
+        }
+      }
+    }
+    let addedChars = 0;
+    const omittedBefore = scored.filter(item => !selectedIndexes.has(item.index)).length;
+    const noticeChars = omittedBefore ? `\n\n...(블록 수 제한으로 관련 블록 ${omittedBefore}개 생략)`.length : 0;
+    for (const [article, sources] of references) {
+      const target = articles.get(article);
+      const addition = `\n\n> 위 발췌에서 인용한 같은 규정의 조문: ${article}\n\n` + target.indexes.map(index => blocks[index]).join('\n\n');
+      if (addedChars + addition.length > options.referenceChars || selected.length + addition.length + noticeChars > maxChars) continue;
+      selected += addition;
+      addedChars += addition.length;
+      for (const index of target.indexes) { selectedIndexes.add(index); orderedIndexes.push(index); }
+      referencedArticles.push({ article, fromArticles: [...sources] });
+    }
+  }
   const matchedTerms = [...new Set(
     selectedMatches.flatMap(x => x.matched)
   )];
@@ -389,6 +438,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     blockCount: orderedIndexes.length,
     missingAppendices,
     ...(wholeBody ? { wholeBody: true } : {}),
+    ...(referencedArticles.length ? { referencedArticles } : {}),
   };
 }
 
