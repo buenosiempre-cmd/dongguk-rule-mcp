@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "purpose": "공개 개발용 채점 셋 초안. 비공개 보류 문항이나 독립 정확도 추정치가 아님.",
   "checkedAt": "2026-11-28",
   "rules": [
@@ -279,7 +279,7 @@
           {
             "ruleName": "사학기관 재무·회계 규칙",
             "article": "제13조",
-            "status": "EXTERNAL_LAW"
+            "status": "CITATION_SOURCE_UNVERIFIED"
           }
         ],
         "summary": {
@@ -497,7 +497,7 @@
           {
             "ruleName": "사학기관 재무ㆍ회계 규칙",
             "article": "제13조",
-            "status": "EXTERNAL_LAW"
+            "status": "CITATION_SOURCE_UNVERIFIED"
           }
         ],
         "summary": {
