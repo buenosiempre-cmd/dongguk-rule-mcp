@@ -162,7 +162,7 @@ const {
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
 const { rankRules, rankingMethod } = require('./fusion.js');
-const { createFacetSignal } = require('./ontology.js');
+const { createFacetSignal, placeRequest, placeOf, bodyCampus } = require('./ontology.js');
 const { labelsEnabled } = require('./aliases.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
@@ -753,6 +753,7 @@ async function hHistory(rawLawId){
 // hit is "dominant" when it matches at least two words and clearly outscores
 // the runner-up; callers may preview it instead of asking for a law_id.
 const INDEX_PREVIEW_RULES=3;
+const CAMPUS_NAME={seoul:'서울캠퍼스',wise:'WISE캠퍼스'};
 const KEYWORDS_MAX_CHARS=200;
 // Scope words name where a rule applies, not what the question is about.
 const SCOPE_WORD=/^(?:WISE|WISE캠퍼스|경주|경주캠퍼스|서울캠퍼스|캠퍼스|산학협력단|산단|의학계열|의과대학|병원|대학원)$/i;
@@ -796,6 +797,14 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const leading=ranked.slice(0,INDEX_PREVIEW_RULES);
   for(const extra of anchored.slice(0,1)) if(!leading.includes(extra)) leading.splice(INDEX_PREVIEW_RULES-1,1,extra);
   const hits=[...leading,...ranked.filter(x=>!leading.includes(x))].slice(0,top);
+  // A rule whose title names no campus but whose first article names only a campus the question
+  // did not ask for: it stays where it is, is not confirmed as the one rule, and says so.
+  const asked=placeRequest(scopeQuery,campus).campuses;
+  if(asked.length&&corpus) for(const hit of hits.slice(0,INDEX_PREVIEW_RULES)){
+    if(placeOf(hit.title).campus.length) continue;
+    const named=bodyCampus(corpus.rules.find(rule=>rule.lawId===hit.lawId));
+    if(named.length&&!named.some(id=>asked.includes(id))) hit.scopeFirstArticle=named;
+  }
   const [first,second]=hits;
   // Without semantic scores the first rule leads when it clearly outscores the second, as before.
   // With them the lift orders rules but is not evidence that one rule alone answers the question:
@@ -804,7 +813,15 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const searchable=found.tokens.length-found.missingTerms.length;
   // Under hybrid the order is not the score order, so the first rule is compared with every
   // other candidate whether or not semantic scores were applied (the two scores are equal without them).
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
+  // One rule is shown alone only when nothing says another rule may be meant.
+  // A rule written for one campus is not confirmed for a question that names no campus.
+  // When semantic scores were applied and the rule that leads by words is not the closest in
+  // meaning, it is not confirmed once another candidate's lifted score reaches its word score:
+  // the meaning lift then says as much for that candidate as the words say for the leader.
+  const semanticRank=new Map(found.hits.map(hit=>[hit.lawId,hit.semanticRuleRank]));
+  const unaskedCampus=!asked.length&&placeOf(first.title).campus.length>0;
+  const meaningElsewhere=!!found.semantic&&hits.length>1&&semanticRank.get(first.lawId)!==1&&wordScore.get(first.lawId)<=Math.max(...hits.slice(1).map(hit=>hit.score));
+  const dominant=!unaskedCampus&&!meaningElsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
@@ -1199,6 +1216,7 @@ async function hLookup(rawKeyword, {
       (incompleteReasons.length ? `- 일부 확인 필요 사유 (incompleteReasons): ${incompleteReasons.join(', ')}\n` : '') +
       `- 원문: ${sourceUrl}` +
       (hit.editions?.length?`\n- 같은 규정의 다른 판: ${hit.editions.map(x=>`${x.title}(LAW_ID ${x.lawId})`).join(', ')}`:'') +
+      (hit.scopeFirstArticle?`\n- 적용 범위 확인: 이 규정 제1조는 ${hit.scopeFirstArticle.map(id=>CAMPUS_NAME[id]||id).join('·')}를 적고 있습니다. 질문의 캠퍼스에도 적용되는지 원문에서 확인하세요.`:'') +
       (hit.scopeNameOnly?'\n- 일치 근거: 기관·캠퍼스 이름만 일치합니다. 질문의 주제어가 나오는 조문은 색인에서 찾지 못했습니다(별표·서식은 색인 범위 밖).':'') +
       (hit.selectedBy==='question'?'\n- 선택 근거: 핵심어가 아니라 질문 문장으로 고른 규정입니다.':'') +
       (historyText?`\n- 최근 연혁: ${historyText}`:'') +
