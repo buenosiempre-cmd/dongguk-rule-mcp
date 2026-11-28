@@ -130,6 +130,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope } = require('./lookup.js');
+const { delegationNotices, formatDelegationNotices } = require('./delegation-notices.js');
 const {
   parseSearch,
   parseContent,
@@ -1193,7 +1194,9 @@ async function hLookup(rawKeyword, {
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
     });
   }
-  return success(out,{
+  const delegated = delegationNotices(rules);
+  return success(formatDelegationNotices(delegated) + out,{
+    ...(delegated.length ? { delegationNotices: delegated } : {}),
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
