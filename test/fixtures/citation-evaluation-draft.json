@@ -1,0 +1,514 @@
+{
+  "version": 1,
+  "purpose": "공개 개발용 채점 셋 초안. 비공개 보류 문항이나 독립 정확도 추정치가 아님.",
+  "checkedAt": "2026-11-28",
+  "rules": [
+    {
+      "lawId": 184,
+      "historyId": 3856,
+      "title": "여비규정",
+      "revisedAt": "2026.03.13",
+      "effectiveDate": null,
+      "source": "https://rule.dongguk.edu/lmxsrv/law/lawFullView.srv?SEQ=184&SEQ_HISTORY=3856",
+      "ground": "dongguk-rules get_rule_content(law_id=184, article=제9조/제13조). 개정일이며 시행일은 별도 미확인.",
+      "markdown": "### 제9조(일비 등의 지급)\n① 일비, 숙박비, 식비, 출장목적경비의 지급액은 정부 인허요금 및 물가 등을 고려하여 총장이 따로 정할 수 있다.(2005.6.27., 2022.10.20., 2024.8.27. 개정)\n② 일비는 출장지에서의 교통비, 통신비 등 제반활동에 소요되는 비용을 포함한다.(2016.8.22. 신설)\n③ 일비 및 식비는 여행일수에 따라, 숙박비는 숙박하는 일수에 따라 지급한다. 다만, 실비 정산일 경우에는 법인카드를 사용해야 하며, 출장지에서 법인카드 사용제한 등의 특별한 사유가 있는 경우에는 따로 증명서류를 갖추어 정산해야 한다.(2016.8.22., 2022.10.20., 2024.8.27., 2024.12.6., 2026.3.13. 개정)\n④ <2020.2.12. 삭제>\n⑤ <2022.10.20. 삭제>\n\n### 제13조 (출장목적경비)\n출장업무 중 필요한 비자, 추가 수화물, 여행자보험 등의 출장목적경비는 증명자료를 근거로 실비를 지급할 수 있다. 다만, 필요시에는 법인카드로 집행하는 것으로 한다.(2020.2.12. 신설, 2022.10.20., 2026.3.13. 개정)"
+    }
+  ],
+  "externalGrounds": [
+    {
+      "name": "사립학교법",
+      "article": "제29조",
+      "title": "회계의 구분 등",
+      "lawId": "000888",
+      "mst": "290777",
+      "effectiveDate": "2026-10-02",
+      "ground": "korean-law get_law_text(mst=290777, jo=제29조)"
+    },
+    {
+      "name": "사학기관 재무ㆍ회계 규칙",
+      "article": "제13조",
+      "title": "삭제",
+      "lawId": "007332",
+      "mst": "270757",
+      "effectiveDate": null,
+      "ground": "korean-law get_law_text(mst=270757, jo=제13조): 삭제 <1982.5.28>. 검색 시행일 2025-07-19와 본문 시행일 2025-04-18 불일치로 시행일 미확인. 여기서는 국가 법령 귀속만 채점."
+    }
+  ],
+  "cases": [
+    {
+      "id": "CIT01",
+      "category": "정상 낫표",
+      "input": "「여비규정」 제9조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조"
+    },
+    {
+      "id": "CIT02",
+      "category": "정상 무낫표",
+      "input": "여비규정 제9조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조"
+    },
+    {
+      "id": "CIT03",
+      "category": "정확한 제목",
+      "input": "「여비규정」 제9조(일비 등의 지급)",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 제목"
+    },
+    {
+      "id": "CIT04",
+      "category": "정상 항",
+      "input": "「여비규정」 제9조 제2항",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 제2항"
+    },
+    {
+      "id": "CIT05",
+      "category": "다른 제목",
+      "input": "「여비규정」 제9조(연구윤리위원회)",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "CONTENT_MISMATCH"
+          }
+        ],
+        "summary": {
+          "verified": 0,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 제목과 불일치"
+    },
+    {
+      "id": "CIT06",
+      "category": "첫 항",
+      "input": "「여비규정」 제9조 제1항",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 제1항"
+    },
+    {
+      "id": "CIT07",
+      "category": "규정명만",
+      "input": "「여비규정」",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": null,
+            "status": "RULE_EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "LAW_ID 184 명칭"
+    },
+    {
+      "id": "CIT08",
+      "category": "규정 조응",
+      "input": "여비규정 제9조 및 같은 규정 제13조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "여비규정",
+            "article": "제13조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 2,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조·제13조"
+    },
+    {
+      "id": "CIT09",
+      "category": "법 오귀속 반례",
+      "input": "여비규정 제9조에 따라 집행함. 사립학교법 제29조에 의함.",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "사립학교법",
+            "article": "제29조",
+            "status": "EXTERNAL_LAW"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 / 사립학교법 제29조"
+    },
+    {
+      "id": "CIT10",
+      "category": "낫표 법 대조",
+      "input": "「사립학교법」 제29조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "사립학교법",
+            "article": "제29조",
+            "status": "EXTERNAL_LAW"
+          }
+        ],
+        "summary": {
+          "verified": 0,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "사립학교법 제29조: 교내 검증 범위 밖"
+    },
+    {
+      "id": "CIT11",
+      "category": "띄어 쓴 규칙",
+      "input": "여비규정 제9조에 따라 집행함. 사학기관 재무·회계 규칙 제13조에 의함.",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "사학기관 재무·회계 규칙",
+            "article": "제13조",
+            "status": "EXTERNAL_LAW"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 / 사학기관 재무ㆍ회계 규칙 제13조(삭제). 여비규정 제13조로 판정 금지"
+    },
+    {
+      "id": "CIT12",
+      "category": "같은 법",
+      "input": "사립학교법 제29조. 같은 법 제29조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "사립학교법",
+            "article": "제29조",
+            "status": "EXTERNAL_LAW"
+          }
+        ],
+        "summary": {
+          "verified": 0,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "사립학교법 제29조, 같은 인용 중복 제거"
+    },
+    {
+      "id": "CIT13",
+      "category": "교내 규정 뒤 동법",
+      "input": "여비규정 제9조. 동법 제13조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "동법",
+            "article": "제13조",
+            "status": "CITATION_SOURCE_UNVERIFIED"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "법령명 없음: 교내 제13조 승계 금지"
+    },
+    {
+      "id": "CIT14",
+      "category": "문단 경계",
+      "input": "여비규정 제9조\n\n같은 규정 제13조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 1
+        }
+      },
+      "ground": "여비규정 제9조 / 다음 문단 선행명 없음"
+    },
+    {
+      "id": "CIT15",
+      "category": "방법 대조",
+      "input": "여비규정 제9조의 방법을 검토하고 제13조를 적용한다.",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "여비규정",
+            "article": "제13조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 2,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조·제13조; 방법은 명칭 아님"
+    },
+    {
+      "id": "CIT16",
+      "category": "별지 숫자",
+      "input": "「여비규정」 별지1",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": null,
+            "status": "UNSUPPORTED_CITATION"
+          }
+        ],
+        "summary": {
+          "verified": 0,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "지원 계약: 별지 원문 미검증"
+    },
+    {
+      "id": "CIT17",
+      "category": "정상 서술",
+      "input": "「여비규정」 제9조에 따라 별지와 같이 시행한다.",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조; 번호 없는 별지 서술은 인용 아님"
+    },
+    {
+      "id": "CIT18",
+      "category": "미지원 상세",
+      "input": "「여비규정」 제9조 제2항 99호",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "UNSUPPORTED_CITATION"
+          }
+        ],
+        "summary": {
+          "verified": 0,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 1,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 제2항; 호는 지원 범위 밖"
+    },
+    {
+      "id": "CIT19",
+      "category": "항 나열",
+      "input": "「여비규정」 제9조 제1항 및 제2항",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          }
+        ],
+        "summary": {
+          "verified": 2,
+          "notFound": 0,
+          "needsReview": 0,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 제1·2항"
+    },
+    {
+      "id": "CIT20",
+      "category": "가운뎃점 변형",
+      "input": "여비규정 제9조. 사학기관 재무ㆍ회계 규칙 제13조",
+      "expected": {
+        "citations": [
+          {
+            "ruleName": "여비규정",
+            "article": "제9조",
+            "status": "EXISTS"
+          },
+          {
+            "ruleName": "사학기관 재무ㆍ회계 규칙",
+            "article": "제13조",
+            "status": "EXTERNAL_LAW"
+          }
+        ],
+        "summary": {
+          "verified": 1,
+          "notFound": 0,
+          "needsReview": 1,
+          "total": 2,
+          "floating": 0
+        }
+      },
+      "ground": "여비규정 제9조 / 사학기관 재무ㆍ회계 규칙 제13조"
+    }
+  ]
+}

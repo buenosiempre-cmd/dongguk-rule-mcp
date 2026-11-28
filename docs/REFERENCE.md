@@ -411,6 +411,10 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 
 날짜 부칙은 본문 파서와 같은 선택자로 부칙 머리의 개정일을 대조한다. 날짜 표기 또는 같은 문장의 바로 다음 조문과의 연결을 해석할 수 없거나, 일치 날짜를 찾지 못한 상태에서 원문에 날짜 미상 부칙이 있으면 `ARTICLE_SELECTOR_UNVERIFIED`(⚠)다. 날짜가 확인되는 부칙만 있고 해당 날짜·조문이 없으면 `NOT_FOUND`다. 날짜 없는 인용이 여러 부칙 조문에 대응하면 `ARTICLE_AMBIGUOUS`다. 부칙 개정일을 시행일로 판정하지 않는다.
 
+조문 바로 앞의 낫표 없는 법·법률·시행령·시행규칙 명칭과 띄어 쓴 규칙·규정 명칭도 새 인용 출처로 보존한다. 교내 검색 결과에서 공백·가운뎃점을 정규화한 정확한 제목이 있으면 그 규정을 검증한다. 없으면 `EXTERNAL_LAW`(⚠)로 국가 법령 후보임을 알리고 조문을 앞 교내 규정에 붙이지 않는다. 이는 국가 법령의 실존 확인이 아니라 이름에 근거한 추정이며, 검색에 실패하면 `RULE_SEARCH_UNAVAILABLE`이다. 띄어 쓴 교내 이름의 오기·약칭도 이 후보 경고가 될 수 있으므로 정식 명칭을 확인한다.
+
+`같은 법`·`동법`은 같은 문단의 직전 법령명을 이어받는다. 선행명이 없거나 직전 이름이 교내 규정 형태이면 `CITATION_SOURCE_UNVERIFIED`(⚠)로 조응을 보존한다. 이 상태와 `EXTERNAL_LAW`는 `needsReview`에만 포함하고 `verified`·`exists`에 포함하지 않는다. 국가 법령의 조문 실존·시행일·적용 여부는 한국법령 MCP로 별도 확인한다. [공개 채점 셋 초안](citation-evaluation-draft.md)에 고정 근거와 재현 방법을 적었다.
+
 | 요약 | 집계 계약 |
 |---|---|
 | `verified` | 미지원 범위가 없고 `EXISTS` 또는 `RULE_EXISTS`인 반환 인용 수 |
