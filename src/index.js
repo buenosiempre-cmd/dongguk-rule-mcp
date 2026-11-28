@@ -787,11 +787,12 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // other candidate whether or not semantic scores were applied (the two scores are equal without them).
   // One rule is shown alone only when nothing says another rule may be meant.
   // A rule written for one campus is not confirmed for a question that names no campus.
-  // When semantic scores were applied, the rule that leads by words is confirmed only if it is
-  // also the closest in meaning, or its word score alone leads every other candidate's lifted score.
+  // When semantic scores were applied and the rule that leads by words is not the closest in
+  // meaning, it is not confirmed once another candidate's lifted score reaches its word score:
+  // the meaning lift then says as much for that candidate as the words say for the leader.
   const semanticRank=new Map(found.hits.map(hit=>[hit.lawId,hit.semanticRuleRank]));
   const unaskedCampus=!asked.length&&placeOf(first.title).campus.length>0;
-  const meaningElsewhere=!!found.semantic&&hits.length>1&&semanticRank.get(first.lawId)!==1&&wordScore.get(first.lawId)<Math.max(...hits.slice(1).map(hit=>hit.score))*1.3;
+  const meaningElsewhere=!!found.semantic&&hits.length>1&&semanticRank.get(first.lawId)!==1&&wordScore.get(first.lawId)<=Math.max(...hits.slice(1).map(hit=>hit.score));
   const dominant=!unaskedCampus&&!meaningElsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant,method};
 }
