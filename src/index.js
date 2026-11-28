@@ -155,7 +155,7 @@ const {
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
 const { rankRules, rankingMethod } = require('./fusion.js');
-const { createFacetSignal } = require('./ontology.js');
+const { createFacetSignal, placeRequest, placeOf } = require('./ontology.js');
 const { labelsEnabled } = require('./aliases.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
@@ -776,7 +776,14 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const searchable=found.tokens.length-found.missingTerms.length;
   // Under hybrid the order is not the score order, so the first rule is compared with every
   // other candidate whether or not semantic scores were applied (the two scores are equal without them).
-  const dominant=!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
+  // One rule is shown alone only when nothing says another rule may be meant.
+  // A rule written for one campus is not confirmed for a question that names no campus.
+  // When semantic scores were applied, the rule that leads by words is confirmed only if it is
+  // also the closest in meaning, or its word score alone leads every other candidate's lifted score.
+  const semanticRank=new Map(found.hits.map(hit=>[hit.lawId,hit.semanticRuleRank]));
+  const unaskedCampus=!placeRequest(scopeQuery,campus).campuses.length&&placeOf(first.title).campus.length>0;
+  const meaningElsewhere=!!found.semantic&&hits.length>1&&semanticRank.get(first.lawId)!==1&&wordScore.get(first.lawId)<Math.max(...hits.slice(1).map(hit=>hit.score))*1.3;
+  const dominant=!unaskedCampus&&!meaningElsewhere&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
