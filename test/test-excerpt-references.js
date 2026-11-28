@@ -37,6 +37,32 @@ for (const body of [
 ]) check('외부 또는 개정 참조 제외: ' + body, () => {
   assert(!run(source(body)).referencedArticles);
 });
+for (const body of [
+  '지원 신청 접수는 국가를 당사자로 하는 계약에 관한 법률 제12조에 따른다.',
+  '신청은 사학기관 재무ㆍ회계 규칙 제12조에 따른다.',
+  '신청은 동법 제12조에 따른다.',
+  '신청은 같은 법의 제12조에 따른다.',
+  '신청은 같은 규정 제12조에 따른다.',
+  '신청은 「다른규정」 제12조에 따른다.',
+  '신청은 교내 단체협약 제12조에 따른다.',
+  '신청은 교내 단체협약의 제12조에 따른다.',
+  '신청은 별도 문서 제12조에 따른다.',
+  '신청 절차에는 국가법을 준용한다.\n\n신청은 제12조에 따른다.',
+  '신청은 국가법을 준용한다.\n\n이 규정 제12조에 따른다.',
+]) check('출처 불명 또는 다른 출처의 보충 차단: ' + body, () => {
+  const text = source(body);
+  assert.deepEqual(run(text), extractRelevantBlocks(text, '신청', opts));
+});
+for (const body of [
+  '제12조에 따라 신청한다.',
+  '이 규정 제12조에 따라 신청한다.',
+  '신청자는 이 규정 제12조에 따른다.',
+  '본 규정 제12조에 따라 신청한다.',
+  '1. 신청자는 제12조에 따른다.',
+  '2. 제12조에 따른 신청을 처리한다.',
+]) check('명확한 내부 인용 보충: ' + body, () => {
+  assert.deepEqual(run(source(body)).referencedArticles, [{ article: '제12조', fromArticles: ['제11조'] }]);
+});
 check('부칙 및 별지 속 같은 번호를 본칙으로 따라가지 않는다', () => {
   for (const boundary of ['## 부칙', '[별지 1]']) {
     const actual = run(article(11, '신청은 제12조에 따른다.') + '\n\n' + boundary + '\n\n' + article(12, '동일번호의 다른 범위'));

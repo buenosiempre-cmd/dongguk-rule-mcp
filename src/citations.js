@@ -672,6 +672,7 @@ async function verifyRuleCitations(text, deps, options = {}) {
 }
 
 module.exports = {
+  scanMentions,
   isAnnotationParen,
   extractRuleCitations,
   verifyRuleCitations,

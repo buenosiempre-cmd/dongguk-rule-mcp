@@ -389,16 +389,24 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     const references = new Map();
     for (const [fromArticle, entry] of articles) {
       if (!entry?.indexes?.every(index => selectedIndexes.has(index))) continue;
-      const sourceText = entry.indexes.map(index => blocks[index]).join('\n');
-      // A name or abbreviation introduced in an earlier paragraph can govern
-      // a later bare citation. Do not resolve such an article automatically.
-      if (/[「『]|(?:법|학칙|정관|규정|규칙|세칙|내규|지침|요령|시행령)(?:\s+제\s*\d|의\s*제\s*\d)|이하\s*["“'‘]/u.test(sourceText)) continue;
-      for (const index of entry.indexes) {
-        const paragraph = blocks[index].replace(headingOf(blocks[index])?.[0] || /^$/, '');
-        // This intentionally misses ambiguous references rather than treating
-        // another law's article, a quoted title or an old number as this rule.
-        if (/[「」『』“”"'‘’]|부\s*칙|개정|이동|삭제|신설|(?:법|학칙|정관|규정|규칙|세칙|내규|지침|요령|시행령|기준)(?:\s|[)）]|의|에|을|를|제\d)/u.test(paragraph)) continue;
+      const paragraphs = entry.indexes.map(index => blocks[index].replace(headingOf(blocks[index])?.[0] || /^$/, ''));
+      const sourceText = paragraphs.join('\n');
+      // citations imports lookup for candidate resolution. Load its shared
+      // scanner at call time, after both modules have finished initializing.
+      const { scanMentions } = require('./citations');
+      const isSelf = mention => mention.kind === 'anaphora' && /^(?:이|본)\s*규정$/.test(mention.raw);
+      // A named source or unresolved anaphora in any paragraph can govern a
+      // later bare number. Even an explicit self reference cannot override it.
+      if (scanMentions(sourceText).some(mention => !isSelf(mention)) || /[「『]|이하\s*["“'‘]/u.test(sourceText)) continue;
+      for (const paragraph of paragraphs) {
+        if (/[「」『』“”"'‘’]|부\s*칙|개정|이동|삭제|신설/u.test(paragraph)) continue;
         for (const match of paragraph.matchAll(/제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?(?:[ \t]*제[ \t]*\d+[ \t]*항)?에[ \t]*(?:따라|따른|의하여|의한)/g)) {
+          // Absence of a recognized name is not proof of a local citation.
+          // Accept only a paragraph/list start, optionally a simple subject
+          // and an explicit self designation. An unknown source noun (e.g.
+          // a convention), possessive or intervening prose stays unresolved.
+          const prefix = paragraph.slice(0, match.index);
+          if (!/^\s*(?:(?:\d+[.)]|[①-⑳])\s*)?(?:[가-힣]+(?:은|는|이|가)\s+)?(?:(?:이|본)\s*규정\s*)?$/.test(prefix)) continue;
           const article = `제${Number(match[1])}조${match[2] ? `의${Number(match[2])}` : ''}`;
           const target = articles.get(article);
           if (!target?.indexes || target.indexes.some(index => selectedIndexes.has(index))) continue;
