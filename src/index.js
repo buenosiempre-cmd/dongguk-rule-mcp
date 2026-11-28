@@ -823,8 +823,13 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // the meaning lift then says as much for that candidate as the words say for the leader.
   const semanticRank=new Map(found.hits.map(hit=>[hit.lawId,hit.semanticRuleRank]));
   const unaskedCampus=!asked.length&&placeOf(first.title).campus.length>0;
+  // A rule titled for other classes of people than the one class the question names (취업규칙 for a
+  // student's question) is not confirmed as the one rule. Read from the ontology, so outside legacy only.
+  const sig=method==='legacy'||!corpus?null:createFacetSignal({corpus,query:scopeQuery});
+  const askedClass=sig?.question.subjects.length===1?sig.question.subjects[0]:null, titled=sig?.ruleOf(first.lawId)?.subjects||[];
+  const otherAudience=!!askedClass&&titled.length>0&&!titled.some(named=>named===askedClass||sig.covers(named,askedClass)||sig.covers(askedClass,named));
   const elsewhere=meaningElsewhere({applied:found.semantic,leaderRank:semanticRank.get(first.lawId),leaderWordScore:wordScore.get(first.lawId),otherScores:hits.slice(1).map(hit=>hit.score)});
-  const dominant=!unaskedCampus&&!elsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
+  const dominant=!unaskedCampus&&!otherAudience&&!elsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
