@@ -183,13 +183,13 @@ const ARTICLE = { found: '있음', deleted: '삭제됨', missing: '없음', unav
 const LEVEL = { review: '검토 필요', check: '확인', info: '참고', unknown: '미확인' };
 const CAVEAT = '점검 신호는 규정을 다시 볼 지점입니다. 법령과 규정의 충돌이나 적용 여부를 판정한 것이 아닙니다. 조문 개정 표시는 공포일 기준이고, 시행일·부칙·경과조치는 법령 원문에서 확인해야 합니다. 주제 후보는 규정 제목으로 고른 목록이며 근거 법령으로 확정된 것이 아닙니다.';
 
-function formatUpperLaws(result, { title, selectorLabel }) {
+function formatUpperLaws(result, { title, selectorLabel, unverifiedLawMentions = [] }) {
   const cell = value => String(value ?? '').replace(/\|/g, '/').replace(/\s+/g, ' ');
   const lines = [`## ${title} ${selectorLabel ? `${selectorLabel} ` : ''}상위법령 관계`, `- 규정 개정일: ${result.ruleRevisedAt || '미상'}`,
     `- 법령 ${result.laws.length}건 (규정이 인용 ${result.counts.cited}, 주제 후보 ${result.counts.topicCandidates}) / 검토 필요 ${result.counts.review}건, 확인 ${result.counts.check}건`,
     `- 법령 조회 상태: ${result.lookup.status}${result.lookup.code ? ` (${result.lookup.code})` : ''}`];
   if (result.lookup.notice) lines.push('', result.lookup.notice);
-  if (!result.laws.length) lines.push('', '이 규정이 이름을 적어 인용한 국가 법령과 제목으로 고른 주제 후보가 없습니다.');
+  if (!result.laws.length) lines.push('', unverifiedLawMentions.length ? '확인된 국가 법령은 없습니다. 아래 법령명 확인 필요 항목을 확인하세요.' : '이 규정이 이름을 적어 인용한 국가 법령과 제목으로 고른 주제 후보가 없습니다.');
   else {
     lines.push('', '| 법령 | 관계 | 현행 여부 | 종류 | 현행본 시행일 | 인용 조문(현행 상태) | 규정 내 위치 |', '|---|---|---|---|---|---|---|');
     for (const law of result.laws) {

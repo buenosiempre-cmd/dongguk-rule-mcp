@@ -18,6 +18,38 @@ const NAME_SUFFIX = '(?:시행세칙|규정|규칙|세칙|학칙|정관|지침|�
 const STANDALONE_NAMES = new Set(['학칙', '정관', '헌장']);
 const DEMONSTRATIVES = ['같은', '해당', '당해', '아래', '우리', '이', '그', '본', '동', '위'];
 const NAME_CHAR = '[가-힣A-Za-z0-9·ㆍ‧•・]';
+const LAW_SUFFIX = /(?:법률|법|시행령|시행규칙)$/;
+const ORDINARY_LAW_WORD = /^(?:사법|동법|같은법)$|(?:방법|기법|문법|용법|요법|수법|편법|해법|화법|어법|위법|적법|불법|합법)$/;
+const NAME_BOUNDARY = /^(?:같은|해당|당해|우리|이|그|본|동|위|아래|및|또는|다만|또한|관련|관계|경우|때)$|(?:따라|따른|의하여|의한|의거|하여|하며|하고|한다|에는|에서는|으로서|로서|이나|거나)$/;
+// A source name ends at a lexical boundary, not at a particular article bridge.
+// Keep a Korean particle attached to a name out of the name itself. In particular,
+// 학교법인 / 법학 are not the source '학교법' / '법'.
+const NAME_END = String.raw`(?=$|[\s:：;；,，.。()（）「」『』]|제\s*\d+\s*조|[에의을를은는과와][가-힣]*(?=$|[\s:：;；,，.。()（）]))`;
+const PROSE_PREFIX = /^(?:(?:현행|현재|기존|이에|아울러|오늘은|근거는)|(?:확인|적용|참고|검토|인용|준용)(?:한|할|하는|된|되는))\s+/;
+
+function withoutProsePrefix(name) {
+  let previous;
+  do { previous = name; name = name.replace(PROSE_PREFIX, ''); } while (name !== previous);
+  return name;
+}
+
+// Preserve the name before an article independently of classifying its source.
+// Spaced generic tails need their preceding words; stop at prose/another citation.
+function extendCitationName(source, start, tail) {
+  const words = [...source.slice(0, start).matchAll(/\S+/g)];
+  const generic = /^(?:법|법률|시행령|시행규칙|규칙|규정|정관|보장법|특별법|특례법|기본법|촉진법|지원법|진흥법|육성법|관리법|보호법|연금법|조치법)$/;
+  if (!generic.test(tail.replace(/\s+시행(?:령|규칙)$/, '')) && !/(?:관한|위한|대한)$/.test(words.at(-1)?.[0] || '')) return { name: tail, start };
+  let from = start;
+  for (let i = words.length - 1, count = 0; i >= 0 && count < 8; i--, count++) {
+    const word = words[i][0];
+    if (!/^[가-힣A-Za-z0-9·ㆍ‧•・]+$/.test(word) || NAME_BOUNDARY.test(word)
+      || /제\d+(?:조|항|호)/.test(word) || !/^[ \t]+$/.test(source.slice(words[i].index + word.length, from))) break;
+    // A preceding named source is a boundary, except the base of its decree.
+    if (new RegExp(`${NAME_SUFFIX}$`).test(word) || (LAW_SUFFIX.test(word) && !(count === 0 && /^시행/.test(tail)))) break;
+    from = words[i].index;
+  }
+  return { name: source.slice(from, start) + tail, start: from };
+}
 
 // Scan the full citation before deciding which part this verifier supports.
 // Unbounded digits plus numeric boundaries prevent matching only a number prefix.
@@ -60,13 +92,18 @@ function overlaps(spans, start, end) {
 
 // 한 문단(segment) 안에서 규정명 멘션 수집: 낫표 → 조응 → 무낫표 순
 function scanMentions(segment) {
-  const mentions = [];
+  let mentions = [];
+  // Alias definitions describe the preceding source. A quoted/bare word inside
+  // '(이하 "법"이라 한다)' must not replace it with a source named '법'.
+  const definitions = [...segment.matchAll(/[(（]\s*이하[^)）\n]{1,100}[)）]/g)]
+    .map(m => ({ start: m.index, end: m.index + m[0].length }));
   const spans = [];
   let m;
 
   // 1) 「규정명」 — 내부만 캡처하므로 닫는 낫표 잔존 문제 없음
   const bracket = /「\s*([^「」\n]{1,40}?)\s*」/g;
   while ((m = bracket.exec(segment)) !== null) {
+    if (overlaps(spans, m.index, bracket.lastIndex)) continue;
     const name = m[1].trim();
     if (!name) continue;
     mentions.push({ start: m.index, end: bracket.lastIndex, name, kind: 'bracket' });
@@ -75,8 +112,8 @@ function scanMentions(segment) {
 
   // 2) 조응 표현: "같은 규정", "본 규칙", "같은 학칙 시행세칙" …
   const anaph = new RegExp(
-    `(?<![가-힣])(${DEMONSTRATIVES.join('|')})\\s*(규정|규칙|학칙|정관|지침|내규|세칙)` +
-    `(\\s*(?:의\\s*)?시행세칙)?(?![가-힣])`, 'g'
+    `(?<![가-힣])(${DEMONSTRATIVES.join('|')})\\s*(규정|규칙|학칙|정관|지침|내규|세칙|법률|법)` +
+    `(\\s*(?:의\\s*)?(?:시행세칙|시행령|시행규칙))?${NAME_END}`, 'g'
   );
   while ((m = anaph.exec(segment)) !== null) {
     if (overlaps(spans, m.index, anaph.lastIndex)) continue;
@@ -86,11 +123,26 @@ function scanMentions(segment) {
       raw: m[0].trim(),
       suffixWord: m[2],
       enforcement: !!m[3],
+      lawEnforcement: m[3]?.trim().replace(/^의\s*/, ''),
     });
     spans.push({ start: m.index, end: anaph.lastIndex });
   }
 
-  // 3) 무낫표: 접미사로 끝나는 명칭 토큰
+  // 3) Preserve explicit sources before reading articles, regardless of the
+  // intervening connector, punctuation or alias definition.
+  const named = new RegExp(`(?<![가-힣A-Za-z0-9「·ㆍ‧•・])(${NAME_CHAR}{0,40}(?:시행규칙|시행령|법률|법|${NAME_SUFFIX})(?:[ \\t]+시행(?:령|규칙))?)${NAME_END}`, 'g');
+  while ((m = named.exec(segment)) !== null) {
+    if (overlaps(spans, m.index, named.lastIndex) || ORDINARY_LAW_WORD.test(m[1])) continue;
+    const extended = extendCitationName(segment, m.index, m[1]);
+    if (overlaps(spans, extended.start, named.lastIndex)) continue;
+    const spaced = extended.start < m.index;
+    if (!spaced && !LAW_SUFFIX.test(m[1])) continue; // established rule-name pass below
+    mentions.push({ start: extended.start, end: named.lastIndex, name: withoutProsePrefix(extended.name), rawName: extended.name,
+      kind: 'named-source', exactName: true });
+    spans.push({ start: extended.start, end: named.lastIndex });
+  }
+
+  // 4) 무낫표: 접미사로 끝나는 명칭 토큰
   const bare = new RegExp(
     `(?<![가-힣A-Za-z0-9「·ㆍ‧•・])(${NAME_CHAR}{0,24}${NAME_SUFFIX})(?![가-힣A-Za-z0-9」])`, 'g'
   );
@@ -106,16 +158,38 @@ function scanMentions(segment) {
   }
 
   mentions.sort((a, b) => a.start - b.start);
+  // Only suppress words inside a definition attached to an actually recognized
+  // source. Guessing the attachment from a suffix can hide a real law named
+  // after an ordinary word such as '방법(이하 「사립학교법」이라 한다)'.
+  for (const definition of definitions) {
+    const owner = [...mentions].reverse().find(x => x.end <= definition.start
+      && /^\s*$/.test(segment.slice(x.end, definition.start)));
+    if (owner) mentions = mentions.filter(x => x.start < definition.start || x.start >= definition.end);
+  }
   return mentions;
 }
 
 // 조응 해소: 같은 문단 안의 직전 확정 규정명만 승계 (문단 경계에서 리셋)
 function resolveMentionNames(mentions) {
   let lastConcrete = null;
+  let lastMention = null;
   for (const mention of mentions) {
     if (mention.kind !== 'anaphora') {
       mention.resolved = mention.name;
       lastConcrete = mention.name;
+      lastMention = mention;
+      continue;
+    }
+    if (/^(?:법|법률)$/.test(mention.suffixWord)) {
+      // '같은 법' after an internal rule is not evidence that both are one source.
+      mention.resolved = lastConcrete && LAW_SUFFIX.test(nkey(lastConcrete)) ? lastConcrete : mention.raw;
+      mention.sourceUnverified = !lastConcrete || !LAW_SUFFIX.test(nkey(lastConcrete)) || !!lastMention?.sourceUnverified;
+      if (!mention.sourceUnverified && mention.lawEnforcement) {
+        mention.resolved = `${lastConcrete.replace(/\s*(?:시행령|시행규칙)$/, '')} ${mention.lawEnforcement}`;
+      }
+      mention.exactName = true;
+      lastConcrete = mention.resolved;
+      lastMention = mention;
       continue;
     }
     if (!lastConcrete) {
@@ -125,6 +199,8 @@ function resolveMentionNames(mentions) {
     mention.resolved = mention.enforcement
       ? `${lastConcrete} 시행세칙`.replace(/시행세칙\s*시행세칙$/, '시행세칙')
       : lastConcrete;
+    mention.exactName = lastMention?.exactName;
+    mention.sourceUnverified = lastMention?.sourceUnverified;
   }
   return mentions;
 }
@@ -230,9 +306,11 @@ function extractRuleCitations(text) {
       if (seen.has(key)) continue;
       seen.add(key);
       citations.push({
-        raw: `${owner.kind === 'anaphora' ? owner.raw : owner.resolved} ${inherited ? `${canonical} ` : ''}${raw}`,
+        raw: `${owner.kind === 'anaphora' ? owner.raw : (owner.rawName || owner.resolved)} ${inherited ? `${canonical} ` : ''}${raw}`,
         originalRange, parsedRange, unsupportedReasons,
         ruleName: owner.resolved,
+        exactName: !!owner.exactName,
+        sourceUnverified: !!owner.sourceUnverified,
         anaphora: owner.kind === 'anaphora',
         article, selectorUnverified, inheritedArticle: !!inherited,
         hang, citedTitle,
@@ -298,7 +376,8 @@ function paragraphNumbersOf(content) {
 }
 
 // 규정명 1건 해석: 검색 → 관련성 가드 → 최신본 본문 → 조문 인덱스
-async function resolveRule(name, deps) {
+async function resolveRule(name, deps, citation = {}) {
+  if (citation.sourceUnverified) return { status: 'sourceunverified', reason: 'anaphora' };
   const hits = [];
   let successfulSearches = 0;
   let failedSearches = 0;
@@ -312,6 +391,16 @@ async function resolveRule(name, deps) {
   }
   selection = selectRuleCandidate(hits, name);
   if (failedSearches) return { status: 'searcherror', candidates: selection.candidates };
+  if (citation.exactName) {
+    const exact = hits.filter(hit => nkey(hit.title) === nkey(name));
+    if (!exact.length) {
+      // 규칙/규정 is also an internal-title suffix; a failed exact lookup is not
+      // evidence of a national law. Bare '법' can be ordinary prose (하는 법).
+      const lawName = LAW_SUFFIX.test(nkey(name)) && !/(?:^|\s)법$/.test(name);
+      return lawName ? { status: 'externalcandidate' } : { status: 'sourceunverified', reason: 'name' };
+    }
+    selection = selectRuleCandidate(exact, name);
+  }
   if (!hits.length) return { status: successfulSearches ? 'miss' : 'searcherror' };
   if (!selection || selection.status !== 'unique') return { status: 'weak', candidates: selection?.candidates || [] };
 
@@ -365,6 +454,14 @@ function headingTitleOf(block) {
 
 // 인용 1건 판정
 function judgeCitation(citation, rec) {
+  if (rec?.status === 'sourceunverified') {
+    return { status: 'CITATION_SOURCE_UNVERIFIED', symbol: '⚠', note: rec.reason === 'name'
+      ? '인용 출처명 확인 필요 — 교내 규정명 오기·약칭, 일반 서술 또는 다른 기관 규정일 수 있음. 정식 명칭을 특정하지 못해 조문은 미검증이며 국가 법령으로 분류하지 않음'
+      : '법 조응의 선행 법령을 특정할 수 없음 — 앞 교내 규정의 조문으로 판정하지 않음. 법령명 확인 필요' };
+  }
+  if (rec?.status === 'externalcandidate') {
+    return { status: 'EXTERNAL_LAW', symbol: '⚠', note: '국가 법령으로 보임 — 교내 규정의 정확한 명칭과 일치하지 않아 조문은 미검증. 국가 법령 여부·정식 명칭은 한국법령 MCP로 확인하세요' };
+  }
   if (citation.unsupportedReasons?.length) {
     const note = citation.unsupportedReasons.includes('UNBOUND_PARAGRAPH')
       ? '항 인용의 앞 조문을 특정할 수 없음 — 조문 번호와 함께 적어 확인 필요'
@@ -494,7 +591,11 @@ async function verifyRuleCitations(text, deps, options = {}) {
   const ruleCache = new Map();
   for (const key of activeKeys) {
     const displayName = citations.find(c => nkey(c.ruleName) === key).ruleName;
-    ruleCache.set(key, await resolveRule(displayName, deps));
+    const sameName = citations.filter(c => nkey(c.ruleName) === key);
+    ruleCache.set(key, await resolveRule(displayName, deps, {
+      exactName: sameName.some(c => c.exactName),
+      sourceUnverified: sameName.every(c => c.sourceUnverified),
+    }));
   }
 
   const results = citations.map(citation => {
