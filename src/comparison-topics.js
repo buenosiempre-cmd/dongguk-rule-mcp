@@ -15,7 +15,11 @@ const PROFILES = [
 function comparisonTopic(topic) {
   const profiles = PROFILES.filter(p => p.query.test(compact(topic)));
   // Multiple independent subjects need a richer comparison, not a guessed one.
-  return profiles.length === 1 ? profiles[0] : null;
+  if (profiles.length !== 1) return null;
+  const profile = profiles[0];
+  return profile.id === 'supporting_documents' && /^증빙(?:서류|자료)?$/.test(compact(topic))
+    ? { ...profile, contextNotice: '증빙의 용도가 재무 지출인지 학사·업적 제출인지 확인하세요. 핵심어 일치만으로 재무 사안의 근거라고 확정하지 않습니다.' }
+    : profile;
 }
 
 function assessTopic(block, profile, terms) {
@@ -28,6 +32,7 @@ function assessTopic(block, profile, terms) {
   const basis = inHeading ? 'heading' : inText ? 'body' : 'weak';
   return {
     profile: profile.id, basis,
+    ...(profile.contextNotice ? { contextNotice: profile.contextNotice } : {}),
     label: inHeading ? '주제 핵심어 제목 일치' : inText ? '주제 핵심어 본문 일치' : '주제 일치 약함',
     headingTerms: terms.filter(t => compact(heading).includes(compact(t))),
   };

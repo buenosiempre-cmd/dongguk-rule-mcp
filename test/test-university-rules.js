@@ -28,6 +28,29 @@ const rule = { title: '합성 여비규정', lawId: 1, historyId: 2, markdown: '
 const dongguk = async () => ({ rules: [rule], failures: [], coverage: { mode: 'fixture', truncated: false } });
 const response = (html, status = 200) => ({ ok: status >= 200 && status < 300, status, text: async () => html });
 async function main() {
+  for (const topic of ['법인카드 사용 제한','법인 카드 사용 제한','카드 사용']) {
+    await check(`제목의 주제명보다 질문의 사용 제한을 보존: ${topic} / 19개 대학 공통 경로`, async () => {
+      const synthetic={...rule,title:'합성 법인카드 규정',markdown:'### 제1조(법인카드 정의)\n법인카드라 함은 기관 명의 신용카드이다.\n\n### 제2조(법인카드 발급)\n법인카드를 발급한다.\n\n### 제3조(법인카드 관리)\n법인카드 관리자를 둔다.\n\n### 제6조(사용의 제한)\n법인카드 사용은 사적인 용도로 제한하며 사용 금지 업종을 정한다.'};
+      const load=async()=>({rules:[synthetic],failures:[],coverage:{complete:true}});
+      const schools=SOURCES.filter(s=>s.key!=='dongguk').map(s=>s.key);
+      assert.equal(schools.length,19);
+      for(let i=0;i<schools.length;i+=5){
+        const d=await compareUniversityRules({topic,universities:schools.slice(i,i+5),max_articles:3},{loadDongguk:load,loadExternalImpl:load});
+        for(const col of d.columns) assert.deepEqual(col.articles.map(a=>a.article),['제6조','제1조','제2조']);
+      }
+    });
+  }
+  await check('단독 증빙: 학사·업적 일치도 재무 근거라고 확정하지 않고 용도를 안내', async () => {
+    const load=async()=>({rules:[{...rule,title:'학칙',markdown:'### 제12조(휴학)\n휴학 증빙서류와 증빙자료를 제출한다.'}],failures:[],coverage:{complete:true}});
+    for(const topic of ['증빙','증빙서류','증빙자료']){
+      const d=await compareUniversityRules({topic,universities:['skku']},{loadDongguk:load,loadExternalImpl:load});
+      assert(d.columns[1].articles.length > 0);
+      assert.match(d.columns[1].articles[0].topicMatch.contextNotice,/용도.*재무.*학사/);
+      const text=formatComparison(d);assert.match(text,/용도가 재무 지출인지 학사·업적 제출인지 확인/);assert(!text.includes('재무 주제 핵심어의'));
+    }
+    const {comparisonTopic}=require('../src/comparison-topics');
+    assert(!comparisonTopic('지출 증빙').contextNotice);
+  });
   await check('재무 주제: 시설 사용 제한은 법인카드 근거가 아닌 약한 후보', async () => {
     const rules = [{...rule, title:'시설물 사용에 관한 규정', markdown:'### 제8조(사용제한)\n시설물 사용을 제한할 수 있다.'}];
     const calls=[];

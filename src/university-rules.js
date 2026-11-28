@@ -775,9 +775,14 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null, topic 
       if (rule.academicFallback && !academicTopicMention(block.content, rule.academicTopic)) continue;
       const matchedTerms = terms.filter(t => block.content.includes(t));
       if (!matchedTerms.length) continue;
-      // 조문 제목(첫 줄)에 주제어가 있으면 그 조문이 주제를 직접 다룬다고 보고 앞에 둔다.
+      // Existing frames retain their scoring. The topic check uses only the actual
+      // heading and shares the existing two-point bonus across all query terms;
+      // a topic-name-only heading cannot outrank the other query constraints by fiat.
       const heading = block.content.split('\n')[0];
-      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + (terms.some(t => heading.includes(t)) ? 2 : 0) + ruleBonus;
+      const topicMatch = topicProfile ? assessTopic(block, topicProfile, terms) : null;
+      const headingBonus = topicMatch ? 2 * topicMatch.headingTerms.length / terms.length
+        : (terms.some(t => heading.includes(t)) ? 2 : 0);
+      let score = matchedTerms.length + (matchedTerms.includes(terms[0]) ? 0.5 : 0) + headingBonus + ruleBonus;
       const analysis = frame ? analyzeArticle(block, rule, frame) : null;
       if (analysis?.excluded) { dropped[analysis.excluded] = (dropped[analysis.excluded] || 0) + 1; continue; }
       if (analysis) { score += analysis.slots.length * 1.5; for (const s of analysis.slots) entry.slots.add(s.key); }
@@ -789,14 +794,14 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null, topic 
         ...(rule.upcomingRevisionAt ? {upcomingRevisionAt:rule.upcomingRevisionAt} : {}),
         matchedTerms, url: rule.url, revisedAt: rule.revisedAt || null, effectiveAt: rule.effectiveAt || null,
         effectiveSource: rule.effectiveAt ? rule.effectiveSource || null : null,
-        ...(topicProfile ? { topicMatch: assessTopic(block, topicProfile, terms) } : {}),
+        ...(topicMatch ? { topicMatch } : {}),
         ...(analysis ? { slots: analysis.slots, subjects: analysis.subjects, anchorLaws: analysis.anchorLaws } : {}), _score: score });
     }
   }
-  const topicRank = match => ({ heading: 2, body: 1, weak: 0 }[match?.basis] || 0);
-  matches.sort((a, b) => topicRank(b.topicMatch) - topicRank(a.topicMatch)
-    || (b.topicMatch?.headingTerms.length || 0) - (a.topicMatch?.headingTerms.length || 0)
-    || b._score - a._score);
+  // Missing core terms stay visibly weak. Heading/body labels are descriptive,
+  // never an absolute ordering that overrides action/constraint matches.
+  const weak = match => match?.basis === 'weak' ? 1 : 0;
+  matches.sort((a, b) => weak(a.topicMatch) - weak(b.topicMatch) || b._score - a._score);
   const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
   if (!frame) { for (const m of matches) delete m._score; return base; }
   const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);
@@ -875,7 +880,8 @@ function formatComparison(data) {
   const boundaryColumns = data.columns.filter(c => c.coverage?.articleBoundaryReview?.required || c.articles.some(a => a.articleBoundaryReview?.required));
   if (boundaryColumns.length) lines.splice(3, 0, `> ${boundaryColumns.map(c => c.name || c.university).join('·')}: ${BOUNDARY_NOTICE}`);
   const topicTag = a => a.topicMatch ? `[${a.topicMatch.label}] ` : '';
-  if (data.columns.some(c => c.articles.some(a => a.topicMatch))) lines.splice(3, 0, '> 재무 주제 핵심어의 조문 제목·본문 일치 순서입니다. 주제 일치 약함은 핵심어 없이 일부 검색어만 겹친 후보이며 같은 사안의 비교 근거로 확정할 수 없습니다. 본문 일치도 단순 언급일 수 있으므로 원문을 확인하세요.');
+  if (data.columns.some(c => c.articles.some(a => a.topicMatch))) lines.splice(3, 0, '> 주제 핵심어와 질문의 나머지 검색어를 함께 평가한 조문 발췌입니다. 제목·본문 일치 표시는 문자열 대조이며 사안 확인 판정이 아닙니다. 주제 일치 약함은 핵심어 없이 일부 검색어만 겹친 후보이며 같은 사안의 비교 근거로 확정할 수 없습니다. 본문 일치도 단순 언급일 수 있으므로 원문을 확인하세요.');
+  for (const notice of new Set(data.columns.flatMap(c => c.articles.map(a => a.topicMatch?.contextNotice)).filter(Boolean))) lines.splice(3, 0, `> ${notice}`);
   const roleTag = a => a.role ? (a.role === 'primary' ? '[주규정] ' : '[보조] ') : '';
   if (data.issueFrame) {
     lines.push('| 주규정 | ' + data.columns.map(c => {

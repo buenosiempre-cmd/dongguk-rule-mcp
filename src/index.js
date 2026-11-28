@@ -1562,7 +1562,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'compare_university_rules', title:'타대학 규정 조문 비교',
-    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 기본으로 켜져 있으며 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0으로 끌 수 있습니다. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌를 제공합니다. 법인카드·수의계약·구매·회의비·예산 전용·증빙은 조문 제목/본문 핵심어 일치를 구분하고 약한 후보를 뒤에 두어 topicMatch로 표시합니다. 본문 일치는 단순 언급일 수 있으며 여러 재무 주제가 섞이면 보조 평가를 생략합니다. 서울시립·국민·숭실·경희·숙명여대는 규정 제목 검색(대표어·제목 단서)으로 전담 규정을 먼저 찾은 뒤 전문검색(대표어·동의어)을 더하고, 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. 중앙대는 PDF 텍스트 레이어의 조문만 비교하며 표·별표·부록·서식·그림은 원문에서 확인해야 합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
+    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 기본으로 켜져 있으며 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0으로 끌 수 있습니다. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌를 제공합니다. 법인카드·수의계약·구매·회의비·예산 전용·증빙은 질문의 행위·제약 검색어를 함께 평가하고 조문 제목/본문 핵심어 일치를 topicMatch로 표시합니다. 주제명만 든 제목을 무조건 우선하지 않으며 약한 후보는 뒤에 둡니다. 증빙 단독은 재무·학사 등 용도 확인을 안내합니다. 본문 일치는 단순 언급일 수 있으며 여러 재무 주제가 섞이면 보조 평가를 생략합니다. 서울시립·국민·숭실·경희·숙명여대는 규정 제목 검색(대표어·제목 단서)으로 전담 규정을 먼저 찾은 뒤 전문검색(대표어·동의어)을 더하고, 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. 중앙대는 PDF 텍스트 레이어의 조문만 비교하며 표·별표·부록·서식·그림은 원문에서 확인해야 합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
     inputSchema:{type:'object',properties:{
       topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여, 근로장학, 장학금(사안 프레임 등록 주제). 그 밖의 주제는 주제어 일치만.'},
       universities:{type:'array',minItems:1,maxItems:5,items:{type:'string'},description:'타대학 키: korea(고려) uos(서울시립) konkuk(건국) kookmin(국민) ssu(숭실) khu(경희) sookmyung(숙명여대) kw(광운) mju(명지) sogang(서강) ewha(이화) snu(서울대·OC키 필요) yonsei(연세) cau(중앙·PDF 조문만) hongik(홍익) hanyang(한양) skku(성균관·PDF 조문만) sejong(세종·PDF 조문만) gachon(가천·문서 조문만). dongguk은 자동 포함. 다른 키는 unsupported로 표시.'},
@@ -1645,7 +1645,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- toolCount: '+data.toolCount,
           '- 규정 전문·별표: get_rule_full_text (긴 전문은 textCoverage.nextArguments로 이어받기)',
           '- 상위법령 조문 대조: get_rule_upper_laws(include_text=true), comparison에 규정 원문과 현행 법령 조문 연결 제공',
-          '- 타대학 재무 주제: 조문 제목·본문 핵심어 일치와 주제 일치 약함 표시(topicMatch), 추가 조회 없음',
+          '- 타대학 주제 일치: 질문 전체 검색어와 제목·본문 핵심어 대조(topicMatch), 단독 증빙은 용도 확인 필요, 추가 조회 없음',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
           '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (재무 공동 검토용 법령 조회. 설정 여부이며 실제 연결 검증은 별도)',
