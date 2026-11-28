@@ -66,6 +66,16 @@ async function main(){
     const r=await reviewFinanceCase({query:'기안문 검토',text:'「합성규정」 제1조',facts},{...deps,verifyCitations:()=>({structuredContent:{ok:false,error:{code:'TEST_UNAVAILABLE'}}})});
     assert.equal(r.evidence_status,'partial');assert(r.review.findings.some(x=>/인용/.test(x)));assert(/인용/.test(formatFinanceReview(r)));
   });
+  await check('misprinted article number in the source is review-required, never a pass',async()=>{
+    const misprintDeps={...citationDeps,getRuleMarkdown:async()=> '### 제1조(목적)\n① 합성 회귀 검증을 위한 조문이다.\n제제2조(지급) ① 지급은 예산 범위에서 한다.'};
+    const verifyMisprint=async text=>{const checked=await verifyRuleCitations(text,misprintDeps);return serializeOutcome('verify_rule_citations',success(checked.text,checked));};
+    const r=await reviewFinanceCase({query:'기안문 검토',text:'「합성규정」 제2조에 따라 지급한다.',facts},{...deps,verifyCitations:verifyMisprint});
+    const data=r.citations.structuredContent.data;
+    assert.equal(data.citations[0].status,'ARTICLE_MISPRINT_UNVERIFIED');assert.equal(data.citations[0].symbol,'⚠');
+    assert.equal(data.summary.verified,0);assert.equal(data.summary.exists,0);assert.equal(data.summary.notFound,0);assert.equal(data.summary.needsReview,1);
+    assert.equal(r.evidence_status,'partial');assert(r.review.findings.some(x=>/인용/.test(x)));
+    const rendered=formatFinanceReview(r);assert(rendered.includes('제제2조'));assert(rendered.includes('확정하지 못함'));
+  });
   for(const [text,key] of [['「합성규정」 제999조','notFound'],['「합성규정」 제1조(잘못된제목)','needsReview']])await check('actual citation summary propagates '+key,async()=>{
     const r=await reviewFinanceCase({query:'기안문 검토',text,facts},{...deps,verifyCitations:checkedCitations});
     assert.equal(r.citations.structuredContent.ok,true);assert(r.citations.structuredContent.data.summary[key]>0);
