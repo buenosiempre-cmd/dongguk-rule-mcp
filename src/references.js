@@ -118,7 +118,7 @@ function extendLawName(source, start, base, acrossAnd = false) {
   return { name: `${prefix} ${base}`, start: from >= 0 ? from : start, extended: true };
 }
 
-function extractReferences(text, resolver) {
+function extractReferences(text, resolver, { includeUnnumberedLaws = false } = {}) {
   const source = String(text || '');
   const found = [];
   const taken = [];
@@ -181,19 +181,46 @@ function extractReferences(text, resolver) {
         ...(nameCandidate ? { nameCandidate } : {}) } : undefined);
   }
 
+  // Without quotation marks or an article number, even a law-shaped name is
+  // only a mention until the caller verifies it against the official listing.
+  if (includeUnnumberedLaws) {
+    // Ordinary technique/language nouns, not aliases such as 사학법/세법.
+    // Keep the older quoted/numbered path unchanged; never exclude all *법.
+    const ordinaryNoun = /^(?:(?:한글)?맞춤법|(?:불교)?수행법|교수법|학습법|공부법|표기법|독서법|계산법|호흡법|명상법|조리법|사용법|운용법|분석법|측정법)$/;
+    const unnumbered = /([가-힣A-Za-z0-9·ㆍ]{0,30}(?:법률|법))((?:\s?시행령|\s?시행규칙)?)(?=\s*(?:에\s*(?:의한|의하여|의해|따라|따른|근거|규정)|(?:을|를)\s*(?:준용|적용|따르)|의\s*규정|에서\s*정한|및\s|또는\s|[과와]\s))/g;
+    while ((match = unnumbered.exec(source)) !== null) {
+      const end = match.index + match[0].length;
+      const key = normalizeName(match[1]);
+      if (overlaps(match.index,end) || LAW_STOP.test(key) || NOT_A_LAW_TAIL.test(key) || ordinaryNoun.test(key)) continue;
+      const before = source.slice(Math.max(0,match.index-12),match.index);
+      if ((key === '법' || key === '법률') && !/(?:관한|위한|대한)[ \t]+$/.test(before)) continue;
+      if (/^(?:관계|관련|해당|본)법률$/.test(key)) continue;
+      const extended = extendLawName(source,match.index,match[1]);
+      if (!extended.name || overlaps(extended.start,end)) continue;
+      const suffix = match[2] ? ` ${match[2].trim()}` : '';
+      const name = extended.name + suffix;
+      const resolved = resolver.classify(name,false);
+      if (['same_rule','dongguk_rule'].includes(resolved.scope)) { push(extended.start,end,name,[],false,resolved); continue; }
+      const wider = extendLawName(source,match.index,match[1],true);
+      const nameCandidate = wider.name && wider.name !== extended.name && !overlaps(wider.start,end) ? wider.name + suffix : null;
+      push(extended.start,end,name,[],false,{scope:'unresolved',target:{name},resolutionStatus:'law_name_needs_review',nameVerificationRequired:true,nameExtended:true,...(resolved.resolutionStatus==='ambiguous_title'?{nameVerificationBlocked:'AMBIGUOUS_RULE_TITLE'}:{}),...(nameCandidate?{nameCandidate}:{})});
+    }
+  }
+
   // "동법 제4조", "같은 법 시행령 제5조": the nearest law named earlier in this text.
   ANAPHORA.lastIndex = 0;
   while ((match = ANAPHORA.exec(source)) !== null) {
     const { articles, end } = articlesAfter(match.index + match[0].length);
     if (!articles.length || overlaps(match.index, end)) continue;
     // The nearest law before this point, whichever pass found it.
-    const antecedent = found.filter(item => item.position < match.index && item.scope === 'external_law').sort((x, y) => x.position - y.position).pop();
+    const antecedent = found.filter(item => item.position < match.index && (item.scope === 'external_law' || item.nameVerificationRequired)).sort((x, y) => x.position - y.position).pop();
     if (!antecedent) continue;
     const base = antecedent.name.replace(/\s?(?:시행령|시행규칙)$/, '');
     const suffix = match[1].trim();
     const name = suffix ? `${base} ${suffix}` : base;
     const candidateBase = antecedent.nameCandidate?.replace(/\s?(?:시행령|시행규칙)$/, '');
-    push(match.index, end, name, articles, false, { scope: 'external_law', target: { lawName: name }, resolutionStatus: 'anaphora',
+    push(match.index, end, name, articles, false, { scope: antecedent.nameVerificationRequired ? 'unresolved' : 'external_law', target: antecedent.nameVerificationRequired ? {name} : { lawName: name }, resolutionStatus: 'anaphora',
+      ...(antecedent.nameVerificationRequired ? {nameVerificationRequired:true} : {}),
       ...(antecedent.nameExtended ? { nameExtended: true } : {}),
       ...(candidateBase ? { nameCandidate: suffix ? `${candidateBase} ${suffix}` : candidateBase } : {}),
     });
