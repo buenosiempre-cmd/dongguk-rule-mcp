@@ -91,6 +91,19 @@ async function main() {
   check('복합어 대체: 네 글자 이상은 앞 글자부터 제거', rewriteMissingToken('교내근로장학금', df, corpus.rules.length) === '근로장학금' && rewriteMissingToken('국내출장', df, corpus.rules.length) === '출장');
   check('복합어 대체: 세 글자는 앞 두 글자 유지(특강료→특강, 강료 아님)', rewriteMissingToken('특강료', df, corpus.rules.length) === '특강' && df('강료') > 0);
   check('복합어 대체: 두 글자·규정에 없는 말은 대체하지 않음', rewriteMissingToken('없음', df, corpus.rules.length) === null && rewriteMissingToken('zzzz', df, corpus.rules.length) === null);
+  const protectedWords = ['가지급금','미지급금','비과세소득','불공제세액','무급휴직','선지급비용','재신청절차'];
+  check('미등록 의미 접두 단어: 더 짧은 모든 후보가 있어도 임의 축약하지 않음', protectedWords.every(word => rewriteMissingToken(word, () => 1, 10) === null));
+  const prefixCatalog = Array.from({length:6},(_,i)=>({lawId:101+i,historyId:1,title:`합성 검증 ${i}`,code:`prefix-${i}`}));
+  const prefixCorpus = await buildCorpus({catalog:prefixCatalog,loadContent:async(id)=>({title:'합성 검증',markdown:id===101?'### 제1조(정산)\n지급금 정산 기한을 정한다.':'### 제1조(기타)\n교육을 목적으로 한다.'})});
+  for (const word of ['가지급금','미지급금']) {
+    const result=searchCorpus(prefixCorpus,word+' 정산 기한');
+    check(`${word}: 원 단어를 미발견으로 표시하고 지급금으로 바꾸지 않음`,result.missingTerms.includes(word)&&!result.rewrittenTerms[word]&&!result.searchTerms.includes('지급금'));
+    const keyed=searchCorpus(prefixCorpus,'정산 기한',{keywords:[[word]]});
+    check(`${word}: 명시 keywords에서도 지급금으로 축약하지 않음`,keyed.keywords.missing.includes(word)&&!keyed.keywords.rewritten[word]);
+  }
+  const existingPrefix = await buildCorpus({catalog:prefixCatalog,loadContent:async(id)=>({title:'합성 검증',markdown:id===101?'### 제1조(가지급금)\n가지급금 정산 기한을 정한다.':'### 제1조(기타)\n교육을 목적으로 한다.'})});
+  const exactPrefix=searchCorpus(existingPrefix,'가지급금 정산 기한');
+  check('실제 색인에 있는 접두 단어는 기존대로 검색',!exactPrefix.missingTerms.includes('가지급금')&&exactPrefix.searchTerms.includes('가지급금')&&exactPrefix.hits[0].lawId===101);
   const scholarship = searchCorpus(corpus, '교내근로장학금 성적 기준', { top: 5 });
   check('색인 검색: 대체 단어 기록과 후보', scholarship.rewrittenTerms['교내근로장학금'] === '근로장학금' && scholarship.tokens.includes('근로장학금') && scholarship.hits.some(h => h.lawId === 6) && scholarship.hits.some(h => h.lawId === 5));
   const {businessTerms,generalRuleWeight,comparisonTerms}=require('../src/aliases.js');

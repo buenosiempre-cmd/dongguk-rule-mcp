@@ -115,9 +115,13 @@ function matchBlocks(blocks, tokens, weights) {
 // a three-syllable word such as 특강료 or 강사료 keeps its first two syllables
 // (특강, 강사) because its last two (강료, 사료) are fragments of other words.
 // Forms shorter than two syllables or found in most rules are not used.
+// Without morphological evidence, shortening a missing word that may begin with
+// a meaning-bearing prefix (temporary/unpaid/non-/pre-/re-) is unsafe. Existing
+// corpus words and explicit dictionary alternatives are resolved before this fallback.
+const MEANING_PREFIX = /^[가미비불무선재]/;
 const VERB_REMNANT = /(?:면|고|서|는|야|어|아|이|요|니|게|던|든|도|만|지|해|돼|네|죠|까|나|라)$/;
 function rewriteMissingToken(token, documentFrequency, total) {
-  if (token.length < 3) return null;
+  if (token.length < 3 || MEANING_PREFIX.test(token)) return null;
   const candidates = [];
   if (token.length === 3) candidates.push(token.slice(0, 2), token.slice(1));
   else {
