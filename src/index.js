@@ -130,6 +130,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope } = require('./lookup.js');
+const { delegationNotices, annotateDelegationExcerpt, delegationSummary, formatDelegationNotices } = require('./delegation-notices.js');
 const {
   parseSearch,
   parseContent,
@@ -1103,6 +1104,7 @@ async function hLookup(rawKeyword, {
     :'\n> 규정 후보의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n';
 
   const rules=[];
+  const delegated=[];
 
   for(let i=0;i<hits.length;i++){
     const hit=hits[i];
@@ -1172,13 +1174,16 @@ async function hLookup(rawKeyword, {
       (historyText?`\n- 최근 연혁: ${historyText}`:'') +
       warning;
 
+    const ruleNotices = delegationNotices([{...hit,lawId,historyId,excerpt}]);
+    delegated.push(...ruleNotices);
+    const displayExcerpt = annotateDelegationExcerpt(excerpt.text, ruleNotices);
     if(validStr(terms)){
       out+=excerpt.text
-        ? `\n\n### 관련 조문·별표\n\n${excerpt.text}`
+        ? `\n\n### 관련 조문·별표\n\n${displayExcerpt}`
         : `\n\n### 관련 조문·별표\n\n'${terms}'과 직접 일치하는 부분을 찾지 못했습니다. ` +
           `terms에는 핵심 명사만 입력해 다시 조회하세요.`;
     }else{
-      out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
+      out+=`\n\n### 원문 앞부분\n\n${displayExcerpt}`;
     }
 
     if(excerpt.missingAppendices.length) out+=`\n\n> 요청한 ${excerpt.missingAppendices.join(', ')}의 본체를 조회 본문에서 찾지 못했습니다. 본문의 참조 문구만으로 별표 내용이 확인된 것은 아닙니다. 사이트의 별도 첨부는 직접 확인해야 합니다.`;
@@ -1193,7 +1198,9 @@ async function hLookup(rawKeyword, {
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
     });
   }
-  return success(out,{
+  const summary = delegationSummary(delegated, {identityStatus,requestedArticles:articleSelectors(rawTerms || keyword)});
+  return success(formatDelegationNotices(summary) + out,{
+    ...(delegated.length ? { delegationNotices: delegated, delegationSummary: summary } : {}),
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
@@ -1536,7 +1543,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id','from_history_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'verify_rule_citations', title:'규정 인용 검증', description:'기안문·품의서의 결재 전 인용 점검에 사용합니다. 문장의 규정명·조문·제목·항을 대조하고 날짜 부칙은 개정일로 구분합니다. 날짜가 불명확하거나 별표·서식·호·목·지원 범위 밖 번호는 확인필요로 표시합니다. 나열된 항은 앞 조문을 이어 확인합니다. 조문 범위 사이의 생략된 조문은 확인하지 않습니다. 확인필요가 있으면 통과가 아닙니다. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
+  { name:'verify_rule_citations', title:'규정 인용 검증', description:'기안문·품의서의 결재 전 인용 점검에 사용합니다. 문장의 규정명·조문·제목·항을 대조하고 날짜 부칙은 개정일로 구분합니다. 날짜가 불명확하거나 별표·서식·호·목·지원 범위 밖 번호는 확인필요로 표시합니다. 연결어·별칭 괄호가 있는 외부 법령 인용도 앞 규정에 붙이지 않습니다. 국가 법령 후보와 교내 명칭·법 조응의 불명확성을 구분해 확인필요로 표시합니다. 나열된 항은 앞 조문을 이어 확인합니다. 조문 범위 사이의 생략된 조문은 확인하지 않습니다. 확인필요가 있으면 통과가 아닙니다. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       text:{type:'string',description:'검증할 전체 텍스트 (20,000자 이하). 예: 품의서 본문'},
       campus:{type:'string',description:'업무 캠퍼스 맥락 all/seoul/wise. 공식 목록에는 캠퍼스 필터가 없어 전체 검색 후 적용범위를 확인합니다.',default:'all'},
