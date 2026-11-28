@@ -186,11 +186,11 @@ function headingDate(heading) {
 // check below holds; anything less certain is left as the source has it.
 // `inline` keeps the body on the heading line, as the HWP conversion writes its other articles.
 const MISPRINTED_ARTICLE = /^제제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?[ \t]*([(（][^)）\n]{1,40}[)）])(.*)$/;
-// What follows the title of an article: nothing, a numbered paragraph (①), or a sentence that
-// opens with the rule itself ("이 규정은", "이 조에서"). A particle or any other word there
-// ("제제3조(휴학)에서 정한 기준", "제제3조(보수) 보수는") may be a reference to an article or a
-// clause of a contract form, not an article of this rule.
-const ARTICLE_BODY_START = /^(?:[ \t]*$|[ \t]*[①-⑳]|[ \t]+이[ \t]+(?:개정[ \t]*)?[가-힣]{0,8}(?:규정|규칙|세칙|내규|학칙|정관|지침|요령|회칙|규약|수칙|조|항|장)(?=[은는이가을를의에도 \t]|$))/;
+// The only evidence taken for an article body is a numbered paragraph (①) right after the title,
+// on the same line or on the next line that is not empty. Anything else there may be a reference
+// to an article ("제제3조(휴학)에서 정한 기준", also when the line breaks after the title) or a clause
+// of a contract form. An article of one unnumbered paragraph is therefore left as the source has it.
+const NUMBERED_PARAGRAPH = /^[ \t]*[①-⑳]/;
 const ARTICLE_HEADING = /^###[ \t]*제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?/;
 function repairArticleNumbering(markdown, { inline = false } = {}) {
   const source = String(markdown || '');
@@ -211,7 +211,9 @@ function repairArticleNumbering(markdown, { inline = false } = {}) {
     if (mark.boundary) { previous = null; return line; }
     if (mark.heading) { previous = mark.heading; return line; }
     const misprint = mark.attachment ? null : MISPRINTED_ARTICLE.exec(line);
-    if (!misprint || !previous || !ARTICLE_BODY_START.test(misprint[4])) return line;
+    if (!misprint || !previous) return line;
+    const opening = misprint[4].trim() ? misprint[4] : lines.slice(index + 1).find(text => text.trim()) || '';
+    if (!NUMBERED_PARAGRAPH.test(opening)) return line;
     const number = Number(misprint[1]), sub = misprint[2] ? Number(misprint[2]) : 0;
     // It continues the article before it (제68조 → 제69조, 제3조 → 제3조의2) …
     const continues = sub ? previous.number === number && sub >= 2 && (previous.sub || 1) === sub - 1 : previous.number === number - 1;

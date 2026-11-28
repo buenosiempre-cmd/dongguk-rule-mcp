@@ -60,10 +60,24 @@ const untouched = [
   ['같은 번호의 조문이 뒤에 따로 있음', '### 제2조(가)\n본문\n제제3조(나) ① 본문\n\n### 제3조(다)\n본문'],
   ['뒤 조문과 번호가 이어지지 않음', '### 제2조(가)\n본문\n제제3조(나) ① 본문\n\n### 제5조(다)\n본문'],
   ['앞 조문 없이 나온 가지번호', '### 제2조(가)\n본문\n제제3조의2(나) ① 본문'],
+  // Red-team extended contrasts (PR #93 second review): a line break does not make a reference an article,
+  // and without a numbered paragraph nothing tells an article of one paragraph from other prose.
+  ['제목 뒤에서 줄이 바뀐 참조', '### 제2조(신청)\n제제3조(휴학)\n에서 정한 기준을 준용한다.\n### 제4조(준용)\n본문'],
+  ['제목 뒤 공백·빈 줄 다음의 참조', '### 제2조(신청)\n제제3조(휴학)  \n\n에서 정한 기준을 준용한다.\n### 제4조(준용)\n본문'],
+  ['항 번호 없는 본문이 같은 줄에', '### 제2조(신청)\n제제3조(휴학) 휴학은 허가를 받아야 한다.\n### 제4조(준용)\n본문'],
+  ['항 번호 없는 본문이 다음 줄에', '### 제2조(신청)\n제제3조(휴학)\n휴학은 허가를 받아야 한다.\n### 제4조(준용)\n본문'],
+  ['이 규정은으로 시작하는 단항 본문', '### 제1조(시행일)\n이 세칙은 시행한다.\n제제2조(경과조치) 이 세칙 개정 이전에 수행된 업무는 이 개정 세칙에 의한 것으로 본다.'],
+  ['제목 다음이 곧바로 다른 조문', '### 제2조(신청)\n제제3조(휴학)\n### 제4조(준용)\n① 본문'],
 ];
+const repairedLists = [
+  ['제목 다음 줄이 항 번호', '### 제2조(신청)\n제제3조(휴학)\n① 휴학을 허가한다.\n### 제4조(준용)\n본문'],
+  ['제목 뒤 공백 다음이 항 번호', '### 제2조(신청)\n제제3조(휴학)   ① 휴학을 허가한다.\n### 제4조(준용)\n본문'],
+  ['제목과 항 번호 사이가 빈 줄', '### 제2조(신청)\n제제3조(휴학)\n\n① 휴학을 허가한다.\n\n### 제4조(준용)\n본문'],
+];
+for (const [name, text] of repairedLists) check(`항 번호가 확인되면 조문으로 읽음: ${name}`, listArticleBlocks(repairArticleNumbering(text)).map(block => block.canonical).join() === '제2조,제3조,제4조');
 for (const [name, text] of untouched) check(`확신할 수 없으면 고치지 않음: ${name}`, repairArticleNumbering(text) === text && repairArticleNumbering(text, { inline: true }) === text);
-const supplementary = listArticleBlocks(repairArticleNumbering('### 제1조(목적)\n본문\n\n## 부칙 (2026.1.20. 개정)\n\n### 제1조(시행일)\n이 세칙은 2026년 1월 20일부터 시행한다.\n제제2조(경과조치) 이 세칙 개정 이전에 수행된 업무는 이 개정 세칙에 의한 것으로 본다.'));
-check('부칙 제1조에 이어지는 제제2조는 부칙 제2조로 읽음', supplementary.map(block => `${block.supplementary ? '부칙' : '본칙'} ${block.canonical}`).join() === '본칙 제1조,부칙 제1조,부칙 제2조');
+const supplementary = listArticleBlocks(repairArticleNumbering('### 제1조(목적)\n본문\n\n## 부칙 (2026.1.20. 개정)\n\n### 제1조(시행일)\n이 세칙은 2026년 1월 20일부터 시행한다.\n제제2조(경과조치) ① 이 세칙 개정 이전에 수행된 업무는 이 개정 세칙에 의한 것으로 본다.'));
+check('부칙 제1조에 이어지고 항 번호가 있는 제제2조는 부칙 제2조로 읽음', supplementary.map(block => `${block.supplementary ? '부칙' : '본칙'} ${block.canonical}`).join() === '본칙 제1조,부칙 제1조,부칙 제2조');
 check('가지번호는 같은 번호의 조문 뒤에서만', listArticleBlocks(repairArticleNumbering('### 제3조(가)\n본문\n제제3조의2(나) ① 본문\n\n### 제4조(다)\n본문')).map(block => block.canonical).join() === '제3조,제3조의2,제4조');
 check('제목만 있는 줄과 마지막 조문도 읽음', listArticleBlocks(repairArticleNumbering('### 제2조(가)\n본문\n제제3조(나)\n① 본문')).map(block => block.canonical).join() === '제2조,제3조');
 
@@ -110,7 +124,8 @@ async function main() {
   require(fetchPath);
   let fetches = 0;
   // Title search for the synthetic rules that the citation check looks up by name.
-  const searchable = [[3, 30, '합성휴학세칙'], [4, 40, '합성참조규정'], [5, 50, '합성계약규정']];
+  const searchable = [[3, 30, '합성휴학세칙'], [4, 40, '합성참조규정'], [5, 50, '합성계약규정'],
+    [6, 60, '합성줄바꿈참조규정'], [7, 70, '합성빈줄참조규정'], [8, 80, '합성다음줄항규정'], [9, 90, '합성같은줄단항규정'], [10, 100, '합성다음줄단항규정'], [11, 110, '합성공백항규정']];
   require.cache[fetchPath].exports = async (url, options) => {
     if (String(url).includes('/lmxsrv/search/')) {
       const wanted = (new URLSearchParams(options.body).get('SEARCH_TEXT') || '').replace(/\s/g, '');
@@ -166,6 +181,19 @@ async function main() {
     check('인용 점검: 고쳐 읽은 조문은 실존', await verify('「합성휴학세칙」 제3조(창업휴학)에 따름. 「합성휴학세칙」 제2조 참조.') === '제3조 EXISTS,제2조 EXISTS');
     check('인용 점검: 참조 문장의 제제3조는 조문이 아니므로 제3조는 여전히 없음', await verify('「합성참조규정」 제3조에 따름. 「합성참조규정」 제2조 참조.') === '제3조 NOT_FOUND,제2조 EXISTS');
     check('인용 점검: 별표 계약서의 제제3조는 본칙 조문이 아니므로 제3조는 여전히 없음', await verify('「합성계약규정」 제3조에 따름. 「합성계약규정」 제2조 참조.') === '제3조 NOT_FOUND,제2조 EXISTS');
+    // Red-team extended contrasts (second review of PR #93), each as its own rule through the citation check.
+    const extended = [
+      [6, 60, '합성줄바꿈참조규정', '제제3조(휴학)\n에서 정한 기준을 준용한다.', 'NOT_FOUND'],
+      [7, 70, '합성빈줄참조규정', '제제3조(휴학)  \n\n에서 정한 기준을 준용한다.', 'NOT_FOUND'],
+      [8, 80, '합성다음줄항규정', '제제3조(휴학)\n① 휴학을 허가한다.', 'EXISTS'],
+      [9, 90, '합성같은줄단항규정', '제제3조(휴학) 휴학은 허가를 받아야 한다.', 'NOT_FOUND'],
+      [10, 100, '합성다음줄단항규정', '제제3조(휴학)\n휴학은 허가를 받아야 한다.', 'NOT_FOUND'],
+      [11, 110, '합성공백항규정', '제제3조(휴학)   ① 휴학을 허가한다.', 'EXISTS'],
+    ];
+    for (const [lawId, historyId, title, lines, expected] of extended) {
+      seed(lawId, historyId, title, `### 제2조(신청)\n${lines}\n### 제4조(준용)\n본문`);
+      check(`인용 점검: ${title} 제3조는 ${expected}`, await verify(`「${title}」 제3조에 따름. 「${title}」 제4조 참조.`) === `제3조 ${expected},제4조 EXISTS`);
+    }
 
 
   } finally { await client.close(); await server.close(); }
