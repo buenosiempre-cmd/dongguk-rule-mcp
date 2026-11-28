@@ -119,9 +119,9 @@ async function main() {
   check('다른 낱말 속에 든 검색어는 일치로 보지 않음', !containsTerm('한시계약직 임용에 관한 내규', '계약') && containsTerm('구매계약은 계약직 담당자가', '계약')
     && !containsTerm('하자 보수 보증금', '보수') && containsTerm('보수의 지급일', '보수') && containsTerm('물품관리규정', '물품'));
   check('입찰 없이, 또는 계약·구매 맥락의 경쟁 없이 → 수의계약', ['입찰 없이 계약해도 돼', '경쟁에 부치지 않고 계약', '입찰 안 하고 바로 살 수 있어', '업체와 경쟁 없이 바로 계약', '경쟁 안 붙이고 구매해도 돼'].every(question => phraseConcepts(question).includes('수의계약'))
-    && ['경쟁입찰 낙찰자는 어떻게 정해', '입찰 공고 기간', '입찰에 한 곳만 들어오면'].every(question => !phraseConcepts(question).includes('수의계약')));
+    && ['경쟁입찰 낙찰자는 어떻게 정해', '입찰 공고 기간', '입찰에 한 곳만 들어오면', '입찰 안 하는 업체는 어떤 처벌을 받아', '입찰 안 하면 불이익 있어'].every(question => !phraseConcepts(question).includes('수의계약')));
   // Red-team I1 (PR #92): "경쟁 없이" outside purchasing is not a kind of contract.
-  check('계약·구매 맥락이 없는 경쟁 없이는 수의계약이 아님(승진·선발·채용·계약직·임용계약·재계약)', ['경쟁 없이 승진할 수 있어', '경쟁 없이 학생을 선발할 수 있어', '경쟁 없이 교수를 채용할 수 있어', '경쟁 없이 장학생을 뽑아도 돼', '경쟁 없이 계약직 직원을 뽑아도 돼', '경쟁 없이 임용계약을 맺어도 돼', '경쟁 없이 재계약해도 돼'].every(question => !phraseConcepts(question).includes('수의계약')));
+  check('계약·구매 맥락이 없는 경쟁 없이는 수의계약이 아님(승진·선발·채용·계약직·임용계약·재계약)', ['경쟁 없이 승진할 수 있어', '경쟁 없이 학생을 선발할 수 있어', '경쟁 없이 교수를 채용할 수 있어', '경쟁 없이 장학생을 뽑아도 돼', '경쟁 없이 계약직 직원을 뽑아도 돼', '경쟁 없이 임용계약을 맺어도 돼', '경쟁 없이 재계약해도 돼', '입찰을 거치지 않고 연구원을 채용할 수 있어', '업체 직원을 경쟁 없이 채용해도 돼'].every(question => !phraseConcepts(question).includes('수의계약')));
   check('돈을 벌다(활용형) → 수익', ['기술이전으로 돈을 벌면', '사업으로 번 돈', '돈 버는 사업', '돈을 벌어도 돼', '돈 벌 수 있어'].every(question => phraseConcepts(question).includes('수익')));
   // Red-team R1 (PR #92): 벌써 is not 벌다.
   check('벌써·벌금·벌점·되돌려 받다는 수익이 아님', ['돈을 벌써 지급했는데 어떻게 처리해', '돈을 벌금으로 냈어', '돈 벌점', '낸 돈을 되돌려 받으려면', '벌금은 얼마야'].every(question => !phraseConcepts(question).includes('수익')));
