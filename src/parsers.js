@@ -178,6 +178,28 @@ function headingDate(heading) {
   return match ? `${match[1]}.${parseInt(match[2], 10)}.${parseInt(match[3], 10)}` : null;
 }
 
+// The source misprints a few article numbers with a doubled 제 ("제제69조(창업휴학) ① …"). The site
+// and the HWP original do not mark such a line as an article, so it was read as part of the
+// article before it and reported as missing. It is read as its own article only when it continues
+// the numbering of the article before it, and the misprint stays visible next to the heading.
+// `inline` keeps the body on the heading line, as the HWP conversion writes its other articles.
+const MISPRINTED_ARTICLE = /^제제[ \t]*(\d+)[ \t]*조((?:[ \t]*의[ \t]*\d+)?)[ \t]*([(（][^)）\n]{1,40}[)）])[ \t]*(.*)$/;
+function repairArticleNumbering(markdown, { inline = false } = {}) {
+  const source = String(markdown || '');
+  if (!/^제제[ \t]*\d/m.test(source)) return source;
+  let previous = null;
+  return source.split('\n').map(line => {
+    const heading = /^###[ \t]*제[ \t]*(\d+)[ \t]*조/.exec(line);
+    if (heading) { previous = Number(heading[1]); return line; }
+    const misprint = MISPRINTED_ARTICLE.exec(line);
+    if (!misprint || previous === null || Number(misprint[1]) !== previous + 1) return line;
+    const [, number, sub, title, body] = misprint;
+    previous = Number(number);
+    const repaired = `### 제${number}조${sub.replace(/[ \t]/g, '')}${title} [원문 표기: 제제${number}조]`;
+    return body ? `${repaired}${inline ? ' ' : '\n'}${body}` : repaired;
+  }).join('\n');
+}
+
 function listArticleBlocks(markdown) {
   const source = String(markdown || '');
   const articlePattern = /^###[ \t]*제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?(?=[(（\s]|$).*$/gm;
@@ -277,6 +299,7 @@ function rankArticlesByTokens(markdown, tokens) {
 
 module.exports = {
   CONTENT_PARSER_VERSION,
+  repairArticleNumbering,
   rankArticlesByTokens,
   parseSearch,
   parseContent,

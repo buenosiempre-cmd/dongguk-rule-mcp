@@ -134,6 +134,7 @@ const {
   parseSearch,
   parseContent,
   CONTENT_PARSER_VERSION,
+  repairArticleNumbering,
   parseHistory,
   searchResultMetrics,
   normalizeArticleSelector,
@@ -203,7 +204,18 @@ function noCache() {
   return ['1','true','yes'].includes((process.env.DONGGUK_MCP_NO_CACHE||'').trim().toLowerCase());
 }
 function hk(...p) { return crypto.createHash('md5').update(p.join('|')).digest('hex'); }
-const cached = require('./cache.js').createDiskCache({ directory:cacheDir, disabled:noCache, refreshAhead });
+const diskCached = require('./cache.js').createDiskCache({ directory:cacheDir, disabled:noCache, refreshAhead });
+// Rule bodies are repaired as they are read (repairArticleNumbering), so bodies cached before
+// the repair existed are covered without fetching them again.
+const cached = async (category, ...rest) => {
+  const value = await diskCached(category, ...rest);
+  if (category !== CONTENT_CACHE && category !== 'original-structure-v2') return value;
+  if (!value || typeof value.markdown !== 'string') return value;
+  const inline = category === 'original-structure-v2';
+  const markdown = repairArticleNumbering(value.markdown, { inline });
+  const bodyMarkdown = typeof value.bodyMarkdown === 'string' ? repairArticleNumbering(value.bodyMarkdown, { inline }) : value.bodyMarkdown;
+  return markdown === value.markdown && bodyMarkdown === value.bodyMarkdown ? value : { ...value, markdown, ...(bodyMarkdown === undefined ? {} : { bodyMarkdown }) };
+};
 // Law-provider answers share the same scoped disk cache (see legal-client.js).
 setLegalCallCache(cached);
 

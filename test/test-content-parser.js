@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { parseContent, listArticleBlocks, CONTENT_PARSER_VERSION } = require('../src/parsers.js');
+const { parseContent, listArticleBlocks, repairArticleNumbering, CONTENT_PARSER_VERSION } = require('../src/parsers.js');
 const { buildCorpus, saveCorpus, loadCorpus } = require('../src/corpus.js');
 
 // Synthetic text with the classes observed in lawFullContent.srv on 2026-11-27.
@@ -32,6 +32,28 @@ check('컨테이너·화면 조작 텍스트를 본문에 섞지 않음', !parse
 check('삭제 조문과 실제 빈 조문을 임의로 채우지 않음', blocks[2].content.endsWith('삭제') && blocks[3].content.trim() === '### 제4조(빈 조문)');
 check('부칙 계속문장과 본칙·부칙 경계를 보존', parsed.markdown.includes('시행일 전의 사건에는 적용하지 않는다.') && blocks[4].supplementary && !blocks[0].supplementary && blocks[4].content.includes('2025년 1월 1일부터 시행'));
 check('기존 none 본문도 그대로 보존', parseContent('<div class="article">제1조(목적)</div><div class="none">기존 본문</div>').markdown.endsWith('기존 본문'));
+
+// A doubled 제 in the source ("제제3조(…)") is not marked as an article by the site or the HWP original.
+const misprinted = ['### 제2조(일반휴학)', '① 일반휴학은 2학기까지 할 수 있다.', '[2020.1.1. 본조신설]', '제제3조(창업휴학) ① 창업을 사유로 휴학할 수 있다.', '② 창업휴학은 4학기를 넘을 수 없다.', '', '### 제4조(복학)', '① 복학은 학기 시작 전에 신청한다.'].join('\n');
+const repaired = repairArticleNumbering(misprinted), repairedBlocks = listArticleBlocks(repaired);
+check('오기 전에는 제3조가 제2조에 묻혀 조문으로 읽히지 않음', listArticleBlocks(misprinted).map(block => block.canonical).join() === '제2조,제4조');
+check('앞 조문 번호에 이어지는 제제N조는 제N조로 읽음', repairedBlocks.map(block => block.canonical).join() === '제2조,제3조,제4조'
+  && !repairedBlocks[0].content.includes('창업') && repairedBlocks[1].content.includes('② 창업휴학은 4학기를 넘을 수 없다.'));
+check('원문 표기를 조문 제목 옆에 남기고 본문은 다음 줄로', repairedBlocks[1].content.startsWith('### 제3조(창업휴학) [원문 표기: 제제3조]\n① 창업을 사유로 휴학할 수 있다.'));
+check('HWP 변환본은 본문을 제목 줄에 그대로 둠', repairArticleNumbering(misprinted, { inline: true }).includes('### 제3조(창업휴학) [원문 표기: 제제3조] ① 창업을 사유로 휴학할 수 있다.'));
+check('다시 적용해도 같은 결과', repairArticleNumbering(repaired) === repaired && repairArticleNumbering('') === '' && repairArticleNumbering(null) === '');
+const untouched = [
+  ['번호가 이어지지 않음', '### 제2조(일반휴학)\n본문\n제제7조(창업휴학) ① 본문'],
+  ['앞선 조문 없음', '제제1조(목적) 이 규정은 목적을 정한다.'],
+  ['조문 제목 괄호 없음', '### 제2조(일반휴학)\n본문\n제제3조에 따라 처리한다.'],
+  ['제제로 시작하는 보통 낱말', '### 제2조(조직)\n제제개발연구부를 둔다.\n제제 3종(가)을 둔다.'],
+  ['줄 가운데의 제제', '### 제2조(감급)\n감급의 제제3조(가)를 정할 경우'],
+  ['들여 쓴 호·목', '### 제2조(일반휴학)\n  제제3조(창업휴학) ① 본문'],
+];
+check('확신할 수 없는 줄은 고치지 않음: ' + untouched.map(([name]) => name).join(', '), untouched.every(([, text]) => repairArticleNumbering(text) === text));
+const supplementary = listArticleBlocks(repairArticleNumbering('### 제1조(목적)\n본문\n\n## 부칙 (2026.1.20. 개정)\n\n### 제1조(시행일)\n이 세칙은 2026년 1월 20일부터 시행한다.\n제제2조(경과조치) 이전 업무는 이 세칙에 따른 것으로 본다.'));
+check('부칙의 제제2조도 부칙 제2조로 읽음', supplementary.map(block => `${block.supplementary ? '부칙' : '본칙'} ${block.canonical}`).join() === '본칙 제1조,부칙 제1조,부칙 제2조');
+check('가지번호는 그대로 옮김', listArticleBlocks(repairArticleNumbering('### 제2조(가)\n본문\n제제3조의2(나) 본문')).map(block => block.canonical).join() === '제2조,제3조의2');
 
 // Exact synthetic I01 input supplied by the independent red team (2026-11-27).
 const i01 = parseContent(fs.readFileSync(path.join(__dirname, 'fixtures/content-parser-i01.html'), 'utf8'));
@@ -101,6 +123,18 @@ async function main() {
     const unavailable = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 2, history_id: 20, article: 1 } });
     check('원문 재조회가 실패해도 무효화한 v3로 조용히 폴백하지 않음', unavailable.structuredContent.ok === false && !JSON.stringify(unavailable).includes('쓰면 안 되는 옛 본문'));
     check('실패 이행은 v3를 보존하고 불완전한 v4를 저장하지 않음', fs.readFileSync(staleFile, 'utf8') === staleBytes && !fs.existsSync(path.join(publicDir, 'content-v4/2_20.json')));
+
+    // A body cached before the repair existed is repaired when read; it is neither fetched again nor rewritten.
+    fs.writeFileSync(path.join(publicDir, 'history/3.json'), JSON.stringify([{ historyId: 30, revisedAt: '2025.01.01' }]));
+    const cachedFile = path.join(publicDir, `content-v${CONTENT_PARSER_VERSION}`, '3_30.json');
+    const cachedBytes = JSON.stringify({ title: '합성 휴학 세칙', markdown: `# 합성 휴학 세칙\n\n${misprinted}` });
+    fs.writeFileSync(cachedFile, cachedBytes);
+    const third = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 3, history_id: 30, article: 3 } });
+    check('이미 캐시된 본문도 원문 재요청 없이 제3조를 조회', fetches === 1 && third.structuredContent.ok
+      && third.structuredContent.data.contentMarkdown.includes('### 제3조(창업휴학) [원문 표기: 제제3조]') && !third.structuredContent.data.contentMarkdown.includes('일반휴학은'));
+    const second = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 3, history_id: 30, article: 2 } });
+    check('앞 조문은 뒤 조문 본문을 더 이상 끌고 오지 않음', second.structuredContent.ok && second.structuredContent.data.contentMarkdown.includes('일반휴학은') && !second.structuredContent.data.contentMarkdown.includes('창업'));
+    check('캐시 파일은 고쳐 쓰지 않음', fs.readFileSync(cachedFile, 'utf8') === cachedBytes);
 
 
   } finally { await client.close(); await server.close(); }
