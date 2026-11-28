@@ -158,8 +158,8 @@ async function main() {
   check('~하면 어떻게 돼 → 조치', headingCueStrength('책임시간 못 채우면 어떻게 돼', '책임시간 미달교원 조치') > 0);
   check('어떤 것들이 있어 → 종류, 주제어 징계만으로는 제재 의도가 아님', headingCueStrength('직원 징계는 어떤 것들이 있어', '징계의 종류') === 1 && headingCueStrength('직원 징계는 어떤 것들이 있어', '징계절차') === 0);
   check('무슨 일을 해 → 임무·직무, 몇 명 → 정원', headingCueStrength('조교는 무슨 일을 해', '임무') === 1 && headingCueStrength('조교는 몇 명까지 둘 수 있어', '정원') === 1);
-  check('얼마 → 요금 이름으로 된 제목(…료·요금), 수료·자료는 아님', ['대관료', '공간사용료', '수수료', '이용요금'].every(heading => headingCueStrength('강당 빌리면 얼마 내', heading) === 1)
-    && ['교육과정의 수료', '회계자료', '전처리 시료', '조기수료'].every(heading => headingCueStrength('강당 빌리면 얼마 내', heading) === 0));
+  check('얼마 → 요금 이름으로 된 제목(…료·요금)', ['대관료', '공간사용료', '수수료', '응시료', '강사료', '보관료', '기술이전료', '입학금과 수업료', '이용요금'].every(heading => headingCueStrength('강당 빌리면 얼마 내', heading) === 1));
+  check('료로 끝나도 요금이 아닌 제목은 아님', ['교육과정의 수료', '조기수료', '회계자료', '전처리 시료', '임기의 만료', '사업의 종료', '실습 재료', '진료', '동료 평가의 완료'].every(heading => headingCueStrength('강당 빌리면 얼마 내', heading) === 0));
   check('벌을 받다 → 징계·제재 제목, 벌점은 아님', headingCueStrength('규정 어기면 무슨 벌을 받아', '징계의 종류') === 1 && headingCueStrength('벌점은 어떻게 매겨', '징계의 종류') === 0);
   check('의도를 묻지 않으면 0', headingCueStrength('출장 숙박비', '지급기일') === 0 && headingCueStrength('언제 들어와요', '목적') === 0);
 
