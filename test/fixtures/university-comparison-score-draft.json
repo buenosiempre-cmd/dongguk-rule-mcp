@@ -1,0 +1,1131 @@
+{
+  "schemaVersion": 1,
+  "status": "draft_not_a_gold_set",
+  "purpose": "공개 타대학 조문 비교의 사안 일치·약한 근거·미발견 처리 초안",
+  "exposure": "개발자가 본 공개 사례. 학습에 독립적인 보류셋이나 성능 입증 자료가 아님.",
+  "baselineCommit": "ee501b68db6b61b9580df3a03383b502676eb1c1",
+  "candidateCommit": "3b6cb78a83b92031950dd487c06388e5a8c92d3e",
+  "sourceMethod": "별도 MCP compare_university_rules: 기준 코드로 공개 대학 응답 수집, 같은 응답을 수정 코드에 재생. 동국 열은 오프라인 복사 캐시이므로 이 셋에서 제외.",
+  "sourceResponseSha256": "289daa180a68617a428853599f6149c018ff6908c2593e6097ecbfc43dc7fd7a",
+  "count": 20,
+  "cases": [
+    {
+      "id": "UC01",
+      "topic": "법인카드 사용 제한",
+      "university": "hanyang",
+      "args": {
+        "topic": "법인카드 사용 제한",
+        "universities": [
+          "hanyang"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "negative_draft",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [
+        {
+          "rule": "시설물 사용에 관한 규정",
+          "article": "제8조"
+        },
+        {
+          "rule": "시설물 사용에 관한 규정",
+          "article": "제2조"
+        },
+        {
+          "rule": "시설물 사용에 관한 규정",
+          "article": "제3조"
+        }
+      ],
+      "expectation": "열거한 조문을 직접적인 주제 근거로 확정하지 않는다. 제외하거나 주제 일치 약함을 명시한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:15.884Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "시설물 사용에 관한 규정",
+            "article": "제8조"
+          },
+          {
+            "rule": "시설물 사용에 관한 규정",
+            "article": "제2조"
+          },
+          {
+            "rule": "시설물 사용에 관한 규정",
+            "article": "제3조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "시설물 사용에 관한 규정",
+            "article": "제8조"
+          },
+          {
+            "rule": "시설물 사용에 관한 규정",
+            "article": "제2조"
+          },
+          {
+            "rule": "시설물 사용에 관한 규정",
+            "article": "제3조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "시설물 사용에 관한 규정",
+          "article": "제8조",
+          "excerpt": "### 제8조(사용제한)\n사용자가 시설물을 사용함에 있어 다음 각호의 1에 해당하는 때에는 시설 사용을 제한하거나 거부할 수 있다.\n① 교육분위기를 저해하는 행위를 할 때\n② 사용수칙을 위반하여 시설물을 파괴, 또는 훼손하는 행위를 할 때\n③ 관장부서의 정당한 지시에 따르지 아니할 때",
+          "url": "https://portal.hanyang.ac.kr/huas/iycy/ruleBook.do",
+          "originalDocumentUrl": null,
+          "revisedAt": "2010.11.05",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "3d6cc5173f4f183046fb7cbbc60b6762a4f959210626f60a74ed9a01173f8642"
+        },
+        {
+          "rule": "시설물 사용에 관한 규정",
+          "article": "제2조",
+          "excerpt": "### 제2조(사용대상)\n① 각종 시설물은 본교 학생 및 교직원이 사용함을 원칙으로 하며, 학생수업, 실습 및 연구등에 지장이 없는 경우에만 사용이 허가된다.\n② 외부단체의 사용은 매학기도중 평일은 불허하며 다만, 토요일, 일요일 및 공휴일에 한하여 허가할 수 있다.",
+          "url": "https://portal.hanyang.ac.kr/huas/iycy/ruleBook.do",
+          "originalDocumentUrl": null,
+          "revisedAt": "2010.11.05",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "618deacb465254b31ccbd70d75604dc4c17761f2b950af667524cf0ebb243226"
+        },
+        {
+          "rule": "시설물 사용에 관한 규정",
+          "article": "제3조",
+          "excerpt": "### 제3조(사용시설물의 범위)\n본교의 사용 가능한 시설물은 다음과 같다.\n① 강의실, 회의실, 세미나실, 시청각실, 멀티미디어실, 소극장\n② 체육관 및 부대시설\n③ 체육장(운동장 및 테니스장)\n④ 노천극장 및 백남음악관 등 교내의 모든 시설물",
+          "url": "https://portal.hanyang.ac.kr/huas/iycy/ruleBook.do",
+          "originalDocumentUrl": null,
+          "revisedAt": "2010.11.05",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "63fc61ee4525f97e12e49a0a598c68f65626254fea41cb6495dd1266760bd1c1"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC02",
+      "topic": "법인카드 사용 제한",
+      "university": "yonsei",
+      "args": {
+        "topic": "법인카드 사용 제한",
+        "universities": [
+          "yonsei"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "positive_draft",
+      "expectedRules": [
+        {
+          "rule": "법인카드 관리 및 사용에 관한 내규",
+          "articles": [
+            "제6조"
+          ]
+        }
+      ],
+      "rejectAsDirectEvidence": [],
+      "expectation": "상위 3개에 기대 조문을 포함하며, 적용범위가 다른 판은 구별한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:15.884Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "법인카드 관리 및 사용에 관한 내규",
+            "article": "제2조"
+          },
+          {
+            "rule": "법인카드 관리 및 사용에 관한 내규",
+            "article": "제6조"
+          },
+          {
+            "rule": "법인카드 관리 및 사용에 관한 내규",
+            "article": "제9조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "법인카드 관리 및 사용에 관한 내규",
+            "article": "제6조"
+          },
+          {
+            "rule": "법인카드 관리 및 사용에 관한 내규",
+            "article": "제10조"
+          },
+          {
+            "rule": "법인카드 관리 및 사용에 관한 내규",
+            "article": "제3조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "법인카드 관리 및 사용에 관한 내규",
+          "article": "제6조",
+          "excerpt": "### 제6조 (법인카드 사용의 제한) ① 법인카드는 업무와 관련이 없는 타인이나 타 부서에 대여할 수 없다.\n② 법인카드는 모두 '클린카드(Clean Card)'로 다음의 제한업종에서 사용이 제한되며, 총괄부서는 필요시 제한업종을 추가 또는 삭제할 수 있다.\n※ 제한 업종\n- 유흥 업종 (룸살롱, 유흥주점, 단란주점, ",
+          "url": "https://rules.yonsei.ac.kr/regulations/e9a7c953-1c95-416c-ad2b-6d3f7d1ad350",
+          "originalDocumentUrl": null,
+          "revisedAt": "2025.11.17",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "e9d885c0acb009373fce02075e17f168812f707384804bb3a32f251cd619ac22"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC03",
+      "topic": "법인카드 사용 제한",
+      "university": "skku",
+      "args": {
+        "topic": "법인카드 사용 제한",
+        "universities": [
+          "skku"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:15.884Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC04",
+      "topic": "법인카드 사용 제한",
+      "university": "khu",
+      "args": {
+        "topic": "법인카드 사용 제한",
+        "universities": [
+          "khu"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "negative_draft",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [
+        {
+          "rule": "체육시설운영단운영규정",
+          "article": "제13조"
+        },
+        {
+          "rule": "체육시설운영단운영규정",
+          "article": "제14조"
+        },
+        {
+          "rule": "직인 사용에 관한 규정",
+          "article": "제8조"
+        }
+      ],
+      "expectation": "열거한 조문을 직접적인 주제 근거로 확정하지 않는다. 제외하거나 주제 일치 약함을 명시한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:15.884Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "직인 사용에 관한 규정",
+            "article": "제8조"
+          },
+          {
+            "rule": "체육시설운영단운영규정",
+            "article": "제13조"
+          },
+          {
+            "rule": "체육시설운영단운영규정",
+            "article": "제14조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "체육시설운영단운영규정",
+            "article": "제13조"
+          },
+          {
+            "rule": "체육시설운영단운영규정",
+            "article": "제14조"
+          },
+          {
+            "rule": "직인 사용에 관한 규정",
+            "article": "제8조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "체육시설운영단운영규정",
+          "article": "제13조",
+          "excerpt": "### 제13조(조명사용의 제한)\n각 체육시설의 사용에 있어 조명 사용은 단장의 승인을 받아야 한다.",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=471&SEQ_HISTORY=1450",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "6e84aca05a76024d8c9d30ad4347dc35c1cdaa106cf7b36697b3f002670ac5f3"
+        },
+        {
+          "rule": "체육시설운영단운영규정",
+          "article": "제14조",
+          "excerpt": "### 제14조(음주자의 사용제한)\n음주자 등 체육시설 사용을 금할 필요가 있을 경우에는 체육시설운영단 및 체육시설 출입을 제한할 수 있다.",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=471&SEQ_HISTORY=1450",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "9133d470b2603ef01e2dc37b2cc9b4e0455a72ed3c499c8d869538b863335d64"
+        },
+        {
+          "rule": "직인 사용에 관한 규정",
+          "article": "제8조",
+          "excerpt": "### 제8조(직인사용)\n① 직인사용자는 문서의 결재여부 및 관련 규정의 준수여부를 확인한 후에 직인을 날인하여야 한다.\n② 직인 사용현황을 파악하기 위하여 총무팀에 직인사용대장을 비치, 기록 및 보존하여야 한다. 다만, 교내 각 부서에 상호 수발되는 성격의 문서에는 서명으로 대치할 수 있다.",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=81&SEQ_HISTORY=1431",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2020-09-17",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "17cf53f52ed69caddd9c5ed273ee0b5b86b980d9cb5d7b51deea581e2920181d"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC05",
+      "topic": "수의계약",
+      "university": "hanyang",
+      "args": {
+        "topic": "수의계약",
+        "universities": [
+          "hanyang"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:20.584Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC06",
+      "topic": "수의계약",
+      "university": "yonsei",
+      "args": {
+        "topic": "수의계약",
+        "universities": [
+          "yonsei"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:20.584Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC07",
+      "topic": "수의계약",
+      "university": "skku",
+      "args": {
+        "topic": "수의계약",
+        "universities": [
+          "skku"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "positive_draft",
+      "expectedRules": [
+        {
+          "rule": "재무회계규정",
+          "articles": [
+            "제81조"
+          ]
+        }
+      ],
+      "rejectAsDirectEvidence": [],
+      "expectation": "상위 3개에 기대 조문을 포함하며, 적용범위가 다른 판은 구별한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:20.584Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "재무회계규정",
+            "article": "제71조"
+          },
+          {
+            "rule": "재무회계규정",
+            "article": "제81조"
+          },
+          {
+            "rule": "학교법인 성균관대학 임원 및 교직원 행동강령",
+            "article": "제7조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "재무회계규정",
+            "article": "제81조"
+          },
+          {
+            "rule": "학교법인 성균관대학 임원 및 교직원 행동강령",
+            "article": "제7조"
+          },
+          {
+            "rule": "재무회계규정",
+            "article": "제71조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "재무회계규정",
+          "article": "제81조",
+          "excerpt": "### 제81조(수의계약) ① 제62조 단서의 규정에 의하여 수의계약에 의할 수 있는 경우는 다음 각 호와 같다.\n1. 계약의 성질 또는 목적에 의하여 특정인의 기술ㆍ용역ㆍ설비 또는 특정한 위치ㆍ구조ㆍ품질 등으로\n인하여 경쟁을 할 수 없는 경우로서 다음 각 목의 경우\n(공사)\n가. 이전 공사와 연계하여 사후공사가 진행될 ",
+          "url": "https://www.skku.edu/state/current/current_rulebook.do?mode=view&articleNo=126723",
+          "originalDocumentUrl": "https://www.skku.edu/state/current/current_rulebook.do?mode=download&articleNo=126723&attachNo=104348",
+          "revisedAt": "2025.01.01",
+          "effectiveAt": "2025-01-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "29a8bc60083ac4815dd6db2face50912dd3ffb303de66fe084ef0c36aee757b8"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC08",
+      "topic": "수의계약",
+      "university": "khu",
+      "args": {
+        "topic": "수의계약",
+        "universities": [
+          "khu"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "positive_draft",
+      "expectedRules": [
+        {
+          "rule": "구매규정",
+          "articles": [
+            "제18조"
+          ]
+        },
+        {
+          "rule": "경희대학교 산학협력단 구매검수 규정",
+          "articles": [
+            "제20조"
+          ]
+        }
+      ],
+      "rejectAsDirectEvidence": [],
+      "expectation": "상위 3개에 기대 조문을 포함하며, 적용범위가 다른 판은 구별한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:20.584Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "구매규정",
+            "article": "제18조"
+          },
+          {
+            "rule": "경희대학교 산학협력단 구매검수 규정",
+            "article": "제20조"
+          },
+          {
+            "rule": "구매규정",
+            "article": "제4조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "구매규정",
+            "article": "제18조"
+          },
+          {
+            "rule": "경희대학교 산학협력단 구매검수 규정",
+            "article": "제20조"
+          },
+          {
+            "rule": "구매규정",
+            "article": "제4조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "구매규정",
+          "article": "제18조",
+          "excerpt": "### 제18조(수의계약)\n① 다음 각 호의 경우에는 수의계약을 할 수 있다.\n1. 경쟁입찰을 실시하였으나 입찰자가 1인뿐인 경우로서 재공고입찰을 실시하더라도 입찰참가자격을 갖춘 자가 1인 밖에 없음이 명백하다고 인정되는 경우\n2. 재공고입찰에 부친 경우로서 입찰자 또는 낙찰자가 없는 경우\n3. 조달청(나라장터) 조달품목",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=104&SEQ_HISTORY=1739",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2023-03-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "2ce49ea498491286dc4a8417aa4b1774d1cedddca9f1c9f6bc164c1e235bac78"
+        },
+        {
+          "rule": "경희대학교 산학협력단 구매검수 규정",
+          "article": "제20조",
+          "excerpt": "### 제20조(수의계약)\n① 다음 각 호의 경우에는 수의계약을 할 수 있다.\n1. 경쟁입찰을 실시하였으나 입찰자가 1인뿐인 경우로서 재공고입찰을 실시하더라도 입찰참가자격을 갖춘 자가 1인 밖에 없음이 명백하다고 인정되는 경우\n2. 재공고입찰에 부친 경우로서 입찰자 또는 낙찰자가 없는 경우\n3. 조달청(나라장터) 조달품목",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=530&SEQ_HISTORY=1814",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2023-09-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "3f2c80efaffe61ba282728f7e579646764d0ac49e8154a3ad9e51888eedf03b5"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC09",
+      "topic": "회의비",
+      "university": "hanyang",
+      "args": {
+        "topic": "회의비",
+        "universities": [
+          "hanyang"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:23.140Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC10",
+      "topic": "회의비",
+      "university": "yonsei",
+      "args": {
+        "topic": "회의비",
+        "universities": [
+          "yonsei"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:23.140Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC11",
+      "topic": "회의비",
+      "university": "skku",
+      "args": {
+        "topic": "회의비",
+        "universities": [
+          "skku"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:23.140Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC12",
+      "topic": "회의비",
+      "university": "khu",
+      "args": {
+        "topic": "회의비",
+        "universities": [
+          "khu"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:23.140Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC13",
+      "topic": "예산 전용",
+      "university": "hanyang",
+      "args": {
+        "topic": "예산 전용",
+        "universities": [
+          "hanyang"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "positive_draft",
+      "expectedRules": [
+        {
+          "rule": "예산·회계관리 규정",
+          "articles": [
+            "제17조"
+          ]
+        }
+      ],
+      "rejectAsDirectEvidence": [],
+      "expectation": "상위 3개에 기대 조문을 포함하며, 적용범위가 다른 판은 구별한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:33.180Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "예산·회계관리 규정",
+            "article": "제17조"
+          },
+          {
+            "rule": "예산·회계관리 규정",
+            "article": "제6조"
+          },
+          {
+            "rule": "예산·회계관리 규정",
+            "article": "제8조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "예산·회계관리 규정",
+            "article": "제17조"
+          },
+          {
+            "rule": "예산·회계관리 규정",
+            "article": "제6조"
+          },
+          {
+            "rule": "예산·회계관리 규정",
+            "article": "제8조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "예산·회계관리 규정",
+          "article": "제17조",
+          "excerpt": "### 제17조(예산의 전용)\n① 예산의 과부족이 있는 경우 동일 관내의 항간 또는 목간에 상호 전용할 수 있다. 다만, 예산총칙에서 전용을 제한한 과목과 성립과정에서 삭감된 과목으로는 전용하지 못한다.\n② 제1항의 규정에 의하여 전용이 필요한 예산집행부서는 예산주관부서에서 정한 지침에 따라 그 사유를 명기하여 예산주관부",
+          "url": "https://portal.hanyang.ac.kr/huas/iycy/ruleBook.do",
+          "originalDocumentUrl": null,
+          "revisedAt": "2023.11.01",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "b4d560f630e199959ae81c0e78b101affda766ff1ee13efd411f9702cb2ffccd"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC14",
+      "topic": "예산 전용",
+      "university": "yonsei",
+      "args": {
+        "topic": "예산 전용",
+        "universities": [
+          "yonsei"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "positive_draft",
+      "expectedRules": [
+        {
+          "rule": "대학 예산·결산규정",
+          "articles": [
+            "제14조"
+          ]
+        },
+        {
+          "rule": "예산 이월 및 전용에 관한 내규",
+          "articles": [
+            "제6조"
+          ]
+        }
+      ],
+      "rejectAsDirectEvidence": [],
+      "expectation": "상위 3개에 기대 조문을 포함하며, 적용범위가 다른 판은 구별한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:33.180Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "논문 관련 예산 배정에 관한 시행세칙",
+            "article": "제7조"
+          },
+          {
+            "rule": "대학 예산·결산규정",
+            "article": "제14조"
+          },
+          {
+            "rule": "예산 이월 및 전용에 관한 내규",
+            "article": "제1조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "대학 예산·결산규정",
+            "article": "제14조"
+          },
+          {
+            "rule": "예산 이월 및 전용에 관한 내규",
+            "article": "제6조"
+          },
+          {
+            "rule": "논문 관련 예산 배정에 관한 시행세칙",
+            "article": "제7조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "대학 예산·결산규정",
+          "article": "제14조",
+          "excerpt": "### 제14조 (예산의 전용) ① 각 기관의 장은 동일 관내의 항간 또는 목간에 예산의 과부족이 있을 때에는 상호 전용할 수 있다. 다만, 예산총칙에서 전용을 제한한 과목과 예산의 종합조정과정에서 삭감된 항목으로는 전용하지 못한다.\n② 각 기관의 장은 제1항 규정에 의하여 예산의 전용을 하고자 할 경우 행정정보시스템의 ",
+          "url": "https://rules.yonsei.ac.kr/regulations/1fb17707-3fa4-43a1-8ae2-5c5338011f33",
+          "originalDocumentUrl": null,
+          "revisedAt": "2026.03.04",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "3aba3bb325731bbccd128a6ee8a7e77e56cdf1aff045b5341ab9160573a961f2"
+        },
+        {
+          "rule": "예산 이월 및 전용에 관한 내규",
+          "article": "제6조",
+          "excerpt": "### 제6조 (예산의 전용) 예산의 전용요청서 접수 시기별 처리원칙은 다음 각호와 같다.\n1. 추가경정예산 편성 이전 접수분 : 경상수지 예산의 관간 전용은 불가로 처리함을 원칙으로 한다. 다만, 부득이한 사정이 있는 경우에 한하여 추가경정예산에 반영할 수 있다. 항목간 전용은 사유가 합당한 경우에 한하여 선별 승인할 ",
+          "url": "https://rules.yonsei.ac.kr/regulations/f773c4da-b138-420d-93e2-d3261eb86e2b",
+          "originalDocumentUrl": null,
+          "revisedAt": "2022.09.01",
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "3dcc850752880b4c2994d101d4fb580346f7bcdddf089e13c3c0015e99f7eafa"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC15",
+      "topic": "예산 전용",
+      "university": "skku",
+      "args": {
+        "topic": "예산 전용",
+        "universities": [
+          "skku"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:33.180Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC16",
+      "topic": "예산 전용",
+      "university": "khu",
+      "args": {
+        "topic": "예산 전용",
+        "universities": [
+          "khu"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "negative_draft",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [
+        {
+          "rule": "단과대학 자율운영 지원을 위한 규정",
+          "article": "제8조"
+        },
+        {
+          "rule": "경희대학교 학교기업 한방재료가공규정",
+          "article": "제11조"
+        },
+        {
+          "rule": "의학계열실습지원센터규정",
+          "article": "제10조"
+        }
+      ],
+      "expectation": "열거한 조문을 직접적인 주제 근거로 확정하지 않는다. 제외하거나 주제 일치 약함을 명시한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:33.180Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "단과대학 자율운영 지원을 위한 규정",
+            "article": "제8조"
+          },
+          {
+            "rule": "경희대학교 학교기업 한방재료가공규정",
+            "article": "제11조"
+          },
+          {
+            "rule": "의학계열실습지원센터규정",
+            "article": "제10조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "단과대학 자율운영 지원을 위한 규정",
+            "article": "제8조"
+          },
+          {
+            "rule": "경희대학교 학교기업 한방재료가공규정",
+            "article": "제11조"
+          },
+          {
+            "rule": "의학계열실습지원센터규정",
+            "article": "제10조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "단과대학 자율운영 지원을 위한 규정",
+          "article": "제8조",
+          "excerpt": "### 제8조 (자율운영예산의 범위)\n시범대학의 자율운영예산 범위는 다음 각 호와 같다.\n1. 정규·비정규 교직원의 인건비\n2. 매학년도 등록금 수입 예산의 일정비율\n3. 자체 발전기금 적립금의 일정비율\n4. 수익사업 등 자체 재원조달 금액\n5. 등록금 차등 인상분\n6. 기타 특별 지원 예산",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=77&SEQ_HISTORY=333",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2007-11-16",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "8b00a90b879f4bfcf49826d65945d04db00b343730d6b9651b5166a9c856f608"
+        },
+        {
+          "rule": "경희대학교 학교기업 한방재료가공규정",
+          "article": "제11조",
+          "excerpt": "### 제 11 조 (예산과 결산)\n대표이사는 본교의 회계연도에서 정하는 기일 내에 예산서와 결산서를 작성하여 총장에게 보고하여야 한다.",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=234&SEQ_HISTORY=813",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2007-09-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "abc3fa7c1f9967d59be6705e5177e5a1b615169f8e6326b543f3072b375f21f3"
+        },
+        {
+          "rule": "의학계열실습지원센터규정",
+          "article": "제10조",
+          "excerpt": "### 제10조(예산)\n본 센터의 재정은 교비 예산의 지원을 받아 운영한다.",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=266&SEQ_HISTORY=877",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2012-07-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "a8276adccc7d0d4913dec31294aeae612e4156771babecdad00bc80cbbf5c2c9"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC17",
+      "topic": "증빙",
+      "university": "hanyang",
+      "args": {
+        "topic": "증빙",
+        "universities": [
+          "hanyang"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:42.907Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC18",
+      "topic": "증빙",
+      "university": "yonsei",
+      "args": {
+        "topic": "증빙",
+        "universities": [
+          "yonsei"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "needs_source_review",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "기대 규정·조문 미확인. 현재 no_match_in_scope를 정답으로 고정하지 않고 원문 탐색 후 별도 검수한다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:42.907Z",
+        "baselineStatus": "no_match_in_scope",
+        "baselineTop": [],
+        "candidateStatus": "no_match_in_scope",
+        "candidateTop": []
+      },
+      "evidence": [],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC19",
+      "topic": "증빙",
+      "university": "skku",
+      "args": {
+        "topic": "증빙",
+        "universities": [
+          "skku"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "ambiguous_input",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "재무 지출 증빙인지 학사·업적 증빙인지 입력 맥락을 확인한다. 어느 한쪽 정답을 확정하지 않는다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:42.907Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "성균관대학교 학칙시행세칙",
+            "article": "제12조"
+          },
+          {
+            "rule": "성균관대학교 학칙시행세칙",
+            "article": "제14조"
+          },
+          {
+            "rule": "성균관대학교 학칙",
+            "article": "제47조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "성균관대학교 학칙시행세칙",
+            "article": "제12조"
+          },
+          {
+            "rule": "성균관대학교 학칙시행세칙",
+            "article": "제14조"
+          },
+          {
+            "rule": "성균관대학교 학칙",
+            "article": "제47조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "성균관대학교 학칙시행세칙",
+          "article": "제12조",
+          "excerpt": "### 제12조(입대휴학) ① 입대휴학 기간은 병역의무의 이행을 위하여 복무 중인 기간으로 한다.\n② 재학 또는 일반휴학 중 병역의무를 이행하기 위하여 입대휴학 하고자 하는 자는 병역의무 개시일전에\n입영사항을 입증할 수 있는 서류를 첨부하여 학사시스템을 통해 신청하여야 한다.\n③ 입영기일 연기, 귀향조치 등으로 인하여 입",
+          "url": "https://www.skku.edu/state/current/current_rulebook.do?mode=view&articleNo=141824",
+          "originalDocumentUrl": "https://www.skku.edu/state/current/current_rulebook.do?mode=download&articleNo=141824&attachNo=119093",
+          "revisedAt": "2026.08.31",
+          "effectiveAt": "2026-08-31",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "7fb669f03f4fb5e8c070f88f084cbb4347b02944fdab1312f950288ac015366c"
+        },
+        {
+          "rule": "성균관대학교 학칙시행세칙",
+          "article": "제14조",
+          "excerpt": "### 제14조(창업휴학) ① 창업을 사유로 휴학하고자 하는 자는 매 학기 지정기간 내에 창업지원단의 사전심사를\n마치고 휴학원서(소정 서식) 1통과 사전심사 결과, 창업 증빙, 사업계획서 등을 제출하여야 한다.\n② 창업휴학은 재학중 4학기를 초과할 수 없다.",
+          "url": "https://www.skku.edu/state/current/current_rulebook.do?mode=view&articleNo=141824",
+          "originalDocumentUrl": "https://www.skku.edu/state/current/current_rulebook.do?mode=download&articleNo=141824&attachNo=119093",
+          "revisedAt": "2026.08.31",
+          "effectiveAt": "2026-08-31",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "487ce91963da475250948c876b0650773388000bfe54fda76c422564ba7849b0"
+        },
+        {
+          "rule": "성균관대학교 학칙",
+          "article": "제47조",
+          "excerpt": "### 제47조(시험) ① 교과목별로 성적을 평가하기 위하여 중간시험과 기말시험을 실시한다.\n② 학생은 해당과목 총 수업시간수의 4분의 3이상을 출석하여야 그 과목의 시험에 응할 자격이 있다. 다\n만, 학생이 대리출석, 온라인강의 동시 다중 강좌 수강 등의 부정한 방법으로 인정받은 출석은 무효로\n한다.\n③ 시험방법은 필기",
+          "url": "https://www.skku.edu/state/current/current_rulebook.do?mode=view&articleNo=138751",
+          "originalDocumentUrl": "https://www.skku.edu/state/current/current_rulebook.do?mode=download&articleNo=138751&attachNo=116233",
+          "revisedAt": "2026.08.31",
+          "effectiveAt": "2026-08-31",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "478bf4e0f6cc9e7853f396c3bb4d2d006e7db43a7a7b9eca7ba32bda7a561aaf"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    },
+    {
+      "id": "UC20",
+      "topic": "증빙",
+      "university": "khu",
+      "args": {
+        "topic": "증빙",
+        "universities": [
+          "khu"
+        ],
+        "max_articles": 3
+      },
+      "curationStatus": "ambiguous_input",
+      "expectedRules": null,
+      "rejectAsDirectEvidence": [],
+      "expectation": "재무 지출 증빙인지 학사·업적 증빙인지 입력 맥락을 확인한다. 어느 한쪽 정답을 확정하지 않는다.",
+      "observed": {
+        "checkedAt": "2026-11-28T07:45:42.907Z",
+        "baselineStatus": "partial",
+        "baselineTop": [
+          {
+            "rule": "음악대학 교수업적평가위원회 내규",
+            "article": "제14조"
+          },
+          {
+            "rule": "아트ㆍ퓨전디자인대학원 내규",
+            "article": "제24조"
+          },
+          {
+            "rule": "세화원 운영 내규",
+            "article": "제20조"
+          }
+        ],
+        "candidateStatus": "partial",
+        "candidateTop": [
+          {
+            "rule": "음악대학 교수업적평가위원회 내규",
+            "article": "제14조"
+          },
+          {
+            "rule": "아트ㆍ퓨전디자인대학원 내규",
+            "article": "제24조"
+          },
+          {
+            "rule": "세화원 운영 내규",
+            "article": "제20조"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "rule": "음악대학 교수업적평가위원회 내규",
+          "article": "제14조",
+          "excerpt": "### 제 14 조 (증빙서류 제출)\n전임교원은 \"제 12조\"에 의거하여 입력된 업적과 관련된 증빙서류를 매학기 해당일까지 위원회에 제출하여야 한다. 다만, 관련 증거물의 인쇄가 늦어지는 경우에는 익년도 실적으로 제출할 수 있다.",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=375&SEQ_HISTORY=1059",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2017-09-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "5524cb5291281d85cd6cdad67a3fafd8a8811fea97fbd5ff32be8167ebe2eff4"
+        },
+        {
+          "rule": "아트ㆍ퓨전디자인대학원 내규",
+          "article": "제24조",
+          "excerpt": "### 제24조(출석인정)\n다음 각 호와 같은 사유로 결석하였을 때에는 소정 양식의 출석인정신청서 및 증빙자료를 갖추어 담당 교강사에게 제출하고, 교강사는 이를 확인하여 출석으로 인정할 수 있다.\n1. 직계가족(조부모, 부모), 형제자매, 배우자의 사망 (5일)\n2. 병역의무로 인한 사유 (통지서 기재일자)\n3. 정부기관",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=69&SEQ_HISTORY=1989",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": null,
+          "effectiveSource": null,
+          "articleTextSha256": "cdc4af694d2038eb376da02b512359b13b4c6538658d2b1e31240b2cf827ed8a"
+        },
+        {
+          "rule": "세화원 운영 내규",
+          "article": "제20조",
+          "excerpt": "### 제 20조(입사신청)\n① 입사신청 및 제출서류는 기숙사의 입사신청 공고에 따른다.\n② 기타 국민기초생활보장수급자, 차상위계층, 한부모 가족, 장애인, 국가유공자 자녀의 경우 국가 및 지방자치단체에서 발행한 관련 서류를 함께 제출한다.\n구분 증빙서류 기초생활수급자 (국민기초생활보장법) 수급자증명서 차상위계층 (국민기",
+          "url": "https://rule.khu.ac.kr/lmxsrv/law/lawFullView.do?SEQ=247&SEQ_HISTORY=2022",
+          "originalDocumentUrl": null,
+          "revisedAt": null,
+          "effectiveAt": "2025-12-01",
+          "effectiveSource": "addenda",
+          "articleTextSha256": "824e0d0e0716ac5ff272340997cdbe93c0d2dc2cf153673c3be261eae5216f3d"
+        }
+      ],
+      "sourceReviewRequired": true,
+      "scoreEligible": false
+    }
+  ]
+}
