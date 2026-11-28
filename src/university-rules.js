@@ -511,7 +511,8 @@ function parseExternalContent(html) {
     else if (classes.includes('chapter')) lines.push(`## ${text}`);
     // 고려대·건국대·명지대는 조문 제목을 span.article2로 표시한다(2026-11 확인).
     else if ((classes.includes('article') || classes.includes('article2')) && /^제\s*\d+\s*조/.test(text)) lines.push(`### ${text}`);
-    else if (['none','hang','ho','mok'].some(c => classes.includes(c))) lines.push(text);
+    // Unnumbered bodies and continuation paragraphs are not article headings.
+    else if (['none','article_none','hang','hang_none','ho','ho_none','mok','mok_none','dann','dann_none','addendacontent_none'].some(c => classes.includes(c))) lines.push(text);
   });
   return {title,markdown:lines.join('\n')};
 }
@@ -764,10 +765,17 @@ function safeCode(e) {
 // 사유별 건수로 남기고, 남은 조문에는 규율 요소(slots)·주체·인용 법령·규정 역할(주/보조)을 붙인다.
 // slotCells는 규율 요소별 대표 조문(상위 limit 밖의 조문도 포함)으로, 비교표를 만들 때 쓴다.
 function selectArticles(rules, terms, limit, hints = terms, frame = null, topic = null) {
-  const matches = [], dropped = {};
+  const matches = [], dropped = {}, excludedRules = [];
   const topicProfile = !frame && comparisonTopic(topic || terms.join(' '));
   const perRule = new Map();
   for (const rule of rules) {
+    // A terminal status label is evidence of repeal; a title about repeal
+    // procedures is not. Keep excluded candidates visible instead of treating
+    // their old articles as current comparison evidence.
+    if (/(?:\s+폐지|[（(\[]\s*폐지\s*[）)\]])\s*$/.test(rule.title)) {
+      excludedRules.push({ universityRule: rule.title, lawId: rule.lawId, reason: 'REPEALED_TITLE' });
+      continue;
+    }
     const titleScore = ruleTitleScore(rule.title, terms, hints), ruleBonus = titleScore * 0.5;
     const entry = { universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId, url: rule.url, slots: new Set(), titleScore };
     for (const block of listArticleBlocks(rule.markdown)) {
@@ -802,7 +810,7 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null, topic 
   // never an absolute ordering that overrides action/constraint matches.
   const weak = match => match?.basis === 'weak' ? 1 : 0;
   matches.sort((a, b) => weak(a.topicMatch) - weak(b.topicMatch) || b._score - a._score);
-  const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit };
+  const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit, ...(excludedRules.length ? { excludedRules } : {}) };
   if (!frame) { for (const m of matches) delete m._score; return base; }
   const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);
   const roleOf = new Map(roles.map(r => [r.lawId, r.role]));
@@ -856,7 +864,7 @@ async function compareUniversityRules(a, { loadDongguk, client = publicClient, n
       if (controller.signal.aborted) throw error('TOTAL_TIMEOUT');
       const result = await abortable(key === 'dongguk' ? loadDongguk(topic, terms, {signal:controller.signal, searchTerms:spec.searchTerms, titleHints:spec.titleHints}) : loadExternalImpl(source, topic, terms, client, controller.signal, spec), controller.signal);
       const selected = selectArticles(result.rules, terms, a.max_articles || 3, spec.titleHints, spec.frame, topic);
-      const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated || x.topicMatch?.basis === 'weak');
+      const partial = result.coverage.complete === false || result.coverage.truncated || result.failures.length > 0 || selected.excludedRules?.length > 0 || selected.articlesTruncated || selected.articles.some(x => x.textTruncated || x.topicMatch?.basis === 'weak');
       columns.push({ university: key, name: source.name, status: result.rules.length === 0 && result.failures.length ? 'unavailable' : selected.articles.length ? (partial ? 'partial' : 'retrieved') : 'no_match_in_scope', ...selected, coverage: result.coverage, failures: result.failures });
     } catch (e) { const code = safeCode(e), guide = COLUMN_GUIDES[code]; columns.push({ university: key, name: source.name, status: 'unavailable', code, ...(guide ? { notice: guide.notice, setup: { env: guide.env, ocApplyUrl: guide.ocApplyUrl } } : {}), articles: [] }); }
   }
@@ -877,6 +885,8 @@ function formatComparison(data) {
     '| 항목 | ' + data.columns.map(c => esc(c.name || c.university)).join(' | ') + ' |',
     '|---|' + data.columns.map(() => '---|').join(''),
     '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
+  const excludedColumns=data.columns.filter(c=>c.excludedRules?.length);
+  if(excludedColumns.length) lines.splice(3,0,`> 제목에 폐지가 명시된 규정은 비교에서 제외했습니다: ${excludedColumns.map(c=>`${c.name||c.university} — ${c.excludedRules.map(r=>r.universityRule).join(', ')}`).join('; ')}. 다른 규정의 현행 여부를 별도로 확정한 것은 아닙니다.`);
   const boundaryColumns = data.columns.filter(c => c.coverage?.articleBoundaryReview?.required || c.articles.some(a => a.articleBoundaryReview?.required));
   if (boundaryColumns.length) lines.splice(3, 0, `> ${boundaryColumns.map(c => c.name || c.university).join('·')}: ${BOUNDARY_NOTICE}`);
   const topicTag = a => a.topicMatch ? `[${a.topicMatch.label}] ` : '';

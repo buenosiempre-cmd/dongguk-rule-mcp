@@ -40,6 +40,19 @@ async function main() {
       }
     });
   }
+  await check('제목 끝 폐지 표시는 제외하되 폐지 절차 규정은 보존', async () => {
+    for(const topic of ['연구비','법인카드']) {
+      const load=async()=>({rules:['교내연구비 관리규정 폐지','지원규정 (폐지)','카드규정 [폐지]','교내연구비 폐지 절차 규정'].map((title,i)=>({...rule,title,lawId:i+1,markdown:'### 제3조(집행)\n연구비 법인카드 집행 기준을 정한다.'})),failures:[],coverage:{complete:true}});
+      const result=await compareUniversityRules({topic,universities:['kookmin']},{loadDongguk:load,loadExternalImpl:load});
+      for(const col of result.columns){assert.deepEqual(col.articles.map(a=>a.lawId),[4]);assert.equal(col.excludedRules.length,3);assert(col.excludedRules.every(r=>r.reason==='REPEALED_TITLE'));assert.equal(col.status,'partial');}
+      assert.match(formatComparison(result),/폐지가 명시된 규정은 비교에서 제외/);
+    }
+  });
+  await check('폐지 표시 후보만 읽었으면 미발견과 제외 근거를 함께 표시', async () => {
+    const load=async()=>({rules:[{...rule,title:'여비규정 폐지'}],failures:[],coverage:{complete:true}});
+    const result=await compareUniversityRules({topic:'여비',universities:['kookmin']},{loadDongguk:load,loadExternalImpl:load});
+    assert.equal(result.columns[1].status,'no_match_in_scope');assert.equal(result.columns[1].articles.length,0);assert.equal(result.columns[1].excludedRules.length,1);
+  });
   await check('단독 증빙: 학사·업적 일치도 재무 근거라고 확정하지 않고 용도를 안내', async () => {
     const load=async()=>({rules:[{...rule,title:'학칙',markdown:'### 제12조(휴학)\n휴학 증빙서류와 증빙자료를 제출한다.'}],failures:[],coverage:{complete:true}});
     for(const topic of ['증빙','증빙서류','증빙자료']){
@@ -211,6 +224,17 @@ async function main() {
     const html='<div class="lawname">포상규정</div><div class="JO"><span class="article2"><span class="doc_btn">조항 연혁</span>제1조(목적)</span><div class="none level1">이 규정은 포상을 정한다.</div></div><div class="addenda">부   칙</div><div class="none">이 규정은 2026년 10월 15일부터 시행한다.</div>';
     const p=parseExternalContent(html);assert.match(p.markdown,/### 제1조\(목적\)/);assert(!p.markdown.includes('조항 연혁'));
     assert.equal(latestAddendaEffective(p.markdown),'2026-10-15');
+  });
+  await check('LawMaster 미번호 본문·계속 문단을 제목 뒤에 보존', () => {
+    const classes=['article_none','hang_none','ho_none','mok_none','dann','dann_none'];
+    const html='<div class="fullbody"><div class="lawname">합성 계약규정</div><div class="article">제29조(수의계약시 예정가격조서 작성)</div>'+
+      classes.map((c,i)=>`<div class="${c}">본문고유내용${i}를 보존한다.</div>`).join('')+
+      '<span class="article2">제30조(물품관리)</span><div class="none">물품을 관리한다.</div><div class="addenda2">부칙</div><div class="addendacontent_none">이 규정은 2026년 10월 1일부터 시행한다.</div></div>';
+    const parsed=parseExternalContent(html);
+    for(let i=0;i<classes.length;i++)assert(parsed.markdown.includes(`본문고유내용${i}를 보존한다.`));
+    const articles=require('../src/parsers').listArticleBlocks(parsed.markdown);
+    assert.equal(articles.length,2);assert(articles[0].content.includes('본문고유내용5'));assert(!articles[0].content.includes('물품을 관리한다.'));
+    assert.equal(latestAddendaEffective(parsed.markdown),'2026-10-01');
   });
   await check('부칙 시행일: 마지막 부칙만, 날짜 없는 부칙은 미확인', () => {
     assert.equal(latestAddendaEffective('### 제1조(목적)\n목적\n## 부칙\n이 규정은 2020년 3월 1일부터 시행한다.\n## 부칙\n이 규정은 2026. 3. 13.부터 시행한다. 다만 제7조는 2026년 9월 1일부터 시행한다.'),'2026-03-13');
@@ -648,7 +672,7 @@ async function main() {
       const info=(await client.callTool({name:'get_service_info',arguments:{}})).structuredContent;assert.equal(info.data.toolCount,tools.length);
       // 기본은 켜짐: 환경변수가 없으면 동작하고, 운영자가 0을 넣었을 때만 꺼진다.
       delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;
-      assert.equal(info.data.integrations.universityComparison.configured,true);
+      assert.equal(info.data.integrations.universityComparison.configured,true);assert.deepEqual(info.data.integrations.universityComparison.excludedRules,{response:'columns[].excludedRules',reason:'REPEALED_TITLE'});
       process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='0';
       const disabled=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['uos']}})).structuredContent;assert.equal(disabled.error.code,'NOT_CONFIGURED');
       assert.match(disabled.error.message,/DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0/);assert.equal(disabled.error.details.reason,'DISABLED_BY_OPERATOR');
