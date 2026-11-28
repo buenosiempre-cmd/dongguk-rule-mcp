@@ -130,6 +130,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { clampNumber, normalizeText, searchVariants, rankRuleHits, selectRuleCandidate, extractRelevantBlocks, ruleNameFromQuery, titleInQuery, withoutRuleName, queryContentTokens, parseKeywords, appendixSelectors, articleSelectors, requestedRuleScope } = require('./lookup.js');
+const { delegationNotices, annotateDelegationExcerpt, delegationSummary, formatDelegationNotices } = require('./delegation-notices.js');
 const {
   parseSearch,
   parseContent,
@@ -1107,6 +1108,7 @@ async function hLookup(rawKeyword, {
     :'\n> 규정 후보의 미리보기입니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.\n';
 
   const rules=[];
+  const delegated=[];
 
   for(let i=0;i<hits.length;i++){
     const hit=hits[i];
@@ -1176,13 +1178,16 @@ async function hLookup(rawKeyword, {
       (historyText?`\n- 최근 연혁: ${historyText}`:'') +
       warning;
 
+    const ruleNotices = delegationNotices([{...hit,lawId,historyId,excerpt}]);
+    delegated.push(...ruleNotices);
+    const displayExcerpt = annotateDelegationExcerpt(excerpt.text, ruleNotices);
     if(validStr(terms)){
       out+=excerpt.text
-        ? `\n\n### 관련 조문·별표\n\n${excerpt.text}`
+        ? `\n\n### 관련 조문·별표\n\n${displayExcerpt}`
         : `\n\n### 관련 조문·별표\n\n'${terms}'과 직접 일치하는 부분을 찾지 못했습니다. ` +
           `terms에는 핵심 명사만 입력해 다시 조회하세요.`;
     }else{
-      out+=`\n\n### 원문 앞부분\n\n${excerpt.text}`;
+      out+=`\n\n### 원문 앞부분\n\n${displayExcerpt}`;
     }
 
     if(excerpt.missingAppendices.length) out+=`\n\n> 요청한 ${excerpt.missingAppendices.join(', ')}의 본체를 조회 본문에서 찾지 못했습니다. 본문의 참조 문구만으로 별표 내용이 확인된 것은 아닙니다. 사이트의 별도 첨부는 직접 확인해야 합니다.`;
@@ -1197,7 +1202,9 @@ async function hLookup(rawKeyword, {
       excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
     });
   }
-  return success(out,{
+  const summary = delegationSummary(delegated, {identityStatus,requestedArticles:articleSelectors(rawTerms || keyword)});
+  return success(formatDelegationNotices(summary) + out,{
+    ...(delegated.length ? { delegationNotices: delegated, delegationSummary: summary } : {}),
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,rewrittenTerms,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
@@ -1540,7 +1547,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     }, required:['law_id','from_history_id']},
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
-  { name:'verify_rule_citations', title:'규정 인용 검증', description:'기안문·품의서의 결재 전 인용 점검에 사용합니다. 문장의 규정명·조문·제목·항을 대조하고 날짜 부칙은 개정일로 구분합니다. 날짜가 불명확하거나 별표·서식·호·목·지원 범위 밖 번호는 확인필요로 표시합니다. 나열된 항은 앞 조문을 이어 확인합니다. 조문 범위 사이의 생략된 조문은 확인하지 않습니다. 확인필요가 있으면 통과가 아닙니다. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
+  { name:'verify_rule_citations', title:'규정 인용 검증', description:'기안문·품의서의 결재 전 인용 점검에 사용합니다. 문장의 규정명·조문·제목·항을 대조하고 날짜 부칙은 개정일로 구분합니다. 날짜가 불명확하거나 별표·서식·호·목·지원 범위 밖 번호는 확인필요로 표시합니다. 연결어·별칭 괄호가 있는 외부 법령 인용도 앞 규정에 붙이지 않습니다. 국가 법령 후보와 교내 명칭·법 조응의 불명확성을 구분해 확인필요로 표시합니다. 나열된 항은 앞 조문을 이어 확인합니다. 조문 범위 사이의 생략된 조문은 확인하지 않습니다. 확인필요가 있으면 통과가 아닙니다. 규정 내용 질문에는 lookup_dongguk_rule을 사용하세요.',
     inputSchema:{ type:'object', properties:{
       text:{type:'string',description:'검증할 전체 텍스트 (20,000자 이하). 예: 품의서 본문'},
       campus:{type:'string',description:'업무 캠퍼스 맥락 all/seoul/wise. 공식 목록에는 캠퍼스 필터가 없어 전체 검색 후 적용범위를 확인합니다.',default:'all'},
@@ -1566,7 +1573,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
     outputSchema:TOOL_OUTPUT_SCHEMA,
     annotations:{readOnlyHint:true,idempotentHint:true,openWorldHint:true}},
   { name:'compare_university_rules', title:'타대학 규정 조문 비교',
-    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 기본으로 켜져 있으며 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0으로 끌 수 있습니다. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌만 제공합니다. 서울시립·국민·숭실·경희·숙명여대는 규정 제목 검색(대표어·제목 단서)으로 전담 규정을 먼저 찾은 뒤 전문검색(대표어·동의어)을 더하고, 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. 중앙대는 PDF 텍스트 레이어의 조문만 비교하며 표·별표·부록·서식·그림은 원문에서 확인해야 합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
+    description:'동국대와 타대학의 같은 사안 조문을 나란히 발췌합니다. 법적 동등성을 판정하지 않습니다. 기본으로 켜져 있으며 서버 운영자가 DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0으로 끌 수 있습니다. 등록된 사안(겸직·여비·연구비·등록금 반환·퇴직급여·근로장학·장학금)은 사안 프레임으로 조문을 고릅니다: 주체·행위·규율 요소(허가권자·기간·보수 등)의 문자열 대조로 같은 단어가 다른 뜻인 조문(교내 겸무의 "겸직" 등)을 제외하고, 대학별 주규정·보조규정을 가르고, 규율 요소 × 대학 표(slotMatrix)와 조문이 인용한 근거 법령 대조를 돌려줍니다. 미등록 주제는 주제어 일치 발췌를 제공합니다. 법인카드·수의계약·구매·회의비·예산 전용·증빙은 질문의 행위·제약 검색어를 함께 평가하고 조문 제목/본문 핵심어 일치를 topicMatch로 표시합니다. 주제명만 든 제목을 무조건 우선하지 않으며 약한 후보는 뒤에 둡니다. 증빙 단독은 재무·학사 등 용도 확인을 안내합니다. 본문 일치는 단순 언급일 수 있으며 여러 재무 주제가 섞이면 보조 평가를 생략합니다. 서울시립·국민·숭실·경희·숙명여대는 규정 제목 검색(대표어·제목 단서)으로 전담 규정을 먼저 찾은 뒤 전문검색(대표어·동의어)을 더하고, 건국·광운·명지는 공개 규정 트리의 제목 대조, 고려는 로그인 없이 공개된 규정(약 55개)의 분류 목록에서 제목을 대조하며 비공개 규정은 조회할 수 없습니다. 주제어는 「교내근로장학금」→「근로장학」처럼 접두어를 떼고 동의어로 넓힙니다. 대학별 최대 5개 규정, 전체 60초 제한입니다. 시행일은 목록 시행일자 또는 마지막 부칙 명시 시행일만 표시합니다. 미지원 대학·접속 실패·미발견을 구분합니다. 중앙대는 PDF 텍스트 레이어의 조문만 비교하며 표·별표·부록·서식·그림은 원문에서 확인해야 합니다. HTML 별표 누락 및 조문별 시행일·경과조치 미확인에 유의하세요.',
     inputSchema:{type:'object',properties:{
       topic:{type:'string',minLength:1,maxLength:100,description:'예: 여비, 겸직, 연구비, 등록금 반환, 퇴직급여, 근로장학, 장학금(사안 프레임 등록 주제). 그 밖의 주제는 주제어 일치만.'},
       universities:{type:'array',minItems:1,maxItems:5,items:{type:'string'},description:'타대학 키: korea(고려) uos(서울시립) konkuk(건국) kookmin(국민) ssu(숭실) khu(경희) sookmyung(숙명여대) kw(광운) mju(명지) sogang(서강) ewha(이화) snu(서울대·OC키 필요) yonsei(연세) cau(중앙·PDF 조문만) hongik(홍익) hanyang(한양) skku(성균관·PDF 조문만) sejong(세종·PDF 조문만) gachon(가천·문서 조문만). dongguk은 자동 포함. 다른 키는 unsupported로 표시.'},
@@ -1638,7 +1645,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
         data.fullText={tool:'get_rule_full_text',defaultMaxChars:30000,maxChars:60000,continuation:'textCoverage.nextArguments',source:'HWP first; HTML fallback is partial',images:'no OCR'};
         data.fullTextIndex=indexStatus();
         data.searchRewrites={lookupField:'search.rewrittenTerms',deepField:'rewrittenTerms',kinds:['head-drop','tail-cut','substitution','split'],warning:'앞부분을 떼어 찾으면 응답 앞쪽에 의미 변경 위험을 표시합니다. 검색·순위는 바꾸지 않습니다.'};
-        data.integrations.universityComparison={configured:comparisonEnabled(),defaultEnabled:true,optOutEnv:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0',snuKeyConfigured:Boolean((process.env.DONGGUK_LAWGO_OC||'').trim()),snuKeyEnv:'DONGGUK_LAWGO_OC',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
+        data.integrations.universityComparison={configured:comparisonEnabled(),defaultEnabled:true,optOutEnv:'DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0',snuKeyConfigured:Boolean((process.env.DONGGUK_LAWGO_OC||'').trim()),snuKeyEnv:'DONGGUK_LAWGO_OC',tool:'compare_university_rules',totalTimeoutMs:require('./university-rules').TOTAL_TIMEOUT_MS,topicMatch:{scope:'finance_topics_without_issue_frame',response:'columns[].articles[].topicMatch',basis:['heading','body','weak'],extraRequests:0},issueFrames:require('./university-rules').FRAMES.map(f=>({topic:f.topic,label:f.label,slots:f.slots.length}))};
         data.integrations.lawLink={configured:!lawGuide,state:lawGuide?lawGuide.state:'ready',defaultEnabled:true,...(lawGuide?{setup:{env:lawGuide.env,ocApplyUrl:lawGuide.ocApplyUrl},notice:lawGuide.message}:{}),tool:'get_rule_references',argument:'include_law_text',upperLawTool:'get_rule_upper_laws',upperLawComparison:{argument:'include_text',response:'comparison',ruleSource:'HTML 본문',lawSource:'현행 법령 조문',...require('./upper-law-comparison').LIMITS}};
         data.privacy.queryLog=require('./query-log').queryLogInfo();
         data.privacy.privatePacksConfigured=profile==='finance'&&['DONGGUK_FINANCE_PACK_PATH','DONGGUK_HANDBOOK_PACK_PATH','DONGGUK_PRACTICE_PACK_PATH'].some(key=>Boolean(process.env[key]));
@@ -1651,6 +1658,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req)=>withProfile(profile
           '- 규정 전문·별표: get_rule_full_text (긴 전문은 textCoverage.nextArguments로 이어받기)',
           '- 상위법령 조문 대조: get_rule_upper_laws(include_text=true), comparison에 규정 원문과 현행 법령 조문 연결 제공',
           '- 축약 검색: '+data.searchRewrites.warning,
+          '- 타대학 주제 일치: 질문 전체 검색어와 제목·본문 핵심어 대조(topicMatch), 단독 증빙은 용도 확인 필요, 추가 조회 없음',
           '- readOnly: '+data.readOnly,
           '- source: '+data.source,
           '- koreanLawConfigured: '+data.integrations.koreanLaw.configured+' (재무 공동 검토용 법령 조회. 설정 여부이며 실제 연결 검증은 별도)',
