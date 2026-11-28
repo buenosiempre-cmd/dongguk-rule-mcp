@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 1,
+  "status": "draft",
+  "baseCommit": "ee501b68db6b61b9580df3a03383b502676eb1c1",
+  "clock": "2026-11-28T00:00:00Z",
+  "cases": [
+    {
+      "id": "R01",
+      "tool": "get_rule_references",
+      "source": "S01",
+      "rule": "재무회계규정",
+      "arguments": {
+        "law_id": 180,
+        "history_id": 3758,
+        "article": 7,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "사립학교법",
+          "articles": [
+            "제32조의2"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R02",
+      "tool": "get_rule_references",
+      "source": "S02",
+      "rule": "재무회계규정",
+      "arguments": {
+        "law_id": 180,
+        "history_id": 3758,
+        "article": 29,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "지가공시 및 토지 등의 평가에 관한 법률",
+          "articles": [
+            "제4조",
+            "제10조"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R03",
+      "tool": "get_rule_references",
+      "source": "S03",
+      "rule": "안전보건관리규정",
+      "arguments": {
+        "law_id": 660,
+        "history_id": 3765,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "산업안전보건법",
+          "articles": [
+            "제25조"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R04",
+      "tool": "get_rule_references",
+      "source": "S04",
+      "rule": "개인정보보호 규정",
+      "arguments": {
+        "law_id": 97,
+        "history_id": 3645,
+        "article": 6,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "개인정보 보호법 시행령",
+          "articles": [
+            "제32조",
+            "제14조의2"
+          ]
+        },
+        {
+          "citedName": "개인정보보호법",
+          "articles": [
+            "제30조"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R05",
+      "tool": "get_rule_references",
+      "source": "S05",
+      "rule": "학교법인 동국대학교 정관",
+      "arguments": {
+        "law_id": 65,
+        "history_id": 3861,
+        "article": 44,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "병역법",
+          "articles": []
+        },
+        {
+          "citedName": "재외국민의 교육지원 등에 관한 법률",
+          "articles": [
+            "제2조"
+          ]
+        },
+        {
+          "citedName": "교원의 노동조합설립 및 운영 등에 관한 법률",
+          "articles": [
+            "제5조"
+          ]
+        },
+        {
+          "citedName": "사립학교교직원 연금법",
+          "articles": [
+            "제31조"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R06",
+      "tool": "get_rule_references",
+      "source": "S06",
+      "rule": "학   칙",
+      "arguments": {
+        "law_id": 69,
+        "history_id": 3783,
+        "article": 28,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "고등교육법 시행령",
+          "articles": [
+            "제29조",
+            "제30조"
+          ]
+        },
+        {
+          "citedName": "산업교육진흥 및 산학연협력촉진에 관한 법률 시행령",
+          "articles": [
+            "제8조"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R07",
+      "tool": "get_rule_references",
+      "source": "S07",
+      "rule": "재무회계규정",
+      "arguments": {
+        "law_id": 180,
+        "history_id": 3758,
+        "article": 45,
+        "direction": "outgoing",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "국가를 당사자로 하는 계약에 관한 법률 시행령",
+          "articles": [
+            "제26조",
+            "제23조"
+          ]
+        }
+      ],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "lawTexts": "absent"
+      },
+      "rationale": "본문을 요청하지 않은 인용 추출. 추정 명칭은 공식 명칭으로 확정하지 않아야 함."
+    },
+    {
+      "id": "R08",
+      "tool": "get_rule_references",
+      "source": "S08",
+      "rule": "여 비 규 정",
+      "arguments": {
+        "law_id": 184,
+        "history_id": 3856,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "disabled",
+      "expectedLaws": [],
+      "expected": {
+        "lawTexts.status": "not_required",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "명시 국가법령 없음. R09는 여비규정(LAW_ID 184)에 대한 교내 인용 1건을 요구."
+    },
+    {
+      "id": "R09",
+      "tool": "get_rule_references",
+      "source": "S09",
+      "rule": "취업규칙",
+      "arguments": {
+        "law_id": 127,
+        "history_id": 3619,
+        "article": 50,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "disabled",
+      "expectedLaws": [],
+      "expected": {
+        "lawTexts.status": "not_required",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "명시 국가법령 없음. R09는 여비규정(LAW_ID 184)에 대한 교내 인용 1건을 요구.",
+      "expectedInternal": [
+        {
+          "lawId": 184,
+          "article": null
+        }
+      ]
+    },
+    {
+      "id": "R10",
+      "tool": "get_rule_references",
+      "source": "S10",
+      "rule": "교직원 수당에 관한 규정",
+      "arguments": {
+        "law_id": 543,
+        "history_id": 3760,
+        "article": 4,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "disabled",
+      "expectedLaws": [],
+      "expected": {
+        "lawTexts.status": "not_required",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "명시 국가법령 없음. R09는 여비규정(LAW_ID 184)에 대한 교내 인용 1건을 요구."
+    },
+    {
+      "id": "R11",
+      "tool": "get_rule_references",
+      "source": "S03",
+      "rule": "안전보건관리규정",
+      "arguments": {
+        "law_id": 660,
+        "history_id": 3765,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "native",
+      "expectedLaws": [
+        {
+          "citedName": "산업안전보건법",
+          "articles": [
+            "제25조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "retrieved",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "현행 고정 본문."
+    },
+    {
+      "id": "R12",
+      "tool": "get_rule_references",
+      "source": "S03",
+      "rule": "안전보건관리규정",
+      "arguments": {
+        "law_id": 660,
+        "history_id": 3765,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "disabled",
+      "expectedLaws": [
+        {
+          "citedName": "산업안전보건법",
+          "articles": [
+            "제25조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "not_configured",
+        "evidenceStatus": "partial"
+      },
+      "rationale": "본문 요청과 연계 꺼짐."
+    },
+    {
+      "id": "R13",
+      "tool": "get_rule_references",
+      "source": "S03",
+      "rule": "안전보건관리규정",
+      "arguments": {
+        "law_id": 660,
+        "history_id": 3765,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "provider_down",
+      "expectedLaws": [
+        {
+          "citedName": "산업안전보건법",
+          "articles": [
+            "제25조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "unavailable",
+        "evidenceStatus": "partial"
+      },
+      "rationale": "연계 실패가 인용 추출 성공을 지우지 않음."
+    },
+    {
+      "id": "R14",
+      "tool": "get_rule_references",
+      "source": "S03",
+      "rule": "안전보건관리규정",
+      "arguments": {
+        "law_id": 660,
+        "history_id": 3765,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "future_body",
+      "expectedLaws": [
+        {
+          "citedName": "산업안전보건법",
+          "articles": [
+            "제25조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "unavailable",
+        "evidenceStatus": "partial"
+      },
+      "rationale": "시행일 불일치 본문은 반환·장기 캐시 금지."
+    },
+    {
+      "id": "R15",
+      "tool": "get_rule_references",
+      "source": "S03",
+      "rule": "안전보건관리규정",
+      "arguments": {
+        "law_id": 660,
+        "history_id": 3765,
+        "article": 1,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "title_only",
+      "expectedLaws": [
+        {
+          "citedName": "산업안전보건법",
+          "articles": [
+            "제25조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "unavailable",
+        "evidenceStatus": "partial"
+      },
+      "rationale": "제목만 온 본문은 unavailable."
+    },
+    {
+      "id": "R16",
+      "tool": "get_rule_references",
+      "source": "S04",
+      "rule": "개인정보보호 규정",
+      "arguments": {
+        "law_id": 97,
+        "history_id": 3645,
+        "article": 6,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "native",
+      "expectedLaws": [
+        {
+          "citedName": "개인정보 보호법 시행령",
+          "articles": [
+            "제32조",
+            "제14조의2"
+          ]
+        },
+        {
+          "citedName": "개인정보보호법",
+          "articles": [
+            "제30조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "retrieved",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "약칭 괄호, 시행령 제14조의2, 법 제30조 연결."
+    },
+    {
+      "id": "R17",
+      "tool": "get_rule_references",
+      "source": "S02",
+      "rule": "재무회계규정",
+      "arguments": {
+        "law_id": 180,
+        "history_id": 3758,
+        "article": 29,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "native",
+      "expectedLaws": [
+        {
+          "citedName": "지가공시 및 토지 등의 평가에 관한 법률",
+          "articles": [
+            "제4조",
+            "제10조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "retrieved",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "법명 변경 경고를 유지하며 인용·본문 조회 상태와 적용 여부 구분."
+    },
+    {
+      "id": "R18",
+      "tool": "get_rule_references",
+      "source": "S05",
+      "rule": "학교법인 동국대학교 정관",
+      "arguments": {
+        "law_id": 65,
+        "history_id": 3861,
+        "article": 44,
+        "direction": "outgoing",
+        "include_law_text": true
+      },
+      "condition": "native",
+      "expectedLaws": [
+        {
+          "citedName": "병역법",
+          "articles": []
+        },
+        {
+          "citedName": "재외국민의 교육지원 등에 관한 법률",
+          "articles": [
+            "제2조"
+          ]
+        },
+        {
+          "citedName": "교원의 노동조합설립 및 운영 등에 관한 법률",
+          "articles": [
+            "제5조"
+          ]
+        },
+        {
+          "citedName": "사립학교교직원 연금법",
+          "articles": [
+            "제31조"
+          ]
+        }
+      ],
+      "expected": {
+        "lawTexts.status": "retrieved",
+        "evidenceStatus": "retrieved"
+      },
+      "rationale": "및 포함 긴 법명은 공식 이름 확인 뒤 확정. 조문 없는 병역법은 본문 요청 대상 아님."
+    },
+    {
+      "id": "R19",
+      "tool": "get_rule_references",
+      "source": "S08",
+      "rule": "여 비 규 정",
+      "arguments": {
+        "law_id": 184,
+        "history_id": 3856,
+        "direction": "incoming",
+        "include_law_text": false
+      },
+      "condition": "incoming_fixture",
+      "expectedLaws": [],
+      "expected": {
+        "evidenceStatus": "retrieved",
+        "coverage.incoming.scanned": true
+      },
+      "rationale": "검증용 최소 색인: S09 취업규칙 제50조가 여비규정 인용. 실제 전체 incoming 개수의 정답 아님.",
+      "expectedIncoming": [
+        {
+          "lawId": 127,
+          "article": "제50조",
+          "targetLawId": 184
+        }
+      ]
+    },
+    {
+      "id": "R20",
+      "tool": "get_rule_references",
+      "source": "S08",
+      "rule": "여 비 규 정",
+      "arguments": {
+        "law_id": 184,
+        "history_id": 3856,
+        "direction": "incoming",
+        "include_law_text": false
+      },
+      "condition": "disabled",
+      "expectedLaws": [],
+      "expected": {
+        "evidenceStatus": "partial",
+        "coverage.incoming.scanned": false,
+        "coverage.incoming.code": "INDEX_UNAVAILABLE"
+      },
+      "rationale": "색인 없는 역방향 조회를 인용 없음/완전으로 표시 금지."
+    }
+  ]
+}
