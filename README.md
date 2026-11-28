@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.14"><img alt="버전 0.15.14" src="docs/assets/badges/version.svg"></a>
+  <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/releases/tag/v0.15.15"><img alt="버전 0.15.15" src="docs/assets/badges/version.svg"></a>
   <a href="LICENSE"><img alt="MIT 라이선스" src="docs/assets/badges/license.svg"></a>
   <a href="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml"><img alt="CI: MCP regression" src="https://github.com/buenosiempre-cmd/dongguk-rule-mcp/actions/workflows/ci.yml/badge.svg"></a>
 </p>
