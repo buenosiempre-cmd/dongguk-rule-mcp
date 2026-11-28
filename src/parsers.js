@@ -1,7 +1,6 @@
 'use strict';
 
 const cheerio = require('cheerio');
-const { appendixHeading, isBodyBoundary } = require('./appendices.js');
 // Parsed content and corpus reuse must advance together when body extraction changes.
 const CONTENT_PARSER_VERSION = 4;
 
@@ -179,56 +178,6 @@ function headingDate(heading) {
   return match ? `${match[1]}.${parseInt(match[2], 10)}.${parseInt(match[3], 10)}` : null;
 }
 
-// The source misprints a few article numbers with a doubled 제 ("제제69조(창업휴학) ① …"). The site
-// and the HWP original do not mark such a line as an article, so it was read as part of the
-// article before it and reported as missing. The misprint stays visible next to the heading.
-// A wrong repair turns "no such article" into "exists", so a line is repaired only when every
-// check below holds; anything less certain is left as the source has it.
-// `inline` keeps the body on the heading line, as the HWP conversion writes its other articles.
-const MISPRINTED_ARTICLE = /^제제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?[ \t]*([(（][^)）\n]{1,40}[)）])(.*)$/;
-// The only evidence taken for an article body is a numbered paragraph (①) right after the title,
-// on the same line or on the next line that is not empty. Anything else there may be a reference
-// to an article ("제제3조(휴학)에서 정한 기준", also when the line breaks after the title) or a clause
-// of a contract form. An article of one unnumbered paragraph is therefore left as the source has it.
-const NUMBERED_PARAGRAPH = /^[ \t]*[①-⑳]/;
-const ARTICLE_HEADING = /^###[ \t]*제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?/;
-function repairArticleNumbering(markdown, { inline = false } = {}) {
-  const source = String(markdown || '');
-  if (!/^제제[ \t]*\d/m.test(source)) return source;
-  const lines = source.split('\n');
-  // Main body, each 부칙 and the attachments number their articles separately. An attachment
-  // (별표·별지·서식) may hold a contract with clauses of its own; nothing in it is repaired.
-  let zone = 0, attachment = false;
-  const marks = lines.map(line => {
-    if (isBodyBoundary(line) === 'supplementary') { zone++; attachment = false; return { zone, boundary: true }; }
-    if (appendixHeading(line)) { zone++; attachment = true; return { zone, boundary: true }; }
-    const heading = attachment ? null : ARTICLE_HEADING.exec(line);
-    return { zone, attachment, heading: heading && { number: Number(heading[1]), sub: heading[2] ? Number(heading[2]) : 0 } };
-  });
-  let previous = null;
-  return lines.map((line, index) => {
-    const mark = marks[index];
-    if (mark.boundary) { previous = null; return line; }
-    if (mark.heading) { previous = mark.heading; return line; }
-    const misprint = mark.attachment ? null : MISPRINTED_ARTICLE.exec(line);
-    if (!misprint || !previous) return line;
-    const opening = misprint[4].trim() ? misprint[4] : lines.slice(index + 1).find(text => text.trim()) || '';
-    if (!NUMBERED_PARAGRAPH.test(opening)) return line;
-    const number = Number(misprint[1]), sub = misprint[2] ? Number(misprint[2]) : 0;
-    // It continues the article before it (제68조 → 제69조, 제3조 → 제3조의2) …
-    const continues = sub ? previous.number === number && sub >= 2 && (previous.sub || 1) === sub - 1 : previous.number === number - 1;
-    // … and the next article of the same part, when there is one, continues it in turn.
-    const next = marks.slice(index + 1).find(item => item.zone !== mark.zone || item.heading);
-    const following = next && next.zone === mark.zone ? next.heading : null;
-    const fits = !following || (following.number === number + 1 && following.sub === 0) || (following.number === number && following.sub === (sub || 1) + 1);
-    if (!continues || !fits) return line;
-    previous = { number, sub };
-    const repaired = `### 제${number}조${sub ? `의${sub}` : ''}${misprint[3]} [원문 표기: 제제${number}조${sub ? `의${sub}` : ''}]`;
-    const body = misprint[4].trim();
-    return body ? `${repaired}${inline ? ' ' : '\n'}${body}` : repaired;
-  }).join('\n');
-}
-
 function listArticleBlocks(markdown) {
   const source = String(markdown || '');
   const articlePattern = /^###[ \t]*제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?(?=[(（\s]|$).*$/gm;
@@ -328,7 +277,6 @@ function rankArticlesByTokens(markdown, tokens) {
 
 module.exports = {
   CONTENT_PARSER_VERSION,
-  repairArticleNumbering,
   rankArticlesByTokens,
   parseSearch,
   parseContent,
