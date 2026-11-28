@@ -263,14 +263,12 @@ async function main() {
     check('범위 판별 기본 꺼짐: search.ranking·search.labels·rules[].order 없음', !('ranking' in plainScope.sc.data.search) && !('labels' in plainScope.sc.data.search) && plainScope.sc.data.rules.every(r => !('order' in r)));
     const hybridScope = await withEnv({ DONGGUK_MCP_RANKING: 'hybrid', DONGGUK_MCP_LABELS: '1' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
     check('범위 판별 켬: search.ranking=hybrid, search.labels=true, 정렬 값은 응답에 없음', hybridScope.sc.ok === true && hybridScope.sc.data.search.ranking === 'hybrid' && hybridScope.sc.data.search.labels === true && hybridScope.sc.data.rules.every(r => !('order' in r)) && hybridScope.sc.data.rules[0].edition.includes('산학협력단'));
-    // hybrid는 캠퍼스 낱말을 장소로만 읽고 검색 낱말로는 세지 않음. 기본(legacy)은 그대로 셈.
+    // hybrid는 캠퍼스 낱말을 규정 순서의 낱말 점수에서만 빼고, 알리는 검색 낱말과 조문 고르기는 그대로 둠.
     const campusPlain = await call('lookup_dongguk_rule', { query: 'WISE캠퍼스 장비 구매 절차' });
     const campusHybrid = await withEnv({ DONGGUK_MCP_RANKING: 'hybrid' }, () => call('lookup_dongguk_rule', { query: 'WISE캠퍼스 장비 구매 절차' }));
-    check('hybrid: 질문의 캠퍼스 낱말은 검색 낱말에서 빠지고 그 캠퍼스 판을 고르는 데만 쓰임', campusHybrid.sc.ok === true && !campusHybrid.sc.data.search.searchTerms.some(term => /경주|WISE/i.test(term))
-      && campusHybrid.sc.data.search.searchTerms.includes('구매') && campusHybrid.sc.data.rules[0].lawId === 33);
-    check('대조: 기본 방식은 캠퍼스 낱말을 검색 낱말로 그대로 씀', campusPlain.sc.data.search.searchTerms.some(term => /경주|WISE/i.test(term)));
-    const institutionHybrid = await withEnv({ DONGGUK_MCP_RANKING: 'hybrid' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
-    check('대조: hybrid에서도 기관 낱말(산학협력단)은 검색 낱말로 남음', institutionHybrid.sc.data.search.searchTerms.includes('산학협력단'));
+    check('hybrid: 캠퍼스를 말한 질문은 그 캠퍼스 판이 1위이고, 알리는 검색 낱말과 그 규정의 발췌는 기본 방식과 같음', campusHybrid.sc.ok === true && campusHybrid.sc.data.rules[0].lawId === 33
+      && JSON.stringify(campusHybrid.sc.data.search.searchTerms) === JSON.stringify(campusPlain.sc.data.search.searchTerms)
+      && campusHybrid.sc.data.rules[0].excerpt.text === campusPlain.sc.data.rules.find(rule => rule.lawId === 33).excerpt.text);
     const unknownScope = await withEnv({ DONGGUK_MCP_RANKING: 'rrf', DONGGUK_MCP_LABELS: '0' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
     check('모르는 순위 방식·꺼진 사전은 기본 응답과 같음', JSON.stringify({ ...unknownScope.sc.data, source: null }) === JSON.stringify({ ...plainScope.sc.data, source: null }));
 

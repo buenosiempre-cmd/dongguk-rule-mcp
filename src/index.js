@@ -834,7 +834,10 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
   const search=options=>searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords,semantic:keywords?.length?semantic?.keyed:semantic?.question,...options});
   const everyWord=search({});
   const withoutTerms=rankingMethod()==='hybrid'&&everyWord.tokens.some(term=>CAMPUS_WORD.test(term))?CAMPUS_WORD:null;
-  const found=withoutTerms?search({withoutTerms}):everyWord;
+  // Only the order of rules changes. Which articles of a rule are excerpted, and the words a
+  // response reports, stay as every word of the question chose them.
+  const byEveryWord=new Map(everyWord.hits.map(hit=>[hit.lawId,hit]));
+  const found=withoutTerms?{...everyWord,hits:search({withoutTerms}).hits.map(hit=>({...byEveryWord.get(hit.lawId),score:hit.score,wordScore:hit.wordScore,semanticRuleRank:hit.semanticRuleRank}))}:everyWord;
   if(!found.hits.length) return null;
   // Campus and institution are read from the question, never from the keywords.
   let {hits,dominant,method}=rankIndexHits(found,{top,campus,scopeQuery});
@@ -849,7 +852,7 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
   let keywordInfo=null;
   if(keywords?.length){
     keywordInfo={...found.keywords,applied:found.keywordMode,questionRuleKept:null};
-    const alone=found.keywordMode?searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1,semantic:semantic?.question,withoutTerms}):null;
+    const alone=found.keywordMode?searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1,semantic:semantic?.question}):null;
     if(alone?.hits.length){
       const question=rankIndexHits(alone,{top:corpus.rules.length,campus,scopeQuery});
       const byId=new Map(question.hits.map(hit=>[hit.lawId,hit]));
