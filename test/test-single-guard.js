@@ -27,6 +27,8 @@ const RULES = [
   { title: '원예실습 운영내규', text: '### 제2조(실습)\n실습은 온실에서 할 수 있다.' },
   { title: '서고 운영규정', text: '### 제2조(서고 사용)\n서고 사용 신청은 서고 관리부서에 한다. 서고 사용 기간은 한 학기로 한다.' },
   { title: '자료실 관리규정', text: '### 제2조(시설)\n서고는 자료실에 포함한다.' },
+  { title: '표본실 운영규정', text: '### 제1조(목적)\n이 규정은 동국대학교 서울캠퍼스(이하 "본교"라 한다) 표본실의 운영에 필요한 사항을 정한다.\n\n### 제2조(표본실 열람)\n표본실 열람 예약은 표본실 담당자에게 한다. 표본실 열람 예약은 하루 전까지 한다.' },
+  { title: '박물관 관리규정', text: '### 제2조(시설)\n표본실은 박물관에 포함한다.' },
 ];
 const CATALOG = RULES.map((rule, i) => ({ lawId: i + 1, historyId: 10 * (i + 1), title: rule.title, code: `3-1-${i + 1}`, revisedAt: '2026.01.01' }));
 const dir = path.join(root, 'dongguk-rule-mcp', 'v2', 'public');
@@ -51,6 +53,7 @@ async function main() {
   await client.connect(b);
   const call = async args => (await client.callTool({ name: 'lookup_dongguk_rule', arguments: args })).structuredContent.data;
   try {
+    const full = async args => { const result = await client.callTool({ name: 'lookup_dongguk_rule', arguments: args }); return { data: result.structuredContent.data, text: result.content.map(part => part.text || '').join('') }; };
     for (const ranking of ['legacy', 'hybrid']) {
       process.env.DONGGUK_MCP_RANKING = ranking;
       const general = await call({ query: '서고 사용 신청 기간' });
@@ -62,6 +65,17 @@ async function main() {
       const argued = await call({ query: '온실 사용 신청 기간', campus: 'wise' });
       check(`${ranking}: campus 인자로 그 캠퍼스를 주어도 확정`, argued.search.selection === 'single_candidate' && argued.rules.map(rule => rule.lawId).join() === '1');
     }
+    // A rule whose title names no campus but whose first article names only another campus.
+    process.env.DONGGUK_MCP_RANKING = 'hybrid';
+    const plain = await full({ query: '표본실 열람 예약' });
+    check('제1조: 캠퍼스를 말하지 않은 질문에는 안내 없이 한 규정으로 확정', plain.data.search.selection === 'single_candidate' && plain.data.rules[0].lawId === 6 && !('scopeFirstArticle' in plain.data.rules[0]) && !plain.text.includes('적용 범위 확인'));
+    const other = await full({ query: 'WISE캠퍼스 표본실 열람 예약' });
+    check('제1조: 다른 캠퍼스를 물으면 그 규정을 남기되 한 규정으로 확정하지 않음', other.data.rules[0].lawId === 6 && other.data.search.selection === 'multiple_candidates');
+    check('제1조: 응답에 제1조가 적은 캠퍼스를 알림', other.data.rules[0].scopeFirstArticle.join() === 'seoul' && other.text.includes('적용 범위 확인: 이 규정 제1조는 서울캠퍼스를 적고 있습니다'));
+    const same = await full({ query: '서울캠퍼스 표본실 열람 예약' });
+    check('제1조: 같은 캠퍼스를 물으면 안내 없이 확정', same.data.search.selection === 'single_candidate' && same.data.rules[0].lawId === 6 && !('scopeFirstArticle' in same.data.rules[0]));
+    const argued = await full({ query: '표본실 열람 예약', campus: 'wise' });
+    check('제1조: campus 인자로 다른 캠퍼스를 주어도 같은 안내', argued.data.rules[0].lawId === 6 && argued.data.search.selection === 'multiple_candidates' && argued.data.rules[0].scopeFirstArticle.join() === 'seoul');
   } finally {
     delete process.env.DONGGUK_MCP_RANKING;
     await client.close();
