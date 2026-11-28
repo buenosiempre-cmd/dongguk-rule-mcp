@@ -231,6 +231,12 @@ function businessTerms(term, { verbs = true } = {}) {
   const stem = (verbs && VERB_STEMS.find(([pattern]) => pattern.test(term))?.[1]) || term;
   return [...new Set([term, stem, ...ruleTermsOf(stem), ...suffixVariants(stem)])];
 }
+// The rule noun a verb stands for ("낳으면" → 출산), when the dictionary lists that noun among the
+// rule words of its own group. Null for other words.
+function verbNoun(term) {
+  const stem = VERB_STEMS.find(([pattern]) => pattern.test(term))?.[1];
+  return stem && stem !== term && CONCEPT_GROUPS.some(([everyday, rule]) => everyday.includes(stem) && rule.includes(stem)) ? stem : null;
+}
 // A word the dictionary knows as written ("출산휴가", "회계연도") keeps its last syllable.
 const knownTerm = term => RULE_VOCABULARY.has(term) || (labelsEnabled() && LABEL_VOCABULARY.has(term)) || COMPOUND_WORDS.has(term);
 // Comparison topics are rule names; only name-level synonyms are expanded there.
@@ -244,15 +250,19 @@ function comparisonTerms(term) {
 // only to choose an article inside a rule that was already selected by its
 // content words; it never changes which rule is chosen.
 // `headings` run from the most direct answer to looser ones.
+// Article headings named after a fee (대관료, 공간사용료, 수수료). Listed by the word before 료: other
+// words end the same way (수료·만료·자료·시료·진료), and telling them apart by the syllable before
+// 료 misreads real fees (응시료 ends like 시료, 강사료 like 사료, 보관료 like 관료).
+const FEE_HEADING = /(?:사용|이용|대관|임대|대여|수업|수강|강의|강사|강연|응시|전형|심사|자문|평가|게재|원고|출연|수수|이전|관람|입장|연체|보관|보험|주차|검사|분석|측정|감정|인증|열람|복사|발급)료$|요금/;
 const QUESTION_INTENTS = [
   { ask: /언제|며칠|몇\s*일|날짜|기한|마감|월급날|급여일/, headings: [/기일|지급일|기한/, /시기|일자/] },
   { ask: /자주|몇\s*번|몇\s*회|횟수|주기/, headings: [/횟수|주기|시기/] },
   { ask: /몇\s*(?:년|학기|개월|달)|얼마\s*동안|언제까지|기간/, headings: [/기간|연한|연수|임기/] },
   // "지급" only where the heading ends with it (일비 등의 지급), not 지급대상·지급일.
-  { ask: /얼마(?!나\s*자주)|금액|액수|몇\s*원|단가/, headings: [/지급액|금액|액$|단가|요율/, /산정|기준$/, /지급$/] },
+  { ask: /얼마(?!나\s*자주)|금액|액수|몇\s*원|단가/, headings: [/지급액|금액|액$|단가|요율/, /산정|기준$/, /지급$/], also: FEE_HEADING },
   { ask: /몇\s*점|점수|커트라인/, headings: [/심사|평가/, /기준/] },
   // The topic word 징계 alone is not this intent: "징계는 어떤 것들이 있어" asks for kinds.
-  { ask: /제재|처벌|불이익|벌칙|어떤\s*조치/, headings: [/제재|조치|징계|벌칙|처분/] },
+  { ask: /제재|처벌|불이익|벌칙|어떤\s*조치|벌을?\s*(?:받|주|줘|줄)|(?:어떤|무슨)\s*벌(?![가-힣])/, headings: [/제재|조치|징계|벌칙|처분/] },
   // "~하면 어떻게 돼?" asks what follows.
   { ask: /면\s*어떻게\s*(?:돼|되|됨)|는\s*어떻게\s*(?:돼|되)/, headings: [/조치|제재|처리|효과|불이익/] },
   { ask: /종류|유형|구분|어떤\s*(?:게|것|것들)이?\s*있|뭐가\s*있|무엇이\s*있/, headings: [/종류|구분|유형/] },
@@ -270,12 +280,14 @@ const questionIntents = () => { const labels = labelsEnabled(); return QUESTION_
 const CUE_STEP = 0.2;
 // How well an article heading answers what the question asks: 1 for a direct
 // answer, less for looser headings, 0 when the question states no such intent.
-function headingCueStrength(query, heading) {
+// `feeNames: false` leaves the fee-name headings out, as before they were added.
+function headingCueStrength(query, heading, { feeNames = true } = {}) {
   const text = String(query || ''), title = String(heading || '').replace(/\s+/g, '');
   let best = 0;
   for (const intent of questionIntents()) {
     if (!intent.ask.test(text)) continue;
-    const level = intent.headings.findIndex(pattern => pattern.test(title));
+    // `also` answers as directly as the first headings.
+    const level = feeNames && intent.also?.test(title) ? 0 : intent.headings.findIndex(pattern => pattern.test(title));
     if (level >= 0) best = Math.max(best, 1 - level * CUE_STEP);
   }
   return best;
@@ -372,7 +384,7 @@ function generalRuleWeight(title, query, hasGeneralEdition = false, { code = '',
 
 module.exports = {
   labelsEnabled,
-  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, knownTerm, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
+  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, verbNoun, knownTerm, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
   BUILTIN_ALIASES,
   aliasTable,
   resetAliasCacheForTest,

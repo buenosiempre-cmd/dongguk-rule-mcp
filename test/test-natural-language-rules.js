@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { buildCorpus, searchCorpus } = require('../src/corpus.js');
 const { queryConcepts } = require('../src/lookup.js');
 const {
-  businessTerms, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength,
+  businessTerms, verbNoun, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength,
   ruleScopeClass, ruleSubject, generalRuleWeight,
 } = require('../src/aliases.js');
 
@@ -44,6 +44,7 @@ const RULES = [
   [18, '취업규칙', '3-3-14', [
     article(42, '경조휴가', '본인이 결혼하는 경우 경조휴가 7일을 준다.'),
     article(43, '출산전후휴가', '임신 중인 여성 직원에게 출산전후휴가 90일을 준다. 출산휴가 기간은 유급으로 한다.'),
+    article(120, '육아휴직', '자녀의 양육을 위하여 육아휴직을 신청하면 허용한다.'),
   ]],
   [19, '도서관운영규정', '6-9-1', [
     article(27, '반납·연체', '대출한 도서를 연체한 사람은 연체 일수만큼 대출이 정지된다.'),
@@ -71,6 +72,27 @@ const RULES = [
     article(66, '일반휴학', '일반휴학은 1회에 2학기까지 할 수 있다.'),
     article(68, '임신·출산 및 육아휴학', '임신·출산 또는 만 8세 이하 자녀의 양육을 위한 휴학은 4학기까지 할 수 있다.'),
   ]],
+  [29, '시설대관규정', '3-7-17', [
+    article(4, '대관의 대상', '강당과 회의실은 대관할 수 있다.'),
+    article(21, '대관료', '강당과 회의실의 대관료는 시설별 산정기준에 따라 이용자가 납부한다.'),
+    article(24, '교육과정의 수료', '대관 시설 안전교육을 마친 사람에게 수료증을 준다.'),
+  ]],
+  [30, '복무규정', '3-3-2', [
+    article(5, '성실 의무', '직원은 맡은 일을 성실히 해야 한다.'),
+    article(20, '징계의 종류', '직원의 징계는 파면, 해임, 정직, 감봉, 견책으로 구분한다.'),
+  ]],
+  [31, '조달내규', '3-7-20', [
+    article(7, '수의계약', '추정가격이 정한 금액 이하이면 수의계약으로 할 수 있다.'),
+    article(9, '경쟁입찰', '경쟁입찰은 공고한 뒤 낙찰자를 정한다.'),
+  ]],
+  [32, '복지내규', '3-3-40', [article(3, '축하금', '직원이 임신하거나 출산한 때에는 축하금을 지급한다.')]],
+  // The source numbers two articles 제31조; the excerpt cannot tell them apart by number.
+  [33, '수련원이용세칙', '3-7-30', [
+    article(30, '이용 대상', '수련원은 교직원과 학생이 이용할 수 있다.'),
+    article(31, '이용 신청', '수련원을 이용하려는 사람은 이용 신청서를 낸다.'),
+    article(31, '이용료', '수련원 이용료는 이용 신청 때 납부한다.'),
+  ]],
+  [34, '승진임용규정', '3-3-5', [article(4, '승진 심사', '직원의 승진은 근무성적과 경력을 심사하여 정하며 경쟁 없이 승진시킬 수 없다.')]],
 ];
 
 async function main() {
@@ -96,6 +118,16 @@ async function main() {
   check('끝말 바꿔 쓰기: 겸임교수·겸임교원, 근로장학생·근로장학금', businessTerms('겸임교수').includes('겸임교원') && businessTerms('근로장학생').includes('근로장학금'));
   check('다른 낱말 속에 든 검색어는 일치로 보지 않음', !containsTerm('한시계약직 임용에 관한 내규', '계약') && containsTerm('구매계약은 계약직 담당자가', '계약')
     && !containsTerm('하자 보수 보증금', '보수') && containsTerm('보수의 지급일', '보수') && containsTerm('물품관리규정', '물품'));
+  // Red-team reviews of PR #92: 계약 alone does not say whether a purchase or a person is contracted, so
+  // "경쟁 없이"·"입찰 없이" never adds a contract type to the search.
+  check('경쟁·입찰 없이라는 말로 수의계약을 넣지 않음(구매·승진·선발·고용 계약 모두)', ['입찰 없이 계약해도 돼', '업체와 경쟁 없이 바로 계약', '경쟁 없이 승진할 수 있어', '경쟁 없이 학생을 선발할 수 있어',
+    '경쟁 없이 고용 계약을 연장할 수 있어', '경쟁 없이 교수와 계약할 수 있어', '경쟁 없이 근로 계약을 갱신해도 돼', '입찰 안 하는 업체는 어떤 처벌을 받아'].every(question => !phraseConcepts(question).includes('수의계약')));
+  // Red-team reviews of PR #92 and the follow-up self-check: "돈을 벌다" is not always 수익 of the school
+  // (겸직·부업·사례금), so only the phrases main already had stay.
+  check('번 돈·벌어들인만 수익, 돈을 벌다·벌써·벌금은 아님', ['사업으로 번 돈', '벌어들인 돈'].every(question => phraseConcepts(question).includes('수익'))
+    && ['교수가 겸직해서 돈 벌어도 돼', '돈을 벌써 지급했는데 어떻게 처리해', '돈 버는 사업', '벌금은 얼마야'].every(question => !phraseConcepts(question).includes('수익')));
+  check('동사가 가리키는 규정 명사: 사전이 규정 용어로 올린 낱말만', verbNoun('낳으면') === '출산' && verbNoun('기증받은') === '기증'
+    && [verbNoun('잃어버리면'), verbNoun('고장나면'), verbNoun('출산'), verbNoun('가나다')].every(value => value === null));
   check('사전에 없는 낱말·객체 원형 키는 그대로', ['constructor', 'toString', '__proto__', '가나다'].every(word => businessTerms(word).length === 1));
   check('타대학 비교에는 규정 이름 동의어만', comparisonTerms('강사료').includes('강의료') && comparisonTerms('월급').length === 1 && comparisonTerms('식사').length === 1);
   check('사전은 규정 번호나 조문 번호를 담지 않음', [...require('../src/aliases.js').RULE_VOCABULARY.values()].flat().every(term => !/\d+조|^\d+$|LAW_ID/.test(term)));
@@ -129,6 +161,9 @@ async function main() {
   check('~하면 어떻게 돼 → 조치', headingCueStrength('책임시간 못 채우면 어떻게 돼', '책임시간 미달교원 조치') > 0);
   check('어떤 것들이 있어 → 종류, 주제어 징계만으로는 제재 의도가 아님', headingCueStrength('직원 징계는 어떤 것들이 있어', '징계의 종류') === 1 && headingCueStrength('직원 징계는 어떤 것들이 있어', '징계절차') === 0);
   check('무슨 일을 해 → 임무·직무, 몇 명 → 정원', headingCueStrength('조교는 무슨 일을 해', '임무') === 1 && headingCueStrength('조교는 몇 명까지 둘 수 있어', '정원') === 1);
+  check('얼마 → 요금 이름으로 된 제목(…료·요금)', ['대관료', '공간사용료', '수수료', '응시료', '강사료', '보관료', '기술이전료', '입학금과 수업료', '이용요금'].every(heading => headingCueStrength('강당 빌리면 얼마 내', heading) === 1));
+  check('료로 끝나도 요금이 아닌 제목은 아님', ['교육과정의 수료', '조기수료', '회계자료', '전처리 시료', '임기의 만료', '사업의 종료', '실습 재료', '진료', '동료 평가의 완료'].every(heading => headingCueStrength('강당 빌리면 얼마 내', heading) === 0));
+  check('벌을 받다 → 징계·제재 제목, 벌점은 아님', headingCueStrength('규정 어기면 무슨 벌을 받아', '징계의 종류') === 1 && headingCueStrength('벌점은 어떻게 매겨', '징계의 종류') === 0);
   check('의도를 묻지 않으면 0', headingCueStrength('출장 숙박비', '지급기일') === 0 && headingCueStrength('언제 들어와요', '목적') === 0);
 
   // ── 색인 검색 ──
@@ -166,6 +201,19 @@ async function main() {
   check('다른 데 쓰다 → 목적 외 사용 조문', budget?.lawId === 27 && budget.articles[0].article === '제18조');
   const leave = first('아이 키우느라 휴학할 수 있어?');
   check('아이 키우느라 → 육아휴학 조문', leave?.lawId === 28 && leave.articles[0].article === '제68조');
+  const childbirth = first('낳으면 쉴 수 있어?');
+  check('낳다 → 출산이 먼저: 같은 묶음의 육아가 더 드문 낱말이어도 출산 조문이 앞', childbirth?.lawId === 18 && childbirth.articles[0].article === '제43조'
+    && childbirth.articles.findIndex(item => item.article === '제120조') > 0);
+  const rental = first('회의실 빌리면 얼마야');
+  check('얼마를 물으면 요금 조문이 대상 조문보다 앞, 수료 조문은 아님', rental?.lawId === 29 && rental.articles[0].article === '제21조');
+  const penalty = searchCorpus(corpus, '직원이 일을 게을리하면 무슨 벌을 받아', { top: 10 });
+  check('벌을 받다: 규정은 질문의 낱말로만 고르고(징계를 검색어에 넣지 않음), 고른 규정 안에서 징계 조문을 먼저', !penalty.searchTerms.includes('징계')
+    && penalty.hits.find(hit => hit.lawId === 30)?.articles[0].article === '제20조');
+  const shared = searchCorpus(corpus, '수련원 이용 신청하면 얼마 내', { top: 3 }).hits.find(hit => hit.lawId === 33);
+  // Red-team R2 (PR #92): the excerpt would show the other 제31조.
+  check('번호가 겹치는 조문은 요금 제목이어도 앞으로 올리지 않음', shared && shared.articles[0].content.includes('이용 신청서') && headingCueStrength('얼마 내', '이용료') === 1 && headingCueStrength('얼마 내', '이용료', { feeNames: false }) === 0);
+  check('경쟁 없이 승진: 구매 규정이 아니라 승진 규정', first('경쟁 없이 승진할 수 있어')?.lawId === 34 && !searchCorpus(corpus, '경쟁 없이 승진할 수 있어').searchTerms.includes('수의계약'));
+  check('경쟁입찰을 물으면 경쟁입찰 조문', first('경쟁입찰 낙찰자는 어떻게 정해')?.articles[0].article === '제9조');
   check('영어 낱말·기호가 든 질문도 예외 없이 처리', ['constructor 규정', 'toString 여비', '??? !!!'].every(question => Array.isArray(searchCorpus(corpus, question).hits)));
 
   console.log(`📊 자연어 일반 규칙 검증: ${passed}개 통과`);

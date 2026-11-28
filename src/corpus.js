@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks, CONTENT_PARSER_VERSION } = require('./parsers.js');
-const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
+const { businessTerms, verbNoun, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
 const { queryConcepts, keywordConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
@@ -323,10 +323,14 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
   // A rule-vocabulary form stands in for the question word, so it never counts
   // for more than that word itself would ("식사" → 금품등 must not outweigh a
   // rule that says 식사). A word no rule contains lends its full weight.
+  // A verb stands for its rule noun ("낳으면" → 출산): the noun is then the word asked, and the
+  // other words of its group (육아, 양육) count for no more than it does.
   for (const concept of concepts) {
-    const own = documentFrequency(concept.term) ? weight(concept.term) : Infinity;
+    const noun = documentFrequency(concept.term) ? null : verbNoun(concept.term);
+    const asked = noun && documentFrequency(noun) ? noun : concept.term;
+    const own = documentFrequency(asked) ? weight(asked) : Infinity;
     const share = concept.share || 1;
-    concept.weights = new Map(concept.forms.map(form => [form, (form === concept.term ? weight(form) : Math.min(weight(form), own) * 0.9) * share]));
+    concept.weights = new Map(concept.forms.map(form => [form, (form === asked ? weight(form) : Math.min(weight(form), own) * 0.9) * share]));
   }
   const formWeight = (concept, forms) => Math.max(0, ...forms.map(form => concept.weights.get(form)));
   const words = concepts.filter(concept => !concept.joined);
@@ -408,9 +412,14 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
     if (intent) {
       const fullBonus = Math.max(...words.map(word => formWeight(word, word.forms)), 1) * (keywordMode ? INTENT_SHARE_WITH_KEYWORDS : 1);
       const seen = new Set(scored.map(item => item.block));
+      // The source gives a few articles a number another article of the rule already has (제31조
+      // twice). The excerpt finds an article by its number and would show the other one, so a
+      // fee-name heading does not move such an article up.
+      const numbers = rule.blocks.filter(block => !block.supplementary).map(block => block.article);
+      const sharedNumber = article => numbers.indexOf(article) !== numbers.lastIndexOf(article);
       for (const block of rule.blocks) {
         if (block.supplementary) continue;
-        const strength = headingCueStrength(query, headingOf(block.content));
+        const strength = headingCueStrength(query, headingOf(block.content), { feeNames: !sharedNumber(block.article) });
         if (!strength) continue;
         const bonus = fullBonus * strength;
         const known = articleOrder.find(item => item.block === block);
