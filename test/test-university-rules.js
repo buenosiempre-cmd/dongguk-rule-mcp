@@ -42,16 +42,40 @@ async function main() {
   }
   await check('제목 끝 폐지 표시는 제외하되 폐지 절차 규정은 보존', async () => {
     for(const topic of ['연구비','법인카드']) {
-      const load=async()=>({rules:['교내연구비 관리규정 폐지','지원규정 (폐지)','카드규정 [폐지]','교내연구비 폐지 절차 규정'].map((title,i)=>({...rule,title,lawId:i+1,markdown:'### 제3조(집행)\n연구비 법인카드 집행 기준을 정한다.'})),failures:[],coverage:{complete:true}});
+      const load=async()=>({rules:['교내연구비 관리규정 <폐지>','지원규정 (폐지)','카드규정 [폐지]','교내연구비 폐지 절차 규정'].map((title,i)=>({...rule,title,lawId:i+1,markdown:'### 제3조(집행)\n연구비 법인카드 집행 기준을 정한다.'})),failures:[],coverage:{complete:true}});
       const result=await compareUniversityRules({topic,universities:['kookmin']},{loadDongguk:load,loadExternalImpl:load});
       for(const col of result.columns){assert.deepEqual(col.articles.map(a=>a.lawId),[4]);assert.equal(col.excludedRules.length,3);assert(col.excludedRules.every(r=>r.reason==='REPEALED_TITLE'));assert.equal(col.status,'partial');}
-      assert.match(formatComparison(result),/폐지가 명시된 규정은 비교에서 제외/);
+      assert.match(formatComparison(result),/명시적 폐지 상태 표시가 있는 규정은 비교에서 제외/);
     }
   });
   await check('폐지 표시 후보만 읽었으면 미발견과 제외 근거를 함께 표시', async () => {
-    const load=async()=>({rules:[{...rule,title:'여비규정 폐지'}],failures:[],coverage:{complete:true}});
+    const load=async()=>({rules:[{...rule,title:'여비규정 (폐지)'}],failures:[],coverage:{complete:true}});
     const result=await compareUniversityRules({topic:'여비',universities:['kookmin']},{loadDongguk:load,loadExternalImpl:load});
     assert.equal(result.columns[1].status,'no_match_in_scope');assert.equal(result.columns[1].articles.length,0);assert.equal(result.columns[1].excludedRules.length,1);
+  });
+  await check('레드팀 주제 제목은 조문·retrieved 상태를 유지하고 의심 표시만 추가', async () => {
+    for (const title of ['여비 규정의 제정 및 폐지', '학과 설치 및 폐지', '학과의 설치 및 폐지', '폐지 절차 규정', '규정 폐지 절차', '폐지규정', '여비규정 폐지', '여비규정 (폐지 검토)', '여비규정 [폐지)', '여비 (폐지) 절차 규정']) {
+      const load = async () => ({rules:[{...rule,title,markdown:'### 제1조(여비 기준)\n여비 규정의 제정 및 폐지 절차를 정한다. 여행 여비 지급기준을 변경할 때 위원회의 승인을 받아야 한다.'}],failures:[],coverage:{complete:true}});
+      const result = await compareUniversityRules({topic:'여비',universities:['uos']},{loadDongguk:load,loadExternalImpl:load});
+      const col=result.columns[1];assert.equal(col.status,'retrieved',title);assert.equal(col.articles.length,1,title);assert.equal(col.excludedRules,undefined,title);
+      assert.equal(col.repealReview[0].reason,'REPEAL_MARKER_UNCONFIRMED',title);assert.match(formatComparison(result),/폐지 표시 의심/);
+    }
+  });
+  await check('앞·끝의 괄호 및 날짜 상태 표시만 제외', async () => {
+    const titles=['여비규정 (폐지)','여비규정 [폐지]','여비규정 <폐지>','여비규정（폐지）','(폐지) 여비규정','[폐지] 여비규정','<폐지> 여비규정','여비규정(폐지 2025.1.1.)','여비규정 폐지 2024.3.1.','폐지 2024.3.1. 여비규정','여비규정 폐지 2024년 3월 1일'];
+    for (const title of titles) {
+      const load=async()=>({rules:[{...rule,title}],failures:[],coverage:{complete:true}});
+      const result=await compareUniversityRules({topic:'여비',universities:['uos']},{loadDongguk:load,loadExternalImpl:load});
+      const col=result.columns[1];assert.equal(col.articles.length,0,title);assert.equal(col.excludedRules[0].reason,'REPEALED_TITLE',title);assert.equal(col.repealReview,undefined,title);
+    }
+  });
+  await check('국민대 실제 제목은 명시 상태 꼬리표가 없어 자동 제외 대신 확인 표시', async () => {
+    const fixtures=require('./fixtures/kookmin-repeal-titles.json');
+    for(const sample of fixtures) {
+      const load=async()=>({rules:[sample.rule],failures:[],coverage:{complete:true}});
+      const result=await compareUniversityRules({topic:sample.topic,universities:['kookmin']},{loadDongguk:load,loadExternalImpl:load});
+      const col=result.columns[1];assert(col.articles.length>0);assert(col.articles.every(a=>a.lawId===sample.rule.lawId));assert.equal(col.excludedRules,undefined);assert.equal(col.repealReview[0].reason,'REPEAL_MARKER_UNCONFIRMED');assert.match(formatComparison(result),/원문에서 상태와 경과조치를 확인/);
+    }
   });
   await check('단독 증빙: 학사·업적 일치도 재무 근거라고 확정하지 않고 용도를 안내', async () => {
     const load=async()=>({rules:[{...rule,title:'학칙',markdown:'### 제12조(휴학)\n휴학 증빙서류와 증빙자료를 제출한다.'}],failures:[],coverage:{complete:true}});
@@ -672,7 +696,7 @@ async function main() {
       const info=(await client.callTool({name:'get_service_info',arguments:{}})).structuredContent;assert.equal(info.data.toolCount,tools.length);
       // 기본은 켜짐: 환경변수가 없으면 동작하고, 운영자가 0을 넣었을 때만 꺼진다.
       delete process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED;
-      assert.equal(info.data.integrations.universityComparison.configured,true);assert.deepEqual(info.data.integrations.universityComparison.excludedRules,{response:'columns[].excludedRules',reason:'REPEALED_TITLE'});
+      assert.equal(info.data.integrations.universityComparison.configured,true);assert.deepEqual(info.data.integrations.universityComparison.excludedRules,{response:'columns[].excludedRules',reason:'REPEALED_TITLE'});assert.deepEqual(info.data.integrations.universityComparison.repealReview,{response:'columns[].repealReview',reason:'REPEAL_MARKER_UNCONFIRMED',retained:true});
       process.env.DONGGUK_UNIVERSITY_COMPARISON_ENABLED='0';
       const disabled=(await client.callTool({name:'compare_university_rules',arguments:{topic:'여비',universities:['uos']}})).structuredContent;assert.equal(disabled.error.code,'NOT_CONFIGURED');
       assert.match(disabled.error.message,/DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0/);assert.equal(disabled.error.details.reason,'DISABLED_BY_OPERATOR');

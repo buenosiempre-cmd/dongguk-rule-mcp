@@ -764,17 +764,31 @@ function safeCode(e) {
 // frame이 있으면 사안 프레임으로 조문을 거른다: 다른 사안의 규정·조문과 언급만 있는 조문은 dropped에
 // 사유별 건수로 남기고, 남은 조문에는 규율 요소(slots)·주체·인용 법령·규정 역할(주/보조)을 붙인다.
 // slotCells는 규율 요소별 대표 조문(상위 limit 밖의 조문도 포함)으로, 비교표를 만들 때 쓴다.
+// Only a delimited status tag or a dated status at a title edge is decisive.
+// A bare word (including "규정 폐지") can be a subject, so retain it for review.
+function repealTitleStatus(title) {
+  const text = String(title || '').trim();
+  const date = String.raw`\d{4}\s*(?:[./-]\s*(?:0?[1-9]|1[0-2])\s*[./-]\s*(?:0?[1-9]|[12]\d|3[01])\.?|년\s*(?:0?[1-9]|1[0-2])\s*월\s*(?:0?[1-9]|[12]\d|3[01])\s*일)`;
+  const label = String.raw`\s*폐지(?:\s+${date})?\s*`;
+  const tag = String.raw`(?:\(${label}\)|（${label}）|\[${label}\]|<${label}>)`;
+  if (new RegExp(`^${tag}|${tag}$`).test(text)
+    || new RegExp(`^폐지\\s+${date}(?:\\s|$)|(?:^|\\s)폐지\\s+${date}$`).test(text)) return 'explicit';
+  if (/폐지/.test(text)) return 'review';
+  return null;
+}
+
 function selectArticles(rules, terms, limit, hints = terms, frame = null, topic = null) {
-  const matches = [], dropped = {}, excludedRules = [];
+  const matches = [], dropped = {}, excludedRules = [], repealReview = [];
   const topicProfile = !frame && comparisonTopic(topic || terms.join(' '));
   const perRule = new Map();
   for (const rule of rules) {
-    // A terminal status label is evidence of repeal; a title about repeal
-    // procedures is not. Keep excluded candidates visible instead of treating
-    // their old articles as current comparison evidence.
-    if (/(?:\s+폐지|[（(\[]\s*폐지\s*[）)\]])\s*$/.test(rule.title)) {
+    const repealStatus = repealTitleStatus(rule.title);
+    if (repealStatus === 'explicit') {
       excludedRules.push({ universityRule: rule.title, lawId: rule.lawId, reason: 'REPEALED_TITLE' });
       continue;
+    }
+    if (repealStatus === 'review') {
+      repealReview.push({ universityRule: rule.title, lawId: rule.lawId, reason: 'REPEAL_MARKER_UNCONFIRMED' });
     }
     const titleScore = ruleTitleScore(rule.title, terms, hints), ruleBonus = titleScore * 0.5;
     const entry = { universityRule: rule.title, lawId: rule.lawId, historyId: rule.historyId, url: rule.url, slots: new Set(), titleScore };
@@ -810,7 +824,7 @@ function selectArticles(rules, terms, limit, hints = terms, frame = null, topic 
   // never an absolute ordering that overrides action/constraint matches.
   const weak = match => match?.basis === 'weak' ? 1 : 0;
   matches.sort((a, b) => weak(a.topicMatch) - weak(b.topicMatch) || b._score - a._score);
-  const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit, ...(excludedRules.length ? { excludedRules } : {}) };
+  const base = { articles: matches.slice(0, limit), matchingArticles: matches.length, articlesTruncated: matches.length > limit, ...(excludedRules.length ? { excludedRules } : {}), ...(repealReview.length ? { repealReview } : {}) };
   if (!frame) { for (const m of matches) delete m._score; return base; }
   const roles = assignRoles([...perRule.values()].map(e => ({ ...e, slots: [...e.slots] })), e => e.titleScore);
   const roleOf = new Map(roles.map(r => [r.lawId, r.role]));
@@ -886,7 +900,9 @@ function formatComparison(data) {
     '|---|' + data.columns.map(() => '---|').join(''),
     '| 상태 | ' + data.columns.map(c => esc(c.status + (c.code ? ` (${c.code})` : '') + (c.coverage?.publicOnly ? ' — 공개 규정만' : ''))).join(' | ') + ' |'];
   const excludedColumns=data.columns.filter(c=>c.excludedRules?.length);
-  if(excludedColumns.length) lines.splice(3,0,`> 제목에 폐지가 명시된 규정은 비교에서 제외했습니다: ${excludedColumns.map(c=>`${c.name||c.university} — ${c.excludedRules.map(r=>r.universityRule).join(', ')}`).join('; ')}. 다른 규정의 현행 여부를 별도로 확정한 것은 아닙니다.`);
+  if(excludedColumns.length) lines.splice(3,0,`> 제목 앞·끝의 명시적 폐지 상태 표시가 있는 규정은 비교에서 제외했습니다: ${excludedColumns.map(c=>`${c.name||c.university} — ${c.excludedRules.map(r=>r.universityRule).join(', ')}`).join('; ')}. 다른 규정의 현행 여부를 별도로 확정한 것은 아닙니다.`);
+  const repealColumns = data.columns.filter(c => c.repealReview?.length);
+  if (repealColumns.length) lines.splice(3, 0, `> 폐지 표시 의심 — ${repealColumns.map(c => `${c.name || c.university}: ${c.repealReview.map(r => r.universityRule).join(', ')}`).join('; ')}. 제목의 낱말만으로 폐지 상태를 확정할 수 없어 후보를 유지했습니다. 원문에서 상태와 경과조치를 확인하세요.`);
   const boundaryColumns = data.columns.filter(c => c.coverage?.articleBoundaryReview?.required || c.articles.some(a => a.articleBoundaryReview?.required));
   if (boundaryColumns.length) lines.splice(3, 0, `> ${boundaryColumns.map(c => c.name || c.university).join('·')}: ${BOUNDARY_NOTICE}`);
   const topicTag = a => a.topicMatch ? `[${a.topicMatch.label}] ` : '';

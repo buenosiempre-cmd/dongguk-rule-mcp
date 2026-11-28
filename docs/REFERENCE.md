@@ -451,6 +451,8 @@ npm run benchmark:natural-language -- --questions test/fixtures/natural-language
 
 ### 타대학 비교 제외 근거
 
-`compare_university_rules`는 제목 끝의 ` 폐지`, `(폐지)`, `[폐지]` 표시가 있는 후보를 현행 비교 근거에서 제외합니다. 제외가 있으면 해당 열에 `excludedRules: [{ universityRule, lawId, reason: "REPEALED_TITLE" }]`를 제공하고 본문에도 안내합니다. 이는 제목의 명시 표시만 처리하며 폐지 절차를 정하는 규정이나 다른 현행 규정의 법적 유효성을 자동 판정하지 않습니다. 제외 뒤 조문이 없으면 `no_match_in_scope`이며 규정 부존재를 뜻하지 않습니다.
+`compare_university_rules`는 제목 앞·끝의 `(폐지)`, `[폐지]`, `<폐지>`, `（폐지）` 또는 `폐지 2024.3.1.` 같은 날짜 상태 표시가 있는 후보만 제외합니다. 제외가 있으면 해당 열에 `excludedRules: [{ universityRule, lawId, reason: "REPEALED_TITLE" }]`를 제공하고 본문에도 안내합니다. 제외 뒤 조문이 없으면 `no_match_in_scope`이며 규정 부존재를 뜻하지 않습니다.
+
+`제정 및 폐지`, `학과 설치 및 폐지`, `규정 폐지` 등 낱말만 있는 제목이나 불명확한 표기는 제외하지 않습니다. `repealReview: [{ universityRule, lawId, reason: "REPEAL_MARKER_UNCONFIRMED" }]`와 앞쪽 ‘폐지 표시 의심’ 안내를 추가하며 조문·순위·조회 상태는 유지합니다. 본문 부칙의 법적 적용성이나 경과조치까지 자동 판정하는 기능은 아닙니다. 국민대 실제 343/1523·349/1543 제목도 괄호 없는 ‘규정 폐지’이므로 후보를 유지하고 경고합니다.
 
 19개 대학별 탐색 범위·시행일·조문 형식 점검은 [전수 점검표](UNIVERSITY_AUDIT_20261128.md)에 있습니다. 미번호 본문(`article_none`, `hang_none` 등)을 조문 제목으로 취급하지 않고 직전 조문 본문에 보존합니다.
