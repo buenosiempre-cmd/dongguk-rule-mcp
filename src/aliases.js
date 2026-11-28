@@ -219,8 +219,8 @@ function containsTerm(text, term) {
 // The names, and the word handling that came with them (two particles on one noun, "뭐 하는 곳",
 // "뽑힐 수 없는"), are used only when DONGGUK_MCP_LABELS is on. Off, every function here and in
 // lookup.js returns what it returned before they were added.
-const LABELS_ON = new Set(['1', 'on', 'true', 'yes']);
-const labelsEnabled = (value = process.env.DONGGUK_MCP_LABELS) => LABELS_ON.has(String(value || '').trim().toLowerCase());
+const LABELS_OFF = new Set(['0', 'off', 'false', 'no']);
+const labelsEnabled = (value = process.env.DONGGUK_MCP_LABELS) => !LABELS_OFF.has(String(value || '').trim().toLowerCase());
 const LABEL_VOCABULARY = new Map();
 for (const { everyday, rule } of ontologyData.labels || []) {
   for (const word of everyday) LABEL_VOCABULARY.set(word, [...new Set([...(LABEL_VOCABULARY.get(word) || []), ...rule.filter(term => term !== word)])]);

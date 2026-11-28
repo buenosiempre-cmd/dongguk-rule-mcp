@@ -13,7 +13,7 @@
 const { placeRequest, placeAgreement } = require('./ontology');
 
 const METHODS = ['legacy', 'hybrid'];
-const DEFAULT_METHOD = 'legacy';
+const DEFAULT_METHOD = 'hybrid';
 function rankingMethod(value = process.env.DONGGUK_MCP_RANKING) {
   const name = String(value || '').trim().toLowerCase();
   return METHODS.includes(name) ? name : DEFAULT_METHOD;

@@ -14,22 +14,22 @@ const titles = result => result.ranked.map(hit => hit.title);
 const rank = (question, candidates, options = {}) => rankRules({ candidates, scope: requestedRuleScope(question, options.campus || 'all'), query: question, ...options });
 
 console.log('순위 결합');
-check('방식 이름: 기본은 legacy, 모르는 값도 legacy', () => {
-  assert.equal(DEFAULT_METHOD, 'legacy');
-  assert.equal(rankingMethod(''), 'legacy');
+check('방식 이름: 기본은 hybrid, 모르는 값도 hybrid', () => {
+  assert.equal(DEFAULT_METHOD, 'hybrid');
+  assert.equal(rankingMethod(''), 'hybrid');
   assert.equal(rankingMethod('  Hybrid '), 'hybrid');
-  assert.equal(rankingMethod('nonsense'), 'legacy');
+  assert.equal(rankingMethod('nonsense'), 'hybrid');
   assert.deepEqual(METHODS, ['legacy', 'hybrid']);
 });
-check('실험 방식과 훅은 이 모듈에 없음: rrf·jev는 legacy로 읽고, 그래프·확률·장소 판독을 넘겨도 순서가 같음', () => {
-  for (const name of ['rrf', 'jev', 'graph']) assert.equal(rankingMethod(name), 'legacy');
+check('실험 방식과 훅은 이 모듈에 없음: rrf·jev는 기본 hybrid로 읽고, 그래프·확률·장소 판독을 넘겨도 순서가 같음', () => {
+  for (const name of ['rrf', 'jev', 'graph']) assert.equal(rankingMethod(name), 'hybrid');
   assert.deepEqual(Object.keys(fusion).sort(), ['DEFAULT_METHOD', 'METHODS', 'meaningElsewhere', 'rankRules', 'rankingMethod']);
   const candidates = () => { nextId = 100; return [candidate('가 규정', 10), candidate('나 규정', 9), candidate('WISE캠퍼스 다 규정', 8)]; };
   const extras = { semantic: true, graph: new Map([[101, 5]]), probability: new Map([[101, 0.9], [100, 0.1]]), placeAgreementOf: () => -1 };
   for (const method of ['legacy', 'hybrid', 'rrf', 'jev']) {
     const plain = rank('경주캠퍼스 질문', candidates(), { method }), given = rank('경주캠퍼스 질문', candidates(), { method, ...extras });
     assert.deepEqual(given, plain);
-    assert.equal(plain.method, method === 'hybrid' ? 'hybrid' : 'legacy');
+    assert.equal(plain.method, method === 'legacy' ? 'legacy' : 'hybrid');
   }
   // The measurement switches of the experiments are not read either.
   const { searchCorpus } = require('../src/corpus');
@@ -160,12 +160,12 @@ const withLabels = (value, fn) => {
   if (value === undefined) delete process.env.DONGGUK_MCP_LABELS; else process.env.DONGGUK_MCP_LABELS = value;
   try { return fn(); } finally { if (before === undefined) delete process.env.DONGGUK_MCP_LABELS; else process.env.DONGGUK_MCP_LABELS = before; }
 };
-check('스위치: 기본은 꺼짐, 1·on·true·yes만 켬', () => {
-  withLabels(undefined, () => assert.equal(aliases.labelsEnabled(), false));
-  for (const value of ['1', 'on', ' ON ', 'true', 'yes']) withLabels(value, () => assert.equal(aliases.labelsEnabled(), true));
-  for (const value of ['', '0', 'off', 'false', 'no', 'hybrid']) withLabels(value, () => assert.equal(aliases.labelsEnabled(), false));
+check('스위치: 기본 켬, 0·off·false·no는 끔', () => {
+  withLabels(undefined, () => assert.equal(aliases.labelsEnabled(), true));
+  for (const value of ['', '1', 'on', ' ON ', 'true', 'yes', 'hybrid']) withLabels(value, () => assert.equal(aliases.labelsEnabled(), true));
+  for (const value of ['0', 'off', 'false', 'no']) withLabels(value, () => assert.equal(aliases.labelsEnabled(), false));
 });
-check('꺼진 상태: 이름 사전·겹친 조사·새 의도 문구를 쓰지 않음(이전 동작)', () => withLabels(undefined, () => {
+check('꺼진 상태: 이름 사전·겹친 조사·새 의도 문구를 쓰지 않음(이전 동작)', () => withLabels('0', () => {
   assert.deepEqual(aliases.businessTerms('미화원'), ['미화원']);
   assert.deepEqual(aliases.businessTerms('킥보드'), ['킥보드']);
   assert.equal(aliases.knownTerm('한의대'), false);

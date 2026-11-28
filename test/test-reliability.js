@@ -1,5 +1,7 @@
 // Exercise actual MCP handlers with an isolated cache and no external requests.
 'use strict';
+// This suite tests the optional finance context/evidence capability.
+process.env.DONGGUK_FINANCE_CONTEXT_ENABLED='1';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');

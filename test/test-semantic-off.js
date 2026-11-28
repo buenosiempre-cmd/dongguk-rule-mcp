@@ -1,4 +1,6 @@
 'use strict';
+// Original single-rule regression uses explicit legacy opt-outs.
+process.env.DONGGUK_MCP_RANKING='legacy';process.env.DONGGUK_MCP_LABELS='0';
 // With semantic search off or not installed, a lookup answers exactly as it did before the
 // feature existed. Synthetic rules where a rule matched only by a scope word ("캠퍼스") outscores
 // the second candidate: the single-rule decision must still compare the first two candidates.
@@ -63,6 +65,10 @@ async function main() {
     await semantic.buildSemanticIndex({ corpus, directory: dir, embedder: { model: semantic.DEFAULT_MODEL, embedPassages: async texts => texts.map(() => new Float32Array([1, 0])) } });
     const noRuntime = await call();
     check('벡터는 있고 런타임이 없는 상태: 끈 것과 같은 응답', semantic.semanticStatus(dir).indexAvailable === true && stable(noRuntime) === stable(off));
+    delete process.env.DONGGUK_MCP_RANKING;delete process.env.DONGGUK_MCP_LABELS;
+    process.env.DONGGUK_MCP_SEMANTIC='0';const newOff=await call();
+    delete process.env.DONGGUK_MCP_SEMANTIC;const newMissing=await call();
+    check('새 기본 hybrid·사전 켬에서도 런타임 없으면 의미 끄기와 동일', newOff.data.search.ranking==='hybrid' && newOff.data.search.labels===true && stable(newMissing)===stable(newOff));
   } finally {
     await client.close(); await server.close();
     fs.rmSync(root, { recursive: true, force: true });

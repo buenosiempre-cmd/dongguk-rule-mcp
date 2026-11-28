@@ -1,4 +1,6 @@
 'use strict';
+// Preserve the original keyword/scope contract under the explicit legacy opt-out.
+process.env.DONGGUK_MCP_RANKING='legacy';process.env.DONGGUK_MCP_LABELS='0';
 // lookup_dongguk_rule `keywords`: rule vocabulary supplied by the caller next to
 // the question. Synthetic rules only; no benchmark question or answer.
 const assert = require('node:assert/strict');
