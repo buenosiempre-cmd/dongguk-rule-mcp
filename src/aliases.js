@@ -140,8 +140,7 @@ const PHRASE_CONCEPTS = [
   [/안\s*지키|지키지\s*않/, '위반'],
   [/안\s*(?:해도|써도|찍어도|내도|받아도)\s*(?:돼|되)/, '생략'],
   [/새로\s*만들|새로\s*생기/, '제정'],
-  // 벌다 by its endings ("돈 벌면", "돈을 벌어도", "돈 버는"); 벌써·벌금·벌점 are other words.
-  [/번\s*돈|벌어들인|돈을?\s*(?:벌(?:면|어|었|고|려|게|기|지|다|던|든|거나|더라도|\s+수|\s+때|(?=[\s?.!]|$))|버는)/, '수익'],
+  [/번\s*돈|벌어들인/, '수익'],
   [/(?:다른|딴)\s*(?:데|곳|용도|목적)|목적\s*(?:외|말고|이외|밖)|돌려\s*(?:써|쓰|쓸)/, '목적외'],
   [/계약\s*(?:을\s*)?(?:취소|깨|끊|파기)|계약\s*안\s*지키/, '해약'],
   [/자동으로\s*(?:퇴직|면직|그만)|저절로\s*(?:퇴직|면직)/, '당연퇴직'],
@@ -164,12 +163,6 @@ const PHRASE_CONCEPTS = [
   [/개인\s*(?:용무|용도|적으로|일로|볼일)|사적으로|집에\s*가져/, '사적'],
   [/(?:한\s*곳|한\s*군데|하나|한\s*명).{0,3}(?:만|밖에).{0,10}(?:들어오|참여|응찰|입찰)/, '재입찰'],
   [/(?:서류|계약서|영수증|증빙).{0,6}없이/, '생략'],
-  // A contract made without bidding or competition is 수의계약: "입찰 없이 사도 돼", "경쟁 안 붙이고
-  // 업체랑 계약". Three limits keep it to purchasing. "경쟁 없이" alone also describes promotion or
-  // admission, so it needs a purchase or contract word beside it (계약직·임용계약·재계약 are
-  // employment). Hiring and selection are never a contract type. And the phrase must lead on to
-  // what is done without it (없이, 안 하고, 않고): "입찰 안 하는 업체" is a bidder, not a contract.
-  [/^(?!.*(?:채용|임용|선발|승진|입학|합격|뽑))(?:.*입찰|(?=.*(?:(?<!근로|고용|재)계약(?!직|기간|교수|교원)|구매|구입|발주|납품|업체|견적|용역)).*경쟁)(?:을|에)?\s*(?:없이|안\s*(?:붙이고|부치고|거치고|하고)|(?:붙이|부치|거치|하)지\s*않고)/, '수의계약'],
 ];
 function phraseConcepts(query) {
   const text = String(query || '');

@@ -118,13 +118,14 @@ async function main() {
   check('끝말 바꿔 쓰기: 겸임교수·겸임교원, 근로장학생·근로장학금', businessTerms('겸임교수').includes('겸임교원') && businessTerms('근로장학생').includes('근로장학금'));
   check('다른 낱말 속에 든 검색어는 일치로 보지 않음', !containsTerm('한시계약직 임용에 관한 내규', '계약') && containsTerm('구매계약은 계약직 담당자가', '계약')
     && !containsTerm('하자 보수 보증금', '보수') && containsTerm('보수의 지급일', '보수') && containsTerm('물품관리규정', '물품'));
-  check('입찰 없이, 또는 계약·구매 맥락의 경쟁 없이 → 수의계약', ['입찰 없이 계약해도 돼', '경쟁에 부치지 않고 계약', '입찰 안 하고 바로 살 수 있어', '업체와 경쟁 없이 바로 계약', '경쟁 안 붙이고 구매해도 돼'].every(question => phraseConcepts(question).includes('수의계약'))
-    && ['경쟁입찰 낙찰자는 어떻게 정해', '입찰 공고 기간', '입찰에 한 곳만 들어오면', '입찰 안 하는 업체는 어떤 처벌을 받아', '입찰 안 하면 불이익 있어'].every(question => !phraseConcepts(question).includes('수의계약')));
-  // Red-team I1 (PR #92): "경쟁 없이" outside purchasing is not a kind of contract.
-  check('계약·구매 맥락이 없는 경쟁 없이는 수의계약이 아님(승진·선발·채용·계약직·임용계약·재계약)', ['경쟁 없이 승진할 수 있어', '경쟁 없이 학생을 선발할 수 있어', '경쟁 없이 교수를 채용할 수 있어', '경쟁 없이 장학생을 뽑아도 돼', '경쟁 없이 계약직 직원을 뽑아도 돼', '경쟁 없이 임용계약을 맺어도 돼', '경쟁 없이 재계약해도 돼', '입찰을 거치지 않고 연구원을 채용할 수 있어', '업체 직원을 경쟁 없이 채용해도 돼'].every(question => !phraseConcepts(question).includes('수의계약')));
-  check('돈을 벌다(활용형) → 수익', ['기술이전으로 돈을 벌면', '사업으로 번 돈', '돈 버는 사업', '돈을 벌어도 돼', '돈 벌 수 있어'].every(question => phraseConcepts(question).includes('수익')));
-  // Red-team R1 (PR #92): 벌써 is not 벌다.
-  check('벌써·벌금·벌점·되돌려 받다는 수익이 아님', ['돈을 벌써 지급했는데 어떻게 처리해', '돈을 벌금으로 냈어', '돈 벌점', '낸 돈을 되돌려 받으려면', '벌금은 얼마야'].every(question => !phraseConcepts(question).includes('수익')));
+  // Red-team reviews of PR #92: 계약 alone does not say whether a purchase or a person is contracted, so
+  // "경쟁 없이"·"입찰 없이" never adds a contract type to the search.
+  check('경쟁·입찰 없이라는 말로 수의계약을 넣지 않음(구매·승진·선발·고용 계약 모두)', ['입찰 없이 계약해도 돼', '업체와 경쟁 없이 바로 계약', '경쟁 없이 승진할 수 있어', '경쟁 없이 학생을 선발할 수 있어',
+    '경쟁 없이 고용 계약을 연장할 수 있어', '경쟁 없이 교수와 계약할 수 있어', '경쟁 없이 근로 계약을 갱신해도 돼', '입찰 안 하는 업체는 어떤 처벌을 받아'].every(question => !phraseConcepts(question).includes('수의계약')));
+  // Red-team reviews of PR #92 and the follow-up self-check: "돈을 벌다" is not always 수익 of the school
+  // (겸직·부업·사례금), so only the phrases main already had stay.
+  check('번 돈·벌어들인만 수익, 돈을 벌다·벌써·벌금은 아님', ['사업으로 번 돈', '벌어들인 돈'].every(question => phraseConcepts(question).includes('수익'))
+    && ['교수가 겸직해서 돈 벌어도 돼', '돈을 벌써 지급했는데 어떻게 처리해', '돈 버는 사업', '벌금은 얼마야'].every(question => !phraseConcepts(question).includes('수익')));
   check('동사가 가리키는 규정 명사: 사전이 규정 용어로 올린 낱말만', verbNoun('낳으면') === '출산' && verbNoun('기증받은') === '기증'
     && [verbNoun('잃어버리면'), verbNoun('고장나면'), verbNoun('출산'), verbNoun('가나다')].every(value => value === null));
   check('사전에 없는 낱말·객체 원형 키는 그대로', ['constructor', 'toString', '__proto__', '가나다'].every(word => businessTerms(word).length === 1));
@@ -212,9 +213,7 @@ async function main() {
   // Red-team R2 (PR #92): the excerpt would show the other 제31조.
   check('번호가 겹치는 조문은 요금 제목이어도 앞으로 올리지 않음', shared && shared.articles[0].content.includes('이용 신청서') && headingCueStrength('얼마 내', '이용료') === 1 && headingCueStrength('얼마 내', '이용료', { feeNames: false }) === 0);
   check('경쟁 없이 승진: 구매 규정이 아니라 승진 규정', first('경쟁 없이 승진할 수 있어')?.lawId === 34 && !searchCorpus(corpus, '경쟁 없이 승진할 수 있어').searchTerms.includes('수의계약'));
-  const negotiated = first('입찰 없이 계약해도 되는 금액');
-  check('입찰 없이 계약 → 수의계약 조문, 경쟁입찰 조문이 아님', negotiated?.lawId === 31 && negotiated.articles[0].article === '제7조');
-  check('경쟁입찰을 물으면 수의계약으로 바꾸지 않음', first('경쟁입찰 낙찰자는 어떻게 정해')?.articles[0].article === '제9조');
+  check('경쟁입찰을 물으면 경쟁입찰 조문', first('경쟁입찰 낙찰자는 어떻게 정해')?.articles[0].article === '제9조');
   check('영어 낱말·기호가 든 질문도 예외 없이 처리', ['constructor 규정', 'toString 여비', '??? !!!'].every(question => Array.isArray(searchCorpus(corpus, question).hits)));
 
   console.log(`📊 자연어 일반 규칙 검증: ${passed}개 통과`);
