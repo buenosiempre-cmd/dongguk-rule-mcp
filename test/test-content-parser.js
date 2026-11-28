@@ -49,11 +49,23 @@ const untouched = [
   ['제제로 시작하는 보통 낱말', '### 제2조(조직)\n제제개발연구부를 둔다.\n제제 3종(가)을 둔다.'],
   ['줄 가운데의 제제', '### 제2조(감급)\n감급의 제제3조(가)를 정할 경우'],
   ['들여 쓴 호·목', '### 제2조(일반휴학)\n  제제3조(창업휴학) ① 본문'],
+  // Red-team counterexamples (PR #93 review, 2026-11-28): a reference to an article is not the article.
+  ['다른 조문을 가리키는 문장', '### 제2조(신청)\n제제3조(휴학)에서 정한 기준을 준용한다.'],
+  ['괄호와 조사 사이를 띄운 참조', '### 제2조(신청)\n제제3조(휴학) 에서 정한 기준을 준용한다.'],
+  ['조사·접속어가 뒤따르는 참조', '### 제2조(신청)\n제제3조(휴학)에 따라 처리한다.\n제제3조(휴학)의 기준\n제제3조(휴학)을 준용한다.\n제제3조(휴학) 및 제4조\n제제3조(휴학)이 정하는 바'],
+  ['제목 뒤가 여느 문장', '### 제2조(신청)\n제제3조(보수) 보수는 별도로 정한다.'],
+  ['별표 안 계약서 조항', '### 제2조(신청)\n본문\n## 별표 1\n표준 계약서\n제제3조(보수) ① 보수는 별도로 정한다.'],
+  ['꺾쇠 별표·서식 안 조항', '### 제2조(신청)\n본문\n[별표 1]\n표준 계약서\n제제3조(보수) ① 보수는 별도로 정한다.\n[별지 제1호 서식]\n제제3조(기간) ① 기간은 1년으로 한다.'],
+  ['본칙 번호를 부칙이 이어받지 않음', '### 제2조(신청)\n본문\n## 부칙 (2026.1.1.)\n제제3조(적용) ① 이 규정은 시행일부터 적용한다.'],
+  ['같은 번호의 조문이 뒤에 따로 있음', '### 제2조(가)\n본문\n제제3조(나) ① 본문\n\n### 제3조(다)\n본문'],
+  ['뒤 조문과 번호가 이어지지 않음', '### 제2조(가)\n본문\n제제3조(나) ① 본문\n\n### 제5조(다)\n본문'],
+  ['앞 조문 없이 나온 가지번호', '### 제2조(가)\n본문\n제제3조의2(나) ① 본문'],
 ];
-check('확신할 수 없는 줄은 고치지 않음: ' + untouched.map(([name]) => name).join(', '), untouched.every(([, text]) => repairArticleNumbering(text) === text));
-const supplementary = listArticleBlocks(repairArticleNumbering('### 제1조(목적)\n본문\n\n## 부칙 (2026.1.20. 개정)\n\n### 제1조(시행일)\n이 세칙은 2026년 1월 20일부터 시행한다.\n제제2조(경과조치) 이전 업무는 이 세칙에 따른 것으로 본다.'));
-check('부칙의 제제2조도 부칙 제2조로 읽음', supplementary.map(block => `${block.supplementary ? '부칙' : '본칙'} ${block.canonical}`).join() === '본칙 제1조,부칙 제1조,부칙 제2조');
-check('가지번호는 그대로 옮김', listArticleBlocks(repairArticleNumbering('### 제2조(가)\n본문\n제제3조의2(나) 본문')).map(block => block.canonical).join() === '제2조,제3조의2');
+for (const [name, text] of untouched) check(`확신할 수 없으면 고치지 않음: ${name}`, repairArticleNumbering(text) === text && repairArticleNumbering(text, { inline: true }) === text);
+const supplementary = listArticleBlocks(repairArticleNumbering('### 제1조(목적)\n본문\n\n## 부칙 (2026.1.20. 개정)\n\n### 제1조(시행일)\n이 세칙은 2026년 1월 20일부터 시행한다.\n제제2조(경과조치) 이 세칙 개정 이전에 수행된 업무는 이 개정 세칙에 의한 것으로 본다.'));
+check('부칙 제1조에 이어지는 제제2조는 부칙 제2조로 읽음', supplementary.map(block => `${block.supplementary ? '부칙' : '본칙'} ${block.canonical}`).join() === '본칙 제1조,부칙 제1조,부칙 제2조');
+check('가지번호는 같은 번호의 조문 뒤에서만', listArticleBlocks(repairArticleNumbering('### 제3조(가)\n본문\n제제3조의2(나) ① 본문\n\n### 제4조(다)\n본문')).map(block => block.canonical).join() === '제3조,제3조의2,제4조');
+check('제목만 있는 줄과 마지막 조문도 읽음', listArticleBlocks(repairArticleNumbering('### 제2조(가)\n본문\n제제3조(나)\n① 본문')).map(block => block.canonical).join() === '제2조,제3조');
 
 // Exact synthetic I01 input supplied by the independent red team (2026-11-27).
 const i01 = parseContent(fs.readFileSync(path.join(__dirname, 'fixtures/content-parser-i01.html'), 'utf8'));
@@ -97,7 +109,14 @@ async function main() {
   const fetchPath = require.resolve('node-fetch');
   require(fetchPath);
   let fetches = 0;
-  require.cache[fetchPath].exports = async url => {
+  // Title search for the synthetic rules that the citation check looks up by name.
+  const searchable = [[3, 30, '합성휴학세칙'], [4, 40, '합성참조규정'], [5, 50, '합성계약규정']];
+  require.cache[fetchPath].exports = async (url, options) => {
+    if (String(url).includes('/lmxsrv/search/')) {
+      const wanted = (new URLSearchParams(options.body).get('SEARCH_TEXT') || '').replace(/\s/g, '');
+      const rows = searchable.filter(([, , title]) => wanted && title.includes(wanted));
+      return { ok: true, status: 200, text: async () => `<p class="infoLeft"><span>${rows.length}</span>건</p><table><tbody class="tbody">${rows.map(([lawId, historyId, title]) => `<tr><td class="tbody_txt"><a href="javascript:lawSearchFullViewSrv('${lawId}','${historyId}');"><span onclick='showSearchText("3-1-${lawId}")'></span><span onclick='showSearchText("${title}")'></span></a></td></tr>`).join('')}</tbody></table>` };
+    }
     if (url.endsWith('lawFullContent.srv?SEQ=2&SEQ_HISTORY=20')) throw new Error('synthetic offline');
     assert.match(url, /lawFullContent\.srv\?SEQ=1&SEQ_HISTORY=10$/);
     fetches++;
@@ -127,7 +146,7 @@ async function main() {
     // A body cached before the repair existed is repaired when read; it is neither fetched again nor rewritten.
     fs.writeFileSync(path.join(publicDir, 'history/3.json'), JSON.stringify([{ historyId: 30, revisedAt: '2025.01.01' }]));
     const cachedFile = path.join(publicDir, `content-v${CONTENT_PARSER_VERSION}`, '3_30.json');
-    const cachedBytes = JSON.stringify({ title: '합성 휴학 세칙', markdown: `# 합성 휴학 세칙\n\n${misprinted}` });
+    const cachedBytes = JSON.stringify({ title: '합성휴학세칙', markdown: `# 합성휴학세칙\n\n${misprinted}` });
     fs.writeFileSync(cachedFile, cachedBytes);
     const third = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 3, history_id: 30, article: 3 } });
     check('이미 캐시된 본문도 원문 재요청 없이 제3조를 조회', fetches === 1 && third.structuredContent.ok
@@ -135,6 +154,18 @@ async function main() {
     const second = await client.callTool({ name: 'get_rule_content', arguments: { law_id: 3, history_id: 30, article: 2 } });
     check('앞 조문은 뒤 조문 본문을 더 이상 끌고 오지 않음', second.structuredContent.ok && second.structuredContent.data.contentMarkdown.includes('일반휴학은') && !second.structuredContent.data.contentMarkdown.includes('창업'));
     check('캐시 파일은 고쳐 쓰지 않음', fs.readFileSync(cachedFile, 'utf8') === cachedBytes);
+
+    // The citation check, end to end. A wrong repair would turn ✗ into ✓ here (red-team I1, PR #93).
+    const seed = (lawId, historyId, title, body) => {
+      fs.writeFileSync(path.join(publicDir, `history/${lawId}.json`), JSON.stringify([{ historyId, revisedAt: '2025.01.01' }]));
+      fs.writeFileSync(path.join(publicDir, `content-v${CONTENT_PARSER_VERSION}`, `${lawId}_${historyId}.json`), JSON.stringify({ title, markdown: `# ${title}\n\n${body}` }));
+    };
+    seed(4, 40, '합성참조규정', '### 제1조(목적)\n이 규정은 신청 절차를 정한다.\n\n### 제2조(신청)\n제제3조(휴학)에서 정한 기준을 준용한다.');
+    seed(5, 50, '합성계약규정', '### 제1조(목적)\n이 규정은 계약 절차를 정한다.\n\n### 제2조(신청)\n본문\n\n## 별표 1\n표준 계약서\n제제3조(보수) ① 보수는 별도로 정한다.');
+    const verify = async text => (await client.callTool({ name: 'verify_rule_citations', arguments: { text } })).structuredContent.data.citations.map(item => `${item.article} ${item.status}`).join();
+    check('인용 점검: 고쳐 읽은 조문은 실존', await verify('「합성휴학세칙」 제3조(창업휴학)에 따름. 「합성휴학세칙」 제2조 참조.') === '제3조 EXISTS,제2조 EXISTS');
+    check('인용 점검: 참조 문장의 제제3조는 조문이 아니므로 제3조는 여전히 없음', await verify('「합성참조규정」 제3조에 따름. 「합성참조규정」 제2조 참조.') === '제3조 NOT_FOUND,제2조 EXISTS');
+    check('인용 점검: 별표 계약서의 제제3조는 본칙 조문이 아니므로 제3조는 여전히 없음', await verify('「합성계약규정」 제3조에 따름. 「합성계약규정」 제2조 참조.') === '제3조 NOT_FOUND,제2조 EXISTS');
 
 
   } finally { await client.close(); await server.close(); }

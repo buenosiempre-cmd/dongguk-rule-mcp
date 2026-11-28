@@ -1,6 +1,7 @@
 'use strict';
 
 const cheerio = require('cheerio');
+const { appendixHeading, isBodyBoundary } = require('./appendices.js');
 // Parsed content and corpus reuse must advance together when body extraction changes.
 const CONTENT_PARSER_VERSION = 4;
 
@@ -180,22 +181,48 @@ function headingDate(heading) {
 
 // The source misprints a few article numbers with a doubled 제 ("제제69조(창업휴학) ① …"). The site
 // and the HWP original do not mark such a line as an article, so it was read as part of the
-// article before it and reported as missing. It is read as its own article only when it continues
-// the numbering of the article before it, and the misprint stays visible next to the heading.
+// article before it and reported as missing. The misprint stays visible next to the heading.
+// A wrong repair turns "no such article" into "exists", so a line is repaired only when every
+// check below holds; anything less certain is left as the source has it.
 // `inline` keeps the body on the heading line, as the HWP conversion writes its other articles.
-const MISPRINTED_ARTICLE = /^제제[ \t]*(\d+)[ \t]*조((?:[ \t]*의[ \t]*\d+)?)[ \t]*([(（][^)）\n]{1,40}[)）])[ \t]*(.*)$/;
+const MISPRINTED_ARTICLE = /^제제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?[ \t]*([(（][^)）\n]{1,40}[)）])(.*)$/;
+// What follows the title of an article: nothing, a numbered paragraph (①), or a sentence that
+// opens with the rule itself ("이 규정은", "이 조에서"). A particle or any other word there
+// ("제제3조(휴학)에서 정한 기준", "제제3조(보수) 보수는") may be a reference to an article or a
+// clause of a contract form, not an article of this rule.
+const ARTICLE_BODY_START = /^(?:[ \t]*$|[ \t]*[①-⑳]|[ \t]+이[ \t]+(?:개정[ \t]*)?[가-힣]{0,8}(?:규정|규칙|세칙|내규|학칙|정관|지침|요령|회칙|규약|수칙|조|항|장)(?=[은는이가을를의에도 \t]|$))/;
+const ARTICLE_HEADING = /^###[ \t]*제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?/;
 function repairArticleNumbering(markdown, { inline = false } = {}) {
   const source = String(markdown || '');
   if (!/^제제[ \t]*\d/m.test(source)) return source;
+  const lines = source.split('\n');
+  // Main body, each 부칙 and the attachments number their articles separately. An attachment
+  // (별표·별지·서식) may hold a contract with clauses of its own; nothing in it is repaired.
+  let zone = 0, attachment = false;
+  const marks = lines.map(line => {
+    if (isBodyBoundary(line) === 'supplementary') { zone++; attachment = false; return { zone, boundary: true }; }
+    if (appendixHeading(line)) { zone++; attachment = true; return { zone, boundary: true }; }
+    const heading = attachment ? null : ARTICLE_HEADING.exec(line);
+    return { zone, attachment, heading: heading && { number: Number(heading[1]), sub: heading[2] ? Number(heading[2]) : 0 } };
+  });
   let previous = null;
-  return source.split('\n').map(line => {
-    const heading = /^###[ \t]*제[ \t]*(\d+)[ \t]*조/.exec(line);
-    if (heading) { previous = Number(heading[1]); return line; }
-    const misprint = MISPRINTED_ARTICLE.exec(line);
-    if (!misprint || previous === null || Number(misprint[1]) !== previous + 1) return line;
-    const [, number, sub, title, body] = misprint;
-    previous = Number(number);
-    const repaired = `### 제${number}조${sub.replace(/[ \t]/g, '')}${title} [원문 표기: 제제${number}조]`;
+  return lines.map((line, index) => {
+    const mark = marks[index];
+    if (mark.boundary) { previous = null; return line; }
+    if (mark.heading) { previous = mark.heading; return line; }
+    const misprint = mark.attachment ? null : MISPRINTED_ARTICLE.exec(line);
+    if (!misprint || !previous || !ARTICLE_BODY_START.test(misprint[4])) return line;
+    const number = Number(misprint[1]), sub = misprint[2] ? Number(misprint[2]) : 0;
+    // It continues the article before it (제68조 → 제69조, 제3조 → 제3조의2) …
+    const continues = sub ? previous.number === number && sub >= 2 && (previous.sub || 1) === sub - 1 : previous.number === number - 1;
+    // … and the next article of the same part, when there is one, continues it in turn.
+    const next = marks.slice(index + 1).find(item => item.zone !== mark.zone || item.heading);
+    const following = next && next.zone === mark.zone ? next.heading : null;
+    const fits = !following || (following.number === number + 1 && following.sub === 0) || (following.number === number && following.sub === (sub || 1) + 1);
+    if (!continues || !fits) return line;
+    previous = { number, sub };
+    const repaired = `### 제${number}조${sub ? `의${sub}` : ''}${misprint[3]} [원문 표기: 제제${number}조${sub ? `의${sub}` : ''}]`;
+    const body = misprint[4].trim();
     return body ? `${repaired}${inline ? ' ' : '\n'}${body}` : repaired;
   }).join('\n');
 }
