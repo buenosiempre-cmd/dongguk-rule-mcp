@@ -753,6 +753,7 @@ async function hHistory(rawLawId){
 // hit is "dominant" when it matches at least two words and clearly outscores
 // the runner-up; callers may preview it instead of asking for a law_id.
 const INDEX_PREVIEW_RULES=3;
+const {implementationCompanion}=require('./rule-companions.js');
 // A rule whose main body (before 부칙 and 별표) is at most this long is shown whole for a question.
 // Expand only when no section count was supplied and the complete excerpt fits.
 const WHOLE_BODY_CHARS=2000;
@@ -768,7 +769,7 @@ function excerptPriority(first,semanticArticle,rest){
   if(!semanticArticle||base.includes(semanticArticle)) return base;
   return [...base.slice(0,1),semanticArticle,...base.slice(1)];
 }
-function rankIndexHits(found,{top,campus,scopeQuery}){
+function rankIndexHits(found,{top,campus,scopeQuery,includeCompanion=false}){
   const families=new Map();
   for(const hit of found.hits){
     const body=hit.articles[0]&&!hit.articles[0].supplementary;
@@ -825,6 +826,13 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   const unaskedCampus=!asked.length&&placeOf(first.title).campus.length>0;
   const elsewhere=meaningElsewhere({applied:found.semantic,leaderRank:semanticRank.get(first.lawId),leaderWordScore:wordScore.get(first.lawId),otherScores:hits.slice(1).map(hit=>hit.score)});
   const dominant=!unaskedCampus&&!elsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
+  const companion=includeCompanion&&dominant?implementationCompanion(ranked):null;
+  if(companion){
+    // The old response contained only the leader. Add one implementation
+    // candidate without displacing any previously visible rule.
+    return {hits:[first,companion,...hits.filter(hit=>hit.lawId!==first.lawId&&hit.lawId!==companion.lawId)].slice(0,top),dominant:false,method,
+      companionPreview:{parentLawId:first.lawId,companionLawId:companion.lawId,basis:'title_relationship'}};
+  }
   return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
@@ -840,7 +848,7 @@ async function questionSemantics(question,keywordPhrases,{asOf=null}={}){
   const keyed=keywordPhrases?.length?await semanticScores({corpus,directory,text:`${question} ${keywordPhrases.map(phrase=>phrase.join(' ')).join(', ')}`}):null;
   return {question:asked,keyed:keyed||asked};
 }
-function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES,semantic=null}={}){
+function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES,semantic=null,includeCompanion=false}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
@@ -848,7 +856,7 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
   const found=searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords,semantic:keywords?.length?semantic?.keyed:semantic?.question});
   if(!found.hits.length) return null;
   // Campus and institution are read from the question, never from the keywords.
-  let {hits,dominant,method}=rankIndexHits(found,{top,campus,scopeQuery});
+  let {hits,dominant,method,companionPreview}=rankIndexHits(found,{top,campus,scopeQuery,includeCompanion});
   // Keywords can be off the mark. The rule the question alone would have chosen stays among
   // the previews, and its article stays in the excerpt of a rule both searches found.
   let keywordInfo=null;
@@ -876,6 +884,7 @@ function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keyw
     }
   }
   return {total:hits.length,hits,semantic:found.semantic,ranking:method,tokens:found.tokens,missingTerms:found.missingTerms,rewrittenTerms:found.rewrittenTerms||{},searchTerms:found.searchTerms,dominant,
+    ...(companionPreview?{companionPreview}:{}),
     ...(keywordInfo?{keywordInfo}:{}),
     indexedAt:corpus.builtAt,stale:Date.now()-Date.parse(corpus.builtAt)>INDEX_MAX_AGE_MS};
 }
@@ -1066,7 +1075,8 @@ async function hLookup(rawKeyword, {
   // One content word with no title candidate ("책 연체하면 어떻게 돼") is still a question for the index.
   if(!explicitLawId&&!exactTitle&&(questionTerms.length>1||(questionTerms.length===1&&!candidateHits.size)||keywordPhrases.length)){
     semantic=await questionSemantics(keyword,keywordPhrases,{asOf});
-    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery,keywords:keywordPhrases,previewLimit:maxRules===1?INDEX_PREVIEW_RULES:maxRules,semantic});
+    const indexed=candidatesFromIndex(keyword,{top:Math.max(5,maxRules*5),campus,scopeQuery,keywords:keywordPhrases,previewLimit:maxRules===1?INDEX_PREVIEW_RULES:maxRules,semantic,
+      includeCompanion:autoTerms&&!keywords&&maxRules===1&&!articleSelectors(keyword).length&&!appendixSelectors(keyword).length});
     if(indexed){result=indexed;queryUsed=indexed.tokens.join(' ');searchMode='핵심어 색인';}
   }
   if(!result){
@@ -1111,9 +1121,11 @@ async function hLookup(rawKeyword, {
       campus:campusScope(campus),
     }});
   }
-  const hits=(selection.status==='unique'?[selection.hit]:indexMode?result.hits:rankRuleHits(result.hits,keyword)).slice(0,expandPreview?INDEX_PREVIEW_RULES:maxRules);
+  const hits=(selection.status==='unique'?[selection.hit]:indexMode?result.hits:rankRuleHits(result.hits,keyword)).slice(0,expandPreview?(result.companionPreview?2:INDEX_PREVIEW_RULES):maxRules);
   if(indexMode&&result.keywordInfo?.questionRuleKept&&!hits.some(hit=>hit.lawId===result.keywordInfo.questionRuleKept)) result.keywordInfo.questionRuleKept=null;
   const indexMulti=indexMode&&hits.length>1;
+  const companionPreview=indexMulti&&result.companionPreview&&hits[0].lawId===result.companionPreview.parentLawId&&hits.some(hit=>hit.lawId===result.companionPreview.companionLawId)?result.companionPreview:null;
+  const leaderExcerptLimits=companionPreview?{maxSections,maxChars}:null;
   if(indexMulti){maxSections=Math.min(maxSections,3);maxChars=Math.min(maxChars,6000);}
   const identityStatus=catalogRule?'catalog_title':explicitLawId?'explicit_id':selection.status==='unique'?'exact_title':'candidate_preview';
   const metrics=searchResultMetrics(result);
@@ -1148,6 +1160,7 @@ async function hLookup(rawKeyword, {
     (keywordInfo?`- 핵심어(keywords): ${keywordInfo.applied?`${keywordInfo.used.join(', ')} 적용`:'규정 본문에서 찾지 못해 질문만으로 조회'}${keywordInfo.missing?.length?` / 어느 규정에도 없는 핵심어: ${keywordInfo.missing.join(', ')}`:''}${keywordInfo.questionRuleKept?' / 질문만으로 고른 규정도 함께 표시':''}\n`:'') +
     (result.indexedAt?`- 색인 기준: ${result.indexedAt}${result.stale?' (8일 초과, 현행 개정본은 다시 확인함)':''}${result.missingTerms?.length?` / 어느 규정에도 없는 단어: ${result.missingTerms.join(', ')}`:''}${describeRewrites(result.rewrittenTerms)?` / 짧게 바꿔 찾은 단어: ${describeRewrites(result.rewrittenTerms)}`:''}\n`:'');
   const editionNote=hit=>hit.editions?.length?` 같은 규정의 다른 판: ${hit.editions.map(x=>`${x.title}(LAW_ID ${x.lawId})`).join(', ')}.`:'';
+  if(companionPreview) out+=`\n> 첫 규정과 제목이 연결되는 시행세칙·내규 후보를 함께 보여 줍니다. 제목 관계만으로 적용 대상이 같다고 확정할 수 없으므로 각 규정의 적용범위를 확인하세요.\n`;
   if(identityStatus==='candidate_preview') out+=indexMulti
     ?`\n> 질문에 맞는 규정이 하나로 정해지지 않아, 질문의 핵심어가 많이 나오는 규정 ${hits.length}개의 해당 조문을 함께 보여 줍니다. 적용할 규정이 확정된 결과가 아닙니다. 제목과 적용범위를 확인하고 law_id로 다시 조회하세요.${result.hits.slice(hits.length,hits.length+3).length?` 그 밖의 후보: ${result.hits.slice(hits.length,hits.length+3).map(x=>`${x.title}(LAW_ID ${x.lawId})`).join(', ')}.`:''}\n`
     :indexPreview
@@ -1198,7 +1211,7 @@ async function hLookup(rawKeyword, {
     const noSelectors=!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length&&!keywordSelectors.length;
     const preferredArticles=!noSelectors?[]:focus?focus.priorityArticles:indexMode&&(autoTerms||topicTerms)?hit.priorityArticles:[];
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
-      maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
+      maxBlocks:i===0&&leaderExcerptLimits?leaderExcerptLimits.maxSections:maxSections,maxChars:i===0&&leaderExcerptLimits?leaderExcerptLimits.maxChars:maxChars,...(indexMode||focus?{order:'relevance'}:{}),
       // A question answered from the index, with no terms of the caller's own: a short rule is
       // shown whole instead of a few chosen articles.
       ...(indexMode&&noSelectors&&autoTerms&&!focus&&!sectionsSpecified?{wholeBodyChars:WHOLE_BODY_CHARS}:{}),
@@ -1266,6 +1279,7 @@ async function hLookup(rawKeyword, {
     ...(delegated.length ? { delegationNotices: delegated, delegationSummary: summary } : {}),
     query:{keyword,queryUsed,variants,terms:rawTerms,effectiveTerms,...(keywordInfo?{keywords:keywordPhrases.map(phrase=>phrase.join(' '))}:{}),...(topicAsRuleKeyword?{ruleKeywordUsedAsKeyword:topicAsRuleKeyword}:{}),campus,maxRules,maxSections,maxChars,includeHistory},
     search:{mode:searchMode,rewrittenTerms,sourceTotal:result.total,...metrics,identityStatus,...(keywordInfo?{keywords:keywordInfo}:{}),
+      ...(companionPreview?{companionPreview:{...companionPreview,leaderExcerptLimits}}:{}),
       ...(focus?.semantic?{semantic:true}:{}),
       ...(indexMode?{semantic:!!result.semantic,...(result.ranking&&result.ranking!=='legacy'?{ranking:result.ranking}:{}),...(labelsEnabled()?{labels:true}:{}),selection:indexMulti?'multiple_candidates':'single_candidate',searchTerms:result.searchTerms,
         otherCandidates:result.hits.slice(hits.length,hits.length+3).map(x=>({lawId:x.lawId,title:x.title,matchedTerms:x.matchedTerms,topArticle:x.topArticle}))}:{})},
@@ -1551,8 +1565,8 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       terms:{type:'string',description:'조문·별표 번호를 알 때만 넣는 발췌 조건. 예: 제10조, 제10조의2, 별표1. 명시하면 이 조건으로만 발췌하므로, 번호를 모르면 비워 두고 주제어는 keywords에 넣으세요. 생략하면 query와 keywords에서 발췌 조건을 만듭니다.'},
       campus:{type:'string',description:'업무 캠퍼스 맥락 all/seoul/wise. 공식 목록에는 캠퍼스 필터가 없어 전체 검색 후 적용범위를 확인합니다.',default:'all'},
       max_rules:{type:'number',description:'조회할 규정 수. 기본 1, 최대 3. 자연어 색인의 모호한 후보는 기본 1 요청에도 최대 3개 미확정 미리보기로 반환하며 selection은 실제 반환 개수를 따릅니다.',default:1},
-      max_sections:{type:'number',description:'규정별 관련 블록 수. 기본 4, 최대 12. 자연어 색인의 다중 미리보기는 최대 3. 생략하면 2,000자 이하 본문을 문자 한도 안에서 전체 제공할 수 있고, 명시하면 자동 전체 확장을 하지 않습니다.',default:4},
-      max_chars:{type:'number',description:'규정별 최대 반환 글자 수. 기본 12000, 최대 30000. 자연어 색인의 다중 미리보기는 최대 6000.',default:12000},
+      max_sections:{type:'number',description:'규정별 관련 블록 수. 기본 4, 최대 12. 자연어 색인의 다중 미리보기는 최대 3이며, 시행세칙 후보만 추가하는 경우 첫 규정의 기존 한도는 유지합니다. 생략하면 2,000자 이하 본문을 문자 한도 안에서 전체 제공할 수 있고, 명시하면 자동 전체 확장을 하지 않습니다.',default:4},
+      max_chars:{type:'number',description:'규정별 최대 반환 글자 수. 기본 12000, 최대 30000. 자연어 색인의 다중 미리보기는 최대 6000이며, 시행세칙 후보만 추가하는 경우 첫 규정의 기존 한도는 유지합니다.',default:12000},
       include_history:{type:'boolean',description:'최근 개정 연혁 5건 포함 여부',default:false},
     }},
     outputSchema:TOOL_OUTPUT_SCHEMA,
