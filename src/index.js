@@ -753,6 +753,9 @@ async function hHistory(rawLawId){
 // hit is "dominant" when it matches at least two words and clearly outscores
 // the runner-up; callers may preview it instead of asking for a law_id.
 const INDEX_PREVIEW_RULES=3;
+// A rule whose main body (before 부칙 and 별표) is at most this long is shown whole for a question.
+// About a third of the rules are this short; the three-rule preview grows by 4% on average.
+const WHOLE_BODY_CHARS=2000;
 const KEYWORDS_MAX_CHARS=200;
 // Scope words name where a rule applies, not what the question is about.
 const SCOPE_WORD=/^(?:WISE|WISE캠퍼스|경주|경주캠퍼스|서울캠퍼스|캠퍼스|산학협력단|산단|의학계열|의과대학|병원|대학원)$/i;
@@ -1170,6 +1173,9 @@ async function hLookup(rawKeyword, {
     const preferredArticles=!noSelectors?[]:focus?focus.priorityArticles:indexMode&&(autoTerms||topicTerms)?hit.priorityArticles:[];
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
       maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
+      // A question answered from the index, with no terms of the caller's own: a short rule is
+      // shown whole instead of a few chosen articles.
+      ...(indexMode&&noSelectors&&autoTerms&&!focus?{wholeBodyChars:WHOLE_BODY_CHARS}:{}),
       ...(preferredArticles.length?{priorityArticles:preferredArticles}:{}),
     });
     let historyText='';
@@ -1209,7 +1215,7 @@ async function hLookup(rawKeyword, {
     const displayExcerpt = annotateDelegationExcerpt(excerpt.text, ruleNotices);
     if(validStr(terms)){
       out+=excerpt.text
-        ? `\n\n### 관련 조문·별표\n\n${displayExcerpt}`
+        ? `\n\n### 관련 조문·별표\n\n${excerpt.wholeBody?'> 본문이 짧아 조문을 고르지 않고 본문 전체를 보여 줍니다(부칙·별표는 일치한 부분만).\n\n':''}${displayExcerpt}`
         : `\n\n### 관련 조문·별표\n\n'${terms}'과 직접 일치하는 부분을 찾지 못했습니다. ` +
           `terms에는 핵심 명사만 입력해 다시 조회하세요.`;
     }else{
@@ -1225,7 +1231,7 @@ async function hLookup(rawKeyword, {
       enforcementDates:extractEnforcementDates(markdown).map(x=>x.iso),
       warning:warningData,
       evidenceStatus,incompleteReasons,originalCoverage,
-      excerpt:{text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
+      excerpt:{...(excerpt.wholeBody?{wholeBody:true}:{}),text:excerpt.text,matchedTerms:excerpt.matchedTerms,blockCount:excerpt.blockCount,truncated:excerpt.truncated,omittedBlockCount:excerpt.omittedBlockCount,blocksTruncated:excerpt.blocksTruncated,charactersTruncated:excerpt.charactersTruncated,missingAppendices:excerpt.missingAppendices},
     });
   }
   const summary = delegationSummary(delegated, {identityStatus,requestedArticles:articleSelectors(rawTerms || keyword)});

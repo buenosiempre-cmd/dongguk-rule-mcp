@@ -337,6 +337,14 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     }
   }
 
+  // A rule whose whole main body fits the caller's limit is shown whole: choosing a few of its
+  // articles can only leave the asked one out. The chosen articles keep their place (first, under
+  // relevance order); the rest of the body follows in document order.
+  let bodyEnd = blocks.findIndex(block => block.split('\n').some(line => isBodyBoundary(line) === 'supplementary' || appendixHeading(line)));
+  if (bodyEnd < 0) bodyEnd = blocks.length;
+  const wholeBody = options.wholeBodyChars > 0 && bodyEnd > 0 && blocks.slice(0, bodyEnd).join('\n\n').length <= options.wholeBodyChars;
+  if (wholeBody) for (let index = 0; index < bodyEnd; index++) selectedIndexes.add(index);
+
   // Document order by default. A question answered from a long rule reads
   // best-matching article first, so the length limit cuts the weaker ones.
   const rankOf = new Map();
@@ -365,6 +373,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     matchedTerms,
     blockCount: orderedIndexes.length,
     missingAppendices,
+    ...(wholeBody ? { wholeBody: true } : {}),
   };
 }
 
