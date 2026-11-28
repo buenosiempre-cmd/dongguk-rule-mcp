@@ -412,9 +412,14 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
     if (intent) {
       const fullBonus = Math.max(...words.map(word => formWeight(word, word.forms)), 1) * (keywordMode ? INTENT_SHARE_WITH_KEYWORDS : 1);
       const seen = new Set(scored.map(item => item.block));
+      // The source gives a few articles a number another article of the rule already has (제31조
+      // twice). The excerpt finds an article by its number and would show the other one, so a
+      // fee-name heading does not move such an article up.
+      const numbers = rule.blocks.filter(block => !block.supplementary).map(block => block.article);
+      const sharedNumber = article => numbers.indexOf(article) !== numbers.lastIndexOf(article);
       for (const block of rule.blocks) {
         if (block.supplementary) continue;
-        const strength = headingCueStrength(query, headingOf(block.content));
+        const strength = headingCueStrength(query, headingOf(block.content), { feeNames: !sharedNumber(block.article) });
         if (!strength) continue;
         const bonus = fullBonus * strength;
         const known = articleOrder.find(item => item.block === block);

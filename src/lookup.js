@@ -1,6 +1,6 @@
 'use strict';
 
-const { expandAliases, middotVariants, normalizeMiddots, businessTerms, wholeWord, compoundParts, phraseConcepts, questionScope, labelsEnabled } = require('./aliases.js');
+const { expandAliases, middotVariants, normalizeMiddots, businessTerms, knownTerm, compoundParts, phraseConcepts, questionScope, labelsEnabled } = require('./aliases.js');
 const { appendixHeading, extractAppendices, isBodyBoundary } = require('./appendices.js');
 
 function clampNumber(value, fallback, min, max) {
@@ -412,10 +412,10 @@ function contentToken(raw) {
   if (!token || /^제?\d+조?$/.test(token)) return null;
   const bare = token.replace(/(?:은|는|이|을|를|도)$/, '');
   if (ONE_SYLLABLE_NOUNS.has(bare) && token.length <= 2) return bare;
-  if (wholeWord(token)) return token;
+  if (knownTerm(token)) return token;
   // "며칠이야", "몇 년이에요": the copula is not part of the word.
   token = token.replace(/(?:이에요|이예요|예요|이야|인가요|인가|이죠|인지|입니까|이니)$/, '');
-  if (wholeWord(token)) return token;
+  if (knownTerm(token)) return token;
   const verbStem = NOUN_ENDING_HAE.test(token) || NOUN_ENDING_HAL.test(token) ? token : token.replace(VERB_ENDING, '');
   if (verbStem !== token) {
     // A bare verb ("받아", "해야") leaves nothing to search for.

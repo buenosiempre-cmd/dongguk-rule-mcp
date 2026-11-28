@@ -129,10 +129,7 @@ for (const [everyday, ruleTerms] of CONCEPT_GROUPS) {
 const COMPOUND_WORDS = new Map([
   ['월급날', ['월급', '지급일']], ['급여일', ['급여', '지급일']], ['급여날', ['급여', '지급일']], ['봉급날', ['봉급', '지급일']],
 ]);
-// A word the rules never write as one (they say 연차유급휴가 or 연가, not 연차휴가). Shortened to
-// its tail (휴가) it loses its head, so each part is searched as its own concept.
-const SPLIT_WORDS = new Map([['연차휴가', ['연차', '휴가']]]);
-function compoundParts(term) { return COMPOUND_WORDS.get(term) || SPLIT_WORDS.get(term) || [term]; }
+function compoundParts(term) { return COMPOUND_WORDS.get(term) || [term]; }
 // Everyday phrases of several words that a rule says in one ("없을 때" → 부재).
 // The rule word is searched as an extra concept of the question.
 const PHRASE_CONCEPTS = [
@@ -143,7 +140,8 @@ const PHRASE_CONCEPTS = [
   [/안\s*지키|지키지\s*않/, '위반'],
   [/안\s*(?:해도|써도|찍어도|내도|받아도)\s*(?:돼|되)/, '생략'],
   [/새로\s*만들|새로\s*생기/, '제정'],
-  [/번\s*돈|벌어들인|돈을?\s*(?:벌(?!금)|버는)/, '수익'],
+  // 벌다 by its endings ("돈 벌면", "돈을 벌어도", "돈 버는"); 벌써·벌금·벌점 are other words.
+  [/번\s*돈|벌어들인|돈을?\s*(?:벌(?:면|어|었|고|려|게|기|지|다|던|든|거나|더라도|\s+수|\s+때|(?=[\s?.!]|$))|버는)/, '수익'],
   [/(?:다른|딴)\s*(?:데|곳|용도|목적)|목적\s*(?:외|말고|이외|밖)|돌려\s*(?:써|쓰|쓸)/, '목적외'],
   [/계약\s*(?:을\s*)?(?:취소|깨|끊|파기)|계약\s*안\s*지키/, '해약'],
   [/자동으로\s*(?:퇴직|면직|그만)|저절로\s*(?:퇴직|면직)/, '당연퇴직'],
@@ -166,12 +164,10 @@ const PHRASE_CONCEPTS = [
   [/개인\s*(?:용무|용도|적으로|일로|볼일)|사적으로|집에\s*가져/, '사적'],
   [/(?:한\s*곳|한\s*군데|하나|한\s*명).{0,3}(?:만|밖에).{0,10}(?:들어오|참여|응찰|입찰)/, '재입찰'],
   [/(?:서류|계약서|영수증|증빙).{0,6}없이/, '생략'],
-  // "벌을 받다" is 징계 in the rules; 벌 alone is one syllable and never reaches the dictionary.
-  [/벌을?\s*(?:받|주|줘|줄)|(?:어떤|무슨)\s*벌(?![가-힣])/, '징계'],
-  // A contract made without competition or bidding is 수의계약.
-  [/(?:경쟁|입찰)(?:을|에)?\s*(?:없이|안\s*(?:붙|부치|거치|하)|(?:붙이|부치|거치|하)지\s*않)/, '수의계약'],
-  // Lending or taking school property outside is 반출.
-  [/(?:외부|바깥|밖)(?:에|으로|로)?\s*(?:빌려|가져가|가지고\s*나|들고\s*나)/, '반출'],
+  // A contract made without bidding is 수의계약. "경쟁 없이" alone also describes promotion,
+  // hiring or admission, so it counts only beside a purchase or contract word; 계약직, 임용계약
+  // and 재계약 are about employment, not purchasing.
+  [/입찰(?:을|에)?\s*(?:없이|안\s*(?:붙|부치|거치|하)|(?:붙이|부치|거치|하)지\s*않)|^(?=.*(?:(?<!임용|근로|고용|채용|재)계약(?!직|기간|교수|교원)|구매|구입|발주|납품|업체|견적|용역)).*경쟁(?:을|에)?\s*(?:없이|안\s*(?:붙|부치|거치|하)|(?:붙이|부치|거치|하)지\s*않)/, '수의계약'],
 ];
 function phraseConcepts(query) {
   const text = String(query || '');
@@ -248,8 +244,6 @@ function verbNoun(term) {
 }
 // A word the dictionary knows as written ("출산휴가", "회계연도") keeps its last syllable.
 const knownTerm = term => RULE_VOCABULARY.has(term) || (labelsEnabled() && LABEL_VOCABULARY.has(term)) || COMPOUND_WORDS.has(term);
-// A question word that is kept as written: its last syllable is not a particle ("연차휴가", not 연차휴 + 가).
-const wholeWord = term => knownTerm(term) || SPLIT_WORDS.has(term);
 // Comparison topics are rule names; only name-level synonyms are expanded there.
 const RULE_NAME_SYNONYMS = new Set(['강사료', '강의료', '출장비', '여비', '법카', '법인카드', '클린카드']);
 function comparisonTerms(term) {
@@ -291,13 +285,14 @@ const questionIntents = () => { const labels = labelsEnabled(); return QUESTION_
 const CUE_STEP = 0.2;
 // How well an article heading answers what the question asks: 1 for a direct
 // answer, less for looser headings, 0 when the question states no such intent.
-function headingCueStrength(query, heading) {
+// `feeNames: false` leaves the fee-name headings out, as before they were added.
+function headingCueStrength(query, heading, { feeNames = true } = {}) {
   const text = String(query || ''), title = String(heading || '').replace(/\s+/g, '');
   let best = 0;
   for (const intent of questionIntents()) {
     if (!intent.ask.test(text)) continue;
     // `also` answers as directly as the first headings.
-    const level = intent.also?.test(title) ? 0 : intent.headings.findIndex(pattern => pattern.test(title));
+    const level = feeNames && intent.also?.test(title) ? 0 : intent.headings.findIndex(pattern => pattern.test(title));
     if (level >= 0) best = Math.max(best, 1 - level * CUE_STEP);
   }
   return best;
@@ -394,7 +389,7 @@ function generalRuleWeight(title, query, hasGeneralEdition = false, { code = '',
 
 module.exports = {
   labelsEnabled,
-  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, verbNoun, knownTerm, wholeWord, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
+  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, verbNoun, knownTerm, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
   BUILTIN_ALIASES,
   aliasTable,
   resetAliasCacheForTest,
