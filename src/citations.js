@@ -421,7 +421,30 @@ async function resolveRule(name, deps, citation = {}) {
   const range = main.length
     ? { min: Math.min(...main.map(b => b.number)), max: Math.max(...main.map(b => b.number)) }
     : null;
-  return { status: 'ok', hit, blocks, range };
+  return { status: 'ok', hit, blocks, range, markdown };
+}
+
+// The source misprints a few article numbers with a doubled 제 ("제제69조(창업휴학) ① …"). Such a line
+// is not an article heading, so the article is not found; but whether the line is a misprinted article
+// or prose that refers to one cannot be told from the text. The article boundaries are left as the
+// source has them. These lines only keep "not found" from being stated as a fact: the caller reports
+// "cannot confirm" and shows them. They never make an article exist.
+function misprintedArticleLines(markdown, number, subNumber = null) {
+  if (typeof markdown !== 'string' || !/^(?:#{1,6}[ \t]*)?제제[ \t]*\d/m.test(markdown)) return [];
+  const lines = [];
+  for (const line of markdown.split('\n')) {
+    const match = /^(?:#{1,6}[ \t]*)?제제[ \t]*(\d+)[ \t]*조(?:[ \t]*의[ \t]*(\d+))?[ \t]*[(（]/.exec(line);
+    if (!match || Number(match[1]) !== number || (match[2] ? Number(match[2]) : null) !== (subNumber || null)) continue;
+    const text = line.trim();
+    lines.push(text.length > 120 ? `${text.slice(0, 120)}…` : text);
+    if (lines.length === 3) break;
+  }
+  return lines;
+}
+function misprintNotice(lines, number, subNumber = null) {
+  if (!lines.length) return '';
+  const written = `제제${number}조${subNumber ? `의${subNumber}` : ''}`;
+  return `원문에 "${written}"로 적힌 줄이 있어 조문 여부를 확정하지 못함 — 원문 확인 필요. 해당 줄: ${lines.map(line => `"${line}"`).join(' / ')}`;
 }
 
 function headingTitleOf(block) {
@@ -505,6 +528,11 @@ function judgeCitation(citation, rec) {
         : `개정일 ${supplementaryDate}의 부칙 조문 블록을 확인하지 못함 — 날짜·원문 확인 필요`)
       : supplementary ? '부칙에 해당 조문 없음'
       : (rec.range ? `본칙 존재 범위: 제${rec.range.min}조~제${rec.range.max}조` : '조문 헤더를 찾을 수 없음');
+    // Not a fact when the source carries a line that may be this article with its number misprinted.
+    const misprinted = misprintedArticleLines(rec.markdown, number, subNumber);
+    if (misprinted.length) {
+      return { status: 'ARTICLE_MISPRINT_UNVERIFIED', symbol: '⚠', note: `${canonical} — ${misprintNotice(misprinted, number, subNumber)}`, sourceLines: misprinted };
+    }
     return { status: 'NOT_FOUND', symbol: '✗', note: `${canonical} 없음 (${rangeNote})` };
   }
 
@@ -588,6 +616,7 @@ async function verifyRuleCitations(text, deps, options = {}) {
       status: verdict.status,
       symbol: verdict.symbol,
       note: verdict.note,
+      ...(verdict.sourceLines ? { sourceLines: verdict.sourceLines } : {}),
       rule: rec.status === 'ok' || rec.status === 'nocontent'
         ? { lawId: rec.hit.lawId, historyId: rec.hit.historyId, title: rec.hit.title, revisedAt: rec.hit.revisedAt || '' }
         : null,
@@ -646,6 +675,8 @@ module.exports = {
   isAnnotationParen,
   extractRuleCitations,
   verifyRuleCitations,
+  misprintedArticleLines,
+  misprintNotice,
   titleMatches,
   maxHangOf,
   paragraphNumbersOf,

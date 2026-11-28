@@ -145,7 +145,13 @@ const {
   rankArticlesByTokens,
 } = require('./parsers.js');
 const { compareRuleMarkdown, formatVersionComparison } = require('./versioning.js');
-const { verifyRuleCitations } = require('./citations.js');
+const { verifyRuleCitations, misprintedArticleLines, misprintNotice } = require('./citations.js');
+// "제N조를 찾을 수 없습니다" is not the whole answer when the source has a line that may be that article
+// with its number misprinted ("제제69조(…)"): the line is shown and the caller is told to check the source.
+function articleMisprintNote(markdown,selector){
+  const lines=selector?misprintedArticleLines(markdown,selector.number,selector.subNumber):[];
+  return lines.length?{text:` 다만 ${misprintNotice(lines,selector.number,selector.subNumber)}`,details:{articleStatus:'ARTICLE_MISPRINT_UNVERIFIED',sourceLines:lines}}:{text:'',details:{}};
+}
 const { TIMELINE_CAVEAT, parseDateLoose, resolveHistoryAtDate, extractEnforcementDates } = require('./timeline.js');
 const {
   success,
@@ -674,9 +680,12 @@ async function hContent(rawLawId, hid, {article,chapter,grep,head}={}) {
   if(articleSelector){
     const extracted=extractArticleSections(r,article);
     if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections),{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading,selector:supplementarySelector(x)}))}});
-    if(!extracted.text) return failure('NOT_FOUND', `${articleSelector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.`, {
-      details:{lawId,historyId:rid,article:articleSelector.canonical},
-    });
+    if(!extracted.text){
+      const misprint=articleMisprintNote(r,articleSelector);
+      return failure('NOT_FOUND', `${articleSelector.label}를 찾을 수 없습니다. get_rule_toc로 목차를 먼저 확인해보세요.${misprint.text}`, {
+        details:{lawId,historyId:rid,article:articleSelector.canonical,...misprint.details},
+      });
+    }
     selectedArticles=extracted.sections.map(section=>({
       article:section.canonical,supplementary:section.supplementary,content:section.content,
     }));
@@ -1351,9 +1360,12 @@ async function hApplicableRule({law_id,rule_keyword,date,article,compare_with_cu
   if(hasArticle){
     const extracted=extractArticleSections(c.markdown,article);
     if(extracted.error) return failure(extracted.error,ambiguousArticleMessage(extracted.sections),{details:{candidates:extracted.sections.map(x=>({article:x.canonical,supplementaryHeading:x.supplementaryHeading,selector:supplementarySelector(x)}))}});
-    if(!extracted.text) return failure('NOT_FOUND', `${extracted.selector.label}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.`, {
-      details:{lawId,historyId:picked.historyId,article:extracted.selector.canonical},
-    });
+    if(!extracted.text){
+      const misprint=articleMisprintNote(c.markdown,extracted.selector);
+      return failure('NOT_FOUND', `${extracted.selector.label}를 기준일 적용본에서 찾을 수 없습니다. get_rule_toc로 목차를 확인하세요.${misprint.text}`, {
+        details:{lawId,historyId:picked.historyId,article:extracted.selector.canonical,...misprint.details},
+      });
+    }
     selectedArticles=extracted.sections.map(x=>({article:x.canonical,supplementary:x.supplementary,content:x.content}));
     bodyText=extracted.text;
   }
