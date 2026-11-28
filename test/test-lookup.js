@@ -143,6 +143,22 @@ const conflictingScope = selectRuleEditions(editions, requestedRuleScope('WISE�
 check('서로 다른 campus 입력을 임의로 하나로 덮어쓰지 않음', conflictingScope.length === 2 && conflictingScope.every(e => e.scopeAmbiguous));
 check('일반 목적지는 캠퍼스 지정으로 오인하지 않음', !requestedRuleScope('서울 출장 숙박비').specified);
 
+// A short rule is shown whole for a question; a longer one keeps the chosen articles.
+{
+  const SHORT_RULE = ['### 제1조(목적)\n이 내규는 연수에 필요한 사항을 정한다.', '### 제2조(선발)\n연수자는 심사하여 선발한다.', '### 제3조(연수비)\n연수비는 예산의 범위에서 지원한다.', '### 제4조(의무)\n연수를 마친 사람은 연수기간만큼 재직해야 한다.', '### 제5조(보고)\n결과보고서를 제출한다.', '부 칙\n\n이 내규는 공포한 날부터 시행한다. 연수 경과조치를 둔다.'].join('\n\n');
+  const chosen = extractRelevantBlocks(SHORT_RULE, '연수, 선발', { maxBlocks: 2, order: 'relevance' });
+  check('전제: 한도를 주지 않으면 고른 조문만 반환', !chosen.text.includes('제4조(의무)') && !chosen.wholeBody);
+  const whole = extractRelevantBlocks(SHORT_RULE, '연수, 선발', { maxBlocks: 2, order: 'relevance', wholeBodyChars: 2000 });
+  const articles = text => [...text.matchAll(/제(\d)조\(/g)].map(m => m[1]);
+  check('본문이 한도 안이면 본문 전체를 반환', whole.wholeBody === true && articles(whole.text).sort().join('') === '12345');
+  check('고른 조문이 앞에 오고 나머지는 문서 순서', articles(whole.text).slice(0, articles(chosen.text).length).join() === articles(chosen.text).join() && whole.text.startsWith(chosen.text.split('\n\n...')[0].split('\n\n')[0]));
+  const ordered = extractRelevantBlocks(SHORT_RULE, '연수, 선발', { maxBlocks: 2, wholeBodyChars: 2000 });
+  check('순서를 지정하지 않으면 본문 전체는 문서 순서', articles(ordered.text).join('') === '12345');
+  check('본문 전체에 부칙은 넣지 않음', !whole.text.includes('공포한 날부터 시행') && whole.charactersTruncated === false);
+  const long = extractRelevantBlocks(SHORT_RULE, '연수, 선발', { maxBlocks: 2, order: 'relevance', wholeBodyChars: 100 });
+  check('본문이 한도를 넘으면 이전과 같은 발췌', !long.wholeBody && long.text === chosen.text);
+}
+
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log(`📊 통합 조회 검증: ${pass}개 통과 / ${fail}개 실패`);
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

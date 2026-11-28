@@ -337,6 +337,13 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     }
   }
 
+  // A rule whose whole main body fits the caller's limit is shown whole: choosing a few of its
+  // articles can only leave the asked one out. The chosen articles keep their place (first, under
+  // relevance order); the rest of the body follows in document order.
+  let bodyEnd = blocks.findIndex(block => block.split('\n').some(line => isBodyBoundary(line) === 'supplementary' || appendixHeading(line)));
+  if (bodyEnd < 0) bodyEnd = blocks.length;
+  const wholeBodyCandidate = options.wholeBodyChars > 0 && bodyEnd > 0 && blocks.slice(0, bodyEnd).join('\n\n').length <= options.wholeBodyChars;
+
   // Document order by default. A question answered from a long rule reads
   // best-matching article first, so the length limit cuts the weaker ones.
   const rankOf = new Map();
@@ -346,8 +353,24 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     });
   }
   const rank = index => rankOf.has(index) ? rankOf.get(index) : maxBlocks;
-  const orderedIndexes = [...selectedIndexes].sort((a, b) => rank(a) - rank(b) || a - b);
-  const selected = orderedIndexes.map(index => blocks[index]).join('\n\n');
+  const orderIndexes = indexes => [...indexes].sort((a, b) => rank(a) - rank(b) || a - b);
+  let orderedIndexes = orderIndexes(selectedIndexes);
+  let selected = orderedIndexes.map(index => blocks[index]).join('\n\n');
+  let wholeBody = false;
+  if (wholeBodyCandidate) {
+    const expanded = new Set(selectedIndexes);
+    for (let index = 0; index < bodyEnd; index++) expanded.add(index);
+    const expandedOrder = orderIndexes(expanded);
+    const expandedText = expandedOrder.map(index => blocks[index]).join('\n\n');
+    // Keep the original excerpt (including annex evidence) unless the expansion
+    // fits without clipping. A short body alone does not imply room to return it.
+    if (expandedText.length <= maxChars) {
+      wholeBody = true;
+      for (const index of expanded) selectedIndexes.add(index);
+      orderedIndexes = expandedOrder;
+      selected = expandedText;
+    }
+  }
   const matchedTerms = [...new Set(
     selectedMatches.flatMap(x => x.matched)
   )];
@@ -365,6 +388,7 @@ function extractRelevantBlocks(markdown, rawTerms, options = {}) {
     matchedTerms,
     blockCount: orderedIndexes.length,
     missingAppendices,
+    ...(wholeBody ? { wholeBody: true } : {}),
   };
 }
 
