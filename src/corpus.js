@@ -294,7 +294,7 @@ function arrangeSemantic(corpus, scores) {
   return { closestArticle, ruleRank };
 }
 
-function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, semantic = null } = {}) {
+function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, semantic = null, withoutTerms = null } = {}) {
   const sem = arrangeSemantic(corpus, semantic);
   const total = corpus.rules.length || 1;
   const frequencies = new Map();
@@ -305,6 +305,12 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
   const planned = planConcepts(query, documentFrequency, total);
   const { original } = planned;
   let { concepts, rewrittenTerms, missingTerms } = planned;
+  // Words the caller reads as something other than a search word (the campus under hybrid) do
+  // not score. They stay when nothing else of the question would be left to search.
+  if (withoutTerms) {
+    const kept = concepts.filter(concept => !concept.term.split(/\s+/).some(part => withoutTerms.test(part)));
+    if (kept.some(concept => !concept.joined)) concepts = kept;
+  }
   // Keywords lead only when some rule contains them; otherwise the question alone is searched, as without keywords.
   const keyed = keywords?.length ? planKeywordConcepts(keywords, documentFrequency, total) : null;
   const keywordMode = !!keyed?.concepts.length;

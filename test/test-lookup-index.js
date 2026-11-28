@@ -104,6 +104,11 @@ async function main() {
   const {extractRelevantBlocks}=require('../src/lookup.js');
   const preferred=extractRelevantBlocks('### 제2조(기준)\n강의료 지급 기준\n\n### 제8조(금액)\n강의료 지급 기준 100원 200원', '강의료', {maxBlocks:1,order:'relevance',priorityArticles:['제2조']});
   check('대표 조문을 발췌 한도 안에서 먼저 포함', preferred.text.includes('제2조(') && !preferred.text.includes('제8조('));
+  const campusWord = /^WISE캠퍼스$/;
+  check('검색 낱말에서 빼라고 넘긴 낱말은 점수에 세지 않고, 그 낱말뿐인 질문에서는 그대로 씀',
+    searchCorpus(corpus, 'WISE캠퍼스 장비 구매', { top: 5 }).hits.some(hit => hit.matchedTerms.includes('WISE캠퍼스'))
+    && searchCorpus(corpus, 'WISE캠퍼스 장비 구매', { top: 5, withoutTerms: campusWord }).hits.every(hit => !hit.matchedTerms.includes('WISE캠퍼스'))
+    && searchCorpus(corpus, 'WISE캠퍼스', { top: 5, withoutTerms: campusWord }).hits.some(hit => hit.matchedTerms.includes('WISE캠퍼스')));
   const travel = searchCorpus(corpus, '국내출장 일비와 숙박비 한도', { top: 5 });
   check('색인 검색: 여비규정이 1위, 한도는 없는 단어', travel.hits[0].lawId === 1 && travel.hits[0].articles[0].article === '제9조' && travel.missingTerms.includes('한도') && travel.rewrittenTerms['국내출장'] === '출장');
 
@@ -258,6 +263,12 @@ async function main() {
     check('범위 판별 기본 꺼짐: search.ranking·search.labels·rules[].order 없음', !('ranking' in plainScope.sc.data.search) && !('labels' in plainScope.sc.data.search) && plainScope.sc.data.rules.every(r => !('order' in r)));
     const hybridScope = await withEnv({ DONGGUK_MCP_RANKING: 'hybrid', DONGGUK_MCP_LABELS: '1' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
     check('범위 판별 켬: search.ranking=hybrid, search.labels=true, 정렬 값은 응답에 없음', hybridScope.sc.ok === true && hybridScope.sc.data.search.ranking === 'hybrid' && hybridScope.sc.data.search.labels === true && hybridScope.sc.data.rules.every(r => !('order' in r)) && hybridScope.sc.data.rules[0].edition.includes('산학협력단'));
+    // hybrid는 캠퍼스 낱말을 규정 순서의 낱말 점수에서만 빼고, 알리는 검색 낱말과 조문 고르기는 그대로 둠.
+    const campusPlain = await call('lookup_dongguk_rule', { query: 'WISE캠퍼스 장비 구매 절차' });
+    const campusHybrid = await withEnv({ DONGGUK_MCP_RANKING: 'hybrid' }, () => call('lookup_dongguk_rule', { query: 'WISE캠퍼스 장비 구매 절차' }));
+    check('hybrid: 캠퍼스를 말한 질문은 그 캠퍼스 판이 1위이고, 알리는 검색 낱말과 그 규정의 발췌는 기본 방식과 같음', campusHybrid.sc.ok === true && campusHybrid.sc.data.rules[0].lawId === 33
+      && JSON.stringify(campusHybrid.sc.data.search.searchTerms) === JSON.stringify(campusPlain.sc.data.search.searchTerms)
+      && campusHybrid.sc.data.rules[0].excerpt.text === campusPlain.sc.data.rules.find(rule => rule.lawId === 33).excerpt.text);
     const unknownScope = await withEnv({ DONGGUK_MCP_RANKING: 'rrf', DONGGUK_MCP_LABELS: '0' }, () => call('lookup_dongguk_rule', { query: '산학협력단 장비 구매 절차' }));
     check('모르는 순위 방식·꺼진 사전은 기본 응답과 같음', JSON.stringify({ ...unknownScope.sc.data, source: null }) === JSON.stringify({ ...plainScope.sc.data, source: null }));
 
