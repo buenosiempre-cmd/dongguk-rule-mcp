@@ -118,7 +118,9 @@ async function main() {
     searches.length = 0;
     const travelLookup = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도' });
     check('자연어 질문: 색인으로 여비규정을 미리보기로 반환', travelLookup.sc.ok === true && travelLookup.sc.data.search.mode === '핵심어 색인' && travelLookup.sc.data.search.identityStatus === 'candidate_preview' && travelLookup.sc.data.rules[0].lawId === 1);
-    check('위임 알림은 MCP 본문 앞에 표시하고 미리보기 상태를 유지', travelLookup.text.startsWith('> **별도 기준 확인:**') && travelLookup.sc.data.delegationNotices.some(n=>n.lawId===1 && n.article==='제9조' && n.quote.includes('총장이 따로 정한다.')) && travelLookup.sc.data.evidenceStatus==='partial');
+    check('미리보기 위임 알림은 조문 옆에만 표시하고 partial 유지', !travelLookup.text.startsWith('> **') && travelLookup.text.includes('> **별도 기준 확인:**') && travelLookup.sc.data.delegationSummary.length===0 && travelLookup.sc.data.delegationNotices.some(n=>n.lawId===1 && n.article==='제9조' && n.quote.includes('총장이 따로 정한다.')) && travelLookup.sc.data.evidenceStatus==='partial');
+    const namedDelegation = await call('lookup_dongguk_rule', { law_id: 1, terms: '제9조' });
+    check('선택 규정의 명시 조문 요청만 맨 앞 요약', namedDelegation.text.startsWith('> **지정 조문의 별도 기준:**') && namedDelegation.sc.data.delegationSummary.length===1 && !namedDelegation.sc.data.rules[0].excerpt.text.includes('별도 기준 확인'));
     check('미리보기는 근거 미확정(partial)과 다른 후보를 표시', travelLookup.sc.data.rules[0].evidenceStatus === 'partial' && travelLookup.sc.data.rules[0].incompleteReasons.includes('RULE_IDENTITY_UNCONFIRMED') && /다른 후보: .*취업규칙\(LAW_ID 3\)/.test(travelLookup.text) && /제9조\(일비 등의 지급\)/.test(travelLookup.text));
     check('MCP 자동 발췌는 동번호 부칙을 검색어로 추가하지 않음', !travelLookup.sc.data.rules[0].excerpt.text.includes('2050년') && !travelLookup.sc.data.rules[0].excerpt.text.includes('시행일'));
     check('색인 기준·대체 단어를 본문에 표시', /색인 기준: /.test(travelLookup.text) && /짧게 바꿔 찾은 단어: 국내출장→출장/.test(travelLookup.text) && /어느 규정에도 없는 단어: 한도/.test(travelLookup.text));
