@@ -51,6 +51,8 @@ const CONTENT = {
 // Synthetic rules: three strong body matches compete with a title-only rule;
 // scope-ambiguous editions must retain separate bodies and their own scores.
 const extraRules = [
+  [181, '합성 비품 규정', '제5조(관리)\n비품 관리를 정한다.'],
+  [395, '합성 가족 규정', '제6조(지원)\n가족 지원을 정한다.'],
   [413, '합성 연구원 규정', '제3조(구분)\n선임연구원 자격을 정한다.'],
   [642, '합성 심사 규정', '제14조(심사)\n불합격자 처리 절차를 정한다.'],
   [11, '처리규정 가', '제1조(절차)\n물품 전결 처리'],
@@ -95,7 +97,12 @@ async function main() {
   check('복합어 대체: 두 글자·규정에 없는 말은 대체하지 않음', rewriteMissingToken('없음', df, corpus.rules.length) === null && rewriteMissingToken('zzzz', df, corpus.rules.length) === null);
   const protectedWords = ['가지급금','미지급금','비과세소득','불공제세액','무급휴직','선지급비용','재신청절차'];
   check('미등록 의미 접두 단어: 앞 음절 제거 후보는 발견돼도 쓰지 않음', protectedWords.every(word => rewriteMissingToken(word, form => form === word.slice(1) ? 1 : 0, 10) === null));
-  check('보호 접두어의 뒤쪽 축약은 3음절 이상·실제 발견 후보만 허용', rewriteMissingToken('선임연구원들', form => form === '선임연구원' ? 1 : 0, 10) === '선임연구원' && rewriteMissingToken('불합격자들', form => form === '불합격자' ? 1 : 0, 10) === '불합격자' && rewriteMissingToken('가지급금', form => ['가지','지급금'].includes(form) ? 1 : 0, 10) === null);
+  check('보호 접두어도 뒤쪽 축약은 기존대로, 가지는 기존 어미 필터로 제외', rewriteMissingToken('선임연구원들', form => form === '선임연구원' ? 1 : 0, 10) === '선임연구원' && rewriteMissingToken('불합격자들', form => form === '불합격자' ? 1 : 0, 10) === '불합격자' && rewriteMissingToken('가지급금', form => ['가지','지급금'].includes(form) ? 1 : 0, 10) === null);
+  for (const word of ['비품','가족','선임연구원','불합격자']) {
+    for (const suffix of ['들','등','은','는','이','가','을','를','의','에','도','만','으로']) {
+      check(`보호 접두어의 정상 뒤쪽 축약 보존: ${word}+${suffix}`, rewriteMissingToken(word+suffix, form=>form===word?1:0,10)===word);
+    }
+  }
   const prefixCatalog = Array.from({length:6},(_,i)=>({lawId:101+i,historyId:1,title:`합성 검증 ${i}`,code:`prefix-${i}`}));
   const prefixCorpus = await buildCorpus({catalog:prefixCatalog,loadContent:async(id)=>({title:'합성 검증',markdown:id===101?'### 제1조(정산)\n지급금 정산 기한을 정한다.':'### 제1조(기타)\n교육을 목적으로 한다.'})});
   for (const word of ['가지급금','미지급금']) {
@@ -128,7 +135,7 @@ async function main() {
   await server.connect(b); await client.connect(a);
   const call = async (name, args) => { const r = await client.callTool({ name, arguments: args }); return { sc: r.structuredContent, text: r.content.find(c => c.type === 'text')?.text || '' }; };
   try {
-    for (const [singular,lawId] of [['선임연구원',413],['불합격자',642]]) {
+    for (const [singular,lawId] of [['선임연구원',413],['불합격자',642],['비품',181],['가족',395]]) {
       for (const route of ['query','keywords','deep']) {
         const tool=route==='deep'?'search_rule_deep':'lookup_dongguk_rule';
         const args=word=>route==='deep'?{query:word,mode:'index'}:route==='keywords'?{query:word,keywords:word}:{query:word};
