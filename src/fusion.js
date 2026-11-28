@@ -105,4 +105,20 @@ function rankRules({ candidates, scope, query = '', campus = 'all', facets = nul
   return { method: used, ranked };
 }
 
-module.exports = { METHODS, DEFAULT_METHOD, rankingMethod, rankRules };
+// ── 한 규정으로 확정할지 ──────────────────────────────────────
+// Whether meaning points to another rule although one rule leads by words; the caller then shows
+// the candidates instead of that rule alone.
+// applied:         semantic scores were applied to this question.
+// leaderRank:      the leader's rank among all rules by closeness in meaning (1 = closest; null when unranked).
+// leaderWordScore: the leader's word score, before any lift.
+// otherScores:     the other candidates' scores after the meaning lift.
+// True when the leader is not the closest rule in meaning and some other candidate's lifted score
+// reaches the leader's word score: the lift then says as much for that candidate as the words
+// say for the leader. A leader that is closest in meaning, or whose word score stays above every
+// lifted score, is left to the word-score comparison the caller already makes.
+function meaningElsewhere({ applied, leaderRank, leaderWordScore, otherScores }) {
+  if (!applied || !Array.isArray(otherScores) || !otherScores.length || leaderRank === 1) return false;
+  return leaderWordScore <= Math.max(...otherScores);
+}
+
+module.exports = { METHODS, DEFAULT_METHOD, rankingMethod, rankRules, meaningElsewhere };

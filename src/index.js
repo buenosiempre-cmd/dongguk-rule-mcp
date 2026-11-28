@@ -161,7 +161,7 @@ const {
   TOOL_OUTPUT_SCHEMA,
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
-const { rankRules, rankingMethod } = require('./fusion.js');
+const { rankRules, rankingMethod, meaningElsewhere } = require('./fusion.js');
 const { createFacetSignal, placeRequest, placeOf, bodyCampus } = require('./ontology.js');
 const { labelsEnabled } = require('./aliases.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
@@ -823,8 +823,8 @@ function rankIndexHits(found,{top,campus,scopeQuery}){
   // the meaning lift then says as much for that candidate as the words say for the leader.
   const semanticRank=new Map(found.hits.map(hit=>[hit.lawId,hit.semanticRuleRank]));
   const unaskedCampus=!asked.length&&placeOf(first.title).campus.length>0;
-  const meaningElsewhere=!!found.semantic&&hits.length>1&&semanticRank.get(first.lawId)!==1&&wordScore.get(first.lawId)<=Math.max(...hits.slice(1).map(hit=>hit.score));
-  const dominant=!unaskedCampus&&!meaningElsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
+  const elsewhere=meaningElsewhere({applied:found.semantic,leaderRank:semanticRank.get(first.lawId),leaderWordScore:wordScore.get(first.lawId),otherScores:hits.slice(1).map(hit=>hit.score)});
+  const dominant=!unaskedCampus&&!elsewhere&&!first.scopeFirstArticle&&!first.scopeAmbiguous&&first.scopeMatch!==false&&!anchored.length&&first.matchedConcepts.length>=Math.min(2,searchable)&&first.matchedConcepts.length>=1&&(!second||(method==='legacy'&&first.scopeMatch!==second.scopeMatch)||(found.semantic||method!=='legacy'?wordScore.get(first.lawId)>=Math.max(...hits.slice(1).map(hit=>wordScore.get(hit.lawId)))*1.3:first.score>=second.score*1.3));
   return {hits,dominant,method};
 }
 const RULE_NAME_SUFFIX=/(?:규정|규칙|세칙|내규|지침|요강|정관|회칙|학칙)$/;
@@ -1187,6 +1187,14 @@ async function hLookup(rawKeyword, {
     if(!validStr(markdown)) return failure('CONTENT_UNAVAILABLE', 'HWP 원문과 HTML 대체 본문에서 규정 내용을 확인할 수 없습니다.', {
       details:{lawId,historyId,sourceType,warning:warningData},
     });
+    // The campus notice describes the text that was retrieved. The index that found the rule may
+    // hold an older revision, so the first article is read again from this text; when it no longer
+    // names only another campus the notice is dropped.
+    if(hit.scopeFirstArticle){
+      const askedCampuses=placeRequest(scopeQuery,campus).campuses, named=bodyCampus({blocks:blocksOf(markdown)});
+      if(named.length&&!named.some(id=>askedCampuses.includes(id))) hit.scopeFirstArticle=named;
+      else delete hit.scopeFirstArticle;
+    }
     const noSelectors=!articleSelectors(rawTerms||keyword).length&&!appendixSelectors(rawTerms||keyword).length&&!keywordSelectors.length;
     const preferredArticles=!noSelectors?[]:focus?focus.priorityArticles:indexMode&&(autoTerms||topicTerms)?hit.priorityArticles:[];
     const excerpt=extractRelevantBlocks(markdown,effectiveTerms,{
