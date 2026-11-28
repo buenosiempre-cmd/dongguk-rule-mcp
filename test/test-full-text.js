@@ -147,7 +147,7 @@ async function main() {
       const privateResult = (await finance.client.callTool({ name: 'get_rule_full_text', arguments: { law_id: 9 } })).structuredContent.data;
       const financeInfo = (await finance.client.callTool({ name: 'get_service_info', arguments: {} })).structuredContent.data;
       check('공개·내부 캐시 경계 유지', () => { assert.equal(pub.contentMarkdown, '공개 전문'); assert.equal(privateResult.contentMarkdown, '내부 캐시 전문'); });
-      check('finance 도구 수 일치', () => assert.equal(financeInfo.toolCount, 19));
+      check('finance 도구 수 일치', () => assert.equal(financeInfo.toolCount, 17));
     } finally { await finance.client.close(); await finance.server.close(); }
   } finally { await client.close(); await server.close(); fs.rmSync(root, { recursive: true, force: true }); }
   console.log(`\n📊 규정 전문 조회 검증: ${passed}개 통과`);

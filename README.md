@@ -280,3 +280,5 @@ url = "https://dgu.kr-univ-rules.com/mcp/rules"
 [MIT](LICENSE). 원본 Python 구현은 서준호, Node.js MCP 포팅과 운영은 오승훈입니다. [korean-law-mcp](https://github.com/chrisryugj/korean-law-mcp)에서 영감을 받았습니다. 타대학 포팅 출처는 [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md)입니다.
 
 [Issues](https://github.com/buenosiempre-cmd/dongguk-rule-mcp/issues)에는 버전과 개인정보를 뺀 재현 질문을 남겨 주세요. 개인정보, 인증값, 내부 문서는 첨부하지 않습니다.
+
+순위 결합과 일상어 이름 사전은 기본으로 켜져 있습니다. 끄려면 `DONGGUK_MCP_RANKING=legacy`, `DONGGUK_MCP_LABELS=0`을 설정합니다. 의미검색은 런타임·벡터가 있으면 자동으로 사용합니다. 재무 프로필의 `get_finance_context`·`get_finance_evidence`는 기본 목록·실행에서 제외하며 `DONGGUK_FINANCE_CONTEXT_ENABLED=1`로만 켭니다. `search_finance_handbook`·`review_finance_case`는 재무 프로필에서 그대로 제공합니다.

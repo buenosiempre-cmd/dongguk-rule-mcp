@@ -64,3 +64,5 @@ node scripts/build-practice-pack.js \
 - 합성 테스트, 실제 자료팩 구성, 실제 앱 호출, 구성원별 사용과 업무 효과는 각각의 결과로 기록합니다. 전체 구성원 보급·전교 동시접속·현재 업무화면·업무 효과는 별도 검증 대상입니다.
 
 실무 모듈의 독립 검증 명령은 `node test/test-practice.js`입니다. 통합 테스트와 실제 배포 검수는 [운영 가이드](OPERATIONS.md), CoP 평가는 [평가 설계](EVALUATION.md)를 참고하세요.
+
+`get_finance_context`·`get_finance_evidence`는 기본 목록·실행에서 빠져 있습니다. finance 프로필과 `DONGGUK_FINANCE_CONTEXT_ENABLED=1`이 모두 필요합니다. `search_finance_handbook`·`review_finance_case`의 제공 조건은 그대로입니다.

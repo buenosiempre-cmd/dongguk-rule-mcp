@@ -133,7 +133,7 @@ dongguk-rule-mcp --print-config cursor
 - **결과 해석:** 그림 파일의 동일·변경 판정은 OCR, 그림 속 문구의 의미 해석 또는 페이지 배치 비교를 뜻하지 않습니다. 실제 추출 누락·미지원 객체·식별 모호성은 부분 상태로 남기며 “변경 없음”으로 단정하지 않습니다. 시행일과 업무 적용성은 부칙·적용범위를 별도로 확인합니다.
 - **전문 색인:** `dongguk-rule-mcp --build-index`로 만든 HTML 본문 색인은 후보를 찾는 데 사용하며, 별표 내용은 순위에 반영되지 않습니다. `search_rule_deep`은 색인 결과를 현행 목록의 최신 개정본과 대조하고, 개정된 규정은 다시 읽습니다. 색인이 없거나 8일을 넘기면 공식 사이트 검색으로 대체합니다. `lookup_dongguk_rule`은 오래된 색인도 후보 탐색에 사용하되 오래됨을 표시하고, 선택한 규정의 연혁·원문을 별도로 조회합니다(기존 캐시 정책 적용). 별표·금액표는 이 통합 조회의 원문 발췌로 확인합니다.
 - **의미검색(선택):** 운영자가 로컬 임베딩 런타임을 설치하고 `--build-semantic-index`를 실행한 서버에서만 `lookup_dongguk_rule`의 자연어 질문 조회에 조문 단위 의미검색을 함께 씁니다. 낱말 색인을 보조해 규정 순위를 조정하고 뜻이 가까운 조문 하나를 발췌에 더할 뿐, 적용 규정을 확정하지 않습니다. 별표·서식은 범위 밖이고, 설치하지 않았거나 불러오지 못하면 낱말 색인만으로 답합니다. 사용 여부는 응답의 `search.semantic`에 표시합니다.
-- **범위 판별(선택, 기본 꺼짐):** `DONGGUK_MCP_RANKING=hybrid`를 넣은 서버는 질문이 캠퍼스·기관을 말할 때 그 판이 없는 전교 규정을 후보로 남기고, 물은 곳의 규정을 앞에, 다른 곳의 규정을 뒤에 둡니다. `DONGGUK_MCP_LABELS=1`은 일상어 이름 사전(미화원 → 미화직 등 29묶음)을 켭니다. 둘 다 끄면 이전과 같은 응답이며, 켠 때만 `search.ranking`·`search.labels`에 표시합니다. 규정의 캠퍼스는 제목으로만 읽으므로 순위는 적용 여부를 확정하지 않습니다. [설명](ranking.md)
+- **범위 판별(기본 켜짐):** 순위 결합과 일상어 이름 사전을 기본으로 사용합니다. `DONGGUK_MCP_RANKING=legacy`, `DONGGUK_MCP_LABELS=0`으로 각각 끄며 변수 삭제·빈 값·모르는 값은 기본 켜짐으로 돌아갑니다. 의미검색은 런타임·벡터가 있으면 자동입니다. 순위는 법적 적용 여부를 확정하지 않습니다. [설명](ranking.md)
 - **법령 원문 연계:** 법령 서버 주소(`DONGGUK_LEGAL_MCP_URL`)나 키(`LAW_OC`)가 있는 서버에서 기본으로 켜집니다. 없으면 오류 대신 `not_configured`와 설정 안내(`notice`, `setup`)를 돌려주고 규정 인용 결과는 그대로 반환합니다. 조문이 특정된 인용만, 한 번에 8개 조문까지 현행 원문을 가져옵니다. 법령 서버의 성공 응답은 캐시해 같은 법령을 여러 규정이 인용해도 다시 부르지 않습니다. 규정 제정·개정 당시의 조문과 다를 수 있습니다. 법령 서버가 응답하지 않으면 규정 인용 결과만 돌려줍니다.
 - **상위법령 관계:** `get_rule_upper_laws`의 점검 신호는 규정을 다시 볼 지점이며, 법령과 규정의 충돌이나 적용 여부의 판정이 아닙니다. 법령은 조회 시점의 현행본과 대조합니다. 조문 개정 표시는 공포일 기준이고, 인용한 규정 조문에 개정 표시일이 없으면 규정 개정일과 비교합니다. 제명이 바뀐 법령은 같은 번호의 현행 조문을 보여 주되 같은 내용이라고 보지 않습니다. 법령을 인용하지 않은 규정에 붙는 주제 후보는 규정 제목으로 고른 목록입니다. 한 번에 법령 12개·조문 8개까지 확인하고(남은 법령은 `law_offset`에 `page.nextOffset`을 넣어 이어서 확인), 법령 서버 연결 정보가 없거나 운영자가 꺼 둔 서버에서도 확인할 법령명·조문과 설정 안내를 돌려주며, `include_text=true`이면 인용 규정 조문과 법령 본문 미확보 상태를 함께 보여 줍니다.
 - **상위법령 본문 범위:** `get_rule_upper_laws`의 `lookup.status`는 법령·조문을 확인했는지, `textCoverage.status`는 `include_text=true`로 요청한 본문을 얼마나 받았는지를 따로 알립니다. 본문이 잘리면 `incompleteReasons`에 `LAW_TEXT_TRUNCATED`, 받지 못하면 `LAW_TEXT_UNAVAILABLE`이 들어가고 `evidenceStatus`는 `partial`입니다. 조문의 존재·삭제 여부는 `laws[].articles[].status`로 확인합니다.
@@ -158,7 +158,7 @@ v0.10.1의 `lookup_dongguk_rule`은 응답과 규정별 `evidenceStatus`(`retrie
 
 `get_rule_upper_laws({"law_id": LAW_ID, "article": "제9조", "include_text": true})`로 인용이 나온 **규정 조문 원문과 인용한 현행 국가 법령 조문 원문**을 2열로 읽을 수 있습니다. `article`을 생략하면 규정 전체에서 인용을 찾고, 과거 규정은 `history_id`로 고릅니다. 과거 규정을 골라도 오른쪽 법령은 조회 시점의 현행본입니다. 과거 당시 법령의 대조나 충돌·적용 여부 판정이 아닙니다. 점검 신호·CAVEAT는 그대로 제공합니다.
 
-규정 쪽은 인용 추출에 쓴 **HTML 조문 전체**이며 짧은 `citationText`만 보여 주지 않습니다. 별표·서식·그림을 포함한 규정 전문 조회는 `get_rule_full_text`를 사용하세요. 법령 쪽은 기존 korean-law 연동으로 확보한 본문을 재사용하며 새 API나 추가 법령 조회를 만들지 않습니다. `include_text:false`(기본)에서는 양쪽 본문과 대조 쌍을 반환하지 않습니다. 도구 수는 공개 15개·finance 19개 그대로입니다.
+규정 쪽은 인용 추출에 쓴 **HTML 조문 전체**이며 짧은 `citationText`만 보여 주지 않습니다. 별표·서식·그림을 포함한 규정 전문 조회는 `get_rule_full_text`를 사용하세요. 법령 쪽은 기존 korean-law 연동으로 확보한 본문을 재사용하며 새 API나 추가 법령 조회를 만들지 않습니다. `include_text:false`(기본)에서는 양쪽 본문과 대조 쌍을 반환하지 않습니다. 도구 수는 공개 15개·finance 기본 17개이며 재무 컨텍스트 2개를 별도로 켜면 19개입니다.
 
 구조화 응답의 기존 `laws`, `textCoverage`, `evidenceStatus`, `incompleteReasons`에 `comparison`을 추가했습니다.
 
@@ -260,20 +260,20 @@ dongguk-rule-mcp --http --profile rules --host 127.0.0.1 --port 3845 --token-fil
 
 공용 서버는 개인이 운영하는 장비 한 대에서 돌아가며 잠자기·전원·인터넷·터널·공식 원문 서버 상태에 따라 중단될 수 있습니다. 전교 동시 이용 규모·기관 SSO·모든 구성원의 앱 연결·현업 시간절감은 별도 검증 대상이며, 이 릴리스가 전원 계정 개통이나 가용성 SLA를 의미하지 않습니다.
 
-`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`를 선택하면 `get_finance_context`, `get_finance_evidence`, `search_finance_handbook`, `review_finance_case`가 추가되어 **19개 도구**가 됩니다. 내장 출장비·외부 강사료 공동 조회는 내부 자료팩 없이 사용할 수 있습니다. 그 외 기존 재무 업무 카드 조회는 검토한 비식별 지식팩을 `DONGGUK_FINANCE_PACK_PATH`로 별도 연결해야 합니다. 법령 연계와 로그인 쿠키도 선택 프로필의 운영 설정으로 관리합니다. 내부 자료는 공개 저장소·패키지에 포함하지 않습니다.
+`--profile finance` 또는 `DONGGUK_MCP_PROFILE=finance`는 `search_finance_handbook`, `review_finance_case`가 추가된 **17개 도구**를 제공합니다. 미완성인 `get_finance_context`, `get_finance_evidence`는 목록·실행에서 기본 제외하며 `DONGGUK_FINANCE_CONTEXT_ENABLED=1`로 켜면 19개가 됩니다. `1/on/true/yes`만 켬으로 읽으며 다른 값은 꺼짐입니다. 자료팩 경로만 설정해도 두 도구가 켜지는 것은 아닙니다. 내장 출장비·외부 강사료 공동 조회는 유지합니다. 내부 자료팩·쿠키·인증정보는 공개 저장소에 포함하지 않습니다.
 
 ### 켜고 끄는 설정
 
-> 이 절은 v0.15.15 기준입니다. v0.15.8 이하 설치본은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소(`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`, `DONGGUK_LEGAL_MCP_URL`) 또는 `LAW_OC`를 넣어야 켜집니다. 바뀐 내용은 [변경 기록](../CHANGELOG.md)의 v0.15.15 항목에 있습니다.
+> 이 절은 현재 소스 기준입니다. v0.15.15 배포본의 순위 결합·이름 사전 코드 기본값은 꺼짐이며 재무 컨텍스트 2개는 finance에서 켜져 있으므로, 배포 판본을 서비스 정보로 확인하세요. v0.15.8 이하 설치본은 타대학 비교에 `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=1`, 법령 연결에 `DONGGUK_LEGAL_MCP_ENABLED=1`·`DONGGUK_PUBLIC_LAW_LINK=1`과 주소(`DONGGUK_LEGAL_MCP_TRANSPORT=streamable-http`, `DONGGUK_LEGAL_MCP_URL`) 또는 `LAW_OC`를 넣어야 켜집니다. 바뀐 내용은 [변경 기록](../CHANGELOG.md)의 v0.15.15 항목에 있습니다.
 
-모든 도구는 기본으로 켜져 있습니다. 환경변수는 운영자가 끄거나, 바깥 서비스의 연결 정보를 넣을 때만 씁니다. 실제 상태는 `get_service_info`의 `integrations`에서 확인합니다.
+재무 업무 컨텍스트 2개는 명시적으로 켜야 합니다. 그 밖의 기능은 프로필·연결 조건에 따라 제공되며, 환경변수로 끄거나 외부 서비스 연결 정보를 넣습니다. 실제 상태는 `get_service_info`의 `integrations`에서 확인합니다.
 
 | 기능 | 기본 | 끄는 값 | 내용을 채우는 데 필요한 것 |
 |---|---|---|---|
 | 타대학 비교(`compare_university_rules`) | 켜짐 | `DONGGUK_UNIVERSITY_COMPARISON_ENABLED=0` | 없음. 서울대만 `DONGGUK_LAWGO_OC` |
 | 법령 연결(`get_rule_references`의 `include_law_text`, `get_rule_upper_laws`) | 주소나 키가 있으면 켜짐 | `DONGGUK_LEGAL_MCP_ENABLED=0`(전체), `DONGGUK_PUBLIC_LAW_LINK=0`(공개 프로필만) | `DONGGUK_LEGAL_MCP_URL`(한국법령 MCP 주소) 또는 `LAW_OC`(법제처 Open API 인증키 + 서버에 설치된 `korean-law-mcp`) |
 
-- 끄는 값은 문자 `0`뿐입니다. 값이 없거나 `0`이 아닌 값이면 켜진 것으로 봅니다.
+- 위 표의 타대학 비교·법령 연결을 끄는 값은 문자 `0`뿐입니다. 값이 없거나 `0`이 아닌 값이면 켜진 것으로 봅니다.
 - 법령 서버 주소·키가 없을 때는 오류가 아니라 `status: "not_configured"`, `code: "LAW_LINK_NOT_CONFIGURED"`와 함께 `notice`(사람이 읽는 안내), `setup.state`(`missing`·`invalid`·`disabled`·`disabled_public`), `setup.env`(넣을 환경변수 이름), `setup.ocApplyUrl`(OC 신청처)을 돌려줍니다. 규정 쪽 결과는 그대로입니다.
 - 주소만 넣으면 `DONGGUK_LEGAL_MCP_TRANSPORT`를 생략해도 `streamable-http`로 연결합니다. 기본 법령 서버 주소는 코드에 없습니다.
 - 법제처 Open API 인증키(OC)는 [open.law.go.kr](https://open.law.go.kr)에서 신청합니다. 키와 토큰은 접근제한 환경파일로만 주입하고 명령행·문서·저장소에 적지 않습니다.

@@ -52,7 +52,7 @@ async function main(){
   try{
     const pubTools=(await pub.c.listTools()).tools,privTools=(await priv.c.listTools()).tools;
     check('15 public tools; finance hidden',()=>{assert.equal(pubTools.length,15);assert.ok(!pubTools.some(x=>x.name.startsWith('get_finance_')));});
-    check('19 opt-in finance tools',()=>assert.equal(privTools.length,19));
+    check('17 default finance tools',()=>assert.equal(privTools.length,17));
     for(const tool of ['search_finance_handbook','review_finance_case']) {
       check(`${tool} hidden in public profile`,()=>assert.ok(!pubTools.some(x=>x.name===tool)));
       const blocked=await pub.call(tool,{query:'소모품비'});

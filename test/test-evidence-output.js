@@ -1,4 +1,6 @@
 'use strict';
+// This suite tests the optional finance context/evidence capability.
+process.env.DONGGUK_FINANCE_CONTEXT_ENABLED='1';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const {Client}=require('@modelcontextprotocol/sdk/client/index.js');
 const {InMemoryTransport}=require('@modelcontextprotocol/sdk/inMemory.js');
