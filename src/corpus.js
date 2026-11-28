@@ -280,6 +280,22 @@ const SEMANTIC_RULE_SHARE = 1;
 // - each rule reports its closest article, which callers excerpt next to the
 //   article the words chose. The word ranking of articles itself is unchanged;
 //   reordering articles by meaning lost more answers than it found.
+// The lift is a rank among all rules, so it knows nothing of how far apart the words put two
+// rules: several rules with a near article (the same article in the rules of each college,
+// every article about money for "돈을 얼마 내야") each gain up to twice and pass a rule the words
+// put well ahead, whose own nearest article lies just outside the reach. The rule the words
+// alone put first therefore stays among this many rules, the number a lookup shows. It is not
+// kept first: where it led clearly and the lift still passed it, the lift was right as often.
+const WORD_LEADER_WITHIN = 3;
+function keepWordLeader(hits) {
+  const leader = hits.reduce((best, hit) => hit.wordScore > best.wordScore || (hit.wordScore === best.wordScore && hit.lawId < best.lawId) ? hit : best, hits[0]);
+  const place = WORD_LEADER_WITHIN - 1, at = hits.indexOf(leader);
+  if (at <= place) return;
+  hits.splice(at, 1);
+  // Callers sort by score again: the leader takes a score just above the rule it displaces.
+  leader.score = hits[place].score * (1 + 1e-9);
+  hits.splice(place, 0, leader);
+}
 function arrangeSemantic(corpus, scores) {
   if (!scores?.size) return null;
   const closestArticle = new Map(), closeness = [];
@@ -454,6 +470,7 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
     });
   }
   hits.sort((a, b) => b.score - a.score || a.lawId - b.lawId);
+  if (sem) keepWordLeader(hits);
   const tokens = words.map(word => word.forms[0]);
   return {
     tokens: [...tokens, ...missingTerms], missingTerms, rewrittenTerms, semantic: !!sem,

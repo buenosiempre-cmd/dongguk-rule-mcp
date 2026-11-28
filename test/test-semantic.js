@@ -379,6 +379,29 @@ async function main() {
   check('낱말이 하나도 맞지 않는 규정은 뜻이 가까워도 후보에 넣지 않음', !outside.hits.some(hit => hit.lawId >= 100)
     && !searchCorpus(crowded, question, { top: 50, semantic: new Map([...far]) }).hits.some(hit => hit.lawId >= 100));
 
+  // 낱말로 1위인 규정은 뜻이 가까운 다른 규정들이 가산으로 앞질러도 보여 주는 3개 안에 남음
+  const rule = (lawId, title, body) => ({ lawId, historyId: 1, title, code: '', revisedAt: '', blocks: [{ article: '제5조', content: `제5조(${body}) ${body}`, supplementary: false }] });
+  const rivals = [rule(201, '갑 내규', '특허 실적 보상금 인정'), rule(202, '을 내규', '특허 실적 보상금 인정'), rule(203, '병 내규', '특허 실적 보상금 인정'), rule(204, '정 내규', '특허 실적 보상금 인정')];
+  const leading = rule(200, '지식재산 규정', '특허 보상금 배분');
+  const contested = { ...loaded, rules: [leading, ...rivals] };
+  const asked = '특허 보상금';
+  const plain = searchCorpus(contested, asked, { top: 5 });
+  const nearRivals = new Map(rivals.map((item, i) => [item.blocks[0], 0.9 - i * 0.01]));
+  const lifted = searchCorpus(contested, asked, { top: 5, semantic: nearRivals });
+  const leaderHit = found => found.hits.find(hit => hit.lawId === 200);
+  check('반례 준비: 낱말로는 1위이고, 가산만 따르면 4위 밖으로 밀리는 규정', plain.hits[0].lawId === 200
+    && rivals.filter(item => lifted.hits.find(hit => hit.lawId === item.lawId).wordScore * (2 - rivals.indexOf(item) * 0.1) > leaderHit(plain).score).length >= 3);
+  check('낱말 1위 규정은 가산에 밀려도 셋째 자리에 남고, 낱말 점수와 앞선 두 규정은 그대로', lifted.hits[2].lawId === 200
+    && lifted.hits.slice(0, 2).map(hit => hit.lawId).join() === '201,202' && leaderHit(lifted).wordScore === leaderHit(plain).score
+    && leaderHit(lifted).score > lifted.hits[3].score && leaderHit(lifted).score <= lifted.hits[1].score
+    && [...lifted.hits].sort((x, y) => y.score - x.score || x.lawId - y.lawId).map(hit => hit.lawId).join() === lifted.hits.map(hit => hit.lawId).join());
+  const leaderNear = searchCorpus(contested, asked, { top: 5, semantic: new Map([[leading.blocks[0], 0.95], ...nearRivals]) });
+  check('대조: 낱말 1위 규정이 이미 3위 안이면 순서와 점수는 가산 그대로', leaderNear.hits[0].lawId === 200
+    && Math.abs(leaderHit(leaderNear).score / leaderHit(leaderNear).wordScore - 2) < 1e-9);
+  const twoRivals = searchCorpus({ ...loaded, rules: [leading, ...rivals.slice(0, 2)] }, asked, { top: 5, semantic: new Map([...nearRivals].slice(0, 2)) });
+  check('대조: 앞지른 규정이 둘뿐이면 자리를 옮기지 않음', twoRivals.hits.map(hit => hit.lawId).join() === '201,202,200' && leaderHit(twoRivals).score === leaderHit(twoRivals).wordScore);
+  check('대조: 의미 점수가 없으면 낱말 순서 그대로', plain.hits.every(hit => hit.score === hit.wordScore) && plain.semantic === false);
+
   // ── 조회 응답 ──
   semantic.setEmbedderForTests(fakeEmbedder());
   const server = createServer({ profile: 'rules' });
