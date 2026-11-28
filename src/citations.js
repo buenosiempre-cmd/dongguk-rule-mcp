@@ -92,11 +92,12 @@ function overlaps(spans, start, end) {
 
 // 한 문단(segment) 안에서 규정명 멘션 수집: 낫표 → 조응 → 무낫표 순
 function scanMentions(segment) {
-  const mentions = [];
+  let mentions = [];
   // Alias definitions describe the preceding source. A quoted/bare word inside
   // '(이하 "법"이라 한다)' must not replace it with a source named '법'.
-  const spans = [...segment.matchAll(/[(（]\s*이하[^)）\n]{1,100}[)）]/g)]
+  const definitions = [...segment.matchAll(/[(（]\s*이하[^)）\n]{1,100}[)）]/g)]
     .map(m => ({ start: m.index, end: m.index + m[0].length }));
+  const spans = [];
   let m;
 
   // 1) 「규정명」 — 내부만 캡처하므로 닫는 낫표 잔존 문제 없음
@@ -157,6 +158,14 @@ function scanMentions(segment) {
   }
 
   mentions.sort((a, b) => a.start - b.start);
+  // Only suppress words inside a definition attached to an actually recognized
+  // source. Guessing the attachment from a suffix can hide a real law named
+  // after an ordinary word such as '방법(이하 「사립학교법」이라 한다)'.
+  for (const definition of definitions) {
+    const owner = [...mentions].reverse().find(x => x.end <= definition.start
+      && /^\s*$/.test(segment.slice(x.end, definition.start)));
+    if (owner) mentions = mentions.filter(x => x.start < definition.start || x.start >= definition.end);
+  }
   return mentions;
 }
 

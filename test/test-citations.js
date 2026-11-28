@@ -630,6 +630,12 @@ const deps = {
   const returnedOwner = await verifyRuleCitations('여비규정 제9조. 사립학교법 중 제13조. 여비규정 제13조', ownerDeps);
   check('명시한 새 교내 명칭은 출처를 다시 설정', returnedOwner.citations[1]?.status === 'EXTERNAL_LAW'
     && returnedOwner.citations[2]?.ruleName === '여비규정' && returnedOwner.citations[2]?.status === 'EXISTS');
+  const unattachedAlias = await verifyRuleCitations('여비규정 제9조. (이하 「사립학교법」이라 한다) 제13조', ownerDeps);
+  check('명칭에 붙지 않은 별칭 괄호가 실제 법령 멘션을 숨기지 않음', unattachedAlias.summary.verified === 1
+    && unattachedAlias.citations[1]?.ruleName === '사립학교법' && unattachedAlias.citations[1]?.status === 'EXTERNAL_LAW');
+  const ordinaryAlias = await verifyRuleCitations('여비규정 제9조. 방법(이하 「사립학교법」이라 한다) 제13조', ownerDeps);
+  check('일반 명사를 출처로 간주해 괄호 안 실제 법령명을 숨기지 않음', ordinaryAlias.summary.verified === 1
+    && ordinaryAlias.citations[1]?.ruleName === '사립학교법' && ordinaryAlias.citations[1]?.status === 'EXTERNAL_LAW');
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📊 인용 검증: ${pass}개 통과 / ${fail}개 실패`);
