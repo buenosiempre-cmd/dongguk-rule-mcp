@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { listArticleBlocks, CONTENT_PARSER_VERSION } = require('./parsers.js');
-const { businessTerms, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
+const { businessTerms, verbNoun, containsTerm, generalRuleWeight, headingCueStrength, asksIntent, questionSubject, subjectWeight } = require('./aliases.js');
 const { queryConcepts, keywordConcepts, ruleFamily } = require('./lookup.js');
 
 // Local full-text index of every current rule. It only narrows candidates:
@@ -323,10 +323,14 @@ function searchCorpus(corpus, query, { top = 3, perDoc = 5, keywords = null, sem
   // A rule-vocabulary form stands in for the question word, so it never counts
   // for more than that word itself would ("식사" → 금품등 must not outweigh a
   // rule that says 식사). A word no rule contains lends its full weight.
+  // A verb stands for its rule noun ("낳으면" → 출산): the noun is then the word asked, and the
+  // other words of its group (육아, 양육) count for no more than it does.
   for (const concept of concepts) {
-    const own = documentFrequency(concept.term) ? weight(concept.term) : Infinity;
+    const noun = documentFrequency(concept.term) ? null : verbNoun(concept.term);
+    const asked = noun && documentFrequency(noun) ? noun : concept.term;
+    const own = documentFrequency(asked) ? weight(asked) : Infinity;
     const share = concept.share || 1;
-    concept.weights = new Map(concept.forms.map(form => [form, (form === concept.term ? weight(form) : Math.min(weight(form), own) * 0.9) * share]));
+    concept.weights = new Map(concept.forms.map(form => [form, (form === asked ? weight(form) : Math.min(weight(form), own) * 0.9) * share]));
   }
   const formWeight = (concept, forms) => Math.max(0, ...forms.map(form => concept.weights.get(form)));
   const words = concepts.filter(concept => !concept.joined);

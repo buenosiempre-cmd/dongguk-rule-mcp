@@ -129,7 +129,10 @@ for (const [everyday, ruleTerms] of CONCEPT_GROUPS) {
 const COMPOUND_WORDS = new Map([
   ['월급날', ['월급', '지급일']], ['급여일', ['급여', '지급일']], ['급여날', ['급여', '지급일']], ['봉급날', ['봉급', '지급일']],
 ]);
-function compoundParts(term) { return COMPOUND_WORDS.get(term) || [term]; }
+// A word the rules never write as one (they say 연차유급휴가 or 연가, not 연차휴가). Shortened to
+// its tail (휴가) it loses its head, so each part is searched as its own concept.
+const SPLIT_WORDS = new Map([['연차휴가', ['연차', '휴가']]]);
+function compoundParts(term) { return COMPOUND_WORDS.get(term) || SPLIT_WORDS.get(term) || [term]; }
 // Everyday phrases of several words that a rule says in one ("없을 때" → 부재).
 // The rule word is searched as an extra concept of the question.
 const PHRASE_CONCEPTS = [
@@ -140,7 +143,7 @@ const PHRASE_CONCEPTS = [
   [/안\s*지키|지키지\s*않/, '위반'],
   [/안\s*(?:해도|써도|찍어도|내도|받아도)\s*(?:돼|되)/, '생략'],
   [/새로\s*만들|새로\s*생기/, '제정'],
-  [/번\s*돈|벌어들인/, '수익'],
+  [/번\s*돈|벌어들인|돈을?\s*(?:벌(?!금)|버는)/, '수익'],
   [/(?:다른|딴)\s*(?:데|곳|용도|목적)|목적\s*(?:외|말고|이외|밖)|돌려\s*(?:써|쓰|쓸)/, '목적외'],
   [/계약\s*(?:을\s*)?(?:취소|깨|끊|파기)|계약\s*안\s*지키/, '해약'],
   [/자동으로\s*(?:퇴직|면직|그만)|저절로\s*(?:퇴직|면직)/, '당연퇴직'],
@@ -163,6 +166,12 @@ const PHRASE_CONCEPTS = [
   [/개인\s*(?:용무|용도|적으로|일로|볼일)|사적으로|집에\s*가져/, '사적'],
   [/(?:한\s*곳|한\s*군데|하나|한\s*명).{0,3}(?:만|밖에).{0,10}(?:들어오|참여|응찰|입찰)/, '재입찰'],
   [/(?:서류|계약서|영수증|증빙).{0,6}없이/, '생략'],
+  // "벌을 받다" is 징계 in the rules; 벌 alone is one syllable and never reaches the dictionary.
+  [/벌을?\s*(?:받|주|줘|줄)|(?:어떤|무슨)\s*벌(?![가-힣])/, '징계'],
+  // A contract made without competition or bidding is 수의계약.
+  [/(?:경쟁|입찰)(?:을|에)?\s*(?:없이|안\s*(?:붙|부치|거치|하)|(?:붙이|부치|거치|하)지\s*않)/, '수의계약'],
+  // Lending or taking school property outside is 반출.
+  [/(?:외부|바깥|밖)(?:에|으로|로)?\s*(?:빌려|가져가|가지고\s*나|들고\s*나)/, '반출'],
 ];
 function phraseConcepts(query) {
   const text = String(query || '');
@@ -231,8 +240,16 @@ function businessTerms(term, { verbs = true } = {}) {
   const stem = (verbs && VERB_STEMS.find(([pattern]) => pattern.test(term))?.[1]) || term;
   return [...new Set([term, stem, ...ruleTermsOf(stem), ...suffixVariants(stem)])];
 }
+// The rule noun a verb stands for ("낳으면" → 출산), when the dictionary lists that noun among the
+// rule words of its own group. Null for other words.
+function verbNoun(term) {
+  const stem = VERB_STEMS.find(([pattern]) => pattern.test(term))?.[1];
+  return stem && stem !== term && CONCEPT_GROUPS.some(([everyday, rule]) => everyday.includes(stem) && rule.includes(stem)) ? stem : null;
+}
 // A word the dictionary knows as written ("출산휴가", "회계연도") keeps its last syllable.
 const knownTerm = term => RULE_VOCABULARY.has(term) || (labelsEnabled() && LABEL_VOCABULARY.has(term)) || COMPOUND_WORDS.has(term);
+// A question word that is kept as written: its last syllable is not a particle ("연차휴가", not 연차휴 + 가).
+const wholeWord = term => knownTerm(term) || SPLIT_WORDS.has(term);
 // Comparison topics are rule names; only name-level synonyms are expanded there.
 const RULE_NAME_SYNONYMS = new Set(['강사료', '강의료', '출장비', '여비', '법카', '법인카드', '클린카드']);
 function comparisonTerms(term) {
@@ -249,10 +266,10 @@ const QUESTION_INTENTS = [
   { ask: /자주|몇\s*번|몇\s*회|횟수|주기/, headings: [/횟수|주기|시기/] },
   { ask: /몇\s*(?:년|학기|개월|달)|얼마\s*동안|언제까지|기간/, headings: [/기간|연한|연수|임기/] },
   // "지급" only where the heading ends with it (일비 등의 지급), not 지급대상·지급일.
-  { ask: /얼마(?!나\s*자주)|금액|액수|몇\s*원|단가/, headings: [/지급액|금액|액$|단가|요율/, /산정|기준$/, /지급$/] },
+  { ask: /얼마(?!나\s*자주)|금액|액수|몇\s*원|단가/, headings: [/지급액|금액|액$|단가|요율|(?:수수료|(?<![수자시가])료)$|요금/, /산정|기준$/, /지급$/] },
   { ask: /몇\s*점|점수|커트라인/, headings: [/심사|평가/, /기준/] },
   // The topic word 징계 alone is not this intent: "징계는 어떤 것들이 있어" asks for kinds.
-  { ask: /제재|처벌|불이익|벌칙|어떤\s*조치/, headings: [/제재|조치|징계|벌칙|처분/] },
+  { ask: /제재|처벌|불이익|벌칙|어떤\s*조치|벌을?\s*(?:받|주|줘|줄)|(?:어떤|무슨)\s*벌(?![가-힣])/, headings: [/제재|조치|징계|벌칙|처분/] },
   // "~하면 어떻게 돼?" asks what follows.
   { ask: /면\s*어떻게\s*(?:돼|되|됨)|는\s*어떻게\s*(?:돼|되)/, headings: [/조치|제재|처리|효과|불이익/] },
   { ask: /종류|유형|구분|어떤\s*(?:게|것|것들)이?\s*있|뭐가\s*있|무엇이\s*있/, headings: [/종류|구분|유형/] },
@@ -372,7 +389,7 @@ function generalRuleWeight(title, query, hasGeneralEdition = false, { code = '',
 
 module.exports = {
   labelsEnabled,
-  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, knownTerm, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
+  RULE_VOCABULARY, CONCEPT_GROUPS, questionSubject, subjectWeight, businessTerms, verbNoun, knownTerm, wholeWord, containsTerm, compoundParts, phraseConcepts, comparisonTerms, headingCueStrength, asksIntent, questionScope, ruleScopeClass, ruleSubject, generalRuleWeight,
   BUILTIN_ALIASES,
   aliasTable,
   resetAliasCacheForTest,
