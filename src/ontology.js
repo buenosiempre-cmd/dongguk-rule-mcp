@@ -175,6 +175,15 @@ function placeOf(title) {
   if (!titlePlaces.has(text)) titlePlaces.set(text,freeze({campus:places.filter(x => x.axis === 'campus' && x.title.test(text)).map(x => x.id),institution:places.filter(x => x.axis === 'institution' && x.title.test(text)).map(x => x.id)}));
   return titlePlaces.get(text);
 }
+// The campuses a rule's first article names ("동국대학교 서울캠퍼스(이하 "본교"라 한다)", "WISE캠퍼스에
+// 둔다"). It is what the rule says about itself, not a finding that the rule applies nowhere else:
+// callers use it to hold back a single-rule answer and to tell the reader, never to drop the rule.
+function bodyCampus(rule) {
+  const first = Array.isArray(rule?.blocks) ? rule.blocks.find(b => b && !b.supplementary && b.article === '제1조' && typeof b.content === 'string') : null;
+  if (!first) return [];
+  const text = compact(first.content);
+  return places.filter(x => x.axis === 'campus' && x.title.test(text)).map(x => x.id);
+}
 // How well a rule's place fits the asked one: positive when the rule is written for a place
 // the question names, negative when it is written for a place the question leaves out, and 0
 // for a university-wide rule (취업규칙 still answers a WISE question when no WISE edition
@@ -223,4 +232,4 @@ function createFacetSignal({corpus, query, keywords} = {}) {
   const covers = (wider, narrower) => !!data.subjects.find(x => x.id === wider)?.covers.includes(narrower);
   return Object.freeze({question,ruleOf,matchOf:lawId=>matchFacets(question,ruleOf(lawId)),covers,status:loaded.status});
 }
-module.exports = { data, dataStatus:loaded.status, validateData, loadOntologyData, questionFacets, ruleFacets, matchFacets, createFacetSignal, bodySubject, placeRequest, placeOf, placeAgreement };
+module.exports = { data, dataStatus:loaded.status, validateData, loadOntologyData, questionFacets, ruleFacets, matchFacets, createFacetSignal, bodySubject, placeRequest, placeOf, placeAgreement, bodyCampus };
