@@ -162,7 +162,7 @@ const {
 } = require('./protocol.js');
 const { CATALOG_PAGE_SIZE, validateCatalog, isoDate, checkRuleUpdates, formatRuleUpdates } = require('./catalog.js');
 const { rankRules, rankingMethod } = require('./fusion.js');
-const { createFacetSignal } = require('./ontology.js');
+const { createFacetSignal, data: ontologyData } = require('./ontology.js');
 const { labelsEnabled } = require('./aliases.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
@@ -820,21 +820,36 @@ async function questionSemantics(question,keywordPhrases,{asOf=null}={}){
   const keyed=keywordPhrases?.length?await semanticScores({corpus,directory,text:`${question} ${keywordPhrases.map(phrase=>phrase.join(' ')).join(', ')}`}):null;
   return {question:asked,keyed:keyed||asked};
 }
+// Under hybrid the campus a question names is read as a place (fusion.js): a rule written for
+// it counts for more, one for another campus for less. The same word also scored as a search
+// word, so every rule with the campus in its title or articles gained twice and filled the
+// first places whatever its topic. There the campus word is left out of the word score.
+// Institutions (산학협력단, 대학원) are not left out: they are also what a rule is about.
+const CAMPUS_WORD=new RegExp(`^(?:(?:${ontologyData.scopes.filter(scope=>scope.axis==='campus').map(scope=>scope.ask).join('|')})(?:캠퍼스)?|캠퍼스)$`,'i');
 function candidatesFromIndex(keyword,{top=5,campus='all',scopeQuery=keyword,keywords=null,previewLimit=INDEX_PREVIEW_RULES,semantic=null}={}){
   if(requestCookie()) return null;
   const corpus=loadCorpus(publicCacheDir());
   if(!corpus) return null;
   // Scope selection must see editions beyond the unscoped score cutoff.
-  const found=searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords,semantic:keywords?.length?semantic?.keyed:semantic?.question});
+  const search=options=>searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:3,keywords,semantic:keywords?.length?semantic?.keyed:semantic?.question,...options});
+  const everyWord=search({});
+  const withoutTerms=rankingMethod()==='hybrid'&&everyWord.tokens.some(term=>CAMPUS_WORD.test(term))?CAMPUS_WORD:null;
+  const found=withoutTerms?search({withoutTerms}):everyWord;
   if(!found.hits.length) return null;
   // Campus and institution are read from the question, never from the keywords.
   let {hits,dominant,method}=rankIndexHits(found,{top,campus,scopeQuery});
+  // Leaving the campus word out reorders rules; it never makes a lookup show one rule alone
+  // that every word of the question did not single out.
+  if(withoutTerms&&dominant){
+    const before=rankIndexHits(everyWord,{top,campus,scopeQuery});
+    if(!before.dominant||before.hits[0].lawId!==hits[0].lawId) dominant=false;
+  }
   // Keywords can be off the mark. The rule the question alone would have chosen stays among
   // the previews, and its article stays in the excerpt of a rule both searches found.
   let keywordInfo=null;
   if(keywords?.length){
     keywordInfo={...found.keywords,applied:found.keywordMode,questionRuleKept:null};
-    const alone=found.keywordMode?searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1,semantic:semantic?.question}):null;
+    const alone=found.keywordMode?searchCorpus(corpus,keyword,{top:corpus.rules.length,perDoc:1,semantic:semantic?.question,withoutTerms}):null;
     if(alone?.hits.length){
       const question=rankIndexHits(alone,{top:corpus.rules.length,campus,scopeQuery});
       const byId=new Map(question.hits.map(hit=>[hit.lawId,hit]));
