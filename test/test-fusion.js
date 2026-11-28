@@ -23,7 +23,7 @@ check('방식 이름: 기본은 hybrid, 모르는 값도 hybrid', () => {
 });
 check('실험 방식과 훅은 이 모듈에 없음: rrf·jev는 기본 hybrid로 읽고, 그래프·확률·장소 판독을 넘겨도 순서가 같음', () => {
   for (const name of ['rrf', 'jev', 'graph']) assert.equal(rankingMethod(name), 'hybrid');
-  assert.deepEqual(Object.keys(fusion).sort(), ['DEFAULT_METHOD', 'METHODS', 'rankRules', 'rankingMethod']);
+  assert.deepEqual(Object.keys(fusion).sort(), ['DEFAULT_METHOD', 'METHODS', 'meaningElsewhere', 'rankRules', 'rankingMethod']);
   const candidates = () => { nextId = 100; return [candidate('가 규정', 10), candidate('나 규정', 9), candidate('WISE캠퍼스 다 규정', 8)]; };
   const extras = { semantic: true, graph: new Map([[101, 5]]), probability: new Map([[101, 0.9], [100, 0.1]]), placeAgreementOf: () => -1 };
   for (const method of ['legacy', 'hybrid', 'rrf', 'jev']) {
@@ -210,5 +210,17 @@ check('뭐 하는 곳인지 묻는 질문은 기능·직능 조문, 뽑힐 수 �
   assert.deepEqual(aliases.phraseConcepts('산학협력단 직원으로 뽑힐 수 없는 사람은 누구야'), ['결격사유']);
   assert.deepEqual(aliases.phraseConcepts('직원으로 뽑을 수 없는 사람'), ['결격사유']);
 }));
+
+check('의미 조건: 다른 후보의 가산 뒤 점수가 1위의 낱말 점수에 닿는지가 경계', () => {
+  const { meaningElsewhere } = require('../src/fusion.js');
+  const at = (leaderWordScore, otherScores, more = {}) => meaningElsewhere({ applied: true, leaderRank: 3, leaderWordScore, otherScores, ...more });
+  assert.equal(at(10, [9.99, 4]), false, '아래: 닿지 않으면 확정을 막지 않음');
+  assert.equal(at(10, [10, 4]), true, '같음: 닿으면 확정하지 않음');
+  assert.equal(at(10, [4, 10.01]), true, '위: 넘으면 확정하지 않음(가장 높은 후보를 봄)');
+  assert.equal(at(10, [30], { leaderRank: 1 }), false, '낱말 1위가 의미 1위이면 다른 후보의 점수와 관계없이 막지 않음');
+  assert.equal(at(10, [30], { leaderRank: null }), true, '의미 순위가 없는 1위는 의미 1위가 아님');
+  assert.equal(at(10, [30], { applied: false }), false, '의미검색이 적용되지 않은 응답에서는 동작하지 않음');
+  assert.equal(at(10, []), false, '다른 후보가 없으면 동작하지 않음');
+});
 
 console.log(`📊 순위 결합 검증: ${passed}개 통과`);
