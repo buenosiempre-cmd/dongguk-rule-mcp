@@ -28,6 +28,74 @@ const rule = { title: '합성 여비규정', lawId: 1, historyId: 2, markdown: '
 const dongguk = async () => ({ rules: [rule], failures: [], coverage: { mode: 'fixture', truncated: false } });
 const response = (html, status = 200) => ({ ok: status >= 200 && status < 300, status, text: async () => html });
 async function main() {
+  for (const topic of ['법인카드 사용 제한','법인 카드 사용 제한','카드 사용']) {
+    await check(`제목의 주제명보다 질문의 사용 제한을 보존: ${topic} / 19개 대학 공통 경로`, async () => {
+      const synthetic={...rule,title:'합성 법인카드 규정',markdown:'### 제1조(법인카드 정의)\n법인카드라 함은 기관 명의 신용카드이다.\n\n### 제2조(법인카드 발급)\n법인카드를 발급한다.\n\n### 제3조(법인카드 관리)\n법인카드 관리자를 둔다.\n\n### 제6조(사용의 제한)\n법인카드 사용은 사적인 용도로 제한하며 사용 금지 업종을 정한다.'};
+      const load=async()=>({rules:[synthetic],failures:[],coverage:{complete:true}});
+      const schools=SOURCES.filter(s=>s.key!=='dongguk').map(s=>s.key);
+      assert.equal(schools.length,19);
+      for(let i=0;i<schools.length;i+=5){
+        const d=await compareUniversityRules({topic,universities:schools.slice(i,i+5),max_articles:3},{loadDongguk:load,loadExternalImpl:load});
+        for(const col of d.columns) assert.deepEqual(col.articles.map(a=>a.article),['제6조','제1조','제2조']);
+      }
+    });
+  }
+  await check('단독 증빙: 학사·업적 일치도 재무 근거라고 확정하지 않고 용도를 안내', async () => {
+    const load=async()=>({rules:[{...rule,title:'학칙',markdown:'### 제12조(휴학)\n휴학 증빙서류와 증빙자료를 제출한다.'}],failures:[],coverage:{complete:true}});
+    for(const topic of ['증빙','증빙서류','증빙자료']){
+      const d=await compareUniversityRules({topic,universities:['skku']},{loadDongguk:load,loadExternalImpl:load});
+      assert(d.columns[1].articles.length > 0);
+      assert.match(d.columns[1].articles[0].topicMatch.contextNotice,/용도.*재무.*학사/);
+      const text=formatComparison(d);assert.match(text,/용도가 재무 지출인지 학사·업적 제출인지 확인/);assert(!text.includes('재무 주제 핵심어의'));
+    }
+    const {comparisonTopic}=require('../src/comparison-topics');
+    assert(!comparisonTopic('지출 증빙').contextNotice);
+  });
+  await check('재무 주제: 시설 사용 제한은 법인카드 근거가 아닌 약한 후보', async () => {
+    const rules = [{...rule, title:'시설물 사용에 관한 규정', markdown:'### 제8조(사용제한)\n시설물 사용을 제한할 수 있다.'}];
+    const calls=[];
+    const d=await compareUniversityRules({topic:'법인카드 사용 제한',universities:['hanyang']},{
+      loadDongguk:async(...a)=>{calls.push(a);return {rules,failures:[],coverage:{}};},
+      loadExternalImpl:async(...a)=>{calls.push(a);return {rules,failures:[],coverage:{}};},
+    });
+    assert.equal(calls.length,2); // One load per university; no retry or supplemental request.
+    assert.deepEqual(calls[1][5].searchTerms,expandTopic('법인카드 사용 제한').searchTerms);
+    assert.equal(d.columns[1].articles[0].topicMatch.basis,'weak');
+    assert.equal(d.columns[1].status,'partial');
+    const text=formatComparison(d);assert.match(text,/주제 일치 약함/);assert.match(text,/같은 사안의 비교 근거로 확정할 수 없습니다/);
+  });
+  await check('수의계약: PDF 첫 줄 본문 언급보다 실제 조문 제목을 우선', () => {
+    const {selectArticles}=require('../src/university-rules');
+    const rules=[{...rule,title:'재무회계규정',markdown:'### 제71조(예정가격의 비치) ① 경쟁입찰 또는 수의계약 등에 부칠 사항의 예정가격을 정한다.\n수의계약 금액을 정한다.\n\n### 제81조(수의계약) ① 수의계약에 의할 수 있는 경우는 다음과 같다.'}];
+    const d=selectArticles(rules,['수의계약'],3);
+    assert.deepEqual(d.articles.map(a=>a.article),['제81조','제71조']);
+    assert.equal(d.articles[0].topicMatch.basis,'heading');assert.equal(d.articles[1].topicMatch.basis,'body');
+  });
+  await check('법인카드: 사용 제한 제목을 발급 제목보다 앞에, 약한 후보는 뒤에', () => {
+    const {selectArticles}=require('../src/university-rules');
+    const rules=[{...rule,title:'법인카드 규정',markdown:'### 제4조(법인카드 발급)\n법인카드를 발급하고 사용을 제한한다.\n\n### 제6조(법인카드 사용의 제한)\n법인카드는 대여할 수 없다.'},{...rule,lawId:2,title:'시설물 사용 제한',markdown:'### 제8조(사용 제한)\n사용 제한'}];
+    const d=selectArticles(rules,['법인카드','사용','제한'],3);
+    assert.deepEqual(d.articles.map(a=>a.article),['제6조','제4조','제8조']);
+    assert.equal(d.articles[2].topicMatch.basis,'weak');
+  });
+  await check('재무 주제별 제목·본문·부분 일치와 복합 주제 보류', () => {
+    const {comparisonTopic,assessTopic}=require('../src/comparison-topics');
+    for(const [topic,heading,weak] of [['법인카드','법인 카드 사용','시설 사용'],['수의계약','수의 계약','계약'],['구매','구매 절차','절차'],['회의비','회의비 집행','회의실'],['예산 전용','예산의 전용','전용 계좌'],['증빙','증빙 서류','서류']]) {
+      const p=comparisonTopic(topic);assert(p);
+      assert.equal(assessTopic({content:`### 제2조(${heading}) 본문`},p,[topic]).basis,'heading');
+      assert.equal(assessTopic({content:`### 제2조(기타) ${heading}을 정한다.`},p,[topic]).basis,'body');
+      assert.equal(assessTopic({content:`### 제2조(${weak}) 본문`},p,[topic]).basis,'weak');
+    }
+    assert.equal(comparisonTopic('회의비 법인카드'),null);assert.equal(comparisonTopic('교원 겸직'),null);
+  });
+  await check('기존 프레임·학사 주제는 보조 주제 평가를 적용하지 않음', () => {
+    const {selectArticles}=require('../src/university-rules');
+    const spec=expandTopic('여비');
+    const d=selectArticles([rule],spec.terms,3,spec.titleHints,spec.frame,'여비');
+    assert(d.articles.length);assert(d.articles.every(a=>!('topicMatch' in a)));
+    const normal=selectArticles([{...rule,markdown:'### 제1조(휴학)\n휴학한다.'}],['휴학'],3);
+    assert.equal(normal.articles[0].article,'제1조');assert(!('topicMatch' in normal.articles[0]));
+  });
   await check('포팅 파서: 숫자·문자 ID, 중복, 링크, 제목', () => {
     const p = parsePairs(`<a onclick="fullPopupPost(73, 3551,'x')">여비규정</a><a onclick="fullPopupPost('73','3551','x')">중복</a><a href="/x?SEQ=80&amp;SEQ_HISTORY=900">학칙</a>`);
     assert.deepEqual(p, [{ lawId: 73, historyId: 3551, title: '여비규정' }, { lawId: 80, historyId: 900, title: '학칙' }]);
