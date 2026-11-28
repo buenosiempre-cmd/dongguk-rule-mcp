@@ -754,7 +754,7 @@ async function hHistory(rawLawId){
 // the runner-up; callers may preview it instead of asking for a law_id.
 const INDEX_PREVIEW_RULES=3;
 // A rule whose main body (before 부칙 and 별표) is at most this long is shown whole for a question.
-// About a third of the rules are this short; the three-rule preview grows by 4% on average.
+// Expand only when no section count was supplied and the complete excerpt fits.
 const WHOLE_BODY_CHARS=2000;
 const CAMPUS_NAME={seoul:'서울캠퍼스',wise:'WISE캠퍼스'};
 const KEYWORDS_MAX_CHARS=200;
@@ -1005,7 +1005,7 @@ async function hLookup(rawKeyword, {
   scopeQuery=rawKeyword,
   campus='all',
   maxRules=1,
-  maxSections=4,
+  maxSections,
   maxChars=12000,
   includeHistory=false,
   asOf=null,
@@ -1018,6 +1018,7 @@ async function hLookup(rawKeyword, {
   const keywordPhrases=parseKeywords(keywords);
   if(!keyword) return failure('INVALID_ARGUMENT', '규정명 또는 질문(rule_keyword 또는 query)을 입력해주세요. 예: "여비규정", "대전 출장 여비규정의 일비와 숙박비"');
   maxRules=clampNumber(maxRules,1,1,3);
+  const sectionsSpecified=maxSections!==undefined;
   maxSections=clampNumber(maxSections,4,1,12);
   maxChars=clampNumber(maxChars,12000,1000,30000);
   const lg=cmap(campus), pageShow=Math.max(10,maxRules*5);
@@ -1192,7 +1193,7 @@ async function hLookup(rawKeyword, {
       maxBlocks:maxSections,maxChars,...(indexMode||focus?{order:'relevance'}:{}),
       // A question answered from the index, with no terms of the caller's own: a short rule is
       // shown whole instead of a few chosen articles.
-      ...(indexMode&&noSelectors&&autoTerms&&!focus?{wholeBodyChars:WHOLE_BODY_CHARS}:{}),
+      ...(indexMode&&noSelectors&&autoTerms&&!focus&&!sectionsSpecified?{wholeBodyChars:WHOLE_BODY_CHARS}:{}),
       ...(preferredArticles.length?{priorityArticles:preferredArticles}:{}),
     });
     let historyText='';
@@ -1233,7 +1234,7 @@ async function hLookup(rawKeyword, {
     const displayExcerpt = annotateDelegationExcerpt(excerpt.text, ruleNotices);
     if(validStr(terms)){
       out+=excerpt.text
-        ? `\n\n### 관련 조문·별표\n\n${excerpt.wholeBody?'> 본문이 짧아 조문을 고르지 않고 본문 전체를 보여 줍니다(부칙·별표는 일치한 부분만).\n\n':''}${displayExcerpt}`
+        ? `\n\n### 관련 조문·별표\n\n${excerpt.wholeBody?'> 선택한 조문 뒤에 짧은 본문의 나머지를 덧붙여 본문 전체를 보여 줍니다(부칙·별표는 일치한 부분만).\n\n':''}${displayExcerpt}`
         : `\n\n### 관련 조문·별표\n\n'${terms}'과 직접 일치하는 부분을 찾지 못했습니다. ` +
           `terms에는 핵심 명사만 입력해 다시 조회하세요.`;
     }else{
@@ -1542,7 +1543,7 @@ server.setRequestHandler(ListToolsRequestSchema, async ()=>({ tools:[
       terms:{type:'string',description:'조문·별표 번호를 알 때만 넣는 발췌 조건. 예: 제10조, 제10조의2, 별표1. 명시하면 이 조건으로만 발췌하므로, 번호를 모르면 비워 두고 주제어는 keywords에 넣으세요. 생략하면 query와 keywords에서 발췌 조건을 만듭니다.'},
       campus:{type:'string',description:'업무 캠퍼스 맥락 all/seoul/wise. 공식 목록에는 캠퍼스 필터가 없어 전체 검색 후 적용범위를 확인합니다.',default:'all'},
       max_rules:{type:'number',description:'조회할 규정 수. 기본 1, 최대 3. 자연어 색인의 모호한 후보는 기본 1 요청에도 최대 3개 미확정 미리보기로 반환하며 selection은 실제 반환 개수를 따릅니다.',default:1},
-      max_sections:{type:'number',description:'규정별 관련 블록 수. 기본 4, 최대 12. 자연어 색인의 다중 미리보기는 최대 3.',default:4},
+      max_sections:{type:'number',description:'규정별 관련 블록 수. 기본 4, 최대 12. 자연어 색인의 다중 미리보기는 최대 3. 생략하면 2,000자 이하 본문을 문자 한도 안에서 전체 제공할 수 있고, 명시하면 자동 전체 확장을 하지 않습니다.',default:4},
       max_chars:{type:'number',description:'규정별 최대 반환 글자 수. 기본 12000, 최대 30000. 자연어 색인의 다중 미리보기는 최대 6000.',default:12000},
       include_history:{type:'boolean',description:'최근 개정 연혁 5건 포함 여부',default:false},
     }},
