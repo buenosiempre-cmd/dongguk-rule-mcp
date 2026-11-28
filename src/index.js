@@ -161,7 +161,8 @@ const { labelsEnabled } = require('./aliases.js');
 const { semanticScores, semanticStatus, warmSemantic, sharedEmbedder, buildSemanticIndex, loadSemanticIndex, createEmbedder } = require('./semantic.js');
 const { blocksOf, buildCorpus, saveCorpus, loadCorpus, corpusCoverage, matchBlocks, searchCorpus } = require('./corpus.js');
 const { normalizeName, createResolver, extractReferences, summarizeExternalLaws } = require('./references.js');
-const { verifyLawNameMentions, formatUnverifiedLawMentions } = require('./law-name-mentions.js');
+const { createLegalCallBudget } = require('./legal-client.js');
+const { verifyLawNameMentions, formatUnverifiedLawMentions, LIMITS:LAW_NAME_LIMITS } = require('./law-name-mentions.js');
 
 // === 상수 (Python 원본에서 검증된 엔드포인트) ===
 const BASE_URL = 'https://rule.dongguk.edu';
@@ -447,7 +448,8 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
     }
   }
 
-  const nameChecks=await verifyLawNameMentions(references,{configured:lawLinkConfigured(currentProfile()),cached,inspectLaws});
+  const callBudget=createLegalCallBudget(LAW_NAME_LIMITS.requestMaxCalls);
+  const nameChecks=await verifyLawNameMentions(references,{configured:lawLinkConfigured(currentProfile()),cached,inspectLaws,callBudget});
   references=nameChecks.references;
   const unverifiedLawMentions=nameChecks.unverified;
   const externalLaws=summarizeExternalLaws(references.filter(x=>x.direction==='outgoing'));
@@ -471,7 +473,7 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
   // Law text is an addition: a failure here never fails the rule lookup.
   let lawTexts=null;
   if(includeLawText===true&&direction!=='incoming'){
-    try{lawTexts=await fetchCitedLaws(externalLaws,{profile:currentProfile(),cached,queryLegalReferences});}
+    try{lawTexts=await fetchCitedLaws(externalLaws,{profile:currentProfile(),cached,queryLegalReferences:(requests,options)=>queryLegalReferences(requests,{...options,callBudget})});}
     catch{lawTexts={status:'unavailable',code:'LEGAL_LOOKUP_FAILED',laws:[],skipped:[],limits:{}};}
     o+=formatCitedLaws(lawTexts);
   }
@@ -480,6 +482,7 @@ async function hReferences(rawLawId,{article,historyId,direction='outgoing',limi
   o+='\n이름을 적은 인용과, 같은 조문 안에서 그 이름을 받는 "동법"·"같은 법"·정의된 약칭을 찾습니다. "관계 법령"처럼 이름이 없는 인용은 빠지며, 인용이 있다는 것과 해당 근거가 적용된다는 것은 다릅니다.';
   return success(o,{
     source:{lawId,historyId:rid,revisedAt:resolved.revisedAt||'',title,article:selector?.canonical||null,sourceUrl:`${FULLVIEW_URL}?SEQ=${lawId}&SEQ_HISTORY=${rid}`},
+    legalCallBudget:{maxCalls:callBudget.maxCalls,upstreamCalls:callBudget.used,nameVerificationMaxCalls:LAW_NAME_LIMITS.maxCalls},
     direction,references,externalLaws,...(unverifiedLawMentions.length?{unverifiedLawMentions}:{}),...(lawTexts?{lawTexts}:{}),
     counts:{...totals,shown},
     coverage:{outgoing:direction==='incoming'?null:{scope:selector?'selected_article':'whole_rule',complete:true},incoming:direction==='outgoing'?null:incoming,catalogAvailable},
@@ -526,14 +529,15 @@ async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeC
     }
   }
   const configured=lawLinkConfigured(currentProfile());
-  const nameChecks=await verifyLawNameMentions(references,{configured,cached,inspectLaws});
+  const callBudget=createLegalCallBudget(LAW_NAME_LIMITS.requestMaxCalls);
+  const nameChecks=await verifyLawNameMentions(references,{configured,cached,inspectLaws,callBudget});
   references=nameChecks.references;
   const unverifiedLawMentions=nameChecks.unverified;
   const result=await buildUpperLaws({
     references,title,ruleRevisedAt:resolved.revisedAt,includeText,maxLaws:maxLaws||8,lawOffset:lawOffset||0,
     // Topic candidates describe the whole rule, not one article.
     includeCandidates:includeCandidates&&!selector&&!unverifiedLawMentions.length,
-    configured,setupGuide:lawLinkGuide(currentProfile()),cached,inspectLaws,
+    configured,setupGuide:lawLinkGuide(currentProfile()),cached,inspectLaws:(requests,options)=>inspectLaws(requests,{...options,callBudget}),
   });
   if(unverifiedLawMentions.length) result.lookup={...result.lookup,status:!configured?'not_configured':['retrieved','not_required'].includes(result.lookup.status)?(result.laws.length?'partial':'unavailable'):result.lookup.status,code:'LAW_NAME_UNCONFIRMED'};
   // lookup.status covers the identity/existence check; a cut law body is tracked apart.
@@ -556,6 +560,7 @@ async function hUpperLaws(rawLawId,{article,historyId,includeText=false,includeC
   if(!catalogAvailable) text+='\n\n현행 규정 목록을 불러오지 못해 교내 규정명과 법령명을 구분하지 못한 인용이 있을 수 있습니다.';
   return success(text,{
     source,
+    legalCallBudget:{maxCalls:callBudget.maxCalls,upstreamCalls:callBudget.used,nameVerificationMaxCalls:LAW_NAME_LIMITS.maxCalls},
     ...result,...(unverifiedLawMentions.length?{unverifiedLawMentions}:{}),caveat:UPPER_LAW_CAVEAT,applicability:'requires_review',
     coverage:{scope:selector?'selected_article':'whole_rule',catalogAvailable,citationBasis:'explicit_names_only'},
     textCoverage,evidenceStatus:complete?'retrieved':'partial',incompleteReasons,returnedAt:new Date().toISOString(),

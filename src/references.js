@@ -184,11 +184,14 @@ function extractReferences(text, resolver, { includeUnnumberedLaws = false } = {
   // Without quotation marks or an article number, even a law-shaped name is
   // only a mention until the caller verifies it against the official listing.
   if (includeUnnumberedLaws) {
+    // Ordinary technique/language nouns, not aliases such as 사학법/세법.
+    // Keep the older quoted/numbered path unchanged; never exclude all *법.
+    const ordinaryNoun = /^(?:(?:한글)?맞춤법|(?:불교)?수행법|교수법|학습법|공부법|표기법|독서법|계산법|호흡법|명상법|조리법|사용법|운용법|분석법|측정법)$/;
     const unnumbered = /([가-힣A-Za-z0-9·ㆍ]{0,30}(?:법률|법))((?:\s?시행령|\s?시행규칙)?)(?=\s*(?:에\s*(?:의한|의하여|의해|따라|따른|근거|규정)|(?:을|를)\s*(?:준용|적용|따르)|의\s*규정|에서\s*정한|및\s|또는\s|[과와]\s))/g;
     while ((match = unnumbered.exec(source)) !== null) {
       const end = match.index + match[0].length;
       const key = normalizeName(match[1]);
-      if (overlaps(match.index,end) || LAW_STOP.test(key) || NOT_A_LAW_TAIL.test(key)) continue;
+      if (overlaps(match.index,end) || LAW_STOP.test(key) || NOT_A_LAW_TAIL.test(key) || ordinaryNoun.test(key)) continue;
       const before = source.slice(Math.max(0,match.index-12),match.index);
       if ((key === '법' || key === '법률') && !/(?:관한|위한|대한)[ \t]+$/.test(before)) continue;
       if (/^(?:관계|관련|해당|본)법률$/.test(key)) continue;
