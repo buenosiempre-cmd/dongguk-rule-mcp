@@ -51,10 +51,7 @@ const CONTENT = {
 // Synthetic rules: three strong body matches compete with a title-only rule;
 // scope-ambiguous editions must retain separate bodies and their own scores.
 const extraRules = [
-  [181, '합성 비품 규정', '제5조(관리)\n비품 관리를 정한다.'],
-  [395, '합성 가족 규정', '제6조(지원)\n가족 지원을 정한다.'],
-  [413, '합성 연구원 규정', '제3조(구분)\n선임연구원 자격을 정한다.'],
-  [642, '합성 심사 규정', '제14조(심사)\n불합격자 처리 절차를 정한다.'],
+  [181, '합성 축약 대조', '제2조(지급금)\n지급금 및 학생증 발급, 수당 지급, 선임연구원과 불합격자, 비품과 가족을 정한다.'],
   [11, '처리규정 가', '제1조(절차)\n물품 전결 처리'],
   [12, '처리규정 나', '제1조(절차)\n물품 전결 처리'],
   [13, '처리규정 다', '제1조(절차)\n물품 전결 처리'],
@@ -95,25 +92,6 @@ async function main() {
   check('복합어 대체: 네 글자 이상은 앞 글자부터 제거', rewriteMissingToken('교내근로장학금', df, corpus.rules.length) === '근로장학금' && rewriteMissingToken('국내출장', df, corpus.rules.length) === '출장');
   check('복합어 대체: 세 글자는 앞 두 글자 유지(특강료→특강, 강료 아님)', rewriteMissingToken('특강료', df, corpus.rules.length) === '특강' && df('강료') > 0);
   check('복합어 대체: 두 글자·규정에 없는 말은 대체하지 않음', rewriteMissingToken('없음', df, corpus.rules.length) === null && rewriteMissingToken('zzzz', df, corpus.rules.length) === null);
-  const protectedWords = ['가지급금','미지급금','비과세소득','불공제세액','무급휴직','선지급비용','재신청절차'];
-  check('미등록 의미 접두 단어: 앞 음절 제거 후보는 발견돼도 쓰지 않음', protectedWords.every(word => rewriteMissingToken(word, form => form === word.slice(1) ? 1 : 0, 10) === null));
-  check('보호 접두어도 뒤쪽 축약은 기존대로, 가지는 기존 어미 필터로 제외', rewriteMissingToken('선임연구원들', form => form === '선임연구원' ? 1 : 0, 10) === '선임연구원' && rewriteMissingToken('불합격자들', form => form === '불합격자' ? 1 : 0, 10) === '불합격자' && rewriteMissingToken('가지급금', form => ['가지','지급금'].includes(form) ? 1 : 0, 10) === null);
-  for (const word of ['비품','가족','선임연구원','불합격자']) {
-    for (const suffix of ['들','등','은','는','이','가','을','를','의','에','도','만','으로']) {
-      check(`보호 접두어의 정상 뒤쪽 축약 보존: ${word}+${suffix}`, rewriteMissingToken(word+suffix, form=>form===word?1:0,10)===word);
-    }
-  }
-  const prefixCatalog = Array.from({length:6},(_,i)=>({lawId:101+i,historyId:1,title:`합성 검증 ${i}`,code:`prefix-${i}`}));
-  const prefixCorpus = await buildCorpus({catalog:prefixCatalog,loadContent:async(id)=>({title:'합성 검증',markdown:id===101?'### 제1조(정산)\n지급금 정산 기한을 정한다.':'### 제1조(기타)\n교육을 목적으로 한다.'})});
-  for (const word of ['가지급금','미지급금']) {
-    const result=searchCorpus(prefixCorpus,word+' 정산 기한');
-    check(`${word}: 원 단어를 미발견으로 표시하고 지급금으로 바꾸지 않음`,result.missingTerms.includes(word)&&!result.rewrittenTerms[word]&&!result.searchTerms.includes('지급금'));
-    const keyed=searchCorpus(prefixCorpus,'정산 기한',{keywords:[[word]]});
-    check(`${word}: 명시 keywords에서도 지급금으로 축약하지 않음`,keyed.keywords.missing.includes(word)&&!keyed.keywords.rewritten[word]);
-  }
-  const existingPrefix = await buildCorpus({catalog:prefixCatalog,loadContent:async(id)=>({title:'합성 검증',markdown:id===101?'### 제1조(가지급금)\n가지급금 정산 기한을 정한다.':'### 제1조(기타)\n교육을 목적으로 한다.'})});
-  const exactPrefix=searchCorpus(existingPrefix,'가지급금 정산 기한');
-  check('실제 색인에 있는 접두 단어는 기존대로 검색',!exactPrefix.missingTerms.includes('가지급금')&&exactPrefix.searchTerms.includes('가지급금')&&exactPrefix.hits[0].lawId===101);
   const scholarship = searchCorpus(corpus, '교내근로장학금 성적 기준', { top: 5 });
   check('색인 검색: 대체 단어 기록과 후보', scholarship.rewrittenTerms['교내근로장학금'] === '근로장학금' && scholarship.tokens.includes('근로장학금') && scholarship.hits.some(h => h.lawId === 6) && scholarship.hits.some(h => h.lawId === 5));
   const {businessTerms,generalRuleWeight,comparisonTerms}=require('../src/aliases.js');
@@ -129,24 +107,44 @@ async function main() {
   const travel = searchCorpus(corpus, '국내출장 일비와 숙박비 한도', { top: 5 });
   check('색인 검색: 여비규정이 1위, 한도는 없는 단어', travel.hits[0].lawId === 1 && travel.hits[0].articles[0].article === '제9조' && travel.missingTerms.includes('한도') && travel.rewrittenTerms['국내출장'] === '출장');
 
+  const {rewriteDetails,rewriteWarning}=require('../src/rewrite-notice.js');
+  for (const [from,to,kind] of [
+    ['가지급금','지급금','head-drop'],['재학생증','학생증','head-drop'],['가족수당','수당','head-drop'],
+    ['부적격자','적격자','head-drop'],['역차별','차별','head-drop'],['교내근로장학금','근로장학금','head-drop'],
+    ['선임연구원들','선임연구원','tail-cut'],['불합격자들','불합격자','tail-cut'],['비품들','비품','tail-cut'],['가족들','가족','tail-cut'],
+    ['가지급금','가지 급금','split'],['밥값','식비','substitution'],
+  ]) {
+    const details=rewriteDetails({[from]:to});
+    check(`치환 종류 ${from}→${to}`, details[0].kind===kind && details[0].from===from && details[0].to===to);
+    check(`앞 제거만 경고 ${from}→${to}`, Boolean(rewriteWarning(details))===(kind==='head-drop'));
+  }
+  check('축약 함수의 main 후보 선택 유지', [['재학생증','학생증'],['가족수당','수당'],['가지급금','지급금'],['비품들','비품'],['가족들','가족']].every(([from,to])=>rewriteMissingToken(from,df,corpus.rules.length)===to));
+
   const server = createServer({ profile: 'rules' });
   const client = new Client({ name: 'lookup-index', version: '1' });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b); await client.connect(a);
   const call = async (name, args) => { const r = await client.callTool({ name, arguments: args }); return { sc: r.structuredContent, text: r.content.find(c => c.type === 'text')?.text || '' }; };
   try {
-    for (const [singular,lawId] of [['선임연구원',413],['불합격자',642],['비품',181],['가족',395]]) {
-      for (const route of ['query','keywords','deep']) {
-        const tool=route==='deep'?'search_rule_deep':'lookup_dongguk_rule';
-        const args=word=>route==='deep'?{query:word,mode:'index'}:route==='keywords'?{query:word,keywords:word}:{query:word};
-        const single=await call(tool,args(singular)),plural=await call(tool,args(singular+'들'));
-        const ids=r=>(route==='deep'?r.sc.data?.documents:r.sc.data?.rules)?.map(d=>d.lawId)||[];
-        check(`${route}: ${singular} 단수 대조군에 대상 규정 포함`,single.sc.ok&&ids(single).includes(lawId));
-        check(`${route}: ${singular}들 뒤쪽 축약으로 단수와 같은 규정 유지`,plural.sc.ok&&JSON.stringify(ids(single))===JSON.stringify(ids(plural))&&ids(plural).includes(lawId));
-      }
-    }
     const info = await call('get_service_info', {});
     check('서비스 정보의 타대학 비교 시간 제한은 모듈 상수와 같음', info.sc.data.integrations.universityComparison.totalTimeoutMs === TOTAL_TIMEOUT_MS && info.sc.data.fullTextIndex.available === true);
+
+    check('서비스 정보에 축약 경고 계약 안내', info.sc.data.searchRewrites.kinds.includes('head-drop'));
+    for (const tool of ['lookup_dongguk_rule','search_rule_deep']) {
+      for (const query of ['가지급금','재학생증','가족수당','국내출장']) {
+        const found=searchCorpus(corpus,query);
+        const response=await call(tool,{query,...(tool==='search_rule_deep'?{mode:'index'}:{})});
+        const data=response.sc.data;
+        const details=tool==='lookup_dongguk_rule'?data.search.rewrittenTerms:data.rewrittenTerms;
+        check(`${tool} ${query}: 선택한 치환만 표시`, JSON.stringify(details)===JSON.stringify(rewriteDetails(found.rewrittenTerms)) && details.some(x=>x.kind==='head-drop'));
+        check(`${tool} ${query}: 첫 검색 정보보다 경고가 먼저`, response.text.indexOf('**축약 검색 주의:**')>0 && response.text.indexOf('**축약 검색 주의:**')<response.text.indexOf(tool==='lookup_dongguk_rule'?'- 검색 방식:':'- 핵심어:') && response.text.includes('결과를 그대로 쓰지 마세요'));
+        check(`${tool} ${query}: 기존 검색 후보 유지`, (data.rules||data.documents)[0].lawId===found.hits[0].lawId);
+      }
+      const tail=await call(tool,{query:'비품들',...(tool==='search_rule_deep'?{mode:'index'}:{})});
+      check(`${tool} 뒤 축약은 앞 제거 경고 없음`, !tail.text.includes('**축약 검색 주의:**') && (tool==='lookup_dongguk_rule'?tail.sc.data.search.rewrittenTerms:tail.sc.data.rewrittenTerms).some(x=>x.kind==='tail-cut'));
+    }
+    const namedRewrite=await call('lookup_dongguk_rule',{law_id:181,query:'재학생증',keywords:'재학생증'});
+    check('규정 지정 안의 축약도 경고', namedRewrite.sc.data.rules[0].lawId===181 && namedRewrite.sc.data.search.rewrittenTerms.some(x=>x.from==='재학생증'&&x.kind==='head-drop') && namedRewrite.text.includes('축약 검색 주의'));
 
     searches.length = 0;
     const travelLookup = await call('lookup_dongguk_rule', { query: '국내출장 일비와 숙박비 한도' });

@@ -115,24 +115,17 @@ function matchBlocks(blocks, tokens, weights) {
 // a three-syllable word such as 특강료 or 강사료 keeps its first two syllables
 // (특강, 강사) because its last two (강료, 사료) are fragments of other words.
 // Forms shorter than two syllables or found in most rules are not used.
-// Preserve possible meaning-bearing prefixes when considering each fallback.
-// Tail cuts retain the original behavior, including two-syllable nouns
-// (비품들 → 비품). The existing remnant filter already rejects 가지.
-// Existing corpus words and dictionary alternatives are resolved before this.
-const MEANING_PREFIX = /^[가미비불무선재]/;
 const VERB_REMNANT = /(?:면|고|서|는|야|어|아|이|요|니|게|던|든|도|만|지|해|돼|네|죠|까|나|라)$/;
 function rewriteMissingToken(token, documentFrequency, total) {
   if (token.length < 3) return null;
   const candidates = [];
-  const add = (form, cut) => candidates.push({ form, cut });
-  if (token.length === 3) { add(token.slice(0, 2), 'tail'); add(token.slice(1), 'head'); }
+  if (token.length === 3) candidates.push(token.slice(0, 2), token.slice(1));
   else {
-    for (let drop = 1; token.length - drop >= 2; drop++) add(token.slice(drop), 'head');
-    for (let cut = token.length - 1; cut >= 2; cut--) add(token.slice(0, cut), 'tail');
-    candidates.sort((a, b) => b.form.length - a.form.length);
+    for (let drop = 1; token.length - drop >= 2; drop++) candidates.push(token.slice(drop));
+    for (let cut = token.length - 1; cut >= 2; cut--) candidates.push(token.slice(0, cut));
+    candidates.sort((a, b) => b.length - a.length);
   }
-  for (const { form, cut } of candidates) {
-    if (MEANING_PREFIX.test(token) && cut === 'head') continue;
+  for (const form of candidates) {
     // Two syllables left of an inflected verb ("늦어지면" → 지면, "올리고" → 리고) are not a word.
     if (form.length === 2 && VERB_REMNANT.test(form)) continue;
     const df = documentFrequency(form);
