@@ -545,6 +545,152 @@ const deps = {
     && inheritedDetail.citations[1].status === 'UNSUPPORTED_CITATION'
     && inheritedDetail.citations[1].originalRange.text === '제2항 99호' && inheritedDetail.summary.needsReview === 1);
 
+  // National-law ownership is separate from the preceding internal rule.
+  const ownerTitles = ['여비규정', '학교법인 동국대학교 정관', '직원 출장에 관한 규칙', '법학연구소규정', '가상법'];
+  const ownerDeps = {
+    searchRule: async q => ({ hits: ownerTitles.filter(t => t.replace(/\s/g, '') === q.replace(/\s/g, ''))
+      .map((title, i) => ({ lawId: i + 1, historyId: 10, title })) }),
+    resolveLatest: async () => 10,
+    getRuleMarkdown: async () => '### 제9조(일비 등의 지급)\n① 일비\n② 교통비\n\n### 제13조(출장목적경비)\n본문',
+  };
+  for (const name of ['사립학교법', '소득세법 시행령', '소득세법시행규칙',
+    '국가를 당사자로 하는 계약에 관한 법률', '근로자퇴직급여 보장법',
+    '사학기관 재무·회계 규칙', '사학기관 재무ㆍ회계 규칙', '행정업무 운영에 관한 규정']) {
+    for (const bridge of ['. ', '에 따라 ']) {
+      const r = await verifyRuleCitations(`여비규정 제9조${bridge}${name} 제13조에 의함.`, ownerDeps);
+      check(`새 명칭 경계 ${name} / ${bridge}`, r.citations.length === 2
+        && r.citations[0].status === 'EXISTS' && r.citations[1].ruleName === name
+        && r.citations[1].status === (/(?:법|법률|시행령|시행규칙)$/.test(name) ? 'EXTERNAL_LAW' : 'CITATION_SOURCE_UNVERIFIED') && r.citations[1].rule === null
+        && r.summary.verified === 1 && r.summary.needsReview === 1 && r.summary.notFound === 0, JSON.stringify(r));
+    }
+  }
+  for (const name of ownerTitles) {
+    const r = await verifyRuleCitations(`${name} 제9조`, ownerDeps);
+    check(`정확한 교내 제목 우선 ${name}`, r.citations.length === 1 && r.citations[0].ruleName === name
+      && r.citations[0].status === 'EXISTS', JSON.stringify(r));
+  }
+  for (const word of ['방법', '기법', '문법', '사법', '평가방법', '처리기법']) {
+    const r = extractRuleCitations(`여비규정 제9조의 ${word}을 검토하고 제13조를 적용한다.`);
+    check(`보통 낱말 ${word}은 법령명 아님`, r.citations.length === 2 && r.citations.every(c => c.ruleName === '여비규정'));
+  }
+  for (const phrase of ['같은 법', '동법', '같은 법 시행령', '동법 시행규칙']) {
+    const r = await verifyRuleCitations(`여비규정 제9조. ${phrase} 제13조`, ownerDeps);
+    check(`교내 규정 뒤 법 조응 ${phrase} 미확정`, r.citations[1]?.status === 'CITATION_SOURCE_UNVERIFIED'
+      && r.summary.verified === 1 && r.summary.needsReview === 1);
+    const expected = /시행/.test(phrase) ? `사립학교법 ${phrase.match(/시행(?:령|규칙)/)[0]}` : '사립학교법';
+    const law = await verifyRuleCitations(`사립학교법 제29조. ${phrase} 제13조`, ownerDeps);
+    check(`법령 뒤 법 조응 ${phrase}`, law.citations[1]?.ruleName === expected
+      && law.citations.every(c => c.status === 'EXTERNAL_LAW') && law.summary.verified === 0, JSON.stringify(law));
+  }
+  const separatedLaw = await verifyRuleCitations('사립학교법 제29조\n\n같은 법 제13조', ownerDeps);
+  check('법 조응도 문단 경계를 넘지 않음', separatedLaw.citations[1]?.status === 'CITATION_SOURCE_UNVERIFIED');
+  const fuzzyLaw = await verifyRuleCitations('여비규정 제9조. 사립학교법 제13조', {
+    ...ownerDeps, searchRule: async () => ({ hits: [{ lawId: 1, historyId: 10, title: '사립학교법업무규정' }] }),
+    getRuleMarkdown: async () => { throw Error('유사 교내 제목 본문을 읽으면 안 됨'); },
+  });
+  check('법명 일부가 포함된 교내 제목으로 대체하지 않음', fuzzyLaw.citations[1]?.status === 'EXTERNAL_LAW');
+  const unavailableLaw = await verifyRuleCitations('사립학교법 제29조', {
+    ...ownerDeps, searchRule: async () => { throw Error('offline'); },
+  });
+  check('검색 실패를 법령 확인으로 읽지 않음', unavailableLaw.citations[0]?.status === 'RULE_SEARCH_UNAVAILABLE');
+
+  // PR87 follow-up: source tokens survive connectors before the article.
+  for (const name of ['사립학교법', '소득세법 시행령', '사학기관 재무·회계 규칙', '행정업무 운영에 관한 규정']) {
+    for (const bridge of [' 중 ', '에 따른 ', '에따른 ', ': ', '：', ' 가운데 ',
+      '(이하 법이라 한다) ', '(이하 "법"이라 한다) ', '(이하 「법」이라 한다) ',
+      '（이하 “규칙”이라 한다） ', '을 참고하되 ', '\n']) {
+      const r = await verifyRuleCitations(`여비규정 제9조. ${name}${bridge}제13조. 제9조를 따른다.`, ownerDeps);
+      check(`R2 출처 경계 ${name}${bridge}`, r.citations.length === 3
+        && r.citations.slice(1).every(c => c.ruleName === name && c.symbol === '⚠' && c.rule === null)
+        && r.summary.verified === 1 && r.summary.needsReview === 2 && r.summary.notFound === 0, JSON.stringify(r));
+    }
+  }
+  for (const prefix of ['현행 ', '확인한 ', '적용할 ', '참고한 ', '이에 ', '아울러 ', '오늘은 ', '근거는 ']) {
+    for (const name of ['학교법인 동국대학교 정관', '직원 출장에 관한 규칙', '여비 규정']) {
+      const r = await verifyRuleCitations(`${prefix}${name} 제9조`, ownerDeps);
+      check(`R1 서술 접두부 뒤 정확 제목 ${prefix}${name}`, r.citations.length === 1
+        && r.citations[0].ruleName === name && r.citations[0].status === 'EXISTS'
+        && r.citations[0].raw.startsWith(prefix), JSON.stringify(r));
+    }
+  }
+  for (const name of ['교직원 여비 규정', '연구비 관리 규정', '계산하는 법', '하는 법', '법']) {
+    const r = await verifyRuleCitations(`여비규정 제9조. ${name} 제13조`, ownerDeps);
+    check(`R1 교내 오기·일반 서술을 국가 법령으로 분류하지 않음 ${name}`,
+      r.citations.length === 2 && r.citations[1].status === 'CITATION_SOURCE_UNVERIFIED'
+      && r.citations[1].rule === null && r.summary.verified === 1 && r.summary.needsReview === 1);
+  }
+  const unknownPrefix = await verifyRuleCitations('임의수식어 학교법인 동국대학교 정관 제9조', ownerDeps);
+  check('불명확한 접두어는 제목 일부 일치로 성공 승격 금지', unknownPrefix.summary.verified === 0
+    && unknownPrefix.citations[0]?.status === 'CITATION_SOURCE_UNVERIFIED');
+  for (const bridge of ['에 따른 ', ' 중 ', '(이하 법이라 한다) ']) {
+    const r = await verifyRuleCitations(`여비규정 제9조. 동법${bridge}제13조`, ownerDeps);
+    check(`불명확한 법 조응 연결 ${bridge}`, r.summary.verified === 1
+      && r.citations[1]?.status === 'CITATION_SOURCE_UNVERIFIED');
+  }
+  const returnedOwner = await verifyRuleCitations('여비규정 제9조. 사립학교법 중 제13조. 여비규정 제13조', ownerDeps);
+  check('명시한 새 교내 명칭은 출처를 다시 설정', returnedOwner.citations[1]?.status === 'EXTERNAL_LAW'
+    && returnedOwner.citations[2]?.ruleName === '여비규정' && returnedOwner.citations[2]?.status === 'EXISTS');
+  const unattachedAlias = await verifyRuleCitations('여비규정 제9조. (이하 「사립학교법」이라 한다) 제13조', ownerDeps);
+  check('명칭에 붙지 않은 별칭 괄호가 실제 법령 멘션을 숨기지 않음', unattachedAlias.summary.verified === 1
+    && unattachedAlias.citations[1]?.ruleName === '사립학교법' && unattachedAlias.citations[1]?.status === 'EXTERNAL_LAW');
+  const ordinaryAlias = await verifyRuleCitations('여비규정 제9조. 방법(이하 「사립학교법」이라 한다) 제13조', ownerDeps);
+  check('일반 명사를 출처로 간주해 괄호 안 실제 법령명을 숨기지 않음', ordinaryAlias.summary.verified === 1
+    && ordinaryAlias.citations[1]?.ruleName === '사립학교법' && ordinaryAlias.citations[1]?.status === 'EXTERNAL_LAW');
+
+  { // PR #93: 원문 오기(제제N조) 확인 필요 표시
+  // 원문이 조문 번호를 "제제N조(…)"로 적은 줄: 조문 경계는 고치지 않고, "없음"을 단정하지 않을 뿐이다.
+  // 조문인지(오기) 다른 조문을 가리키는 문장인지 가를 수 없으므로 어느 경우에도 ✓로 올리지 않는다.
+  console.log('\n[오기] 제제N조 표기가 있는 조문은 없음(✗)·실존(✓)이 아니라 확인 필요(⚠)');
+  const { misprintedArticleLines } = require('../src/citations.js');
+  const { listArticleBlocks } = require('../src/parsers.js');
+  const wrap = body => `### 제1조(목적)\n이 규정은 합성 검증용이다.\n\n### 제2조(신청)\n${body}\n\n### 제4조(심사)\n심사는 위원회에서 한다.`;
+  const misprintCases = [
+    ['항 번호로 시작하는 조문 오기(학사과정 학칙시행세칙 제제69조 유형)', '① 신청은 서면으로 한다.\n제제3조(휴학) ① 휴학은 허가를 받아야 한다.\n② 휴학은 2학기까지 할 수 있다.'],
+    ['항 번호 없는 한 문단 오기(영상대학원 부칙 제제2조 유형)', '신청은 서면으로 한다.\n제제3조(휴학) 이 규정 개정 이전의 휴학은 이 규정에 따른 것으로 본다.'],
+    ['레드팀 1차 A: 다른 조문을 가리키는 문장', '제제3조(휴학)에서 정한 기준을 준용한다.'],
+    ['레드팀 1차 A: 괄호와 조사 사이를 띄움', '제제3조(휴학) 에서 정한 기준을 준용한다.'],
+    ['레드팀 2차: 제목 뒤에서 줄이 바뀐 참조', '제제3조(휴학)\n에서 정한 기준을 준용한다.'],
+    ['레드팀 2차: 제목 뒤 공백·빈 줄 다음의 참조', '제제3조(휴학)  \n\n에서 정한 기준을 준용한다.'],
+    ['레드팀 2차: 제목 다음 줄이 항 번호', '제제3조(휴학)\n① 휴학을 허가한다.'],
+    ['레드팀 2차: 항 번호 없는 본문이 다음 줄', '제제3조(휴학)\n휴학은 허가를 받아야 한다.'],
+    ['레드팀 3차: 참조 줄 다음에 앞 조문의 ②항', '① 신청에는 다음 조문을 준용한다.\n제제3조(휴학)\n② 신청자는 학과장에게 신청서를 제출한다.'],
+    ['레드팀 3차: 참조 줄 다음에 ①로 시작하는 본문', '신청에는 다음 조문을 준용한다.\n제제3조(휴학)\n① 신청자는 학과장에게 신청서를 제출한다.'],
+  ];
+  for (const [name, body] of misprintCases) {
+    const markdown = wrap(body);
+    const result = await verifyRuleCitations('「합성오기규정」 제3조에 따른다. 「합성오기규정」 제2조 참조.', {
+      searchRule: async () => ({ hits: [{ lawId: 970, historyId: 971, title: '합성오기규정', revisedAt: '2026.01.01' }] }),
+      resolveLatest: async () => ({ historyId: 971, revisedAt: '2026.01.01' }), getRuleMarkdown: async () => markdown,
+    });
+    const [third, second] = result.citations;
+    check(`${name} → ⚠ 확인 필요`, third.status === 'ARTICLE_MISPRINT_UNVERIFIED' && third.symbol === '⚠'
+      && third.note.includes('제제3조') && third.note.includes('확정하지 못함') && third.sourceLines?.[0].startsWith('제제3조(휴학)')
+      && second.status === 'EXISTS' && result.summary.verified === 1 && result.summary.exists === 1
+      && result.summary.notFound === 0 && result.summary.needsReview === 1 && result.text.includes('⚠ 합성오기규정 제3조'),
+    JSON.stringify([third.status, second.status, result.summary]));
+    check(`${name} → 조문 경계는 원문 그대로(제3조 블록 없음)`, listArticleBlocks(markdown).map(block => block.canonical).join() === '제1조,제2조,제4조');
+  }
+  const plainDeps = markdown => ({
+    searchRule: async () => ({ hits: [{ lawId: 970, historyId: 971, title: '합성오기규정', revisedAt: '2026.01.01' }] }),
+    resolveLatest: async () => ({ historyId: 971, revisedAt: '2026.01.01' }), getRuleMarkdown: async () => markdown,
+  });
+  const ordinary = await verifyRuleCitations('「합성오기규정」 제3조', plainDeps(wrap('신청은 서면으로 한다.')));
+  check('오기 표기가 없는 보통의 없는 조문은 그대로 ✗', ordinary.citations[0].status === 'NOT_FOUND' && ordinary.citations[0].symbol === '✗'
+    && !ordinary.citations[0].sourceLines && ordinary.summary.notFound === 1 && ordinary.summary.needsReview === 0);
+  const otherNumber = await verifyRuleCitations('「합성오기규정」 제5조와 「합성오기규정」 제3조의2', plainDeps(wrap('제제3조(휴학) ① 휴학은 허가를 받아야 한다.')));
+  check('다른 번호·가지번호의 오기 표기는 근거가 아님(그대로 ✗)', otherNumber.citations.every(item => item.status === 'NOT_FOUND'));
+  const notLineHead = await verifyRuleCitations('「합성오기규정」 제3조', plainDeps(wrap('감급의 제제3조(휴학)를 정할 경우\n제제개발연구부를 둔다.\n  제제3조(휴학) 들여 쓴 줄\n제제3조에 따라 처리한다.')));
+  check('줄 가운데·들여 쓴 줄·제목 괄호 없는 표기는 근거가 아님(그대로 ✗)', notLineHead.citations[0].status === 'NOT_FOUND');
+  const existing = await verifyRuleCitations('「합성오기규정」 제4조', plainDeps(wrap('제제4조(심사) ① 심사는 위원회에서 한다.')));
+  check('조문이 실제로 있으면 오기 표기와 무관하게 ✓', existing.citations[0].status === 'EXISTS');
+  const supplementBody = '### 제1조(목적)\n본문\n\n## 부칙 (2026.1.20. 개정)\n\n### 제1조(시행일)\n이 세칙은 2026년 1월 20일부터 시행한다.\n제제2조(경과조치) 이 세칙 개정 이전에 수행된 업무는 이 개정 세칙에 의한 것으로 본다.';
+  const supplement = await verifyRuleCitations('「합성오기규정」 부칙(2026.1.20.) 제2조', plainDeps(supplementBody));
+  check('부칙의 제제2조도 ⚠ 확인 필요', supplement.citations[0].status === 'ARTICLE_MISPRINT_UNVERIFIED' && supplement.citations[0].sourceLines[0].startsWith('제제2조(경과조치)'), JSON.stringify(supplement.citations[0]));
+  check('오기 줄 찾기: 번호가 같은 줄 머리 표기만, 길면 자르고 3줄까지', misprintedArticleLines(`제제3조(가) ${'가'.repeat(300)}\n제제3조(나)\n제제3조(다)\n제제3조(라)`, 3).length === 3
+    && misprintedArticleLines(`제제3조(가) ${'가'.repeat(300)}`, 3)[0].length === 121 && misprintedArticleLines('제제3조의2(가) 본문', 3).length === 0
+    && misprintedArticleLines('제제3조의2(가) 본문', 3, 2).length === 1 && misprintedArticleLines(null, 3).length === 0);
+  }
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📊 인용 검증: ${pass}개 통과 / ${fail}개 실패`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
